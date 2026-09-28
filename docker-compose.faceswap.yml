@@ -1,6 +1,9 @@
 # Optional overlay: all queued work remains in the same worker and execution lock.
 # Mount an existing 3.5.4 model directory read-only; no model downloads at runtime.
 services:
+  api:
+    environment:
+      FACEFUSION_CHUNK_SECONDS: ${FACEFUSION_CHUNK_SECONDS:-600}
   worker:
     build:
       args:
@@ -10,6 +13,7 @@ services:
       FACEFUSION_PATH: /opt/facefusion
       FACEFUSION_PYTHON: /opt/facefusion-env/bin/python
       FACEFUSION_TIMEOUT_SECONDS: "86400"
+      FACEFUSION_CHUNK_SECONDS: ${FACEFUSION_CHUNK_SECONDS:-600}
       NVIDIA_DRIVER_CAPABILITIES: compute,video,utility
     volumes:
       - type: bind

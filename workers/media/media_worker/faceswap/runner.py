@@ -6,7 +6,7 @@ import time
 from uuid import uuid4
 
 from video_service.models import JobStatus, utc_now_iso
-from video_service.storage import write_json_atomic, read_json
+from video_service.storage import write_json_atomic, read_json, remove_path_inside
 from video_service.faceswap import digest
 from .process import run
 
@@ -117,14 +117,27 @@ def execute(worker, record, check):
                     except JobBusyError:
                         pass
             last = time.monotonic()
-    invoke(payload, work, monitor, int(os.getenv('FACEFUSION_TIMEOUT_SECONDS', '86400')) if operation == 'render' else 300)
+    if operation == 'render':
+        from .chunks import render_chunks
+        for old in (root / 'work').glob('faceswap-*'):
+            remove_path_inside(root, old / 'joined.mkv')
+        try:
+            original = render_chunks(worker, record, payload, work, check, invoke)
+        finally:
+            remove_path_inside(root, work / 'joined.mkv')
+    else:
+        invoke(payload, work, monitor, 300)
     result = read_json(output / 'result.json')
     check()
     worker.transition(record.job_id, JobStatus.VALIDATING)
     if operation == 'render':
         target = output / 'final.mp4'
-        original = probe(repo.source_path(record), work, check)
         final = probe(target, work, check)
+        from ..validation import validate_output
+        validate_output(original, final, target.stat().st_size, record.options.video_codec, subtitle_mode='none')
+        video = next(s for s in final['streams'] if s['codec_type'] == 'video')
+        if int(video.get('nb_frames', 0)) != result['frame_count'] or abs(float(video.get('start_time', 0))) > .05:
+            raise ValueError('최종 연결 영상의 프레임 수 또는 시작 타임스탬프가 일치하지 않습니다.')
         if abs(final['duration'] - original['duration']) > max(.5, original['duration'] * .001):
             raise ValueError('합성 결과의 영상 길이가 일치하지 않습니다.')
         if any(s['codec_type'] == 'audio' for s in original['streams']) and not any(s['codec_type'] == 'audio' for s in final['streams']):
@@ -133,7 +146,8 @@ def execute(worker, record, check):
         check()
         target.replace(root / 'output/final.mp4')
         worker.transition(record.job_id, JobStatus.COMPLETED,
-                          metadata={'result_files': ['final.mp4'], 'duration': final['duration'], 'stage_progress': 1})
+                          metadata={'result_files': ['final.mp4'], 'duration': final['duration'], 'stage_progress': 1,
+                                    'encoder': result['encoder'], 'output_bytes': (root / 'output/final.mp4').stat().st_size})
     else:
         files = []
         for image in output.glob('*.png'):

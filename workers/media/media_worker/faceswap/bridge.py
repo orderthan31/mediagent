@@ -121,7 +121,10 @@ def main():
             return checked(read_static_video_frame(request['target'], number))
 
         operation = request['operation']
-        if operation == 'analyze_source':
+        if operation == 'inspect_video':
+            result = {'frame_count': count_video_frame_total(request['target']),
+                      'fps': detect_video_fps(request['target'])}
+        elif operation == 'analyze_source':
             frame = checked(cv2.imread(request['source']))
             result = export_faces(frame, faces(frame))
         elif operation == 'analyze_reference':
@@ -172,6 +175,12 @@ def main():
                            '--jobs-path', str(output.parent / 'engine-jobs'),
                            '--temp-path', str(output.parent / 'temp'),
                            '--output-video-encoder', 'h264_nvenc' if settings['video_codec'] == 'h264' else 'hevc_nvenc']
+                if 'chunk' in request:
+                    # Keep the original target/reference identity; only extract this interval.
+                    command += ['--trim-frame-start', str(request['chunk']['start']),
+                                '--trim-frame-end', str(request['chunk']['end']),
+                                '--output-video-fps', str(request['chunk']['fps']),
+                                '--output-video-quality', '100', '--output-audio-volume', '0']
                 subprocess.run(command, check=True)
                 result = {'file': 'final.mp4'}
             else:

@@ -29,7 +29,9 @@ from media_worker.media import executable
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--multi', action='store_true', help='Swap panel order halfway through a two-person clip')
+    parser.add_argument('--chunk-seconds', type=int, default=600, choices=range(1, 601), help='Force short chunks to verify boundaries')
     args = parser.parse_args()
+    os.environ['FACEFUSION_CHUNK_SECONDS'] = str(args.chunk_seconds)
     root = ROOT / 'data/facefusion-e2e' / uuid4().hex
     root.mkdir(parents=True)
     repo = FilesystemJobRepository(root / 'jobs')
@@ -107,11 +109,21 @@ def main():
                 left_change = sum(ImageStat.Stat(difference.crop((0, 0, 320, 240))).mean)
                 right_change = sum(ImageStat.Stat(difference.crop((320, 0, 640, 240))).mean)
                 print('Rendered changed halves:', left_change, right_change, flush=True)
-                assert left_change > right_change * 1.5 + .1, 'Rendered identity did not match preview'
+                preview_image = Image.open(repo.job_dir(ids['preview']) / 'output/preview.png').convert('RGB')
+                original_image = Image.open(original).convert('RGB')
+                # Final CQ encoding changes every pixel; compare the changed face region
+                # against both original and preview instead of background compression noise.
+                mask = ImageChops.difference(original_image, preview_image).convert('L').point(lambda v: 255 if v > 12 else 0)
+                rendered = Image.open(final_frame).convert('RGB')
+                original_error = sum(ImageStat.Stat(ImageChops.difference(original_image, rendered), mask).mean)
+                preview_error = sum(ImageStat.Stat(ImageChops.difference(preview_image, rendered), mask).mean)
+                print('Selected face error original/preview:', original_error, preview_error, flush=True)
+                assert original_error > preview_error * 2, 'Rendered identity did not match preview'
         promoted = api('POST', f"/jobs/{ids['render']}/promote-video")
         assert promoted['provenance']['parent_asset_id'] == asset['asset_id']
         result = {'root': str(root), 'asset_id': asset['asset_id'], 'session_id': session['session_id'],
-                  'jobs': ids, 'promoted_asset_id': promoted['asset_id'], 'multi_person': args.multi, 'status': 'passed'}
+                  'jobs': ids, 'promoted_asset_id': promoted['asset_id'], 'multi_person': args.multi,
+                  'chunk_seconds': args.chunk_seconds, 'chunks': repo.read(ids['render']).metadata['faceswap_chunks'], 'status': 'passed'}
         (root / 'report.json').write_text(json.dumps(result, indent=2), encoding='utf-8')
         print(json.dumps(result, indent=2), flush=True)
 

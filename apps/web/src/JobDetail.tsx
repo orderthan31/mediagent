@@ -288,7 +288,15 @@ export const JobDetail = ({
         {isFaceSwap ? (
           <section className="text-panel" aria-label="얼굴 합성 작업">
             <h2>얼굴 합성</h2>
-            <p>선택한 인물을 기준으로 영상 전체를 합성합니다.</p>
+            <p>
+              영상을 최대 10분 구간으로 나누어 순서대로 합성한 뒤, 연결과 최종 인코딩을 진행합니다.
+            </p>
+            {job?.metadata.faceswap_chunks && (
+              <p>
+                합성 구간 {job.metadata.faceswap_chunks.completed} /{' '}
+                {job.metadata.faceswap_chunks.total} 완료 · 재시도 시 완료 구간 재사용
+              </p>
+            )}
             <p>완료된 영상을 새 원본으로 등록하면 자막 작업을 이어서 시작할 수 있습니다.</p>
             {job && !['COMPLETED', 'FAILED', 'CANCELLED'].includes(job.status) && (
               <button

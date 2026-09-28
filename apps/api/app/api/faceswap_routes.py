@@ -14,7 +14,7 @@ from app.api.asset_routes import asset_errors
 from app.core.config import settings
 from video_service.assets import VideoAssetRepository
 from video_service.capacity import assert_capacity, remaining_reservations
-from video_service.faceswap import FaceSwapSessions, MAX_SOURCE_BYTES, digest, reservation, public_capabilities
+from video_service.faceswap import FaceSwapSessions, MAX_SOURCE_BYTES, digest, reservation, public_capabilities, configured_chunk_seconds
 from video_service.locking import job_lock, download_lock
 from video_service.models import JobRecord, JobOptions, JobStatus, utc_now_iso, TERMINAL_STATUSES
 from video_service.storage import read_json, write_json_atomic
@@ -212,9 +212,10 @@ def execute(session_id: str, payload: Execute, request: Request):
                                   'faceswap_key': key, 'faceswap_operation': payload.operation,
                                   'faceswap_request_id': str(payload.request_id), 'faceswap_request': identity,
                                   'preview_frame': payload.preview_frame, 'reserved_bytes': reserved,
+                                  'faceswap_chunk_seconds': configured_chunk_seconds(),
                                   'queued_at': utc_now_iso(), 'internal': payload.operation != 'render',
                                   'workflow': {'version': 2, 'template': 'faceswap',
-                                               'stages': ['analyze', 'faceswap', 'validate_video']}})
+                                               'stages': ['analyze', 'faceswap', 'encode', 'validate_video']}})
         repo.save(job)
         return routes.job_to_response(job)
 

@@ -62,6 +62,7 @@ export type Job = {
       draining: boolean;
     };
     results_expired_at?: string;
+    faceswap_chunks?: { total: number; completed: number; current: number | null; seconds: number };
     upload_expired_at?: string;
   };
 };

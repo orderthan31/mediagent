@@ -2,6 +2,7 @@
 import hashlib
 import json
 import math
+import os
 from pathlib import Path
 from uuid import uuid4
 
@@ -52,6 +53,13 @@ class FaceSwapSessions(FilesystemJobRepository):
         return record
 
 
+def configured_chunk_seconds():
+    seconds = int(os.getenv('FACEFUSION_CHUNK_SECONDS', '600'))
+    if not 1 <= seconds <= 600:
+        raise ValueError('FACEFUSION_CHUNK_SECONDS must be between 1 and 600')
+    return seconds
+
+
 def reservation(asset, render=False):
     if not render:
         return 128 * 1024**2
@@ -69,7 +77,9 @@ def reservation(asset, render=False):
         fps = 60
     if not math.isfinite(fps) or fps <= 0:
         fps = 60
-    return math.ceil(duration * max(60, fps) * (width * height * 4 + 4096)) + asset['size_bytes'] * 2 + 128 * 1024**2
+    frames = math.ceil(min(duration, configured_chunk_seconds()) * fps * (width * height * 4 + 4096))
+    encoded = max(asset['size_bytes'] * 6, math.ceil(duration * max(20000000, width * height * fps * .5) * 3 / 8))
+    return frames + encoded + 128 * 1024**2
 
 
 def public_capabilities(root):
