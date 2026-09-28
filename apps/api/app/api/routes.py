@@ -221,7 +221,7 @@ def start_job(job_id: str) -> dict[str, str]:
 def list_jobs(request: Request) -> JobListResponse:
     records = sorted(repository.list(), key=lambda record: (record.created_at, record.job_id), reverse=True)
     return JobListResponse(jobs=[job_to_response(record) for record in records
-        if record.metadata.get("owner_id") == request.state.owner_id])
+        if record.metadata.get("owner_id") == request.state.owner_id and not record.metadata.get('internal')])
 
 
 @router.get("/jobs/{job_id}")

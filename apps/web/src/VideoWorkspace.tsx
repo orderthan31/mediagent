@@ -25,6 +25,7 @@ import { SubtitleEditor } from './SubtitleEditor';
 import { UploadItem, UploadQueue } from './upload-queue';
 import { isVideoFile } from './video-file';
 import { WorkflowDialog } from './WorkflowDialog';
+import { FaceSwapDialog } from './FaceSwapDialog';
 import {
   durationLabel,
   jsonPost,
@@ -61,6 +62,7 @@ export const VideoWorkspace = () => {
   const [detail, setDetail] = useState<VideoDetail | null>(null),
     [subtitleInputs, setSubtitleInputs] = useState<SubtitleInput[]>([]),
     [workflow, setWorkflow] = useState(false),
+    [faceswap, setFaceswap] = useState(false),
     [review, setReview] = useState<Job | null>(null);
   const input = useRef<HTMLInputElement>(null),
     srtInput = useRef<HTMLInputElement>(null),
@@ -321,6 +323,7 @@ export const VideoWorkspace = () => {
     const navigate = () => {
       setRoute(location.hash || '#/');
       setWorkflow(false);
+      setFaceswap(false);
       setDetail(null);
       setSubtitleInputs([]);
       setQuery('');
@@ -549,6 +552,7 @@ export const VideoWorkspace = () => {
                     <button className="primary" onClick={() => setWorkflow(true)}>
                       <Play size={17} />새 작업
                     </button>
+                    <button onClick={() => setFaceswap(true)}>얼굴 합성</button>
                   </div>
                   <section className="asset-overview">
                     <video
@@ -818,6 +822,17 @@ export const VideoWorkspace = () => {
           onClose={() => setWorkflow(false)}
           onCreated={(job) => {
             setWorkflow(false);
+            location.hash = `/jobs/${job.job_id}`;
+            void refresh();
+          }}
+        />
+      )}
+      {faceswap && detail && (
+        <FaceSwapDialog
+          detail={detail}
+          onClose={() => setFaceswap(false)}
+          onCreated={(job) => {
+            setFaceswap(false);
             location.hash = `/jobs/${job.job_id}`;
             void refresh();
           }}

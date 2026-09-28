@@ -57,6 +57,7 @@ export const JobDetail = ({
   const [time, setTime] = useState(0),
     [reload, setReload] = useState(0);
   const [editing, setEditing] = useState(false);
+  const [actionBusy, setActionBusy] = useState(false);
   const [promoting, setPromoting] = useState(false),
     [promotionError, setPromotionError] = useState('');
   const promotionDialog = useRef<HTMLDialogElement>(null);
@@ -71,6 +72,7 @@ export const JobDetail = ({
     track?.cues.filter((cue) => cue.text.toLocaleLowerCase().includes(query.toLocaleLowerCase())) ||
     [];
   const resultFiles = job?.metadata.result_files || [];
+  const isFaceSwap = job?.metadata.workflow?.template === 'faceswap';
   const downloadFiles = [
     ...new Set([...resultFiles, ...(preview?.video_available ? ['final.mp4'] : [])]),
   ];
@@ -80,6 +82,17 @@ export const JobDetail = ({
     }
     video.current.currentTime = cue.start;
     setTime(cue.start);
+  };
+  const faceSwapAction = async (action: 'cancel' | 'retry') => {
+    setActionBusy(true);
+    try {
+      await request(`/jobs/${id}/${action}`, { method: 'POST' });
+      setReload((n) => n + 1);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '요청에 실패했습니다.');
+    } finally {
+      setActionBusy(false);
+    }
   };
   const promote = async () => {
     setPromoting(true);
@@ -272,118 +285,139 @@ export const JobDetail = ({
             </dl>
           )}
         </section>
-        <section className="text-panel" aria-label="전사록과 번역 자막">
-          <div className="tabs" role="tablist" aria-label="자막 종류">
-            {(
-              [
-                ['original', '전사록'],
-                ['translated', '번역 자막'],
-              ] as const
-            ).map(([value, label]) => (
+        {isFaceSwap ? (
+          <section className="text-panel" aria-label="얼굴 합성 작업">
+            <h2>얼굴 합성</h2>
+            <p>선택한 인물을 기준으로 영상 전체를 합성합니다.</p>
+            <p>완료된 영상을 새 원본으로 등록하면 자막 작업을 이어서 시작할 수 있습니다.</p>
+            {job && !['COMPLETED', 'FAILED', 'CANCELLED'].includes(job.status) && (
               <button
-                id={`tab-${value}`}
-                key={value}
-                role="tab"
-                aria-selected={tab === value}
-                aria-controls="cue-panel"
-                tabIndex={tab === value ? 0 : -1}
-                onClick={() => setTab(value)}
-                onKeyDown={(e) => {
-                  if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) {
-                    e.preventDefault();
-                    const next =
-                      e.key === 'Home'
-                        ? 'original'
-                        : e.key === 'End'
-                          ? 'translated'
-                          : tab === 'original'
-                            ? 'translated'
-                            : 'original';
-                    setTab(next);
-                    document.getElementById(`tab-${next}`)?.focus();
-                  }
-                }}
+                disabled={actionBusy || !!job.metadata.cancel_requested}
+                onClick={() => void faceSwapAction('cancel')}
               >
-                {label}
+                {job.metadata.cancel_requested ? '취소 중…' : '합성 취소'}
               </button>
-            ))}
-          </div>
-          <div className="cue-toolbar">
-            <label className="cue-search">
-              <Search size={16} />
-              <input
-                aria-label="자막 검색"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="검색"
-              />
-              {query && (
-                <button className="icon" title="검색 지우기" onClick={() => setQuery('')}>
-                  <X size={16} />
-                </button>
-              )}
-            </label>
-            <span>
-              {cues.length}개{track?.partial ? ' · 일부 결과' : ''}
-            </span>
-          </div>
-          <div
-            id="cue-panel"
-            role="tabpanel"
-            aria-labelledby={`tab-${tab}`}
-            className="cue-panel"
-            tabIndex={0}
-          >
-            {track?.available ? (
-              cues.length ? (
-                cues.map((cue, index) => (
-                  <button
-                    className={
-                      'preview-cue ' + (time >= cue.start && time < cue.end ? 'current' : '')
+            )}
+            {job && ['FAILED', 'CANCELLED'].includes(job.status) && (
+              <button disabled={actionBusy} onClick={() => void faceSwapAction('retry')}>
+                합성 재시도
+              </button>
+            )}
+          </section>
+        ) : (
+          <section className="text-panel" aria-label="전사록과 번역 자막">
+            <div className="tabs" role="tablist" aria-label="자막 종류">
+              {(
+                [
+                  ['original', '전사록'],
+                  ['translated', '번역 자막'],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  id={`tab-${value}`}
+                  key={value}
+                  role="tab"
+                  aria-selected={tab === value}
+                  aria-controls="cue-panel"
+                  tabIndex={tab === value ? 0 : -1}
+                  onClick={() => setTab(value)}
+                  onKeyDown={(e) => {
+                    if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) {
+                      e.preventDefault();
+                      const next =
+                        e.key === 'Home'
+                          ? 'original'
+                          : e.key === 'End'
+                            ? 'translated'
+                            : tab === 'original'
+                              ? 'translated'
+                              : 'original';
+                      setTab(next);
+                      document.getElementById(`tab-${next}`)?.focus();
                     }
-                    key={`${cue.start}-${index}`}
-                    disabled={!videoAvailable || videoError}
-                    onClick={() => seek(cue)}
-                    aria-label={`${timestamp(cue.start)} ${cue.text}`}
-                  >
-                    <time>{timestamp(cue.start)}</time>
-                    <span>{cue.text}</span>
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className="cue-toolbar">
+              <label className="cue-search">
+                <Search size={16} />
+                <input
+                  aria-label="자막 검색"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="검색"
+                />
+                {query && (
+                  <button className="icon" title="검색 지우기" onClick={() => setQuery('')}>
+                    <X size={16} />
                   </button>
-                ))
+                )}
+              </label>
+              <span>
+                {cues.length}개{track?.partial ? ' · 일부 결과' : ''}
+              </span>
+            </div>
+            <div
+              id="cue-panel"
+              role="tabpanel"
+              aria-labelledby={`tab-${tab}`}
+              className="cue-panel"
+              tabIndex={0}
+            >
+              {track?.available ? (
+                cues.length ? (
+                  cues.map((cue, index) => (
+                    <button
+                      className={
+                        'preview-cue ' + (time >= cue.start && time < cue.end ? 'current' : '')
+                      }
+                      key={`${cue.start}-${index}`}
+                      disabled={!videoAvailable || videoError}
+                      onClick={() => seek(cue)}
+                      aria-label={`${timestamp(cue.start)} ${cue.text}`}
+                    >
+                      <time>{timestamp(cue.start)}</time>
+                      <span>{cue.text}</span>
+                    </button>
+                  ))
+                ) : (
+                  <div className="text-empty">
+                    <FileText size={28} />
+                    <p>{query ? '검색 결과가 없습니다.' : '저장된 대사가 없습니다.'}</p>
+                  </div>
+                )
               ) : (
                 <div className="text-empty">
                   <FileText size={28} />
-                  <p>{query ? '검색 결과가 없습니다.' : '저장된 대사가 없습니다.'}</p>
+                  <p>
+                    {preview?.expired
+                      ? '자막 보관 기간이 만료되었습니다.'
+                      : tab === 'original'
+                        ? '전사 결과를 기다리고 있습니다.'
+                        : '번역 결과를 기다리고 있습니다.'}
+                  </p>
                 </div>
-              )
-            ) : (
-              <div className="text-empty">
-                <FileText size={28} />
-                <p>
-                  {preview?.expired
-                    ? '자막 보관 기간이 만료되었습니다.'
-                    : tab === 'original'
-                      ? '전사 결과를 기다리고 있습니다.'
-                      : '번역 결과를 기다리고 있습니다.'}
-                </p>
+              )}
+            </div>
+            {job?.status === 'COMPLETED' && !preview?.expired && track?.available && (
+              <div className="text-download">
+                <button className="icon" title="최종 자막 편집" onClick={() => setEditing(true)}>
+                  <Pencil size={18} />
+                </button>
+                <a
+                  className="download"
+                  href={`${base}/jobs/${id}/results/${tab === 'original' ? 'original' : 'translated'}.srt`}
+                >
+                  <Download size={16} />
+                  {tab === 'original' ? '원문 SRT' : '번역 SRT'}
+                </a>
               </div>
             )}
-          </div>
-          {job?.status === 'COMPLETED' && !preview?.expired && track?.available && (
-            <div className="text-download">
-              <button className="icon" title="최종 자막 편집" onClick={() => setEditing(true)}>
-                <Pencil size={18} />
-              </button>
-              <a
-                className="download"
-                href={`${base}/jobs/${id}/results/${tab === 'original' ? 'original' : 'translated'}.srt`}
-              >
-                <Download size={16} />
-                {tab === 'original' ? '원문 SRT' : '번역 SRT'}
-              </a>
-            </div>
-          )}
-        </section>
+          </section>
+        )}
       </div>
       {editing && job && (
         <SubtitleEditor

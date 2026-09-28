@@ -1,0 +1,25 @@
+# Optional overlay: all queued work remains in the same worker and execution lock.
+# Mount an existing 3.5.4 model directory read-only; no model downloads at runtime.
+services:
+  worker:
+    build:
+      args:
+        WITH_FACEFUSION: "1"
+    environment:
+      FACEFUSION_ENABLED: "true"
+      FACEFUSION_PATH: /opt/facefusion
+      FACEFUSION_PYTHON: /opt/facefusion-env/bin/python
+      FACEFUSION_TIMEOUT_SECONDS: "86400"
+      NVIDIA_DRIVER_CAPABILITIES: compute,video,utility
+    volumes:
+      - type: bind
+        source: ${FACEFUSION_MODELS_DIR:?Set FACEFUSION_MODELS_DIR to the installed .assets/models directory}
+        target: /opt/facefusion/.assets/models
+        read_only: true
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

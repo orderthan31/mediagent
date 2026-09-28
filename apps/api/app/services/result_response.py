@@ -17,10 +17,12 @@ class ResultResponse(FileResponse):
         self.job_id = job_id
         self.filename = filename
         path = resolve_under(repository.storage_root, job_id, "output", filename)
-        original = repository.read(job_id).original_filename.replace("\\", "/")
+        record = repository.read(job_id)
+        original = record.original_filename.replace("\\", "/")
         stem = PurePosixPath(original).stem
         stem = re.sub(r'[\x00-\x1f\x7f<>:"/\\|?*]', "_", stem).strip(" .") or "video"
-        download_name = f"subtitle_{stem}.mp4" if filename == "final.mp4" else filename
+        prefix = 'faceswap' if record.metadata.get('faceswap_operation') == 'render' else 'subtitle'
+        download_name = f"{prefix}_{stem}.mp4" if filename == "final.mp4" else filename
         super().__init__(path=path, filename=download_name, media_type="text/plain" if filename.endswith(".smi") else None,
             content_disposition_type="inline" if inline else "attachment")
         self.filename = filename

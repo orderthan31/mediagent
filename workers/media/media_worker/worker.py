@@ -105,6 +105,8 @@ class Worker:
                         except JobBusyError:
                             pass
                 if time.monotonic() - last_heartbeat > 5:
+                    from .faceswap.runner import heartbeat_capabilities
+                    heartbeat_capabilities(repo)
                     assert_capacity(repo.storage_root,
                         int(os.getenv("VIDEO_SERVICE_QUOTA_BYTES", str(300 * 1024**3))),
                         int(os.getenv("MIN_FREE_SPACE_BYTES", str(50 * 1024**3))))
@@ -116,6 +118,10 @@ class Worker:
                         pass
 
             try:
+                if record.metadata.get('faceswap_operation'):
+                    from .faceswap.runner import execute
+                    execute(self, record, check)
+                    return
                 if self.provider_factory is not None:
                     self.provider = self.provider_factory(record.metadata.get('owner_id'))
                     preferences = getattr(self.provider, 'preferences', {})
@@ -453,6 +459,8 @@ class Worker:
     def _tick_serial(self):
         if self.stop.is_set():
             return
+        from .faceswap.runner import refresh_capabilities
+        refresh_capabilities(self.repository, self.stop)
         self.collect(expire=False)
         jobs = self.repository.find_by_statuses([JobStatus.QUEUED])
         for job in sorted(jobs, key=lambda item: (item.metadata.get("queued_at", item.created_at), item.job_id)):

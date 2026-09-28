@@ -141,6 +141,9 @@ class VideoAssetRepository:
     def delete(self, asset_id: str, *, owner_id=None) -> None:
         with self.lock(), job_lock(self, asset_id, 'execution'):
             asset = self.read(asset_id, owner_id=owner_id)
+            from .faceswap import FaceSwapSessions
+            if FaceSwapSessions(self.jobs).sessions(owner_id, asset_id):
+                raise AssetConflictError('Delete face-swap sessions before deleting this video')
             # Do not use jobs.list(): it skips invalid manifests and could miss a reference.
             for path in self.jobs.storage_root.glob('*/job.json'):
                 job = read_json(path)
