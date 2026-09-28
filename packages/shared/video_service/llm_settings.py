@@ -8,12 +8,12 @@ from uuid import uuid4
 from cryptography.fernet import Fernet
 from .locking import _file_lock
 from .storage import read_json
-from .llm_providers import PROVIDERS, valid_model
+from .llm_providers import PROVIDERS, STT_MODELS, valid_model, valid_stt_model
 
 
 MODEL_FIELDS = ('transcription_model', 'translation_model', 'transcription_fallback_model', 'translation_fallback_model')
 FLAGS = ('fallback_on_error', 'fallback_on_block')
-PROVIDER_FIELDS = ('translation_provider', 'translation_fallback_provider')
+PROVIDER_FIELDS = ('translation_provider', 'translation_fallback_provider', 'transcription_provider', 'transcription_fallback_provider')
 
 
 class SettingsConflict(ValueError):
@@ -61,6 +61,7 @@ class LLMSettingsStore:
             'transcription_fallback_model': '', 'translation_fallback_model': '',
             'fallback_on_error': False, 'fallback_on_block': False,
             'translation_provider': 'gemini', 'translation_fallback_provider': 'gemini',
+            'transcription_provider': 'gemini', 'transcription_fallback_provider': 'gemini',
             **{key: saved[key] for key in (*MODEL_FIELDS, *FLAGS, *PROVIDER_FIELDS) if key in saved},
             'revision': saved['revision'],
         }
@@ -90,17 +91,20 @@ class LLMSettingsStore:
         saved_providers = self._read(owner)
         providers = {field: payload.get(field, saved_providers.get(field, 'gemini')) for field in PROVIDER_FIELDS}
         if any(not isinstance(value, str) or value not in PROVIDERS for value in providers.values()):
-            raise ValueError('Invalid translation provider')
+            raise ValueError('Invalid provider')
+        if any(providers[field] not in STT_MODELS for field in ('transcription_provider', 'transcription_fallback_provider')):
+            raise ValueError('Unsupported transcription provider')
         for field in MODEL_FIELDS:
             value = payload.get(field)
-            provider = providers['translation_fallback_provider' if 'fallback' in field else 'translation_provider'] if field.startswith('translation') else 'gemini'
-            if not isinstance(value, str) or (not value and not field.endswith('fallback_model')) or (value and not valid_model(provider, value)):
+            provider = providers[field.removesuffix('_model') + '_provider']
+            validate = valid_stt_model if field.startswith('transcription') else valid_model
+            if not isinstance(value, str) or (not value and not field.endswith('fallback_model')) or (value and not validate(provider, value)):
                 raise ValueError('Invalid model name')
         for field in FLAGS:
             if type(payload.get(field)) is not bool:
                 raise ValueError('Invalid fallback policy')
         for stage in ('transcription', 'translation'):
-            same_provider = stage == 'transcription' or providers['translation_provider'] == providers['translation_fallback_provider']
+            same_provider = providers[stage + '_provider'] == providers[stage + '_fallback_provider']
             if same_provider and payload[stage + '_model'] == payload[stage + '_fallback_model']:
                 raise ValueError('Fallback model must differ from primary model')
         key = payload.get('api_key')

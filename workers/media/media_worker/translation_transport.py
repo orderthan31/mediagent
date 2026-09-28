@@ -4,6 +4,7 @@ import json
 import os
 import re
 import time
+import hashlib
 
 import httpx
 from video_service.llm_providers import PROVIDERS, provider_headers
@@ -115,13 +116,22 @@ def usage_details(provider, data):
 
 
 async def request_translation(provider, key, model, parts, schema, check, attempt, retry_delay):
+    payload = request_payload(provider, model, parts, schema)
+    return await request_provider(provider, key, model, payload, check, attempt, retry_delay,
+                                  url=PROVIDERS[provider]['url'], parse=parse_response)
+
+
+async def request_provider(provider, key, model, payload, check, attempt, retry_delay, *, url, parse, files=None):
+    """Shared cancellation, diagnostics and retry classification for fixed provider endpoints."""
     if os.getenv('PAID_LLM_ENABLED', 'false').lower() != 'true':
         raise RuntimeError('Paid LLM calls are disabled (PAID_LLM_ENABLED=false)')
     if not key:
         raise RuntimeError(f'{provider} API key is not configured')
-    payload = request_payload(provider, model, parts, schema)
     check()
-    trace = await disk_call(begin_call, model, attempt or 1, payload, key, provider=provider)
+    trace_payload = payload if files is None else {**payload, 'audio': {
+        name: {'filename': value[0], 'bytes': len(value[1]), 'sha256': hashlib.sha256(value[1]).hexdigest()}
+        for name, value in files.items()}}
+    trace = await disk_call(begin_call, model, attempt or 1, trace_payload, key, provider=provider)
     started = time.monotonic()
     response = None
     emit('request_started', provider=provider, model=model, request_attempt=attempt or 1,
@@ -129,8 +139,9 @@ async def request_translation(provider, key, model, parts, schema, check, attemp
     try:
         async with httpx.AsyncClient(timeout=120, follow_redirects=False) as client:
             async with asyncio.timeout(125):
-                task = asyncio.create_task(client.post(PROVIDERS[provider]['url'],
-                    headers=provider_headers(provider, key), json=payload))
+                body = {'data': payload, 'files': files} if files is not None else {'json': payload}
+                task = asyncio.create_task(client.post(url,
+                    headers=provider_headers(provider, key), **body))
                 try:
                     while not task.done():
                         await asyncio.wait({task}, timeout=.25)
@@ -168,7 +179,7 @@ async def request_translation(provider, key, model, parts, schema, check, attemp
             raise ValueError('Provider returned invalid response JSON') from None
         if isinstance(data, dict):
             emit('token_usage', provider=provider, model=model, **usage_details(provider, data))
-        result = parse_response(provider, data)
+        result = parse(provider, data)
         emit('request_parsed', provider=provider, model=model, elapsed_seconds=round(time.monotonic() - started, 3))
         return result
     except httpx.TransportError as error:

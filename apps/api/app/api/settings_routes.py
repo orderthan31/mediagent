@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from app.api.auth_routes import require_session
 from app.core.config import settings
 from video_service.llm_settings import LLMSettingsStore, SettingsConflict
-from video_service.llm_providers import PROVIDERS, provider_headers, valid_model
+from video_service.llm_providers import PROVIDERS, STT_MODELS, provider_headers, valid_model
 
 
 def authorize(request: Request):
@@ -85,3 +85,8 @@ async def list_models(request: Request, provider: str = 'gemini'):
         raise
     except Exception:
         raise HTTPException(502, '공급자 모델 목록을 가져오지 못했습니다. 모델명은 직접 입력할 수 있습니다.') from None
+
+
+@router.get('/llm/stt-models')
+def stt_models():
+    return {'providers': STT_MODELS}

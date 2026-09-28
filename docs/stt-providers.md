@@ -1,8 +1,9 @@
 # STT Provider Research
 
-Checked against official documentation on 2026-09-22. This is an API capability
-inventory, not a paid quality benchmark. This change implements translation only;
-production STT remains Gemini. Consumer-app voice features do not establish public
+Checked against official documentation on 2026-09-24. This is an API capability
+inventory, not a paid quality benchmark. Timestamp-capable STT adapters now support
+Gemini, OpenAI, xAI and OpenRouter; see [settings](llm-settings.md#transcription-protocol)
+for the implemented model allowlist. Consumer-app voice features do not establish public
 audio-file API support, and text transcription does not imply subtitle timestamps.
 
 | Provider | Public STT/audio input | Subtitle timing | Integration note |

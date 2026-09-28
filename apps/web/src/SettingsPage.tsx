@@ -11,6 +11,7 @@ const providers = [
   ['anthropic', 'Anthropic'],
 ] as const;
 type Provider = (typeof providers)[number][0];
+type SttProvider = Exclude<Provider, 'anthropic'>;
 type CredentialStatus = { has_api_key: boolean; key_source: 'registered' | 'environment' | 'none' };
 type Preferences = CredentialStatus & {
   revision: number;
@@ -20,6 +21,8 @@ type Preferences = CredentialStatus & {
   translation_fallback_model: string;
   translation_provider: Provider;
   translation_fallback_provider: Provider;
+  transcription_provider: SttProvider;
+  transcription_fallback_provider: SttProvider;
   fallback_on_error: boolean;
   fallback_on_block: boolean;
   credentials: Record<Provider, CredentialStatus>;
@@ -36,6 +39,7 @@ export const SettingsPage = () => {
   const [keys, setKeys] = useState<Partial<Record<Provider, string>>>({});
   const [removals, setRemovals] = useState<Partial<Record<Provider, boolean>>>({});
   const [models, setModels] = useState<Partial<Record<Provider, string[]>>>({});
+  const [sttModels, setSttModels] = useState<Partial<Record<SttProvider, string[]>>>({});
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -45,7 +49,12 @@ export const SettingsPage = () => {
     setError('');
     setNotice('');
     try {
-      setPreferences(await request<Preferences>('/settings/llm'));
+      const result = await request<Preferences>('/settings/llm');
+      const catalog = await request<{ providers: Record<SttProvider, string[]> }>(
+        '/settings/llm/stt-models',
+      );
+      setSttModels(catalog.providers);
+      setPreferences(result);
       setKeys({});
       setRemovals({});
       setModels({});
@@ -116,19 +125,39 @@ export const SettingsPage = () => {
   const renderModel = (field: ModelField, label: string, provider: Provider) => (
     <label>
       {label}
-      <input
-        list={`models-${provider}`}
-        value={preferences?.[field] || ''}
-        required={!field.includes('fallback')}
-        maxLength={200}
-        autoComplete="off"
-        placeholder={field.includes('fallback') ? '사용 안 함' : '모델 ID'}
-        onChange={(event) => {
-          if (preferences) {
-            setPreferences({ ...preferences, [field]: event.target.value });
-          }
-        }}
-      />
+      {field.startsWith('transcription') && provider !== 'gemini' ? (
+        <select
+          aria-label={label}
+          value={preferences?.[field] || ''}
+          required={!field.includes('fallback')}
+          onChange={(event) => {
+            if (preferences) {
+              setPreferences({ ...preferences, [field]: event.target.value });
+            }
+          }}
+        >
+          <option value="">{field.includes('fallback') ? '사용 안 함' : '모델 선택'}</option>
+          {(sttModels[provider as SttProvider] || []).map((model) => (
+            <option key={model} value={model}>
+              {model}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <input
+          list={`models-${provider}`}
+          value={preferences?.[field] || ''}
+          required={!field.includes('fallback')}
+          maxLength={200}
+          autoComplete="off"
+          placeholder={field.includes('fallback') ? '사용 안 함' : '모델 ID'}
+          onChange={(event) => {
+            if (preferences) {
+              setPreferences({ ...preferences, [field]: event.target.value });
+            }
+          }}
+        />
+      )}
     </label>
   );
   useEffect(() => {
@@ -141,15 +170,26 @@ export const SettingsPage = () => {
           <Settings size={24} />
           AI 공급자 설정
         </h1>
-        <button
-          className="icon"
-          title="설정 새로 불러오기"
-          aria-label="설정 새로 불러오기"
-          disabled={!!busy}
-          onClick={() => void load()}
-        >
-          <RefreshCw size={18} />
-        </button>
+        <div className="settings-heading-actions">
+          <button
+            className="primary"
+            type="submit"
+            form="llm-settings-form"
+            disabled={!preferences || !!busy}
+          >
+            <Save size={17} />
+            {busy === 'save' ? '저장 중' : '설정 저장'}
+          </button>
+          <button
+            className="icon"
+            title="설정 새로 불러오기"
+            aria-label="설정 새로 불러오기"
+            disabled={!!busy}
+            onClick={() => void load()}
+          >
+            <RefreshCw size={18} />
+          </button>
+        </div>
       </div>
       {error && (
         <p className="alert" role="alert">
@@ -160,7 +200,7 @@ export const SettingsPage = () => {
       {!preferences ? (
         <p>{error ? '설정을 불러오지 못했습니다.' : '설정을 불러오는 중입니다.'}</p>
       ) : (
-        <form onSubmit={(event) => void save(event)}>
+        <form id="llm-settings-form" onSubmit={(event) => void save(event)}>
           {providers.map(([provider]) => (
             <datalist key={provider} id={`models-${provider}`}>
               {(models[provider] || []).map((model) => (
@@ -249,10 +289,58 @@ export const SettingsPage = () => {
             </button>
           </fieldset>
           <fieldset disabled={!!busy}>
-            <legend>전사 · Gemini</legend>
+            <legend>전사</legend>
             <div className="settings-model-grid">
-              {renderModel('transcription_model', '전사 모델', 'gemini')}
-              {renderModel('transcription_fallback_model', '전사 폴백 모델', 'gemini')}
+              <label>
+                전사 공급자
+                <select
+                  aria-label="전사 공급자"
+                  value={preferences.transcription_provider}
+                  onChange={(event) =>
+                    setPreferences({
+                      ...preferences,
+                      transcription_provider: event.target.value as SttProvider,
+                      transcription_model: '',
+                    })
+                  }
+                >
+                  {providers
+                    .filter(([provider]) => provider in sttModels)
+                    .map(([provider, label]) => (
+                      <option key={provider} value={provider}>
+                        {label}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              {renderModel('transcription_model', '전사 모델', preferences.transcription_provider)}
+              <label>
+                전사 폴백 공급자
+                <select
+                  aria-label="전사 폴백 공급자"
+                  value={preferences.transcription_fallback_provider}
+                  onChange={(event) =>
+                    setPreferences({
+                      ...preferences,
+                      transcription_fallback_provider: event.target.value as SttProvider,
+                      transcription_fallback_model: '',
+                    })
+                  }
+                >
+                  {providers
+                    .filter(([provider]) => provider in sttModels)
+                    .map(([provider, label]) => (
+                      <option key={provider} value={provider}>
+                        {label}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              {renderModel(
+                'transcription_fallback_model',
+                '전사 폴백 모델',
+                preferences.transcription_fallback_provider,
+              )}
             </div>
           </fieldset>
           <fieldset disabled={!!busy}>

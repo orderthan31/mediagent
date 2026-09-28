@@ -124,6 +124,7 @@ class Worker:
                         current.metadata['llm_settings'] = {key: preferences[key] for key in (
                             'transcription_model', 'translation_model', 'transcription_fallback_model',
                             'translation_fallback_model', 'translation_provider', 'translation_fallback_provider',
+                            'transcription_provider', 'transcription_fallback_provider',
                             'fallback_on_error', 'fallback_on_block', 'revision') if key in preferences}
                         repo.save(current)
                 work = repo.job_dir(job_id) / "work"
@@ -156,7 +157,7 @@ class Worker:
                 checkpoints = Checkpoints(work, {"version": 1, "source_size": source.stat().st_size,
                     "source_mtime": source.stat().st_mtime_ns, "options": {key: value for key, value in record.options.to_dict().items()
                         if (key != "video_description" or value) and (key != "vad_mode" or value != "off")},
-                    "stt": getattr(self.provider, "transcription_model", None),
+                    "stt": getattr(self.provider, "transcription_identity", getattr(self.provider, "transcription_model", None)),
                     "transcription_policy": transcription_prompt(record.options.source_language, 0),
                     "translation": getattr(self.provider, "translation_identity", getattr(self.provider, "translation_model", None)),
                     "filter_model": getattr(self.provider, "audio_filter_model", None),
@@ -260,7 +261,7 @@ class Worker:
                         self.transition(job_id, JobStatus.FILTERING_TRANSCRIPT)
                         segments = filter_transcript_segments(segments, record.options.audio_filter)
                         save_completed_transcript(work, completed_identity, [s.to_dict() for s in segments],
-                            getattr(self.provider, "transcription_model", None), checkpoints.before_write)
+                            getattr(self.provider, "transcription_identity", getattr(self.provider, "transcription_model", None)), checkpoints.before_write)
                         write_json_atomic(work / "transcript.json", [s.to_dict() for s in segments])
                     else:
                         segments = selected
