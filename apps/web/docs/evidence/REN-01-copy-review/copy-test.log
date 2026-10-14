@@ -1,0 +1,5 @@
+Running 1 test using 1 worker
+
+  ✓  1 tests/browser/auth-gate.spec.ts:46:1 › 연결 대기·실패·재시도 상태를 분리한다 (1.3s)
+
+  1 passed (3.2s)

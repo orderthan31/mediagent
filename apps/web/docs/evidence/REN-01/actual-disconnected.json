@@ -1,0 +1,32 @@
+{
+  "apiFixtures": false,
+  "result": {
+    "title": "mideagent · 미디어 작업 공간",
+    "palette": "Indigo",
+    "font": "Pretendard, sans-serif",
+    "text": "mideagent\n미디어 작업 공간\n\n다시 이어가는 작업\n\n작업 공간 연결\n\n서버 연결과 로그인 상태를 확인하고 있어요.\n\n서버에 연결하지 못했어요\n\n요청 실패 (500)\n\n서버 실행 상태와 네트워크를 확인한 뒤 다시 연결해 주세요.\n\n다시 연결\n\n영상 보관 · 작업 관리 · 자막 검수"
+  },
+  "responses": [
+    {
+      "path": "/api/auth/session",
+      "status": 500
+    },
+    {
+      "path": "/fonts/hangyeol/Pretendard-Regular.woff2",
+      "status": 200
+    },
+    {
+      "path": "/fonts/hangyeol/Pretendard-SemiBold.woff2",
+      "status": 200
+    },
+    {
+      "path": "/fonts/hangyeol/Pretendard-Bold.woff2",
+      "status": 200
+    },
+    {
+      "path": "/fonts/hangyeol/Pretendard-Medium.woff2",
+      "status": 200
+    }
+  ],
+  "runtimeErrors": []
+}

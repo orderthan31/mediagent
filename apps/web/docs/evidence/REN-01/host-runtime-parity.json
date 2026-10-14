@@ -1,0 +1,42 @@
+{
+  "originalBytesExceptTwoAddedLines": true,
+  "moduleResolutionOnlyAdjustedInScratch": true,
+  "records": [
+    {
+      "mode": "development",
+      "serverEqual": true,
+      "server": {
+        "allowedHosts": [
+          "development.fixture.invalid",
+          "second.fixture.invalid"
+        ],
+        "proxy": {
+          "/api": "http://127.0.0.1:8811"
+        }
+      }
+    },
+    {
+      "mode": "production",
+      "serverEqual": true,
+      "server": {
+        "allowedHosts": [
+          "production.fixture.invalid",
+          "second.fixture.invalid"
+        ],
+        "proxy": {
+          "/api": "http://127.0.0.1:8812"
+        }
+      }
+    },
+    {
+      "mode": "adapter-empty",
+      "serverEqual": true,
+      "server": {
+        "allowedHosts": [],
+        "proxy": {
+          "/api": "http://127.0.0.1:8000"
+        }
+      }
+    }
+  ]
+}

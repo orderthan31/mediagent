@@ -1,0 +1,26 @@
+[
+  {
+    "name": "lint",
+    "exit_code": 0,
+    "command": "export PATH=/Users/austinko/.nvm/versions/node/v22.22.2/bin:$PATH; npm run lint",
+    "log": "/Users/austinko/.hermes/cache/scratch/REN-01-closeout/lint.log"
+  },
+  {
+    "name": "format",
+    "exit_code": 0,
+    "command": "export PATH=/Users/austinko/.nvm/versions/node/v22.22.2/bin:$PATH; npm run format:check",
+    "log": "/Users/austinko/.hermes/cache/scratch/REN-01-closeout/format.log"
+  },
+  {
+    "name": "original-npm-test-node24",
+    "exit_code": 0,
+    "command": "export PATH=/Users/austinko/.nvm/versions/node/v22.22.2/bin:$PATH; npm exec --yes --package=node@24 --call \"node --version && npm test\"",
+    "log": "/Users/austinko/.hermes/cache/scratch/REN-01-closeout/original-npm-test-node24.log"
+  },
+  {
+    "name": "build-node22",
+    "exit_code": 0,
+    "command": "export PATH=/Users/austinko/.nvm/versions/node/v22.22.2/bin:$PATH; npm run build",
+    "log": "/Users/austinko/.hermes/cache/scratch/REN-01-closeout/build-node22.log"
+  }
+]

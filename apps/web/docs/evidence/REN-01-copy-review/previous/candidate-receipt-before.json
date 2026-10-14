@@ -1,0 +1,298 @@
+{
+  "branch": "renewal",
+  "baseHEAD": "57d34e9995edf5e322dfa26acdd899513f4038d5",
+  "candidate": "uncommitted",
+  "candidateDigestAlgorithm": "SHA256 of sorted compact JSON file records; excludes receipt and checkpoint.diff to avoid recursion",
+  "candidateDigest": "397d1f0d2943d81d41851e595e6b6f3f4b69089f1cd75495459586d17621893e",
+  "fileCount": 46,
+  "files": [
+    {
+      "path": ".gitignore",
+      "bytes": 339,
+      "sha256": "53644a2dc25b2bb1151dd45a5653b3fb4fac90340b474768e817088cda49e41c"
+    },
+    {
+      "path": "apps/web/docs/evidence/REN-01/README.md",
+      "bytes": 5310,
+      "sha256": "dcd0d30a93eb4dcff6f68106fa8d452f2be18614e0b34d9a7acfba8144af2265"
+    },
+    {
+      "path": "apps/web/docs/evidence/REN-01/actual-disconnected.json",
+      "bytes": 1016,
+      "sha256": "c1dfceb2b21d49fe189225b3075aaa4f0727736f5bfc44e51f3b977753d8c7bf"
+    },
+    {
+      "path": "apps/web/docs/evidence/REN-01/actual-disconnected.png",
+      "bytes": 41036,
+      "sha256": "a2bc76b7a535c816729293d5c8cb3e85b1070159b0ffe30c981caf227bea7c32"
+    },
+    {
+      "path": "apps/web/docs/evidence/REN-01/before.diff",
+      "bytes": 53724,
+      "sha256": "024e0532cd77f70cd1372cb9eef9300f6881bcc7faaee6d01021c7752ba6038a"
+    },
+    {
+      "path": "apps/web/docs/evidence/REN-01/checks.json",
+      "bytes": 1322,
+      "sha256": "7ee74a4f272c5ffe09566f24c8ea67a08855b7b5660ca7224f805e1b70915ba3"
+    },
+    {
+      "path": "apps/web/docs/evidence/REN-01/connecting.png",
+      "bytes": 29192,
+      "sha256": "db1be1e649ecb85f3eecb809454898df2905ebff1fc9a7b1acab88408f1b5b41"
+    },
+    {
+      "path": "apps/web/docs/evidence/REN-01/connection-error.png",
+      "bytes": 111970,
+      "sha256": "b784e6fc175765835fca7b8b47a08f542b0f3ea9ad8cf55c79f8ebe9ba9890c1"
+    },
+    {
+      "path": "apps/web/docs/evidence/REN-01/doctor-final.json",
+      "bytes": 13120,
+      "sha256": "61090b2197ed02ae4182d001e063bfd473e231cdad71eb268addcd97e1c106bf"
+    },
+    {
+      "path": "apps/web/docs/evidence/REN-01/host-runtime-parity.json",
+      "bytes": 866,
+      "sha256": "05a378edda5d3929ee754103c9c7fb052af56cc0f62a9511bdeae2a77ac4acde"
+    },
+    {
+      "path": "apps/web/docs/evidence/REN-01/login-desktop.png",
+      "bytes": 39201,
+      "sha256": "15f72c03bfba3098fbcfb782689e9c6ec199eeb800adf9a61acc4f1f6031ccfa"
+    },
+    {
+      "path": "apps/web/docs/evidence/REN-01/login-error.png",
+      "bytes": 45056,
+      "sha256": "7e9348e11c0cc4ff94aaeea78bd21d6d5a2892819686f912111e128776760cf2"
+    },
+    {
+      "path": "apps/web/docs/evidence/REN-01/login-mobile.png",
+      "bytes": 30849,
+      "sha256": "cdd9b75406969e00001671a3db791c8dfba63d6aedb6675ddd34d34b739fd730"
+    },
+    {
+      "path": "apps/web/hangyeol.json",
+      "bytes": 3198,
+      "sha256": "03dee4164b075e75d0d0aa56fa8ad6b2d15f1ba34d0a15718f43b875d4cc4768"
+    },
+    {
+      "path": "apps/web/index.html",
+      "bytes": 327,
+      "sha256": "69b774dfaf4d19a8b7f63f6f27705a74f66c3eb330541b695cd442e8f1644daa"
+    },
+    {
+      "path": "apps/web/package-lock.json",
+      "bytes": 146671,
+      "sha256": "f4a60396b9d3acd7ed3af75568800477ebc4d3a4e0247d4306a4a3220ad5105b"
+    },
+    {
+      "path": "apps/web/package.json",
+      "bytes": 1099,
+      "sha256": "5c2776adb84694f37492a50e11335e7549b9b8d835452a5baa19998fa9417942"
+    },
+    {
+      "path": "apps/web/playwright.config.ts",
+      "bytes": 436,
+      "sha256": "962da8dd7dc78d8f560046ed599c94afb9bd4c0fbf4ecebce4fac481bdcd586d"
+    },
+    {
+      "path": "apps/web/public/fonts/hangyeol/LICENSE",
+      "bytes": 4418,
+      "sha256": "d31ddd9f2bed32fd7e302a205cf2380ba0de6529152d239ef99cfb6f261bfc04"
+    },
+    {
+      "path": "apps/web/public/fonts/hangyeol/Pretendard-Bold.woff2",
+      "bytes": 791156,
+      "sha256": "4609c3356e536fafe38f4add0daeceb3d8595d3057bce13c428c33ddbd43d362"
+    },
+    {
+      "path": "apps/web/public/fonts/hangyeol/Pretendard-Medium.woff2",
+      "bytes": 778432,
+      "sha256": "d03481330eeba0659ab5b87f25ceb504a35de377dd90a0d0aba2982eb2d05e2c"
+    },
+    {
+      "path": "apps/web/public/fonts/hangyeol/Pretendard-Regular.woff2",
+      "bytes": 765892,
+      "sha256": "fad853f7f47c6c8b103171e7193fa095708cdcd70850a71d93aa5379e8a61d63"
+    },
+    {
+      "path": "apps/web/public/fonts/hangyeol/Pretendard-SemiBold.woff2",
+      "bytes": 785856,
+      "sha256": "c863f76a7de5c1ddc1ed8b2fa794964530774592c4f31407a84e2a2ae93f17f0"
+    },
+    {
+      "path": "apps/web/public/fonts/hangyeol/provenance.json",
+      "bytes": 3041,
+      "sha256": "3ca94ffbe6da16753984622184cc4d9765ba77c1cc617c5a5f5eda754b16fbee"
+    },
+    {
+      "path": "apps/web/src/AuthGate.tsx",
+      "bytes": 7366,
+      "sha256": "5a404f8c3e60881a4f068c7400f90e166df56ff6d95a2e1dd79f659c6a39352b"
+    },
+    {
+      "path": "apps/web/src/auth.css",
+      "bytes": 2654,
+      "sha256": "4bfdb72c788580f7cd9b3ec47cd1f923616e632deb700ae44c8be6e395065c3f"
+    },
+    {
+      "path": "apps/web/src/hangyeol.css",
+      "bytes": 289,
+      "sha256": "7cd6e2d458d98c31824fa88a3f1ef8649b0a86f3a4acb89c1da9aa743b3ad964"
+    },
+    {
+      "path": "apps/web/src/hangyeol/components/form-field.tsx",
+      "bytes": 1744,
+      "sha256": "c2de7eb89ba0b3ecad48307d0d0d5cb242913221541cd4315f380a73cf0708ac"
+    },
+    {
+      "path": "apps/web/src/hangyeol/components/text-field.tsx",
+      "bytes": 3643,
+      "sha256": "3f4e93b9d72dcd63b071311b80301b771f41e5719ef90d516ca0e14341b473a0"
+    },
+    {
+      "path": "apps/web/src/hangyeol/foundation/fonts.css",
+      "bytes": 669,
+      "sha256": "4012f4ab9c27283e49a4aa26a8feed9567995fdadcaa4d6ae917f06815375287"
+    },
+    {
+      "path": "apps/web/src/hangyeol/foundation/theme.css",
+      "bytes": 4259,
+      "sha256": "c05f2de9c8f44026cd87bd3f9f336e29d281e93ddc205ac7edee6ed15e544e7f"
+    },
+    {
+      "path": "apps/web/src/hangyeol/foundation/theme.tsx",
+      "bytes": 3389,
+      "sha256": "4adec465bb25eba49dd8c6357b16ade53af01a3ce63828081362476837f1cee9"
+    },
+    {
+      "path": "apps/web/src/hangyeol/lib/cn.ts",
+      "bytes": 553,
+      "sha256": "e6555b43700a48e3d863f50b2fa9d5d47577f9250e6d6f497928fd9585b3afc3"
+    },
+    {
+      "path": "apps/web/src/hangyeol/primitives/button.tsx",
+      "bytes": 1632,
+      "sha256": "e60fd5b12f22eb120f58281e37d60756484ff8dbe93c80bbe2df13e4ee94fd16"
+    },
+    {
+      "path": "apps/web/src/hangyeol/primitives/input.tsx",
+      "bytes": 1042,
+      "sha256": "ff7dad178ea0ec4a4985417c28e4517a189a5c5e099d9473b2849a18d08b304e"
+    },
+    {
+      "path": "apps/web/src/legacy.css",
+      "bytes": 225,
+      "sha256": "22d8c1f6da8d22391f389ae189e952c5ff1be56ab89413e89909d7402fca1f27"
+    },
+    {
+      "path": "apps/web/src/main.tsx",
+      "bytes": 368,
+      "sha256": "df2f31d82012192e0fa311e6f1c8ab2024384cf8af4e6bf9d30cf48c91ab2293"
+    },
+    {
+      "path": "apps/web/tests/browser/auth-gate.spec.ts",
+      "bytes": 6328,
+      "sha256": "06910e1936d68cc809126af2b8c2ed8583960c90d61b140659b7830eee59d268"
+    },
+    {
+      "path": "apps/web/tests/browser/tsconfig.json",
+      "bytes": 112,
+      "sha256": "95a92528d063a9d5458c81865d092aebb51b01acd41ce7193cc2e15fcd3a73d7"
+    },
+    {
+      "path": "apps/web/vendor/adapter-provenance.json",
+      "bytes": 1769,
+      "sha256": "9149f94a299121c453b96353ecf1dbe40fa9c3f16bedf43d07943e45052f547d"
+    },
+    {
+      "path": "apps/web/vendor/hangyeol-core-0.0.1-provenance.json",
+      "bytes": 1026,
+      "sha256": "919a5705a1f4c65c08385228cad74b20e3238ad6e8bcb5e3d876236ae9c522f6"
+    },
+    {
+      "path": "apps/web/vendor/orderthan31-hangyeol-core-0.0.1.tgz",
+      "bytes": 3177980,
+      "sha256": "7fa6d23b23a80df864a6021bef5c6a2bb190392851a828cc570788a1f22d87e4"
+    },
+    {
+      "path": "apps/web/vendor/orderthan31-hangyeol-core-0.0.2-adapter.1.tgz",
+      "bytes": 3180769,
+      "sha256": "62c22c5f364136ec596d64328fdde4220aeba7798a2c9229af74c8be288dcbee"
+    },
+    {
+      "path": "apps/web/vendor/previous-0.0.1-installation/package-lock.json",
+      "bytes": 121335,
+      "sha256": "ddad631e8b190779f377d1736b0c621bde8480703561cad3d6023a4b64e2a706"
+    },
+    {
+      "path": "apps/web/vendor/previous-0.0.1-installation/package.json",
+      "bytes": 917,
+      "sha256": "aa01efdace134f6939672989bc6e05fb01f24f426d1b538dcf11999f006892b4"
+    },
+    {
+      "path": "apps/web/vite.config.ts",
+      "bytes": 462,
+      "sha256": "3d3d274e5abfc73294ba243c1ae325f01da187c521c85154d03f4a1d0c012978"
+    }
+  ],
+  "checks": [
+    {
+      "name": "lint",
+      "command": "npm run lint",
+      "exit_code": 0,
+      "error": null,
+      "log": "/Users/austinko/.hermes/cache/scratch/REN-01-adapter/lint-final.log"
+    },
+    {
+      "name": "format",
+      "command": "npm run format:check",
+      "exit_code": 0,
+      "error": null,
+      "log": "/Users/austinko/.hermes/cache/scratch/REN-01-adapter/format-final.log"
+    },
+    {
+      "name": "browser-typecheck",
+      "command": "node node_modules/typescript/bin/tsc -p tests/browser/tsconfig.json",
+      "exit_code": 0,
+      "error": null,
+      "log": "/Users/austinko/.hermes/cache/scratch/REN-01-adapter/browser-typecheck-final.log"
+    },
+    {
+      "name": "auth-existing",
+      "command": "node --test tests/auth-session.test.mjs tests/conventions.test.mjs",
+      "exit_code": 0,
+      "error": null,
+      "log": "/Users/austinko/.hermes/cache/scratch/REN-01-adapter/auth-existing-final.log"
+    },
+    {
+      "name": "browser",
+      "command": "node node_modules/@playwright/test/cli.js test tests/browser/auth-gate.spec.ts",
+      "exit_code": 0,
+      "error": null,
+      "log": "/Users/austinko/.hermes/cache/scratch/REN-01-adapter/browser-final.log"
+    },
+    {
+      "name": "build",
+      "command": "npm run build",
+      "exit_code": 0,
+      "error": null,
+      "log": "/Users/austinko/.hermes/cache/scratch/REN-01-adapter/build-final.log"
+    }
+  ],
+  "preservedAuthPrefixByteIdentical": true,
+  "viteOriginalExceptTailwindTwoLines": true,
+  "coreCandidateRegistryPublished": false,
+  "artifactSourceRevision": "3e12709400c44ee18bca1b9c300ca35436410b35",
+  "UIAssetParityCount": 109,
+  "realBackendAuthenticated": false,
+  "browserAPIFixturesExplicit": true,
+  "actualDisconnectedEvidenceWithoutFixtures": true,
+  "priorFailuresPreserved": [
+    "Packages E401",
+    "npm test Node22 unsupported --test-isolation=none",
+    "audit high warnings"
+  ],
+  "commitPushForImplementation": false
+}

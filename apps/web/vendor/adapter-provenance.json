@@ -1,0 +1,54 @@
+{
+  "package": "@orderthan31/hangyeol-core",
+  "version": "0.0.2-adapter.1",
+  "filename": "orderthan31-hangyeol-core-0.0.2-adapter.1.tgz",
+  "bytes": 3180769,
+  "sha256": "62c22c5f364136ec596d64328fdde4220aeba7798a2c9229af74c8be288dcbee",
+  "integrity": "sha512-Q4MR5464MXRN+ZzBKNSJkkUtX9K/1Rqqofa5cdRYaSwdp4oD1561YRME/NJB35n/7ajfzb/mcxGLmKpUM64Ykg==",
+  "sourceRepository": "orderthan31/hangyeol-design",
+  "sourceBranch": "fix/mideagent-dynamic-vite-adapter",
+  "sourceRevision": "3e12709400c44ee18bca1b9c300ca35436410b35",
+  "sourceCleanAtPack": true,
+  "sourceRemoteExactReadback": true,
+  "registryPublished": false,
+  "published001Preserved": true,
+  "unchangedUIAndAssetPayloads": {
+    "sources": 103,
+    "assets": 6
+  },
+  "validation": {
+    "hostRuntime": "Node22.22.2 / npm10.9.7, Linux",
+    "sourceNodeTests": [
+      1,
+      160
+    ],
+    "sourceUITests": [
+      60
+    ],
+    "freshPhysicalInstalledCore": true,
+    "relativeVendorFileLock": true,
+    "actualInstalledBin": [
+      "version",
+      "inspect",
+      "init --dry-run",
+      "init",
+      "add theme text-field button --dry-run",
+      "add theme text-field button",
+      "doctor"
+    ],
+    "indigoConsumerTypecheckAndViteBuild": true,
+    "originalViteBytesPreservedDuringInitAdd": true,
+    "environmentModesComparedToOriginal": [
+      "development",
+      "production",
+      "adapter-empty"
+    ]
+  },
+  "notVerified": [
+    "Mac actual mideagent integration",
+    "mideagent rendered UI/functional acceptance",
+    "registry publication or Packages authentication",
+    "GPU/media/paid execution"
+  ],
+  "note": "Explicit unpublished adapter candidate; producer identity metadata differs from immutable registry 0.0.1. No consumer ownership records were manually changed."
+}

@@ -1,0 +1,93 @@
+{
+  "version": "v1.3.9",
+  "upstream_tree_SHA": "5c41199ea0024a9e0b2cb31735265056e5472d76",
+  "license": "SIL OFL 1.1",
+  "unmodified_originals": true,
+  "files": [
+    {
+      "file": "fonts/Pretendard-Regular.woff2",
+      "source_url": "https://raw.githubusercontent.com/orioncactus/pretendard/v1.3.9/packages/pretendard/dist/web/static/woff2/Pretendard-Regular.woff2",
+      "version": "v1.3.9",
+      "git_blob_SHA": "a9f62319b7d956cc2daee957ae80c45352b72320",
+      "git_blob_match": true,
+      "sha256": "fad853f7f47c6c8b103171e7193fa095708cdcd70850a71d93aa5379e8a61d63",
+      "bytes": 765892
+    },
+    {
+      "file": "fonts/Pretendard-Medium.woff2",
+      "source_url": "https://raw.githubusercontent.com/orioncactus/pretendard/v1.3.9/packages/pretendard/dist/web/static/woff2/Pretendard-Medium.woff2",
+      "version": "v1.3.9",
+      "git_blob_SHA": "f8c743d603ed545917669bb0f45f417ca6d772b9",
+      "git_blob_match": true,
+      "sha256": "d03481330eeba0659ab5b87f25ceb504a35de377dd90a0d0aba2982eb2d05e2c",
+      "bytes": 778432
+    },
+    {
+      "file": "fonts/Pretendard-SemiBold.woff2",
+      "source_url": "https://raw.githubusercontent.com/orioncactus/pretendard/v1.3.9/packages/pretendard/dist/web/static/woff2/Pretendard-SemiBold.woff2",
+      "version": "v1.3.9",
+      "git_blob_SHA": "4c6a32de1acd9d0ae77a6d0426185b0e7725b1d7",
+      "git_blob_match": true,
+      "sha256": "c863f76a7de5c1ddc1ed8b2fa794964530774592c4f31407a84e2a2ae93f17f0",
+      "bytes": 785856
+    },
+    {
+      "file": "fonts/Pretendard-Bold.woff2",
+      "source_url": "https://raw.githubusercontent.com/orioncactus/pretendard/v1.3.9/packages/pretendard/dist/web/static/woff2/Pretendard-Bold.woff2",
+      "version": "v1.3.9",
+      "git_blob_SHA": "4d40a1ab896c4e305354344326d2e18bea49c847",
+      "git_blob_match": true,
+      "sha256": "4609c3356e536fafe38f4add0daeceb3d8595d3057bce13c428c33ddbd43d362",
+      "bytes": 791156
+    },
+    {
+      "file": "fonts/LICENSE",
+      "source_url": "https://raw.githubusercontent.com/orioncactus/pretendard/v1.3.9/LICENSE",
+      "version": "v1.3.9",
+      "git_blob_SHA": "c0592ca0072da4537bdc064eb935d88e9bb4361d",
+      "git_blob_match": true,
+      "sha256": "d31ddd9f2bed32fd7e302a205cf2380ba0de6529152d239ef99cfb6f261bfc04",
+      "bytes": 4418
+    }
+  ],
+  "OS_font_installation": false,
+  "Penpot_registration": false,
+  "browser_load_test": [
+    {
+      "weight": 400,
+      "loaded": true,
+      "status": [
+        "loaded"
+      ]
+    },
+    {
+      "weight": 500,
+      "loaded": true,
+      "status": [
+        "loaded"
+      ]
+    },
+    {
+      "weight": 600,
+      "loaded": true,
+      "status": [
+        "loaded"
+      ]
+    },
+    {
+      "weight": 700,
+      "loaded": true,
+      "status": [
+        "loaded"
+      ]
+    }
+  ],
+  "cmap_checks": [
+    {
+      "status": "unverified",
+      "reason": "No module named brotli",
+      "per_glyph_fallback": "not proven; Japanese widths match monospace in browser measurements",
+      "fonts_loaded_in_browser": true
+    }
+  ]
+}

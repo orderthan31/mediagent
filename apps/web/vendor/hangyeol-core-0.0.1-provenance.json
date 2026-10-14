@@ -1,0 +1,18 @@
+{
+  "name": "@orderthan31/hangyeol-core",
+  "version": "0.0.1",
+  "filename": "orderthan31-hangyeol-core-0.0.1.tgz",
+  "bytes": 3177980,
+  "sha256": "7fa6d23b23a80df864a6021bef5c6a2bb190392851a828cc570788a1f22d87e4",
+  "sha1": "95546295b2b3654b7075a040769c91af4ef960f1",
+  "integrity": "sha512-W/sG/nQufDCjXx2BvVO2WsawzdmsCLqYDViExnQh6uK9S+AUim2cIsJqGcNHDrs+6WuFz41vR33sY0th3J6pow==",
+  "sourceRevision": "7aee407e5a455a487dd0493bdd5ba4bedebd7e7f",
+  "sourceRevisionOrigin": "External provenance: successful publication workflow head_sha, not an embedded package field",
+  "embeddedSourceRevision": null,
+  "publicationWorkflowRunId": 38118008082,
+  "publicationWorkflowURL": "https://github.com/orderthan31/hangyeol-design/actions/runs/38118008082",
+  "registryIntegrityMatch": "matches preserved successful actual-registry consumer proof",
+  "manifestFileHashesVerified": 132,
+  "installationRoute": "published byte-identical local tarball; no Mac registry authentication proof",
+  "readmeMainMayBeNewerThanArtifact": true
+}

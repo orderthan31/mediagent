@@ -1,0 +1,140 @@
+/* Domain layout only; controls, palette and typography come from local Hangyeol UI. */
+.auth-shell {
+  min-height: 100dvh;
+}
+.auth-shell .auth-header {
+  position: static;
+  height: 76px;
+  padding: 0 40px;
+  border-bottom: 1px solid var(--g-line);
+  background: var(--g-surface);
+}
+.auth-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 20px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.auth-brand-symbol {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-g-control);
+  background: var(--g-action);
+  color: var(--g-on-action);
+}
+.auth-header-note,
+.auth-description,
+.auth-form-note,
+.auth-footer {
+  color: var(--g-soft);
+}
+.auth-header-note,
+.auth-form-note,
+.auth-footer {
+  font-size: var(--text-g-small);
+}
+.auth-shell .auth-main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  min-height: calc(100dvh - 76px);
+  max-width: none;
+  margin: 0;
+  padding: 48px 24px 64px;
+}
+.auth-panel {
+  width: 100%;
+  max-width: 440px;
+  padding: 36px;
+  background: var(--g-surface);
+  border: 1px solid var(--g-line);
+  border-radius: var(--radius-g-panel);
+}
+.auth-intro {
+  margin-bottom: 32px;
+}
+.auth-eyebrow {
+  color: var(--g-action);
+  font-size: var(--text-g-small);
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+.auth-description {
+  margin-top: 12px;
+}
+.auth-form,
+.auth-fields,
+.auth-connection {
+  display: grid;
+  gap: 24px;
+}
+.auth-fields label {
+  display: block;
+  margin: 0;
+}
+.auth-form-note,
+.auth-footer {
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.auth-error {
+  margin-bottom: 24px;
+  padding: 16px;
+  border: 1px solid var(--g-line);
+  border-radius: var(--radius-g-control);
+  color: var(--g-danger);
+  background: var(--g-canvas);
+  font-size: var(--text-g-small);
+  overflow-wrap: anywhere;
+}
+.auth-error p {
+  margin-top: 8px;
+}
+.auth-connection p {
+  color: var(--g-soft);
+  font-size: var(--text-g-small);
+}
+.auth-pending {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 96px;
+  color: var(--g-soft);
+}
+.auth-spinner {
+  animation: auth-spin 1.2s linear infinite;
+}
+@keyframes auth-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .auth-spinner {
+    animation: none;
+  }
+}
+@media (max-width: 600px) {
+  .auth-shell .auth-header {
+    height: 68px;
+    min-height: 68px;
+    padding: 0 20px;
+  }
+  .auth-header-note {
+    display: none;
+  }
+  .auth-shell .auth-main {
+    min-height: calc(100dvh - 68px);
+    padding: 32px 20px;
+  }
+  .auth-panel {
+    padding: 28px 24px;
+  }
+}

@@ -17,3 +17,7 @@ data/
 !.env.vad.example
 apps/web/.vite/
 apps/web/coverage/
+apps/web/test-results/
+apps/web/playwright-report/
+apps/web/.hangyeol-backups/
+apps/web/.hangyeol-transactions/

@@ -1,0 +1,4 @@
+/* Preserve the old screens' cascade while allowing installed UI utilities to own controls. */
+@layer legacy, theme, base, components, utilities;
+@import './styles.css' layer(legacy);
+@import './workspace.css' layer(legacy);

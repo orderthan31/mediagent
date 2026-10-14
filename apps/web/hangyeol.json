@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "sourceRoot": "src/hangyeol",
+  "stylePath": "src/hangyeol.css",
+  "publicRoot": "public",
+  "fontPath": "fonts/hangyeol",
+  "basePath": "/",
+  "alias": null,
+  "installed": {
+    "src/hangyeol/foundation/theme.css": {
+      "version": "0.0.2-adapter.1",
+      "hash": "c05f2de9c8f44026cd87bd3f9f336e29d281e93ddc205ac7edee6ed15e544e7f"
+    },
+    "src/hangyeol/lib/cn.ts": {
+      "version": "0.0.2-adapter.1",
+      "hash": "8f8f4fbae84572af710b1c4aedad6ee43889436ec89d74942679c4335ff7c8ea"
+    },
+    "public/fonts/hangyeol/LICENSE": {
+      "version": "0.0.2-adapter.1",
+      "hash": "d31ddd9f2bed32fd7e302a205cf2380ba0de6529152d239ef99cfb6f261bfc04"
+    },
+    "public/fonts/hangyeol/Pretendard-Bold.woff2": {
+      "version": "0.0.2-adapter.1",
+      "hash": "4609c3356e536fafe38f4add0daeceb3d8595d3057bce13c428c33ddbd43d362"
+    },
+    "public/fonts/hangyeol/Pretendard-Medium.woff2": {
+      "version": "0.0.2-adapter.1",
+      "hash": "d03481330eeba0659ab5b87f25ceb504a35de377dd90a0d0aba2982eb2d05e2c"
+    },
+    "public/fonts/hangyeol/Pretendard-Regular.woff2": {
+      "version": "0.0.2-adapter.1",
+      "hash": "fad853f7f47c6c8b103171e7193fa095708cdcd70850a71d93aa5379e8a61d63"
+    },
+    "public/fonts/hangyeol/Pretendard-SemiBold.woff2": {
+      "version": "0.0.2-adapter.1",
+      "hash": "c863f76a7de5c1ddc1ed8b2fa794964530774592c4f31407a84e2a2ae93f17f0"
+    },
+    "public/fonts/hangyeol/provenance.json": {
+      "version": "0.0.2-adapter.1",
+      "hash": "3ca94ffbe6da16753984622184cc4d9765ba77c1cc617c5a5f5eda754b16fbee"
+    },
+    "src/hangyeol/foundation/fonts.css": {
+      "version": "0.0.2-adapter.1",
+      "hash": "4012f4ab9c27283e49a4aa26a8feed9567995fdadcaa4d6ae917f06815375287"
+    },
+    "src/hangyeol.css": {
+      "version": "0.0.2-adapter.1",
+      "hash": "7cd6e2d458d98c31824fa88a3f1ef8649b0a86f3a4acb89c1da9aa743b3ad964"
+    },
+    "src/hangyeol/foundation/theme.tsx": {
+      "version": "0.0.2-adapter.1",
+      "hash": "856c36192e8667cdbcc4dcc1c230e72cacb63eb22d332b0072d2474ea92a889e"
+    },
+    "src/hangyeol/primitives/input.tsx": {
+      "version": "0.0.2-adapter.1",
+      "hash": "fbe0b9b2070d635f0a91533c82670eaf73e80878c1739b639b048d6cbddd345a"
+    },
+    "src/hangyeol/primitives/button.tsx": {
+      "version": "0.0.2-adapter.1",
+      "hash": "6a1a3dfcec3f8e54131b8c9c50159cc3662f15641998de691a93f893a2ffc4e6"
+    },
+    "src/hangyeol/components/form-field.tsx": {
+      "version": "0.0.2-adapter.1",
+      "hash": "f04392b5ac8b4569f5c9b0e1c5c877677179a0b39d6328ff71cb5506513593d4"
+    },
+    "src/hangyeol/components/text-field.tsx": {
+      "version": "0.0.2-adapter.1",
+      "hash": "09cce6e4c1bb22150a6b02d537605cd9033e8869a9aaa90d9668cd3dc5eb0488"
+    }
+  },
+  "version": "0.0.2-adapter.1",
+  "tool": {
+    "package": "@orderthan31/hangyeol-core",
+    "version": "0.0.2-adapter.1"
+  },
+  "integration": {
+    "settings": {
+      "sourceRoot": "src/hangyeol",
+      "stylePath": "src/hangyeol.css",
+      "publicRoot": "public",
+      "fontPath": "fonts/hangyeol",
+      "basePath": "/",
+      "alias": null
+    },
+    "styleBody": ""
+  },
+  "components": ["theme", "text-field", "input", "button", "form-field"]
+}

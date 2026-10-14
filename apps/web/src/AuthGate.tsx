@@ -2,6 +2,10 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { Captions, LogIn, LogOut, RefreshCw } from 'lucide-react';
 import { ApiError, request } from './api';
 import { sessionEvents, setCsrfToken } from './auth-session';
+import { Theme } from './hangyeol/foundation/theme';
+import { TextField } from './hangyeol/components/text-field';
+import { Button } from './hangyeol/primitives/button';
+import './auth.css';
 type Session = {
   enabled: boolean;
   user: {
@@ -124,69 +128,95 @@ export const AuthGate = ({ children }: { children: ReactNode }) => {
     );
   }
   return (
-    <>
-      <header>
-        <a className="brand" href="/">
-          <Captions size={27} />
-          <span>장면</span>
+    <Theme mode="light" palette="Indigo" className="auth-shell">
+      <header className="auth-header">
+        <a className="auth-brand" href="/" aria-label="mideagent 처음으로">
+          <span className="auth-brand-symbol" aria-hidden="true">
+            <Captions size={23} />
+          </span>
+          <span>mideagent</span>
         </a>
+        <span className="auth-header-note">미디어 작업 공간</span>
       </header>
-      <main className="auth-page">
-        <h1>로그인</h1>
-        {error && (
-          <div className="alert" role="alert">
-            {error}
+      <main className="auth-main">
+        <section className="auth-panel" aria-labelledby="auth-title">
+          <div className="auth-intro">
+            <p className="auth-eyebrow">다시 이어가는 작업</p>
+            <h1 id="auth-title" className="text-g-title leading-g-title font-semibold">
+              {session ? '작업 공간에 로그인' : '작업 공간 연결'}
+            </h1>
+            <p className="auth-description">
+              {session
+                ? '영상과 자막 작업을 이어가세요.'
+                : error
+                  ? '서버 연결에 실패했어요. 연결 상태를 확인한 뒤 다시 시도해 주세요.'
+                  : '서버 연결과 로그인 상태를 확인하고 있어요.'}
+            </p>
           </div>
-        )}
-        {!session ? (
-          error ? (
-            <button className="primary" onClick={() => setAttempt((n) => n + 1)}>
-              <RefreshCw size={18} />
-              다시 연결
-            </button>
+          {error && (
+            <div className="auth-error" role="alert">
+              <strong>{session ? '로그인하지 못했어요' : '서버에 연결하지 못했어요'}</strong>
+              <p>{error}</p>
+            </div>
+          )}
+          {!session ? (
+            error ? (
+              <div className="auth-connection">
+                <p>서버 실행 상태와 네트워크를 확인한 뒤 다시 연결해 주세요.</p>
+                <Button className="w-full" onClick={() => setAttempt((n) => n + 1)}>
+                  <RefreshCw size={18} aria-hidden="true" />
+                  다시 연결
+                </Button>
+              </div>
+            ) : (
+              <div className="auth-pending" role="status" aria-live="polite">
+                <RefreshCw size={20} className="auth-spinner" aria-hidden="true" />
+                <span>연결 중...</span>
+              </div>
+            )
           ) : (
-            <p role="status">연결 중...</p>
-          )
-        ) : (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              void login();
-            }}
-          >
-            <label>
-              사용자 이름
-              <input
-                autoFocus
-                autoComplete="username"
-                name="username"
-                required
-                maxLength={64}
-                value={username}
-                disabled={busy}
-                onChange={(e) => setUsername(e.target.value)}
-              />
-            </label>
-            <label>
-              비밀번호
-              <input
-                type="password"
-                autoComplete="current-password"
-                name="password"
-                required
-                maxLength={256}
-                value={password}
-                disabled={busy}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </label>
-            <button className="primary" disabled={busy}>
-              <LogIn size={18} />
-              {busy ? '로그인 중...' : '로그인'}
-            </button>
-          </form>
-        )}
+            <form
+              className="auth-form"
+              aria-busy={busy}
+              onSubmit={(e) => {
+                e.preventDefault();
+                void login();
+              }}
+            >
+              <div className="auth-fields">
+                <TextField
+                  label="사용자 이름"
+                  autoFocus
+                  autoComplete="username"
+                  name="username"
+                  required
+                  maxLength={64}
+                  value={username}
+                  disabled={busy}
+                  onChange={(e) => setUsername(e.target.value)}
+                />
+                <TextField
+                  label="비밀번호"
+                  type="password"
+                  autoComplete="current-password"
+                  name="password"
+                  required
+                  maxLength={256}
+                  value={password}
+                  disabled={busy}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+              <Button type="submit" className="w-full" loading={busy} disabled={busy}>
+                <LogIn size={18} aria-hidden="true" />
+                {busy ? '로그인 중...' : '로그인'}
+              </Button>
+              <p className="auth-form-note">이 작업 공간에 등록된 계정으로 로그인해 주세요.</p>
+            </form>
+          )}
+        </section>
+        <p className="auth-footer">영상 보관 · 작업 관리 · 자막 검수</p>
       </main>
-    </>
+    </Theme>
   );
 };

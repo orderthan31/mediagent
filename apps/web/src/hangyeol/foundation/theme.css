@@ -1,0 +1,112 @@
+/* Editable foundations shared by components and the documentation. */
+@theme inline {
+  --font-g-sans: Pretendard, sans-serif;
+  --color-g-canvas: var(--g-canvas);
+  --color-g-surface: var(--g-surface);
+  --color-g-muted: var(--g-muted);
+  --color-g-line: var(--g-line);
+  --color-g-line-hover: var(--g-line-hover);
+  --color-g-control-track: var(--g-control-track);
+  --color-g-control-thumb: var(--g-control-thumb);
+  --color-g-ink: var(--g-ink);
+  --color-g-soft: var(--g-soft);
+  --color-g-action: var(--g-action);
+  --color-g-action-hover: var(--g-action-hover);
+  --color-g-on-action: var(--g-on-action);
+  --color-g-focus: var(--g-focus);
+  --color-g-danger: var(--g-danger);
+  --color-g-overlay: var(--g-overlay);
+  --text-g-body: 1rem;
+  --text-g-small: .875rem;
+  --text-g-caption: .75rem;
+  --text-g-title: 1.75rem;
+  --leading-g-title: 1.3;
+  --leading-g-heading: 1.4;
+  --leading-g-label: 1.4;
+  --leading-g-body: 1.5;
+  --radius-g-control: .5rem;
+  --radius-g-panel: .75rem;
+  --spacing-g-control: 1rem;
+}
+@layer base {
+  [data-hangyeol] {
+    --g-canvas: #F8FAFC;
+    --g-surface: #FFFFFF;
+    --g-muted: #F1F5F9;
+    --g-line: #CBD5E1;
+    --g-line-hover: #94A3B8;
+    --g-control-track: #E2E8F0;
+    --g-control-thumb: #FFFFFF;
+    --g-ink: #0F172A;
+    --g-soft: #475569;
+    --g-action: #4359DB;
+    --g-action-hover: #3547B8;
+    --g-on-action: #FFFFFF;
+    --g-focus: #4359DB;
+    --g-danger: #B91C1C;
+    --g-overlay: #0F172AB3;
+    font-family: Pretendard, sans-serif;
+    color: var(--g-ink);
+    line-height: 1.5;
+    font-size: 1rem;
+    color-scheme: light;
+  }
+  [data-hangyeol][data-theme="dark"] {
+    --g-canvas: #0F172A;
+    --g-surface: #1E293B;
+    --g-muted: #334155;
+    --g-line: #475569;
+    --g-line-hover: #64748B;
+    --g-control-track: #334155;
+    --g-control-thumb: #E2E8F0;
+    --g-ink: #F8FAFC;
+    --g-soft: #CBD5E1;
+    --g-action: #7C93FF;
+    --g-action-hover: #90A3FF;
+    --g-on-action: #0F172A;
+    --g-focus: #7C93FF;
+    --g-danger: #FCA5A5;
+    --g-overlay: #0F172AD9;
+    color-scheme: dark;
+  }
+  [data-hangyeol], [data-hangyeol] *, [data-hangyeol] *::before, [data-hangyeol] *::after { box-sizing: border-box; }
+  [data-hangyeol] :where(button,input,select,textarea) { font: inherit; }
+  [data-hangyeol] :where(button) { cursor: pointer; }
+  [data-hangyeol] :where(button):disabled { cursor: not-allowed; }
+  [data-hangyeol] :where(h1,h2,h3,p,ul,ol) { margin: 0; }
+  [data-hangyeol] :where(ul,ol) { padding: 0; list-style: none; }
+  [data-hangyeol] :where(a) { color: inherit; }
+}
+/* Palette and light/dark scheme are independent; explicit consumer values win. */
+@layer base {
+  [data-hangyeol][data-palette="Indigo"][data-theme="light"] {
+    --g-action: #4359DB; --g-action-hover: #3547B8; --g-on-action: #FFFFFF; --g-focus: #4359DB;
+  }
+  [data-hangyeol][data-palette="Indigo"][data-theme="dark"] {
+    --g-action: #7C93FF; --g-action-hover: #90A3FF; --g-on-action: #0F172A; --g-focus: #7C93FF;
+  }
+  [data-hangyeol][data-palette="Silver"][data-theme="light"] {
+    --g-action: #64748B; --g-action-hover: #475569; --g-on-action: #FFFFFF; --g-focus: #475569;
+  }
+  [data-hangyeol][data-palette="Silver"][data-theme="dark"] {
+    --g-action: #94A3B8; --g-action-hover: #A4B1C3; --g-on-action: #0F172A; --g-focus: #94A3B8;
+  }
+  [data-hangyeol][data-palette="Forest"][data-theme="light"] {
+    --g-action: #166534; --g-action-hover: #14532D; --g-on-action: #FFFFFF; --g-focus: #166534;
+  }
+  [data-hangyeol][data-palette="Forest"][data-theme="dark"] {
+    --g-action: #4ADE80; --g-action-hover: #65E393; --g-on-action: #0F172A; --g-focus: #4ADE80;
+  }
+  [data-hangyeol][data-palette="Amber"][data-theme="light"] {
+    --g-action: #F59E0B; --g-action-hover: #FBBF24; --g-on-action: #0F172A; --g-focus: #92400E;
+  }
+  [data-hangyeol][data-palette="Amber"][data-theme="dark"] {
+    --g-action: #FCD34D; --g-action-hover: #FCDA68; --g-on-action: #0F172A; --g-focus: #FCD34D;
+  }
+  [data-hangyeol][data-palette="Rose"][data-theme="light"] {
+    --g-action: #E11D48; --g-action-hover: #BE123C; --g-on-action: #FFFFFF; --g-focus: #BE123C;
+  }
+  [data-hangyeol][data-palette="Rose"][data-theme="dark"] {
+    --g-action: #F472B6; --g-action-hover: #F687C1; --g-on-action: #0F172A; --g-focus: #F472B6;
+  }
+}
