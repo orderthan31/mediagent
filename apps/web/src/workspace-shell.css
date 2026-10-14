@@ -1,0 +1,179 @@
+/* Common layout only. Existing asset rows/detail/queue remain domain-owned for REN-03. */
+.workspace-theme {
+  min-height: 100dvh;
+  --blue: var(--g-action);
+  --muted: var(--g-soft);
+  --line: var(--g-line);
+}
+.renewed-workspace .workspace-header {
+  height: auto;
+  border: 0;
+  border-bottom: 1px solid var(--g-line);
+  min-height: 76px;
+  padding: 16px 32px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  gap: 28px;
+}
+.workspace-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 20px;
+  text-decoration: none;
+}
+.workspace-brand-symbol {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-g-control);
+  color: var(--g-on-action);
+  background: var(--g-action);
+}
+.workspace-header nav a[aria-current='page'] {
+  color: var(--g-action);
+  background: var(--g-muted);
+  font-weight: 600;
+}
+.workspace-session {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+.workspace-connection {
+  font-size: var(--text-g-caption);
+  color: var(--g-soft);
+  white-space: nowrap;
+}
+.workspace-connection::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 7px;
+  background: var(--g-line-hover);
+}
+.workspace-connection.online::before {
+  background: var(--g-action);
+}
+.workspace-route-context {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 24px 32px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: var(--text-g-small);
+  color: var(--g-soft);
+}
+.renewed-workspace > .video-main,
+.renewed-workspace > .job-detail {
+  width: 100%;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 32px 32px 72px;
+  min-height: 0;
+}
+.renewed-workspace > .settings-page {
+  max-width: 880px;
+}
+.workspace-connection-notice {
+  padding: 16px 20px;
+  margin-bottom: 24px;
+  border: 1px solid var(--g-line);
+  border-radius: var(--radius-g-panel);
+  color: var(--g-soft);
+  background: var(--g-surface);
+}
+.workspace-page-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+.workspace-page-heading > div {
+  min-width: 0;
+}
+.workspace-page-heading h1 {
+  font-size: var(--text-g-title);
+  line-height: var(--leading-g-title);
+  font-weight: 600;
+  margin: 8px 0 12px;
+}
+.workspace-eyebrow {
+  font-size: var(--text-g-small);
+  color: var(--g-action);
+  font-weight: 600;
+}
+.workspace-page-description {
+  color: var(--g-soft);
+  line-height: var(--leading-g-body);
+}
+.workspace-page-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+}
+.workspace-page-actions > button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.workspace-page-actions > span {
+  min-width: 0;
+  color: var(--g-soft);
+  font-size: var(--text-g-small);
+}
+.workspace-search {
+  max-width: 560px;
+  padding: 24px;
+  margin-bottom: 24px;
+  border: 1px solid var(--g-line);
+  background: var(--g-surface);
+  border-radius: var(--radius-g-panel);
+}
+.workspace-search label {
+  display: block;
+  margin: 0;
+}
+@media (max-width: 639px) {
+  .renewed-workspace .workspace-header {
+    padding: 16px 20px;
+    gap: 12px;
+  }
+  .workspace-brand {
+    font-size: 18px;
+  }
+  .workspace-session {
+    margin-left: auto;
+    gap: 8px;
+  }
+  .workspace-route-context {
+    padding: 20px 20px 0;
+  }
+  .workspace-route-context > span {
+    display: none;
+  }
+  .renewed-workspace > .video-main,
+  .renewed-workspace > .job-detail {
+    padding: 24px 20px 48px;
+  }
+  .workspace-page-heading {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .workspace-page-actions {
+    justify-content: space-between;
+  }
+  .workspace-search {
+    max-width: none;
+    padding: 20px;
+  }
+}

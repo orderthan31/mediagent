@@ -1,0 +1,428 @@
+{
+  "operation": "doctor",
+  "readOnly": true,
+  "package": {
+    "name": "@orderthan31/hangyeol-core",
+    "version": "0.0.2-adapter.1",
+    "integrity": "verified"
+  },
+  "config": {
+    "sourceRoot": "src/hangyeol",
+    "stylePath": "src/hangyeol.css",
+    "publicRoot": "public",
+    "fontPath": "fonts/hangyeol",
+    "basePath": "/",
+    "alias": null
+  },
+  "checks": [
+    {
+      "code": "core.identity",
+      "status": "ok",
+      "path": "node_modules/@orderthan31/hangyeol-core/package.json",
+      "cause": "Physical installed package, dev pin and lock identify this version.",
+      "action": "No action.",
+      "version": "0.0.2-adapter.1",
+      "integrity": "sha512-Q4MR5464MXRN+ZzBKNSJkkUtX9K/1Rqqofa5cdRYaSwdp4oD1561YRME/NJB35n/7ajfzb/mcxGLmKpUM64Ykg=="
+    },
+    {
+      "code": "source.present",
+      "status": "ok",
+      "path": "src/hangyeol/foundation/theme.css",
+      "cause": "Required owned file exists.",
+      "action": "No action.",
+      "hash": "c05f2de9c8f44026cd87bd3f9f336e29d281e93ddc205ac7edee6ed15e544e7f"
+    },
+    {
+      "code": "source.edited",
+      "status": "info",
+      "path": "src/hangyeol/lib/cn.ts",
+      "cause": "Local consumer bytes differ from the recorded installation. This alone is not corruption.",
+      "action": "Keep authored edits; independently review syntax/connections as needed.",
+      "hash": "e6555b43700a48e3d863f50b2fa9d5d47577f9250e6d6f497928fd9585b3afc3",
+      "recordedHash": "8f8f4fbae84572af710b1c4aedad6ee43889436ec89d74942679c4335ff7c8ea"
+    },
+    {
+      "code": "source.edited",
+      "status": "info",
+      "path": "src/hangyeol/foundation/theme.tsx",
+      "cause": "Local consumer bytes differ from the recorded installation. This alone is not corruption.",
+      "action": "Keep authored edits; independently review syntax/connections as needed.",
+      "hash": "4adec465bb25eba49dd8c6357b16ade53af01a3ce63828081362476837f1cee9",
+      "recordedHash": "856c36192e8667cdbcc4dcc1c230e72cacb63eb22d332b0072d2474ea92a889e"
+    },
+    {
+      "code": "source.edited",
+      "status": "info",
+      "path": "src/hangyeol/primitives/input.tsx",
+      "cause": "Local consumer bytes differ from the recorded installation. This alone is not corruption.",
+      "action": "Keep authored edits; independently review syntax/connections as needed.",
+      "hash": "ff7dad178ea0ec4a4985417c28e4517a189a5c5e099d9473b2849a18d08b304e",
+      "recordedHash": "fbe0b9b2070d635f0a91533c82670eaf73e80878c1739b639b048d6cbddd345a"
+    },
+    {
+      "code": "source.edited",
+      "status": "info",
+      "path": "src/hangyeol/primitives/button.tsx",
+      "cause": "Local consumer bytes differ from the recorded installation. This alone is not corruption.",
+      "action": "Keep authored edits; independently review syntax/connections as needed.",
+      "hash": "e60fd5b12f22eb120f58281e37d60756484ff8dbe93c80bbe2df13e4ee94fd16",
+      "recordedHash": "6a1a3dfcec3f8e54131b8c9c50159cc3662f15641998de691a93f893a2ffc4e6"
+    },
+    {
+      "code": "source.edited",
+      "status": "info",
+      "path": "src/hangyeol/components/form-field.tsx",
+      "cause": "Local consumer bytes differ from the recorded installation. This alone is not corruption.",
+      "action": "Keep authored edits; independently review syntax/connections as needed.",
+      "hash": "c2de7eb89ba0b3ecad48307d0d0d5cb242913221541cd4315f380a73cf0708ac",
+      "recordedHash": "f04392b5ac8b4569f5c9b0e1c5c877677179a0b39d6328ff71cb5506513593d4"
+    },
+    {
+      "code": "source.edited",
+      "status": "info",
+      "path": "src/hangyeol/components/text-field.tsx",
+      "cause": "Local consumer bytes differ from the recorded installation. This alone is not corruption.",
+      "action": "Keep authored edits; independently review syntax/connections as needed.",
+      "hash": "3f4e93b9d72dcd63b071311b80301b771f41e5719ef90d516ca0e14341b473a0",
+      "recordedHash": "09cce6e4c1bb22150a6b02d537605cd9033e8869a9aaa90d9668cd3dc5eb0488"
+    },
+    {
+      "code": "source.edited",
+      "status": "info",
+      "path": "src/hangyeol/components/gnb.tsx",
+      "cause": "Local consumer bytes differ from the recorded installation. This alone is not corruption.",
+      "action": "Keep authored edits; independently review syntax/connections as needed.",
+      "hash": "5563a4c30856a0bc47e272ef29f334133c55181e7f8a0f444414d7f384184b9a",
+      "recordedHash": "1f2793edebe8739c5a4c77c5823e3e4b954a221f82cccac6b1fe40eb4c4b2982"
+    },
+    {
+      "code": "asset.present",
+      "status": "ok",
+      "path": "public/fonts/hangyeol/LICENSE",
+      "cause": "Required owned file exists.",
+      "action": "No action.",
+      "hash": "d31ddd9f2bed32fd7e302a205cf2380ba0de6529152d239ef99cfb6f261bfc04"
+    },
+    {
+      "code": "asset.present",
+      "status": "ok",
+      "path": "public/fonts/hangyeol/Pretendard-Bold.woff2",
+      "cause": "Required owned file exists.",
+      "action": "No action.",
+      "hash": "4609c3356e536fafe38f4add0daeceb3d8595d3057bce13c428c33ddbd43d362"
+    },
+    {
+      "code": "asset.present",
+      "status": "ok",
+      "path": "public/fonts/hangyeol/Pretendard-Medium.woff2",
+      "cause": "Required owned file exists.",
+      "action": "No action.",
+      "hash": "d03481330eeba0659ab5b87f25ceb504a35de377dd90a0d0aba2982eb2d05e2c"
+    },
+    {
+      "code": "asset.present",
+      "status": "ok",
+      "path": "public/fonts/hangyeol/Pretendard-Regular.woff2",
+      "cause": "Required owned file exists.",
+      "action": "No action.",
+      "hash": "fad853f7f47c6c8b103171e7193fa095708cdcd70850a71d93aa5379e8a61d63"
+    },
+    {
+      "code": "asset.present",
+      "status": "ok",
+      "path": "public/fonts/hangyeol/Pretendard-SemiBold.woff2",
+      "cause": "Required owned file exists.",
+      "action": "No action.",
+      "hash": "c863f76a7de5c1ddc1ed8b2fa794964530774592c4f31407a84e2a2ae93f17f0"
+    },
+    {
+      "code": "asset.present",
+      "status": "ok",
+      "path": "public/fonts/hangyeol/provenance.json",
+      "cause": "Required owned file exists.",
+      "action": "No action.",
+      "hash": "3ca94ffbe6da16753984622184cc4d9765ba77c1cc617c5a5f5eda754b16fbee"
+    },
+    {
+      "code": "style.present",
+      "status": "ok",
+      "path": "src/hangyeol.css",
+      "cause": "Required owned file exists.",
+      "action": "No action.",
+      "hash": "7cd6e2d458d98c31824fa88a3f1ef8649b0a86f3a4acb89c1da9aa743b3ad964"
+    },
+    {
+      "code": "style.present",
+      "status": "ok",
+      "path": "src/hangyeol/foundation/fonts.css",
+      "cause": "Required owned file exists.",
+      "action": "No action.",
+      "hash": "4012f4ab9c27283e49a4aa26a8feed9567995fdadcaa4d6ae917f06815375287"
+    },
+    {
+      "code": "connection.stylesheet",
+      "status": "ok",
+      "path": "src/hangyeol.css",
+      "cause": "Direct configured import declarations match; target files are reported separately.",
+      "action": "No action."
+    },
+    {
+      "code": "connection.source",
+      "status": "ok",
+      "path": "src/hangyeol.css",
+      "cause": "Configured sourceRoot has a direct literal @source.",
+      "action": "No action."
+    },
+    {
+      "code": "connection.fonts",
+      "status": "ok",
+      "path": "src/hangyeol/foundation/fonts.css",
+      "cause": "Four configured same-origin font URL declarations match; asset bytes are reported separately.",
+      "action": "No action; serving/font load is separate.",
+      "fonts": [
+        {
+          "weight": 400,
+          "url": "/fonts/hangyeol/Pretendard-Regular.woff2",
+          "path": "public/fonts/hangyeol/Pretendard-Regular.woff2",
+          "matches": 1
+        },
+        {
+          "weight": 500,
+          "url": "/fonts/hangyeol/Pretendard-Medium.woff2",
+          "path": "public/fonts/hangyeol/Pretendard-Medium.woff2",
+          "matches": 1
+        },
+        {
+          "weight": 600,
+          "url": "/fonts/hangyeol/Pretendard-SemiBold.woff2",
+          "path": "public/fonts/hangyeol/Pretendard-SemiBold.woff2",
+          "matches": 1
+        },
+        {
+          "weight": 700,
+          "url": "/fonts/hangyeol/Pretendard-Bold.woff2",
+          "path": "public/fonts/hangyeol/Pretendard-Bold.woff2",
+          "matches": 1
+        }
+      ]
+    },
+    {
+      "code": "connection.vite",
+      "status": "ok",
+      "path": "vite.config.ts",
+      "cause": "Static Tailwind plugin, base/publicDir/alias and supported build configuration match.",
+      "action": "No config module was executed."
+    },
+    {
+      "code": "source.runtime-separation",
+      "status": "ok",
+      "path": "src/hangyeol",
+      "cause": "Inspected runtime imports have no core/CLI tool coupling; literal local references, including type-only references, remain in sourceRoot.",
+      "action": "Static type-only classification is not TypeScript resolution/emission proof; computed paths and broader bundler semantics require separate verification.",
+      "imports": [
+        {
+          "file": "src/hangyeol/components/form-field.tsx",
+          "line": 1,
+          "kind": "external",
+          "usage": "runtime"
+        },
+        {
+          "file": "src/hangyeol/components/form-field.tsx",
+          "line": 2,
+          "kind": "local",
+          "usage": "runtime"
+        },
+        {
+          "file": "src/hangyeol/components/form-field.tsx",
+          "line": 3,
+          "kind": "local",
+          "usage": "runtime"
+        },
+        {
+          "file": "src/hangyeol/components/gnb.tsx",
+          "line": 1,
+          "kind": "external",
+          "usage": "runtime"
+        },
+        {
+          "file": "src/hangyeol/components/gnb.tsx",
+          "line": 2,
+          "kind": "local",
+          "usage": "runtime"
+        },
+        {
+          "file": "src/hangyeol/components/text-field.tsx",
+          "line": 1,
+          "kind": "external",
+          "usage": "runtime"
+        },
+        {
+          "file": "src/hangyeol/components/text-field.tsx",
+          "line": 11,
+          "kind": "local",
+          "usage": "runtime"
+        },
+        {
+          "file": "src/hangyeol/components/text-field.tsx",
+          "line": 12,
+          "kind": "local",
+          "usage": "runtime"
+        },
+        {
+          "file": "src/hangyeol/components/text-field.tsx",
+          "line": 13,
+          "kind": "local",
+          "usage": "runtime"
+        },
+        {
+          "file": "src/hangyeol/foundation/theme.tsx",
+          "line": 1,
+          "kind": "external",
+          "usage": "runtime"
+        },
+        {
+          "file": "src/hangyeol/foundation/theme.tsx",
+          "line": 10,
+          "kind": "local",
+          "usage": "runtime"
+        },
+        {
+          "file": "src/hangyeol/lib/cn.ts",
+          "line": 1,
+          "kind": "external",
+          "usage": "runtime"
+        },
+        {
+          "file": "src/hangyeol/lib/cn.ts",
+          "line": 2,
+          "kind": "external",
+          "usage": "runtime"
+        },
+        {
+          "file": "src/hangyeol/primitives/button.tsx",
+          "line": 1,
+          "kind": "external",
+          "usage": "runtime"
+        },
+        {
+          "file": "src/hangyeol/primitives/button.tsx",
+          "line": 2,
+          "kind": "local",
+          "usage": "runtime"
+        },
+        {
+          "file": "src/hangyeol/primitives/input.tsx",
+          "line": 1,
+          "kind": "external",
+          "usage": "runtime"
+        },
+        {
+          "file": "src/hangyeol/primitives/input.tsx",
+          "line": 2,
+          "kind": "local",
+          "usage": "runtime"
+        }
+      ]
+    }
+  ],
+  "capabilities": {
+    "repair": false,
+    "update": false
+  },
+  "limitations": [
+    "Static installed records and connections; not build, CSS cascade, HTTP/font load, browser/AT or update acceptance."
+  ],
+  "dependencies": {
+    "runtime": [
+      {
+        "name": "react",
+        "expected": "React 19",
+        "status": "present"
+      },
+      {
+        "name": "react-dom",
+        "expected": "React 19",
+        "status": "present"
+      },
+      {
+        "name": "clsx",
+        "expected": "2.1.1",
+        "status": "present"
+      },
+      {
+        "name": "tailwind-merge",
+        "expected": "3.7.0",
+        "status": "present"
+      }
+    ],
+    "build": [
+      {
+        "name": "vite",
+        "expected": "declared installed Vite version",
+        "status": "present"
+      },
+      {
+        "name": "tailwindcss",
+        "expected": "4.3.3",
+        "status": "present"
+      },
+      {
+        "name": "@tailwindcss/vite",
+        "expected": "4.3.3",
+        "status": "present"
+      }
+    ],
+    "types": [
+      {
+        "name": "@types/react",
+        "expected": "19.2.2",
+        "status": "present"
+      },
+      {
+        "name": "@types/react-dom",
+        "expected": "19.2.2",
+        "status": "present"
+      }
+    ],
+    "coreTools": [
+      {
+        "name": "@shadcn/lint",
+        "version": "0.2.0",
+        "license": "MIT",
+        "role": "development tool; not requested UI runtime"
+      },
+      {
+        "name": "@typescript-eslint/parser",
+        "version": "8.71.1",
+        "license": "MIT",
+        "role": "development tool; not requested UI runtime"
+      },
+      {
+        "name": "eslint",
+        "version": "9.39.5",
+        "license": "MIT",
+        "role": "development tool; not requested UI runtime"
+      },
+      {
+        "name": "postcss",
+        "version": "8.5.28",
+        "license": "MIT",
+        "role": "development tool; not requested UI runtime"
+      },
+      {
+        "name": "postcss-selector-parser",
+        "version": "7.1.6",
+        "license": "MIT",
+        "role": "development tool; not requested UI runtime"
+      }
+    ]
+  },
+  "coverage": {
+    "sourceFiles": 7,
+    "imports": 17,
+    "parser": "8.71.1",
+    "mode": "static AST; not execution or bundler proof"
+  },
+  "status": "ok",
+  "exit": 0
+}

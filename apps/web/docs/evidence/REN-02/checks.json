@@ -1,0 +1,41 @@
+[
+  {
+    "name": "lint",
+    "command": [
+      "npm",
+      "run",
+      "lint"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "format",
+    "command": [
+      "npm",
+      "run",
+      "format:check"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "build",
+    "command": [
+      "npm",
+      "run",
+      "build"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "browser",
+    "command": [
+      "node",
+      "node_modules/@playwright/test/cli.js",
+      "test",
+      "tests/browser/workspace-shell.spec.ts",
+      "tests/browser/workspace-offline.spec.ts",
+      "tests/browser/auth-gate.spec.ts"
+    ],
+    "exit": 0
+  }
+]

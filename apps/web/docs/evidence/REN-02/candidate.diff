@@ -1,0 +1,951 @@
+diff --git a/apps/web/hangyeol.json b/apps/web/hangyeol.json
+index f873f1d..9bc3c05 100644
+--- a/apps/web/hangyeol.json
++++ b/apps/web/hangyeol.json
+@@ -66,6 +66,10 @@
+     "src/hangyeol/components/text-field.tsx": {
+       "version": "0.0.2-adapter.1",
+       "hash": "09cce6e4c1bb22150a6b02d537605cd9033e8869a9aaa90d9668cd3dc5eb0488"
++    },
++    "src/hangyeol/components/gnb.tsx": {
++      "version": "0.0.2-adapter.1",
++      "hash": "1f2793edebe8739c5a4c77c5823e3e4b954a221f82cccac6b1fe40eb4c4b2982"
+     }
+   },
+   "version": "0.0.2-adapter.1",
+@@ -84,5 +88,5 @@
+     },
+     "styleBody": ""
+   },
+-  "components": ["theme", "text-field", "input", "button", "form-field"]
++  "components": ["theme", "text-field", "input", "button", "form-field", "gnb"]
+ }
+diff --git a/apps/web/src/VideoWorkspace.tsx b/apps/web/src/VideoWorkspace.tsx
+index 111741c..d0ecadb 100644
+--- a/apps/web/src/VideoWorkspace.tsx
++++ b/apps/web/src/VideoWorkspace.tsx
+@@ -5,12 +5,10 @@ import {
+   FileVideo,
+   FolderOpen,
+   ListVideo,
+-  Menu,
+   Pause,
+   Play,
+   Plus,
+   Search,
+-  Settings,
+   Trash2,
+   Upload,
+   X,
+@@ -36,8 +34,18 @@ import {
+   VideoDetail,
+   VideoUpload,
+ } from './video-api';
++import { Theme } from './hangyeol/foundation/theme';
++import { GNB } from './hangyeol/components/gnb';
++import { TextField } from './hangyeol/components/text-field';
++import { Button } from './hangyeol/primitives/button';
+ import './video-workspace.css';
+ import './workspace-polish.css';
++import './workspace-shell.css';
++const workspaceLinks = [
++  { id: 'videos', label: '영상 보관함', href: '#/' },
++  { id: 'jobs', label: '작업 목록', href: '#/jobs' },
++  { id: 'settings', label: '설정', href: '#/settings' },
++];
+ export const VideoWorkspace = () => {
+   const [route, setRoute] = useState(location.hash || '#/'),
+     [videos, setVideos] = useState<VideoAsset[]>([]),
+@@ -48,16 +56,6 @@ export const VideoWorkspace = () => {
+     [error, setError] = useState(''),
+     [online, setOnline] = useState(false),
+     [busy, setBusy] = useState('');
+-  const [sidebar, setSidebar] = useState(() => {
+-    if (matchMedia('(max-width:720px)').matches) {
+-      return false;
+-    }
+-    try {
+-      return localStorage.getItem('sidebar-open') !== 'false';
+-    } catch {
+-      return true;
+-    }
+-  });
+   const [detail, setDetail] = useState<VideoDetail | null>(null),
+     [subtitleInputs, setSubtitleInputs] = useState<SubtitleInput[]>([]),
+     [workflow, setWorkflow] = useState(false),
+@@ -104,6 +102,16 @@ export const VideoWorkspace = () => {
+     jobId = route.match(/^#\/jobs\/([a-f0-9]{32})$/)?.[1];
+   const jobsView = route === '#/jobs';
+   const settingsView = route === '#/settings';
++  const currentHref = settingsView ? '#/settings' : jobsView || jobId ? '#/jobs' : '#/';
++  const locationLabel = settingsView
++    ? '설정'
++    : jobId
++      ? '작업 목록 / 작업 상세'
++      : jobsView
++        ? '작업 목록'
++        : assetId
++          ? '영상 보관함 / 영상 상세'
++          : '영상 보관함';
+   const shownVideos = videos.filter((v) =>
+     v.original_filename.toLocaleLowerCase().includes(query.toLocaleLowerCase()),
+   );
+@@ -325,45 +333,10 @@ export const VideoWorkspace = () => {
+       setSubtitleInputs([]);
+       setQuery('');
+       window.scrollTo(0, 0);
+-      if (matchMedia('(max-width:720px)').matches) {
+-        setSidebar(false);
+-      }
+     };
+     window.addEventListener('hashchange', navigate);
+     return () => window.removeEventListener('hashchange', navigate);
+   }, []);
+-  useEffect(() => {
+-    if (!matchMedia('(max-width:720px)').matches) {
+-      try {
+-        localStorage.setItem('sidebar-open', String(sidebar));
+-      } catch {}
+-    }
+-  }, [sidebar]);
+-  useEffect(() => {
+-    const media = matchMedia('(max-width:720px)');
+-    const change = () => {
+-      if (media.matches) {
+-        setSidebar(false);
+-      } else {
+-        try {
+-          setSidebar(localStorage.getItem('sidebar-open') !== 'false');
+-        } catch {
+-          setSidebar(true);
+-        }
+-      }
+-    };
+-    media.addEventListener('change', change);
+-    return () => media.removeEventListener('change', change);
+-  }, []);
+-  useEffect(() => {
+-    const close = (e: KeyboardEvent) => {
+-      if (e.key === 'Escape' && matchMedia('(max-width:720px)').matches) {
+-        setSidebar(false);
+-      }
+-    };
+-    window.addEventListener('keydown', close);
+-    return () => window.removeEventListener('keydown', close);
+-  }, []);
+   useEffect(() => {
+     queue.onChange = () => setUploads(queue.items.map((x) => ({ ...x })));
+     queue.activate();
+@@ -433,413 +406,393 @@ export const VideoWorkspace = () => {
+     };
+   }, [assetId]);
+   return (
+-    <div
+-      className={'app-shell video-workspace ' + (sidebar ? 'sidebar-open' : 'sidebar-collapsed')}
+-    >
+-      <header>
+-        <div className="brand-controls">
+-          <button
+-            className="icon sidebar-toggle"
+-            title={sidebar ? '사이드바 닫기' : '사이드바 열기'}
+-            aria-label={sidebar ? '사이드바 닫기' : '사이드바 열기'}
+-            aria-expanded={sidebar}
+-            onClick={() => setSidebar((v) => !v)}
+-          >
+-            <Menu className="sidebar-menu-icon" size={22} />
+-            <X className="sidebar-close-icon" size={22} />
+-          </button>
+-          <a className="brand" href="#/" aria-label="장면 홈">
+-            <span className="brand-mark">
+-              <FileVideo size={21} />
+-            </span>
+-            <strong>장면</strong>
+-            <span className="brand-wordmark">JANGMYEON</span>
+-          </a>
+-        </div>
+-        <div className="header-session">
+-          <span className={'connection ' + (online ? 'online' : '')}>
+-            {online ? '연결됨' : '연결 확인 중'}
+-          </span>
+-          <AccountMenu />
+-        </div>
+-      </header>
+-      {sidebar && (
+-        <>
+-          <button
+-            className="sidebar-backdrop"
+-            aria-label="메뉴 닫기"
+-            onClick={() => setSidebar(false)}
+-          />
+-          <aside className="workspace-nav">
+-            <button
+-              className="primary"
+-              onClick={() => {
+-                resume.current = null;
+-                input.current?.click();
+-              }}
+-            >
+-              <Plus size={19} />
+-              영상 업로드
+-            </button>
+-            <nav>
+-              <a href="#/" aria-current={!jobsView && !jobId && !settingsView ? 'page' : undefined}>
+-                <FolderOpen size={19} />
+-                원본 보관함<span>{videos.length}</span>
+-              </a>
+-              <a href="#/jobs" aria-current={jobsView || jobId ? 'page' : undefined}>
+-                <ListVideo size={19} />
+-                전체 작업<span>{jobs.length}</span>
+-              </a>
+-              <a href="#/settings" aria-current={settingsView ? 'page' : undefined}>
+-                <Settings size={19} />
+-                설정
+-              </a>
+-            </nav>
+-          </aside>
+-        </>
+-      )}
+-      <input
+-        ref={input}
+-        type="file"
+-        multiple={!resume.current}
+-        hidden
+-        onChange={(e) => chooseFiles(e.target.files)}
+-      />
+-      <input
+-        ref={srtInput}
+-        type="file"
+-        accept=".srt"
+-        hidden
+-        onChange={(e) => void attachSrt(e.target.files?.[0])}
+-      />
+-      {settingsView ? (
+-        <SettingsPage />
+-      ) : jobId ? (
+-        <JobDetail
+-          id={jobId}
+-          key={jobId}
+-          labels={statusLabels}
+-          promotedAssetId={
+-            videos.find((v) => v.provenance.kind === 'result' && v.provenance.job_id === jobId)
+-              ?.asset_id
++    <Theme mode="light" palette="Indigo" className="workspace-theme">
++      <div className="video-workspace renewed-workspace">
++        <GNB
++          className="workspace-header"
++          items={workspaceLinks}
++          currentHref={currentHref}
++          label="작업 공간 탐색"
++          logo={
++            <a className="workspace-brand" href="#/" aria-label="mideagent 영상 보관함">
++              <span className="workspace-brand-symbol" aria-hidden="true">
++                <FileVideo size={22} />
++              </span>
++              <strong>mideagent</strong>
++            </a>
++          }
++          actions={
++            <div className="workspace-session">
++              <span className={'workspace-connection ' + (online ? 'online' : '')} role="status">
++                {online ? '서버 연결됨' : '서버 연결 확인 필요'}
++              </span>
++              <AccountMenu />
++            </div>
+           }
+         />
+-      ) : (
+-        <main className="video-main">
+-          {error && (
+-            <p role="alert" className="alert">
+-              {error}
+-              <button className="icon" title="오류 닫기" onClick={() => setError('')}>
+-                <X size={16} />
+-              </button>
+-            </p>
+-          )}
+-          {assetId ? (
+-            <>
+-              {detail ? (
+-                <>
+-                  <div className="library-heading">
+-                    <a className="icon" title="원본 보관함으로" href="#/">
+-                      <ArrowLeft size={21} />
+-                    </a>
+-                    <div>
+-                      <p className="eyebrow">원본 영상</p>
+-                      <h1>{detail.video.original_filename}</h1>
+-                    </div>
+-                    <button className="primary" onClick={() => setWorkflow(true)}>
+-                      <Play size={17} />새 작업
+-                    </button>
+-                  </div>
+-                  <section className="asset-overview">
+-                    <video
+-                      controls
+-                      playsInline
+-                      preload="none"
+-                      poster={`${base}/videos/${assetId}/thumbnail`}
+-                      src={`${base}/videos/${assetId}/stream`}
+-                    />
+-                    <div>
+-                      <h2>영상 정보</h2>
+-                      <dl>
+-                        <dt>길이</dt>
+-                        <dd>{durationLabel(detail.video.media?.duration) || '미확인'}</dd>
+-                        <dt>용량</dt>
+-                        <dd>{sizeLabel(detail.video.size_bytes)}</dd>
+-                        <dt>해상도</dt>
+-                        <dd>
+-                          {detail.video.media
+-                            ? `${detail.video.media.width} × ${detail.video.media.height}`
+-                            : '미확인'}
+-                        </dd>
+-                        <dt>등록일</dt>
+-                        <dd>{new Date(detail.video.created_at).toLocaleString('ko-KR')}</dd>
+-                        <dt>등록 경로</dt>
+-                        <dd>
+-                          {detail.video.provenance.kind === 'result'
+-                            ? '결과 영상에서 등록'
+-                            : '파일 업로드'}
+-                          {detail.video.provenance.parent_asset_id && (
+-                            <a href={`#/videos/${detail.video.provenance.parent_asset_id}`}>
+-                              이전 원본
+-                            </a>
+-                          )}
+-                        </dd>
+-                      </dl>
+-                      <a className="download" href={`${base}/videos/${assetId}/download`}>
+-                        <Download size={16} />
+-                        원본 다운로드
+-                      </a>
+-                      <button
+-                        className="danger"
+-                        onClick={() =>
+-                          setConfirm({
+-                            title:
+-                              '원본 영상을 삭제할까요? 연결된 작업이 있으면 삭제할 수 없습니다.',
+-                            action: async () => {
+-                              await request(`/videos/${assetId}`, { method: 'DELETE' });
+-                              location.hash = '/';
+-                            },
+-                          })
+-                        }
+-                      >
+-                        <Trash2 size={15} />
+-                        원본 삭제
+-                      </button>
+-                    </div>
+-                  </section>
+-                  <section className="asset-subtitles">
+-                    <div className="section-heading">
+-                      <h2>
+-                        자막 입력 <small>{subtitleInputs.length}</small>
+-                      </h2>
+-                      <button disabled={!!busy} onClick={() => srtInput.current?.click()}>
+-                        <Plus size={16} />
+-                        SRT 첨부
+-                      </button>
+-                    </div>
+-                    {subtitleInputs.length ? (
+-                      <ul>
+-                        {subtitleInputs.map((s) => (
+-                          <li key={s.artifact_id}>
+-                            <span>{s.filename}</span>
+-                            <small>
+-                              {s.language} · {s.cue_count}개 ·{' '}
+-                              {s.provenance.kind === 'job_subtitle'
+-                                ? `작업 자막 v${s.provenance.revision}`
+-                                : '외부 첨부'}
+-                            </small>
+-                          </li>
+-                        ))}
+-                      </ul>
+-                    ) : (
+-                      <p className="muted">첨부된 자막이 없습니다.</p>
+-                    )}
+-                  </section>
+-                  <section>
+-                    <div className="section-heading">
+-                      <h2>
+-                        작업 기록 <small>{detail.jobs.length}</small>
+-                      </h2>
+-                    </div>
+-                    {jobRows(detail.jobs)}
+-                  </section>
+-                </>
+-              ) : (
+-                <p role="status">영상 불러오는 중</p>
+-              )}
+-            </>
+-          ) : (
+-            <>
+-              <div className="library-heading">
+-                <div>
+-                  <h1>
+-                    {jobsView ? '전체 작업' : '원본 보관함'}{' '}
+-                    <span className="heading-count">{jobsView ? jobs.length : videos.length}</span>
+-                  </h1>
+-                </div>
+-                <button
+-                  className="primary"
+-                  onClick={() => {
+-                    resume.current = null;
+-                    input.current?.click();
+-                  }}
+-                >
+-                  <Upload size={17} />
+-                  영상 업로드
++        <div className="workspace-route-context">
++          <p aria-label="현재 위치">{locationLabel}</p>
++          <span>영상·자막 작업 공간</span>
++        </div>
++        <input
++          ref={input}
++          type="file"
++          multiple={!resume.current}
++          hidden
++          onChange={(e) => chooseFiles(e.target.files)}
++        />
++        <input
++          ref={srtInput}
++          type="file"
++          accept=".srt"
++          hidden
++          onChange={(e) => void attachSrt(e.target.files?.[0])}
++        />
++        {settingsView ? (
++          <SettingsPage />
++        ) : jobId ? (
++          <JobDetail
++            id={jobId}
++            key={jobId}
++            labels={statusLabels}
++            promotedAssetId={
++              videos.find((v) => v.provenance.kind === 'result' && v.provenance.job_id === jobId)
++                ?.asset_id
++            }
++          />
++        ) : (
++          <main className="video-main">
++            {!online && (
++              <p className="workspace-connection-notice" role="status">
++                서버 연결을 확인해 주세요. 목록 정보가 최신이 아닐 수 있어요.
++              </p>
++            )}
++            {error && (
++              <p role="alert" className="alert">
++                {error}
++                <button className="icon" title="오류 닫기" onClick={() => setError('')}>
++                  <X size={16} />
+                 </button>
+-              </div>
+-              {!jobsView && (uploads.length > 0 || pendingSessions.length > 0) && (
+-                <section className="upload-shelf">
+-                  <h2>
+-                    업로드 <small>{uploads.length + pendingSessions.length}</small>
+-                  </h2>
+-                  {uploads.map((u) => (
+-                    <div className="upload-line" key={u.key}>
++              </p>
++            )}
++            {assetId ? (
++              <>
++                {detail ? (
++                  <>
++                    <div className="library-heading">
++                      <a className="icon" title="원본 보관함으로" href="#/">
++                        <ArrowLeft size={21} />
++                      </a>
+                       <div>
+-                        <strong>{u.name}</strong>
+-                        <small>
+-                          {u.progress === u.size && u.state === 'uploading'
+-                            ? '영상 확인 및 등록 중'
+-                            : {
+-                                waiting: '대기',
+-                                uploading: '업로드 중',
+-                                paused: '일시정지',
+-                                error: '실패',
+-                                done: '완료',
+-                              }[u.state]}{' '}
+-                          · {Math.floor((u.progress / u.size) * 100)}% · {sizeLabel(u.size)}
+-                        </small>
+-                        {u.error && (
+-                          <p role="alert" className="alert">
+-                            {u.error}
+-                          </p>
+-                        )}
+-                        <progress value={u.progress} max={u.size} />
++                        <p className="eyebrow">원본 영상</p>
++                        <h1>{detail.video.original_filename}</h1>
+                       </div>
+-                      <button
+-                        className="icon"
+-                        title={
+-                          ['paused', 'error'].includes(u.state) ? '업로드 재개' : '업로드 일시정지'
+-                        }
+-                        onClick={() =>
+-                          ['paused', 'error'].includes(u.state)
+-                            ? queue.resume(u.key)
+-                            : queue.pause(u.key)
+-                        }
+-                      >
+-                        {['paused', 'error'].includes(u.state) ? (
+-                          <Play size={17} />
+-                        ) : (
+-                          <Pause size={17} />
+-                        )}
+-                      </button>
+-                      <button
+-                        className="icon danger"
+-                        title="업로드 제거"
+-                        onClick={() => queue.remove(u.key)}
+-                      >
+-                        <X size={17} />
++                      <button className="primary" onClick={() => setWorkflow(true)}>
++                        <Play size={17} />새 작업
+                       </button>
+                     </div>
+-                  ))}
+-                  {pendingSessions.map((s) => (
+-                    <div className="upload-line" key={s.upload_id}>
++                    <section className="asset-overview">
++                      <video
++                        controls
++                        playsInline
++                        preload="none"
++                        poster={`${base}/videos/${assetId}/thumbnail`}
++                        src={`${base}/videos/${assetId}/stream`}
++                      />
+                       <div>
+-                        <strong>{s.filename}</strong>
+-                        <small>
+-                          {Math.floor((s.uploaded_bytes / s.expected_size) * 100)}% ·{' '}
+-                          {s.status === 'READY' ? '등록 대기' : '업로드 미완료'}
+-                        </small>
+-                        <progress value={s.uploaded_bytes} max={s.expected_size} />
++                        <h2>영상 정보</h2>
++                        <dl>
++                          <dt>길이</dt>
++                          <dd>{durationLabel(detail.video.media?.duration) || '미확인'}</dd>
++                          <dt>용량</dt>
++                          <dd>{sizeLabel(detail.video.size_bytes)}</dd>
++                          <dt>해상도</dt>
++                          <dd>
++                            {detail.video.media
++                              ? `${detail.video.media.width} × ${detail.video.media.height}`
++                              : '미확인'}
++                          </dd>
++                          <dt>등록일</dt>
++                          <dd>{new Date(detail.video.created_at).toLocaleString('ko-KR')}</dd>
++                          <dt>등록 경로</dt>
++                          <dd>
++                            {detail.video.provenance.kind === 'result'
++                              ? '결과 영상에서 등록'
++                              : '파일 업로드'}
++                            {detail.video.provenance.parent_asset_id && (
++                              <a href={`#/videos/${detail.video.provenance.parent_asset_id}`}>
++                                이전 원본
++                              </a>
++                            )}
++                          </dd>
++                        </dl>
++                        <a className="download" href={`${base}/videos/${assetId}/download`}>
++                          <Download size={16} />
++                          원본 다운로드
++                        </a>
++                        <button
++                          className="danger"
++                          onClick={() =>
++                            setConfirm({
++                              title:
++                                '원본 영상을 삭제할까요? 연결된 작업이 있으면 삭제할 수 없습니다.',
++                              action: async () => {
++                                await request(`/videos/${assetId}`, { method: 'DELETE' });
++                                location.hash = '/';
++                              },
++                            })
++                          }
++                        >
++                          <Trash2 size={15} />
++                          원본 삭제
++                        </button>
+                       </div>
+-                      <button
+-                        className="icon"
+-                        title={
+-                          s.status === 'READY' ? '영상 등록 재시도' : '파일 선택 후 업로드 재개'
+-                        }
+-                        onClick={() =>
+-                          s.status === 'READY'
+-                            ? void action(s.upload_id, () =>
+-                                request(`/video-uploads/${s.upload_id}/complete`, {
+-                                  method: 'POST',
+-                                }),
+-                              )
+-                            : chooseResume(s.upload_id)
+-                        }
+-                      >
+-                        <Play size={17} />
+-                      </button>
+-                      <button
+-                        className="icon danger"
+-                        title="업로드 삭제"
+-                        onClick={() =>
+-                          setConfirm({
+-                            title: `${s.filename} 업로드를 삭제할까요?`,
+-                            action: async () => {
+-                              await request(`/video-uploads/${s.upload_id}`, { method: 'DELETE' });
+-                            },
+-                          })
+-                        }
+-                      >
+-                        <Trash2 size={17} />
+-                      </button>
+-                    </div>
+-                  ))}
+-                </section>
+-              )}
+-              <label className="library-search">
+-                <Search size={18} />
+-                <input
+-                  aria-label={jobsView ? '작업 검색' : '영상 검색'}
+-                  placeholder={jobsView ? '작업 검색' : '영상 검색'}
+-                  value={query}
+-                  onChange={(e) => setQuery(e.target.value)}
+-                />
+-              </label>
+-              {jobsView ? (
+-                jobRows(
+-                  jobs.filter((j) =>
+-                    j.original_filename.toLocaleLowerCase().includes(query.toLocaleLowerCase()),
+-                  ),
+-                )
+-              ) : (
+-                <div className="asset-list">
+-                  {shownVideos.map((v) => (
+-                    <a key={v.asset_id} className="asset-row" href={`#/videos/${v.asset_id}`}>
+-                      <Thumbnail assetId={v.asset_id} />
+-                      <div>
+-                        <h2>{v.original_filename}</h2>
+-                        <p>
+-                          {durationLabel(v.media?.duration)} · {sizeLabel(v.size_bytes)}
+-                        </p>
+-                        <small>
+-                          {new Date(v.created_at).toLocaleString('ko-KR')}
+-                          {v.provenance.kind === 'result' ? ' · 결과에서 등록' : ''}
+-                        </small>
++                    </section>
++                    <section className="asset-subtitles">
++                      <div className="section-heading">
++                        <h2>
++                          자막 입력 <small>{subtitleInputs.length}</small>
++                        </h2>
++                        <button disabled={!!busy} onClick={() => srtInput.current?.click()}>
++                          <Plus size={16} />
++                          SRT 첨부
++                        </button>
+                       </div>
+-                      <span className="asset-open">열기</span>
+-                    </a>
+-                  ))}
+-                  {!shownVideos.length && (
+-                    <div className="library-empty">
+-                      <FolderOpen size={38} />
+-                      <p>{query ? '검색 결과가 없습니다.' : '등록된 원본 영상이 없습니다.'}</p>
+-                    </div>
+-                  )}
++                      {subtitleInputs.length ? (
++                        <ul>
++                          {subtitleInputs.map((s) => (
++                            <li key={s.artifact_id}>
++                              <span>{s.filename}</span>
++                              <small>
++                                {s.language} · {s.cue_count}개 ·{' '}
++                                {s.provenance.kind === 'job_subtitle'
++                                  ? `작업 자막 v${s.provenance.revision}`
++                                  : '외부 첨부'}
++                              </small>
++                            </li>
++                          ))}
++                        </ul>
++                      ) : (
++                        <p className="muted">첨부된 자막이 없습니다.</p>
++                      )}
++                    </section>
++                    <section>
++                      <div className="section-heading">
++                        <h2>
++                          작업 기록 <small>{detail.jobs.length}</small>
++                        </h2>
++                      </div>
++                      {jobRows(detail.jobs)}
++                    </section>
++                  </>
++                ) : (
++                  <p role="status">영상 불러오는 중</p>
++                )}
++              </>
++            ) : (
++              <>
++                <div className="workspace-page-heading">
++                  <div>
++                    <p className="workspace-eyebrow">{jobsView ? '실행과 검수' : '원본 영상'}</p>
++                    <h1>{jobsView ? '작업 목록' : '영상 보관함'}</h1>
++                    <p className="workspace-page-description">
++                      {jobsView
++                        ? '생성한 작업의 진행 상태와 결과를 확인하세요.'
++                        : '보관된 영상을 찾고, 필요한 작업을 이어가세요.'}
++                    </p>
++                  </div>
++                  <div className="workspace-page-actions">
++                    <span>{jobsView ? jobs.length : videos.length}개</span>
++                    <Button
++                      onClick={() => {
++                        resume.current = null;
++                        input.current?.click();
++                      }}
++                    >
++                      <Upload size={17} aria-hidden="true" />
++                      영상 업로드
++                    </Button>
++                  </div>
+                 </div>
+-              )}
+-            </>
+-          )}
+-        </main>
+-      )}
+-      {workflow && detail && (
+-        <WorkflowDialog
+-          detail={detail}
+-          onClose={() => setWorkflow(false)}
+-          onCreated={(job) => {
+-            setWorkflow(false);
+-            location.hash = `/jobs/${job.job_id}`;
+-            void refresh();
+-          }}
+-        />
+-      )}
+-      {review && (
+-        <SubtitleEditor
+-          job={review}
+-          onClose={() => setReview(null)}
+-          onRendered={() => void refresh()}
+-        />
+-      )}
+-      {confirm && (
+-        <Confirm
+-          title={confirm.title}
+-          error={error}
+-          busy={!!busy}
+-          onClose={() => setConfirm(null)}
+-          onConfirm={() => void action('delete', confirm.action)}
+-        />
+-      )}
+-    </div>
++                {!jobsView && (uploads.length > 0 || pendingSessions.length > 0) && (
++                  <section className="upload-shelf">
++                    <h2>
++                      업로드 <small>{uploads.length + pendingSessions.length}</small>
++                    </h2>
++                    {uploads.map((u) => (
++                      <div className="upload-line" key={u.key}>
++                        <div>
++                          <strong>{u.name}</strong>
++                          <small>
++                            {u.progress === u.size && u.state === 'uploading'
++                              ? '영상 확인 및 등록 중'
++                              : {
++                                  waiting: '대기',
++                                  uploading: '업로드 중',
++                                  paused: '일시정지',
++                                  error: '실패',
++                                  done: '완료',
++                                }[u.state]}{' '}
++                            · {Math.floor((u.progress / u.size) * 100)}% · {sizeLabel(u.size)}
++                          </small>
++                          {u.error && (
++                            <p role="alert" className="alert">
++                              {u.error}
++                            </p>
++                          )}
++                          <progress value={u.progress} max={u.size} />
++                        </div>
++                        <button
++                          className="icon"
++                          title={
++                            ['paused', 'error'].includes(u.state)
++                              ? '업로드 재개'
++                              : '업로드 일시정지'
++                          }
++                          onClick={() =>
++                            ['paused', 'error'].includes(u.state)
++                              ? queue.resume(u.key)
++                              : queue.pause(u.key)
++                          }
++                        >
++                          {['paused', 'error'].includes(u.state) ? (
++                            <Play size={17} />
++                          ) : (
++                            <Pause size={17} />
++                          )}
++                        </button>
++                        <button
++                          className="icon danger"
++                          title="업로드 제거"
++                          onClick={() => queue.remove(u.key)}
++                        >
++                          <X size={17} />
++                        </button>
++                      </div>
++                    ))}
++                    {pendingSessions.map((s) => (
++                      <div className="upload-line" key={s.upload_id}>
++                        <div>
++                          <strong>{s.filename}</strong>
++                          <small>
++                            {Math.floor((s.uploaded_bytes / s.expected_size) * 100)}% ·{' '}
++                            {s.status === 'READY' ? '등록 대기' : '업로드 미완료'}
++                          </small>
++                          <progress value={s.uploaded_bytes} max={s.expected_size} />
++                        </div>
++                        <button
++                          className="icon"
++                          title={
++                            s.status === 'READY' ? '영상 등록 재시도' : '파일 선택 후 업로드 재개'
++                          }
++                          onClick={() =>
++                            s.status === 'READY'
++                              ? void action(s.upload_id, () =>
++                                  request(`/video-uploads/${s.upload_id}/complete`, {
++                                    method: 'POST',
++                                  }),
++                                )
++                              : chooseResume(s.upload_id)
++                          }
++                        >
++                          <Play size={17} />
++                        </button>
++                        <button
++                          className="icon danger"
++                          title="업로드 삭제"
++                          onClick={() =>
++                            setConfirm({
++                              title: `${s.filename} 업로드를 삭제할까요?`,
++                              action: async () => {
++                                await request(`/video-uploads/${s.upload_id}`, {
++                                  method: 'DELETE',
++                                });
++                              },
++                            })
++                          }
++                        >
++                          <Trash2 size={17} />
++                        </button>
++                      </div>
++                    ))}
++                  </section>
++                )}
++                <div className="workspace-search">
++                  <TextField
++                    label={jobsView ? '작업 검색' : '영상 검색'}
++                    type="search"
++                    placeholder="파일 이름으로 검색"
++                    prefix={<Search size={18} aria-hidden="true" />}
++                    value={query}
++                    onValueChange={setQuery}
++                    clearable
++                  />
++                </div>
++                {jobsView ? (
++                  jobRows(
++                    jobs.filter((j) =>
++                      j.original_filename.toLocaleLowerCase().includes(query.toLocaleLowerCase()),
++                    ),
++                  )
++                ) : (
++                  <div className="asset-list">
++                    {shownVideos.map((v) => (
++                      <a key={v.asset_id} className="asset-row" href={`#/videos/${v.asset_id}`}>
++                        <Thumbnail assetId={v.asset_id} />
++                        <div>
++                          <h2>{v.original_filename}</h2>
++                          <p>
++                            {durationLabel(v.media?.duration)} · {sizeLabel(v.size_bytes)}
++                          </p>
++                          <small>
++                            {new Date(v.created_at).toLocaleString('ko-KR')}
++                            {v.provenance.kind === 'result' ? ' · 결과에서 등록' : ''}
++                          </small>
++                        </div>
++                        <span className="asset-open">열기</span>
++                      </a>
++                    ))}
++                    {!shownVideos.length && online && (
++                      <div className="library-empty">
++                        <FolderOpen size={38} />
++                        <p>{query ? '검색 결과가 없습니다.' : '등록된 원본 영상이 없습니다.'}</p>
++                      </div>
++                    )}
++                  </div>
++                )}
++              </>
++            )}
++          </main>
++        )}
++        {workflow && detail && (
++          <WorkflowDialog
++            detail={detail}
++            onClose={() => setWorkflow(false)}
++            onCreated={(job) => {
++              setWorkflow(false);
++              location.hash = `/jobs/${job.job_id}`;
++              void refresh();
++            }}
++          />
++        )}
++        {review && (
++          <SubtitleEditor
++            job={review}
++            onClose={() => setReview(null)}
++            onRendered={() => void refresh()}
++          />
++        )}
++        {confirm && (
++          <Confirm
++            title={confirm.title}
++            error={error}
++            busy={!!busy}
++            onClose={() => setConfirm(null)}
++            onConfirm={() => void action('delete', confirm.action)}
++          />
++        )}
++      </div>
++    </Theme>
+   );
+ };
+ const Thumbnail = ({ assetId }: { assetId: string }) => {
+diff --git a/apps/web/tests/browser/auth-gate.spec.ts b/apps/web/tests/browser/auth-gate.spec.ts
+index ceaffb4..efaf81b 100644
+--- a/apps/web/tests/browser/auth-gate.spec.ts
++++ b/apps/web/tests/browser/auth-gate.spec.ts
+@@ -1,7 +1,7 @@
+ import { expect, test } from '@playwright/test';
+ import fs from 'node:fs/promises';
+ 
+-const evidence = 'docs/evidence/REN-01';
++const evidence = process.env.AUTH_EVIDENCE_DIR ?? 'docs/evidence/REN-01';
+ const runtimeErrors: string[] = [];
+ 
+ test.beforeEach(({ page }) => {
+@@ -133,7 +133,8 @@ test('로그인 성공 및 세션 만료를 기존 workspace와 재로그인으
+   await page.getByLabel(/^비밀번호/).fill('fixture-not-a-secret');
+   await page.getByLabel(/^비밀번호/).press('Enter');
+   await expect(page.locator('.video-workspace')).toBeVisible();
+-  await expect(page.locator('[data-hangyeol]')).toHaveCount(0);
++  await expect(page.locator('.auth-shell')).toHaveCount(0);
++  await expect(page.locator('.workspace-theme')).toBeVisible();
+   await page.evaluate(async () => {
+     const modulePath = '/src/auth-session.ts';
+     const { sessionEvents } = await import(modulePath);

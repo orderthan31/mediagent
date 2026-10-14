@@ -1,0 +1,13 @@
+
+> video-subtitle-web@0.1.0 build
+> tsc -p tsconfig.json && vite build
+
+vite v7.3.6 building client environment for production...
+transforming...
+✓ 1610 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.43 kB │ gzip:  0.32 kB
+dist/assets/index-CgqMKe-f.css   48.08 kB │ gzip: 10.41 kB
+dist/assets/index-Du2vCh3Z.js   291.46 kB │ gzip: 91.75 kB
+✓ built in 2.63s

@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import fs from 'node:fs/promises';
 
-const evidence = 'docs/evidence/REN-01';
+const evidence = process.env.AUTH_EVIDENCE_DIR ?? 'docs/evidence/REN-01';
 const runtimeErrors: string[] = [];
 
 test.beforeEach(({ page }) => {
@@ -133,7 +133,8 @@ test('로그인 성공 및 세션 만료를 기존 workspace와 재로그인으�
   await page.getByLabel(/^비밀번호/).fill('fixture-not-a-secret');
   await page.getByLabel(/^비밀번호/).press('Enter');
   await expect(page.locator('.video-workspace')).toBeVisible();
-  await expect(page.locator('[data-hangyeol]')).toHaveCount(0);
+  await expect(page.locator('.auth-shell')).toHaveCount(0);
+  await expect(page.locator('.workspace-theme')).toBeVisible();
   await page.evaluate(async () => {
     const modulePath = '/src/auth-session.ts';
     const { sessionEvents } = await import(modulePath);

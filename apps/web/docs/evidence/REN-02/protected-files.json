@@ -1,0 +1,37 @@
+[
+  {
+    "file": "src/AuthGate.tsx",
+    "byteIdenticalToHEAD": true,
+    "sha256": "7568a9bf15d09fbec2b273ad2bfa84ca253505a43a8969009de93cc9d86ffe9f"
+  },
+  {
+    "file": "vite.config.ts",
+    "byteIdenticalToHEAD": true,
+    "sha256": "3d3d274e5abfc73294ba243c1ae325f01da187c521c85154d03f4a1d0c012978"
+  },
+  {
+    "file": "src/api.ts",
+    "byteIdenticalToHEAD": true,
+    "sha256": "acbe98e977f2a8c20a8c39eff60ad80c3a4eada5ded5531b386741d2a3014f9c"
+  },
+  {
+    "file": "src/video-api.ts",
+    "byteIdenticalToHEAD": true,
+    "sha256": "fa2b5a8cf9f2f40ea0ae0d091b02fb092fad9b2e0b967fdd36cf5ad693699973"
+  },
+  {
+    "file": "src/SettingsPage.tsx",
+    "byteIdenticalToHEAD": true,
+    "sha256": "cad4e46f847416a5caca00e9d1f8391b0098c909ad416dff0ed1f0accf77dd59"
+  },
+  {
+    "file": "src/JobDetail.tsx",
+    "byteIdenticalToHEAD": true,
+    "sha256": "c3a4a83d1425d36306dff3d2b2f525d040a73e3cc6438b01da388f915341775b"
+  },
+  {
+    "file": "src/upload-queue.ts",
+    "byteIdenticalToHEAD": true,
+    "sha256": "36d97639d0a6eab511052b38bdb67335c5a65f3399e33b48598888bff48820db"
+  }
+]

@@ -1,0 +1,14 @@
+--- previous/tests/browser/workspace-shell.spec.ts
++++ current/tests/browser/workspace-shell.spec.ts
+@@ -80,9 +80,10 @@
+   await page.route('**/api/videos', (route) => route.fulfill({ json: { videos: [] } }));
+   await page.goto('/');
+   await expect(page.getByText('서버 연결됨', { exact: true })).toBeVisible();
++  await expect(page.locator('.workspace-page-actions > span')).toHaveText('0개');
+   await expect(page.getByText('등록된 원본 영상이 없습니다.', { exact: true })).toBeVisible();
+   await expect(page.getByRole('button', { name: '영상 업로드', exact: true })).toBeVisible();
+-  await page.screenshot({ path: `${evidence}/empty-library.png`, fullPage: true });
++  await page.screenshot({ path: `${evidence}/count-review/empty-library.png`, fullPage: true });
+ });
+ 
+ test('작은 화면에서 실제 메뉴·작업·설정 route와 검색 초기화를 연결한다', async ({ page }) => {

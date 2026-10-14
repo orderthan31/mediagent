@@ -66,6 +66,10 @@
     "src/hangyeol/components/text-field.tsx": {
       "version": "0.0.2-adapter.1",
       "hash": "09cce6e4c1bb22150a6b02d537605cd9033e8869a9aaa90d9668cd3dc5eb0488"
+    },
+    "src/hangyeol/components/gnb.tsx": {
+      "version": "0.0.2-adapter.1",
+      "hash": "1f2793edebe8739c5a4c77c5823e3e4b954a221f82cccac6b1fe40eb4c4b2982"
     }
   },
   "version": "0.0.2-adapter.1",
@@ -84,5 +88,5 @@
     },
     "styleBody": ""
   },
-  "components": ["theme", "text-field", "input", "button", "form-field"]
+  "components": ["theme", "text-field", "input", "button", "form-field", "gnb"]
 }

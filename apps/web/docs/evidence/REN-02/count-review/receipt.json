@@ -1,0 +1,81 @@
+{
+  "task": "REN-02-first-segment-count-review",
+  "revision": "uncommitted candidate",
+  "baseHEAD": "f1bf5ba32fa324e17e6f58480a5dbcbbe5bf4bfc",
+  "previousCandidateDigest": "ea4b38ad2ed60663baa07222702bbb101e7762eae42a9850c3d191fb9f9c826a",
+  "candidateDigest": "cedffa58e70e490de3bb7dad88a87da9e008ed2165a72930852fdd5207e11a6b",
+  "files": [
+    {
+      "path": "hangyeol.json",
+      "sha256": "5f8bdba84c667f8b7cdb8a7bd2fc20084f8dca14028c10685a5e25fd8abc134e"
+    },
+    {
+      "path": "src/VideoWorkspace.tsx",
+      "sha256": "f367c45199ab31824c45e5f60fce0c5b882f8be34c6e40bfa75645ee61560a8c"
+    },
+    {
+      "path": "src/hangyeol/components/gnb.tsx",
+      "sha256": "5563a4c30856a0bc47e272ef29f334133c55181e7f8a0f444414d7f384184b9a"
+    },
+    {
+      "path": "src/workspace-shell.css",
+      "sha256": "615b67f4e14351fbcf2628331e895a654ae93983b0ebf0e8a0421e9fca19bc47"
+    },
+    {
+      "path": "tests/browser/auth-gate.spec.ts",
+      "sha256": "2e90e2f38f85c2bd5bb1ef632050a0eeb11d7610d13bd4cf95d6c4f51e53ca76"
+    },
+    {
+      "path": "tests/browser/workspace-shell.spec.ts",
+      "sha256": "526aa4d981439a3ac1771f54e3421e837497378970338cbf4c183703954454ea"
+    },
+    {
+      "path": "tests/browser/workspace-offline.spec.ts",
+      "sha256": "31a2e39ad1438c403b9994cdbfee78d21a42b0feb88cdb96ec3c0302093f206b"
+    }
+  ],
+  "checks": [
+    {
+      "name": "format-final",
+      "command": [
+        "node",
+        "node_modules/prettier/bin/prettier.cjs",
+        "--write",
+        "src/workspace-shell.css",
+        "tests/browser/workspace-offline.spec.ts"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "lint-final",
+      "command": [
+        "node",
+        "node_modules/eslint/bin/eslint.js",
+        "src/VideoWorkspace.tsx",
+        "tests/browser/workspace-offline.spec.ts",
+        "tests/browser/workspace-shell.spec.ts"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "green-final",
+      "command": [
+        "node",
+        "node_modules/@playwright/test/cli.js",
+        "test",
+        "tests/browser/workspace-offline.spec.ts",
+        "tests/browser/workspace-shell.spec.ts",
+        "--grep",
+        "목록 연결 실패|최초 목록 대기|목록 갱신 실패|정상 연결된 빈"
+      ],
+      "exit": 0
+    }
+  ],
+  "typeCheck": {
+    "exit": 0,
+    "log": "type.log"
+  },
+  "previous8Tests": "Preserved without rerun in parent browser.log; not a claim of 8 tests on the modified candidate",
+  "scope": "Count presentation and a button non-shrink/nowrap rule only; four targeted fixture checks; no upload/API policy change",
+  "failureBoundary": "red.log/red-wrap.log and green-first.log retained. Pending-fixture teardown proxy errors resolved by releasing pending requests; final four tests have no proxy errors."
+}

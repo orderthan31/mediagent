@@ -1,0 +1,13 @@
+
+Running 8 tests using 1 worker
+
+  ✓  1 tests/browser/auth-gate.spec.ts:16:1 › 로그인 화면이 실제 Indigo 한결 UI와 로컬 Pretendard를 소비한다 (1.0s)
+  ✓  2 tests/browser/auth-gate.spec.ts:46:1 › 연결 대기·실패·재시도 상태를 분리한다 (968ms)
+  ✓  3 tests/browser/auth-gate.spec.ts:79:1 › native required·busy·실패 후 비밀번호 삭제 계약을 보존한다 (599ms)
+  ✓  4 tests/browser/auth-gate.spec.ts:115:1 › 로그인 성공 및 세션 만료를 기존 workspace와 재로그인으로 연결한다 (627ms)
+  ✓  5 tests/browser/workspace-offline.spec.ts:3:1 › 목록 연결 실패를 빈 보관함으로 확정하지 않고 기존 탐색을 유지한다 (333ms)
+  ✓  6 tests/browser/workspace-shell.spec.ts:51:1 › PC 공통 탐색·선택·검색·기존 영상 선택·업로드 행동을 연결한다 (989ms)
+  ✓  7 tests/browser/workspace-shell.spec.ts:79:1 › 정상 연결된 빈 보관함에서 업로드 행동을 유지한다 (347ms)
+  ✓  8 tests/browser/workspace-shell.spec.ts:88:1 › 작은 화면에서 실제 메뉴·작업·설정 route와 검색 초기화를 연결한다 (1.8s)
+
+  8 passed (9.5s)

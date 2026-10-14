@@ -1,0 +1,37 @@
+[
+  {
+    "name": "format-final",
+    "command": [
+      "node",
+      "node_modules/prettier/bin/prettier.cjs",
+      "--write",
+      "src/workspace-shell.css",
+      "tests/browser/workspace-offline.spec.ts"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "lint-final",
+    "command": [
+      "node",
+      "node_modules/eslint/bin/eslint.js",
+      "src/VideoWorkspace.tsx",
+      "tests/browser/workspace-offline.spec.ts",
+      "tests/browser/workspace-shell.spec.ts"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "green-final",
+    "command": [
+      "node",
+      "node_modules/@playwright/test/cli.js",
+      "test",
+      "tests/browser/workspace-offline.spec.ts",
+      "tests/browser/workspace-shell.spec.ts",
+      "--grep",
+      "목록 연결 실패|최초 목록 대기|목록 갱신 실패|정상 연결된 빈"
+    ],
+    "exit": 0
+  }
+]

@@ -1,0 +1,119 @@
+import { expect, test } from '@playwright/test';
+
+test('목록 연결 실패를 빈 보관함으로 확정하지 않고 기존 탐색을 유지한다', async ({ page }) => {
+  await page.route('**/api/**', (route) => {
+    if (new URL(route.request().url()).pathname === '/api/auth/session') {
+      return route.fulfill({ json: { enabled: false, user: null } });
+    }
+    return route.fulfill({ status: 503, json: { detail: '검증용 목록 연결 실패' } });
+  });
+  await page.goto('/');
+  await expect(page.getByText('서버 연결 확인 필요', { exact: true })).toBeVisible();
+  await expect(
+    page.getByText('서버 연결을 확인해 주세요. 목록 정보가 최신이 아닐 수 있어요.', {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(page.getByText('등록된 원본 영상이 없습니다.', { exact: true })).not.toBeVisible();
+  await expect(page.getByRole('link', { name: '작업 목록', exact: true })).toBeVisible();
+  await expect(page.locator('.workspace-page-actions > span')).toHaveText('개수 확인 불가');
+  await expect(page.getByRole('button', { name: '영상 업로드', exact: true })).toBeEnabled();
+  await page.screenshot({
+    path: 'docs/evidence/REN-02/count-review/offline-library.png',
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({
+    path: 'docs/evidence/REN-02/count-review/offline-mobile.png',
+    fullPage: true,
+  });
+  await page.getByText('메뉴', { exact: true }).click();
+  await page.getByRole('link', { name: '작업 목록', exact: true }).click();
+  await expect(page.locator('.workspace-page-actions > span')).toHaveText('개수 확인 불가');
+});
+
+test('최초 목록 대기는 확정 개수를 표시하지 않는다', async ({ page }) => {
+  let release!: () => void;
+  const pending = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route('**/api/**', async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path === '/api/auth/session') {
+      return route.fulfill({ json: { enabled: false, user: null } });
+    }
+    await pending;
+    return route.fulfill({
+      json:
+        path === '/api/videos'
+          ? { videos: [] }
+          : path === '/api/jobs'
+            ? { jobs: [] }
+            : { uploads: [] },
+    });
+  });
+  await page.goto('/');
+  await expect(page.locator('.workspace-page-actions > span')).toHaveText('개수 확인 중');
+  await expect(page.getByRole('button', { name: '영상 업로드', exact: true })).toBeEnabled();
+  await page.getByRole('link', { name: '작업 목록', exact: true }).click();
+  await expect(page.locator('.workspace-page-actions > span')).toHaveText('개수 확인 중');
+  release();
+  await expect(page.getByText('서버 연결됨', { exact: true })).toBeVisible();
+  await expect(page.locator('.workspace-page-actions > span')).toHaveText('0개');
+});
+
+test('목록 갱신 실패에는 영상·작업의 마지막 확인 개수를 표시한다', async ({ page }) => {
+  let fail = false;
+  const video = {
+    asset_id: 'a'.repeat(32),
+    original_filename: '이전_확인_영상.mp4',
+    size_bytes: 1024,
+    created_at: '2026-10-14T00:00:00Z',
+    provenance: { kind: 'upload' },
+  };
+  await page.route('**/api/**', (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path === '/api/auth/session') {
+      return route.fulfill({ json: { enabled: false, user: null } });
+    }
+    if (fail || path.endsWith('/thumbnail')) {
+      return route.fulfill({ status: 503, json: { detail: '검증용 갱신 실패' } });
+    }
+    return route.fulfill({
+      json:
+        path === '/api/videos'
+          ? { videos: [video] }
+          : path === '/api/jobs'
+            ? { jobs: [] }
+            : { uploads: [] },
+    });
+  });
+  await page.goto('/');
+  await expect(page.locator('.workspace-page-actions > span')).toHaveText('1개');
+  fail = true;
+  await expect(page.getByText('서버 연결 확인 필요', { exact: true })).toBeVisible();
+  await expect(page.locator('.workspace-page-actions > span')).toHaveText(
+    '마지막 확인 1개 · 최신이 아닐 수 있음',
+  );
+  await expect(page.locator('.asset-row')).toHaveCount(1);
+  await page.screenshot({
+    path: 'docs/evidence/REN-02/count-review/stale-library.png',
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await expect(page.getByRole('button', { name: '영상 업로드', exact: true })).toHaveCSS(
+    'white-space',
+    'nowrap',
+  );
+  await page.screenshot({
+    path: 'docs/evidence/REN-02/count-review/stale-mobile.png',
+    fullPage: true,
+  });
+  await page.getByText('메뉴', { exact: true }).click();
+  await page.getByRole('link', { name: '작업 목록', exact: true }).click();
+  await expect(page.locator('.workspace-page-actions > span')).toHaveText(
+    '마지막 확인 0개 · 최신이 아닐 수 있음',
+  );
+});
