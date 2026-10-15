@@ -1,0 +1,73 @@
+
+Running 1 test using 1 worker
+
+[1A[2K[1/1] ../../../../.hermes/cache/scratch/REN-07-demo/connected-demo.spec.cjs:13:1 › 동일 원본·입력·티켓의 안전 fixture 연결 데모
+[1A[2K[WebServer] [2m11:45:30 AM[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/videos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/subtitles[39m
+[WebServer] Error: connect ECONNREFUSED 127.0.0.1:8000
+[WebServer]     at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+
+[1A[2K[WebServer] [2m11:45:30 AM[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/videos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/audio-inputs[39m
+[WebServer] Error: connect ECONNREFUSED 127.0.0.1:8000
+[WebServer]     at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+
+[1A[2K[WebServer] [2m11:45:30 AM[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/videos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/workflow-plan[39m
+[WebServer] Error: connect ECONNREFUSED 127.0.0.1:8000
+[WebServer]     at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+
+[1A[2K  1) ../../../../.hermes/cache/scratch/REN-07-demo/connected-demo.spec.cjs:13:1 › 동일 원본·입력·티켓의 안전 fixture 연결 데모 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32m"dddddddddddddddddddddddddddddddd"[39m
+    Received: [31mnull[39m
+
+      46 |     if (path === `/api/videos/${asset}/subtitles`) return r.fulfill({ json: { subtitles: [subtitle] } });
+      47 |     if (path === `/api/videos/${asset}/audio-inputs`) return r.fulfill({ json: { audio_inputs: [] } });
+    > 48 |     if (path === `/api/videos/${asset}/workflow-plan`) { const b = req.postDataJSON(); expect(b.subtitle_artifact_id).toBe(input); return r.fulfill({ json: { version: 1, template: 'full', stages, reused: ['subtitle'], paid_stages: ['translate'] } }); }
+         |                                                                                                                       ^
+      49 |     if (path === `/api/videos/${asset}/jobs`) {
+      50 |       const b = req.postDataJSON(); expect(b.subtitle_artifact_id).toBe(input); expect(b.audio_job_id).toBeNull(); requestIds.push(b.request_id); creates++;
+      51 |       record.request_id = b.request_id; record.asset_id = asset; record.subtitle_artifact_id = input;
+        at /Users/austinko/.hermes/cache/scratch/REN-07-demo/connected-demo.spec.cjs:48:119
+
+    Error: locator.selectOption: Test ended.
+    Call log:
+    [2m  - waiting for getByRole('dialog').getByRole('combobox', { name: '자막 입력', exact: true })[22m
+    [2m    - locator resolved to <select aria-label="자막 입력">…</select>[22m
+    [2m  - attempting select option action[22m
+    [2m    2 × waiting for element to be visible and enabled[22m
+    [2m      - did not find some options[22m
+    [2m    - retrying select option action[22m
+    [2m    - waiting 20ms[22m
+    [2m    - waiting for element to be visible and enabled[22m
+    [2m    - did not find some options[22m
+    [2m  - retrying select option action[22m
+    [2m    - waiting 100ms[22m
+
+
+       98 |   await page.getByRole('button', { name: '새 작업', exact: true }).click();
+       99 |   let dialog = page.getByRole('dialog');
+    > 100 |   await dialog.getByRole('combobox', { name: '자막 입력', exact: true }).selectOption(input);
+          |                                                                      ^
+      101 |   await expect(dialog.getByText('재사용: 선택한 자막', { exact: true })).toBeVisible();
+      102 |   const consent = dialog.getByRole('checkbox', { name: '표시된 유료 단계의 실행을 확인했습니다.', exact: true });
+      103 |   const begin = dialog.getByRole('button', { name: '작업 시작', exact: true });
+        at /Users/austinko/.hermes/cache/scratch/REN-07-demo/connected-demo.spec.cjs:100:70
+
+    attachment #1: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../../../../.hermes/cache/scratch/REN-07-demo/results/connected-demo-동일-원본·입력·티켓의-안전-fixture-연결-데모/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../../../../.hermes/cache/scratch/REN-07-demo/results/connected-demo-동일-원본·입력·티켓의-안전-fixture-연결-데모/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../../.hermes/cache/scratch/REN-07-demo/results/connected-demo-동일-원본·입력·티켓의-안전-fixture-연결-데모/trace.zip
+    Usage:
+
+        npx playwright show-trace ../../../../.hermes/cache/scratch/REN-07-demo/results/connected-demo-동일-원본·입력·티켓의-안전-fixture-연결-데모/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[1A[2K  1 failed
+    ../../../../.hermes/cache/scratch/REN-07-demo/connected-demo.spec.cjs:13:1 › 동일 원본·입력·티켓의 안전 fixture 연결 데모 

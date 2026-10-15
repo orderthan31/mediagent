@@ -1,0 +1,633 @@
+{
+  "fixtureOnly": true,
+  "asset_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "subtitle_artifact_id": "dddddddddddddddddddddddddddddddd",
+  "job_id": "cccccccccccccccccccccccccccccccc",
+  "dummyBytes": 8,
+  "registrations": 2,
+  "creates": 2,
+  "saves": 2,
+  "requestIdReused": true,
+  "finalRevision": 8,
+  "stepCount": 18,
+  "runtimeErrors": [],
+  "consoleEvents": [
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 400 (Bad Request)",
+      "url": "http://127.0.0.1:5179/api/video-uploads/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/complete"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:5179/api/videos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/thumbnail"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:5179/api/videos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/thumbnail"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+      "url": "http://127.0.0.1:5179/api/videos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/jobs"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:5179/api/videos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/stream"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 507 (Insufficient Storage)",
+      "url": "http://127.0.0.1:5179/api/jobs/cccccccccccccccccccccccccccccccc/subtitles"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:5179/api/videos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/stream"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:5179/api/videos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/stream"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:5179/api/videos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/thumbnail"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:5179/api/videos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/stream"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+      "url": "http://127.0.0.1:5179/api/settings/llm"
+    }
+  ],
+  "externalBlocked": [],
+  "unknown": [],
+  "api": [
+    {
+      "elapsedMs": 216,
+      "method": "GET",
+      "path": "/api/auth/session",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 216,
+      "method": "GET",
+      "path": "/api/auth/session",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 1160,
+      "method": "POST",
+      "path": "/api/auth/login",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 1327,
+      "method": "GET",
+      "path": "/api/videos",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 1329,
+      "method": "GET",
+      "path": "/api/jobs",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 1329,
+      "method": "GET",
+      "path": "/api/video-uploads",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 1330,
+      "method": "GET",
+      "path": "/api/videos",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 1330,
+      "method": "GET",
+      "path": "/api/jobs",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 1330,
+      "method": "GET",
+      "path": "/api/video-uploads",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 2330,
+      "method": "POST",
+      "path": "/api/video-uploads",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 2337,
+      "method": "GET",
+      "path": "/api/video-uploads/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 2345,
+      "method": "PUT",
+      "path": "/api/video-uploads/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/chunks",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 2351,
+      "method": "POST",
+      "path": "/api/video-uploads/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/complete",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 3141,
+      "method": "GET",
+      "path": "/api/video-uploads/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 3159,
+      "method": "POST",
+      "path": "/api/video-uploads/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/verify",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 3163,
+      "method": "POST",
+      "path": "/api/video-uploads/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/complete",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 4030,
+      "method": "GET",
+      "path": "/api/videos",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 4032,
+      "method": "GET",
+      "path": "/api/jobs",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 4033,
+      "method": "GET",
+      "path": "/api/video-uploads",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 4318,
+      "method": "GET",
+      "path": "/api/videos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/thumbnail",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 5813,
+      "method": "GET",
+      "path": "/api/videos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 5826,
+      "method": "GET",
+      "path": "/api/videos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/subtitles",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 5852,
+      "method": "GET",
+      "path": "/api/videos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/thumbnail",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 6595,
+      "method": "GET",
+      "path": "/api/videos",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 6597,
+      "method": "GET",
+      "path": "/api/jobs",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 6598,
+      "method": "GET",
+      "path": "/api/video-uploads",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 6852,
+      "method": "GET",
+      "path": "/api/videos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/subtitles",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 6853,
+      "method": "GET",
+      "path": "/api/videos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/audio-inputs",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 6854,
+      "method": "POST",
+      "path": "/api/videos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/workflow-plan",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 6856,
+      "method": "GET",
+      "path": "/api/videos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/subtitles",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 6856,
+      "method": "GET",
+      "path": "/api/videos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/audio-inputs",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 6857,
+      "method": "POST",
+      "path": "/api/videos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/workflow-plan",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 6922,
+      "method": "POST",
+      "path": "/api/videos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/workflow-plan",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 7825,
+      "method": "POST",
+      "path": "/api/videos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/workflow-plan",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 8750,
+      "method": "POST",
+      "path": "/api/videos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/jobs",
+      "fixture": true,
+      "request_id": "b34d2831-26e4-44d8-bba0-510e3612f391",
+      "asset_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "subtitle_artifact_id": "dddddddddddddddddddddddddddddddd"
+    },
+    {
+      "elapsedMs": 8844,
+      "method": "GET",
+      "path": "/api/videos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 8847,
+      "method": "GET",
+      "path": "/api/videos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/subtitles",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 9084,
+      "method": "POST",
+      "path": "/api/videos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/jobs",
+      "fixture": true,
+      "request_id": "b34d2831-26e4-44d8-bba0-510e3612f391",
+      "asset_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "subtitle_artifact_id": "dddddddddddddddddddddddddddddddd"
+    },
+    {
+      "elapsedMs": 9130,
+      "method": "GET",
+      "path": "/api/videos",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 9131,
+      "method": "GET",
+      "path": "/api/jobs",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 9133,
+      "method": "GET",
+      "path": "/api/video-uploads",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 9134,
+      "method": "GET",
+      "path": "/api/videos",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 9135,
+      "method": "GET",
+      "path": "/api/jobs",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 9136,
+      "method": "GET",
+      "path": "/api/video-uploads",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 9146,
+      "method": "GET",
+      "path": "/api/jobs/cccccccccccccccccccccccccccccccc",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 9147,
+      "method": "GET",
+      "path": "/api/jobs/cccccccccccccccccccccccccccccccc/preview",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 9149,
+      "method": "GET",
+      "path": "/api/jobs/cccccccccccccccccccccccccccccccc",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 9150,
+      "method": "GET",
+      "path": "/api/jobs/cccccccccccccccccccccccccccccccc/preview",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 9167,
+      "method": "GET",
+      "path": "/api/videos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/stream",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 9759,
+      "method": "GET",
+      "path": "/api/jobs/cccccccccccccccccccccccccccccccc",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 9760,
+      "method": "GET",
+      "path": "/api/jobs/cccccccccccccccccccccccccccccccc/preview",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 10591,
+      "method": "GET",
+      "path": "/api/jobs/cccccccccccccccccccccccccccccccc/subtitles",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 10592,
+      "method": "GET",
+      "path": "/api/jobs/cccccccccccccccccccccccccccccccc/subtitles",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 10773,
+      "method": "PUT",
+      "path": "/api/jobs/cccccccccccccccccccccccccccccccc/subtitles",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 11518,
+      "method": "PUT",
+      "path": "/api/jobs/cccccccccccccccccccccccccccccccc/subtitles",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 11658,
+      "method": "GET",
+      "path": "/api/videos",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 11659,
+      "method": "GET",
+      "path": "/api/jobs",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 11659,
+      "method": "GET",
+      "path": "/api/video-uploads",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 12368,
+      "method": "GET",
+      "path": "/api/videos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/stream",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 12397,
+      "method": "GET",
+      "path": "/api/jobs/cccccccccccccccccccccccccccccccc",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 12398,
+      "method": "GET",
+      "path": "/api/jobs/cccccccccccccccccccccccccccccccc/preview",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 13357,
+      "method": "GET",
+      "path": "/api/jobs/cccccccccccccccccccccccccccccccc/subtitles",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 13358,
+      "method": "GET",
+      "path": "/api/jobs/cccccccccccccccccccccccccccccccc/subtitles",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 14229,
+      "method": "GET",
+      "path": "/api/videos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/stream",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 14231,
+      "method": "GET",
+      "path": "/api/videos",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 14232,
+      "method": "GET",
+      "path": "/api/jobs",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 14233,
+      "method": "GET",
+      "path": "/api/video-uploads",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 14346,
+      "method": "GET",
+      "path": "/api/videos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 14348,
+      "method": "GET",
+      "path": "/api/videos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/subtitles",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 14355,
+      "method": "GET",
+      "path": "/api/videos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/thumbnail",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 16128,
+      "method": "GET",
+      "path": "/api/jobs/cccccccccccccccccccccccccccccccc",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 16130,
+      "method": "GET",
+      "path": "/api/jobs/cccccccccccccccccccccccccccccccc/preview",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 16131,
+      "method": "GET",
+      "path": "/api/jobs/cccccccccccccccccccccccccccccccc",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 16132,
+      "method": "GET",
+      "path": "/api/jobs/cccccccccccccccccccccccccccccccc/preview",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 16144,
+      "method": "GET",
+      "path": "/api/videos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/stream",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 16618,
+      "method": "GET",
+      "path": "/api/settings/llm",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 16619,
+      "method": "GET",
+      "path": "/api/settings/llm",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 16784,
+      "method": "GET",
+      "path": "/api/videos",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 16786,
+      "method": "GET",
+      "path": "/api/jobs",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 16786,
+      "method": "GET",
+      "path": "/api/video-uploads",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 16804,
+      "method": "GET",
+      "path": "/api/settings/llm/models",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 17703,
+      "method": "GET",
+      "path": "/api/settings/llm",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 18385,
+      "method": "POST",
+      "path": "/api/auth/login",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 18490,
+      "method": "GET",
+      "path": "/api/settings/llm",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 18491,
+      "method": "GET",
+      "path": "/api/videos",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 18492,
+      "method": "GET",
+      "path": "/api/jobs",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 18493,
+      "method": "GET",
+      "path": "/api/video-uploads",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 18494,
+      "method": "GET",
+      "path": "/api/settings/llm",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 18495,
+      "method": "GET",
+      "path": "/api/videos",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 18496,
+      "method": "GET",
+      "path": "/api/jobs",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 18497,
+      "method": "GET",
+      "path": "/api/video-uploads",
+      "fixture": true
+    },
+    {
+      "elapsedMs": 18691,
+      "method": "POST",
+      "path": "/api/auth/logout",
+      "fixture": true
+    }
+  ]
+}

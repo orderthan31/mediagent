@@ -1,0 +1,296 @@
+{
+  "fixtureOnly": true,
+  "asset_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "subtitle_artifact_id": "dddddddddddddddddddddddddddddddd",
+  "job_id": "cccccccccccccccccccccccccccccccc",
+  "steps": [
+    {
+      "n": "01",
+      "name": "login",
+      "note": "기존 AuthGate · 안전 fixture 계정만 사용",
+      "url": "http://127.0.0.1:5179/",
+      "elapsedMs": 624,
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "asset_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "subtitle_artifact_id": "dddddddddddddddddddddddddddddddd",
+      "job_id": null,
+      "fixtureStatus": null,
+      "screenshot": "01-login.png"
+    },
+    {
+      "n": "02",
+      "name": "library-empty",
+      "note": "같은 브라우저 세션 · 보관함 정상 빈 상태",
+      "url": "http://127.0.0.1:5179/",
+      "elapsedMs": 1882,
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "asset_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "subtitle_artifact_id": "dddddddddddddddddddddddddddddddd",
+      "job_id": null,
+      "fixtureStatus": null,
+      "screenshot": "02-library-empty.png"
+    },
+    {
+      "n": "03",
+      "name": "registration-failed",
+      "note": "실제 native file input/기존 queue · dummy 8-byte · 전송100%와 등록실패 구분",
+      "url": "http://127.0.0.1:5179/",
+      "elapsedMs": 2642,
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "asset_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "subtitle_artifact_id": "dddddddddddddddddddddddddddddddd",
+      "job_id": null,
+      "fixtureStatus": null,
+      "screenshot": "03-registration-failed.png"
+    },
+    {
+      "n": "04",
+      "name": "registered-library",
+      "note": "fixture 등록 재시도 후 같은 asset_id의 원본 목록",
+      "url": "http://127.0.0.1:5179/",
+      "elapsedMs": 5265,
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "asset_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "subtitle_artifact_id": "dddddddddddddddddddddddddddddddd",
+      "job_id": null,
+      "fixtureStatus": null,
+      "screenshot": "04-registered-library.png"
+    },
+    {
+      "n": "05",
+      "name": "source-detail",
+      "note": "원본 상세 · 같은 asset의 안전 첨부 자막 fixture 제공, 미디어404",
+      "url": "http://127.0.0.1:5179/#/videos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "elapsedMs": 6272,
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "asset_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "subtitle_artifact_id": "dddddddddddddddddddddddddddddddd",
+      "job_id": null,
+      "fixtureStatus": null,
+      "screenshot": "05-source-detail.png"
+    },
+    {
+      "n": "06",
+      "name": "workflow-unconfirmed",
+      "note": "같은 artifact 재사용/실제 paid_stages · 확인 전 form 요청0",
+      "url": "http://127.0.0.1:5179/#/videos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "elapsedMs": 7294,
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "asset_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "subtitle_artifact_id": "dddddddddddddddddddddddddddddddd",
+      "job_id": null,
+      "fixtureStatus": null,
+      "screenshot": "06-workflow-unconfirmed.png"
+    },
+    {
+      "n": "07",
+      "name": "confirmation-reset",
+      "note": "옵션 변경 후 이전 확인 폐기",
+      "url": "http://127.0.0.1:5179/#/videos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "elapsedMs": 8224,
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "asset_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "subtitle_artifact_id": "dddddddddddddddddddddddddddddddd",
+      "job_id": null,
+      "fixtureStatus": null,
+      "screenshot": "07-confirmation-reset.png"
+    },
+    {
+      "n": "08",
+      "name": "ticket-progress-partial",
+      "note": "생성 callback→같은 job/asset; fixture 진행·부분 결과, 실처리 아님",
+      "url": "http://127.0.0.1:5179/#/jobs/cccccccccccccccccccccccccccccccc",
+      "elapsedMs": 9283,
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "asset_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "subtitle_artifact_id": "dddddddddddddddddddddddddddddddd",
+      "job_id": "cccccccccccccccccccccccccccccccc",
+      "fixtureStatus": "TRANSLATING",
+      "screenshot": "08-ticket-progress-partial.png"
+    },
+    {
+      "n": "09",
+      "name": "review-pending",
+      "note": "harness가 fixture 상태를 검수 대기로 전환, 자동처리 성공 아님",
+      "url": "http://127.0.0.1:5179/#/jobs/cccccccccccccccccccccccccccccccc",
+      "elapsedMs": 10130,
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "asset_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "subtitle_artifact_id": "dddddddddddddddddddddddddddddddd",
+      "job_id": "cccccccccccccccccccccccccccccccc",
+      "fixtureStatus": "AWAITING_REVIEW",
+      "screenshot": "09-review-pending.png"
+    },
+    {
+      "n": "10",
+      "name": "save-failed-input-retained",
+      "note": "507 fixture · revision7과 수정 입력 보존",
+      "url": "http://127.0.0.1:5179/#/jobs/cccccccccccccccccccccccccccccccc",
+      "elapsedMs": 11069,
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "asset_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "subtitle_artifact_id": "dddddddddddddddddddddddddddddddd",
+      "job_id": "cccccccccccccccccccccccccccccccc",
+      "fixtureStatus": "AWAITING_REVIEW",
+      "screenshot": "10-save-failed-input-retained.png"
+    },
+    {
+      "n": "11",
+      "name": "draft-saved",
+      "note": "같은 revision7 재시도/응답8 · fixture 저장만, 실제 자막 저장 아님",
+      "url": "http://127.0.0.1:5179/#/jobs/cccccccccccccccccccccccccccccccc",
+      "elapsedMs": 11725,
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "asset_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "subtitle_artifact_id": "dddddddddddddddddddddddddddddddd",
+      "job_id": "cccccccccccccccccccccccccccccccc",
+      "fixtureStatus": "AWAITING_REVIEW",
+      "screenshot": "11-draft-saved.png"
+    },
+    {
+      "n": "12",
+      "name": "final-result-links",
+      "note": "harness가 fixture 완료/결과를 제공; 같은 티켓 결과 링크만 확인, 재생/다운로드 아님",
+      "url": "http://127.0.0.1:5179/#/jobs/cccccccccccccccccccccccccccccccc",
+      "elapsedMs": 12745,
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "asset_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "subtitle_artifact_id": "dddddddddddddddddddddddddddddddd",
+      "job_id": "cccccccccccccccccccccccccccccccc",
+      "fixtureStatus": "COMPLETED",
+      "screenshot": "12-final-result-links.png"
+    },
+    {
+      "n": "13",
+      "name": "mobile-editor",
+      "note": "같은 저장 자막의 작은 화면 읽기/기존 모달 내부 스크롤, 전체 모바일 동등성 아님",
+      "url": "http://127.0.0.1:5179/#/jobs/cccccccccccccccccccccccccccccccc",
+      "elapsedMs": 13685,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "asset_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "subtitle_artifact_id": "dddddddddddddddddddddddddddddddd",
+      "job_id": "cccccccccccccccccccccccccccccccc",
+      "fixtureStatus": "COMPLETED",
+      "screenshot": "13-mobile-editor.png"
+    },
+    {
+      "n": "14",
+      "name": "mobile-source-backlink",
+      "note": "티켓 입력 링크→동일 원본 및 작업 기록",
+      "url": "http://127.0.0.1:5179/#/videos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "elapsedMs": 14563,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "asset_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "subtitle_artifact_id": "dddddddddddddddddddddddddddddddd",
+      "job_id": "cccccccccccccccccccccccccccccccc",
+      "fixtureStatus": "COMPLETED",
+      "screenshot": "14-mobile-source-backlink.png"
+    },
+    {
+      "n": "15",
+      "name": "mobile-job-list",
+      "note": "실제 GNB→같은 티켓 작업 목록/현재 위치",
+      "url": "http://127.0.0.1:5179/#/jobs",
+      "elapsedMs": 15454,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "asset_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "subtitle_artifact_id": "dddddddddddddddddddddddddddddddd",
+      "job_id": "cccccccccccccccccccccccccccccccc",
+      "fixtureStatus": "COMPLETED",
+      "screenshot": "15-mobile-job-list.png"
+    },
+    {
+      "n": "16",
+      "name": "mobile-settings",
+      "note": "같은 로그인 세션의 설정/키 출처/모델 목록 fixture; provider 연결/추론 아님",
+      "url": "http://127.0.0.1:5179/#/settings",
+      "elapsedMs": 17130,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "asset_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "subtitle_artifact_id": "dddddddddddddddddddddddddddddddd",
+      "job_id": "cccccccccccccccccccccccccccccccc",
+      "fixtureStatus": "COMPLETED",
+      "screenshot": "16-mobile-settings.png"
+    },
+    {
+      "n": "17",
+      "name": "session-expired",
+      "note": "401 fixture→기존 AuthGate/빈 비밀번호",
+      "url": "http://127.0.0.1:5179/#/settings",
+      "elapsedMs": 17839,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "asset_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "subtitle_artifact_id": "dddddddddddddddddddddddddddddddd",
+      "job_id": "cccccccccccccccccccccccccccccccc",
+      "fixtureStatus": "COMPLETED",
+      "screenshot": "17-session-expired.png"
+    },
+    {
+      "n": "18",
+      "name": "logged-out",
+      "note": "기존 계정 메뉴→fixture 로그아웃 완료",
+      "url": "http://127.0.0.1:5179/#/settings",
+      "elapsedMs": 18944,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "asset_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "subtitle_artifact_id": "dddddddddddddddddddddddddddddddd",
+      "job_id": "cccccccccccccccccccccccccccccccc",
+      "fixtureStatus": "COMPLETED",
+      "screenshot": "18-logged-out.png"
+    }
+  ]
+}

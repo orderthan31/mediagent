@@ -1,0 +1,37 @@
+
+Running 1 test using 1 worker
+
+[1A[2K[1/1] ../../../../.hermes/cache/scratch/REN-07-demo/connected-demo.spec.cjs:15:1 › 동일 원본·입력·티켓의 안전 fixture 연결 데모
+[1A[2K  1) ../../../../.hermes/cache/scratch/REN-07-demo/connected-demo.spec.cjs:15:1 › 동일 원본·입력·티켓의 안전 fixture 연결 데모 
+
+    [31mTest timeout of 100000ms exceeded.[39m
+
+    Error: locator.click: Target page, context or browser has been closed
+    Call log:
+    [2m  - waiting for getByRole('button', { name: '업로드 재시도: [안전 API fixture] 같은_원본_연결_데모_긴_인터뷰.mp4', exact: true })[22m
+
+
+      94 |   await expect(page.getByText('안전 fixture 등록 실패 · 실제 등록 서버 아님', { exact: true })).toBeVisible();
+      95 |   await step('registration-failed', '실제 native file input/기존 queue · dummy 8-byte · 전송100%와 등록실패 구분');
+    > 96 |   await page.getByRole('button', { name: `업로드 재시도: ${filename}`, exact: true }).click();
+         |                                                                                 ^
+      97 |   await expect(page.locator('.asset-row')).toHaveCount(1);
+      98 |   await step('registered-library', 'fixture 등록 재시도 후 같은 asset_id의 원본 목록');
+      99 |   await page.locator('.asset-row').click();
+        at /Users/austinko/.hermes/cache/scratch/REN-07-demo/connected-demo.spec.cjs:96:81
+
+    attachment #1: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../../../../.hermes/cache/scratch/REN-07-demo/results/connected-demo-동일-원본·입력·티켓의-안전-fixture-연결-데모/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../../.hermes/cache/scratch/REN-07-demo/results/connected-demo-동일-원본·입력·티켓의-안전-fixture-연결-데모/trace.zip
+    Usage:
+
+        npx playwright show-trace ../../../../.hermes/cache/scratch/REN-07-demo/results/connected-demo-동일-원본·입력·티켓의-안전-fixture-연결-데모/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[1A[2K  1 failed
+    ../../../../.hermes/cache/scratch/REN-07-demo/connected-demo.spec.cjs:15:1 › 동일 원본·입력·티켓의 안전 fixture 연결 데모 

@@ -1,0 +1,140 @@
+{
+  "REN-03": [
+    {
+      "path": "hangyeol.json",
+      "sha256": "7d02b9c2f42f392947e77b768fd42de8bf08fad28216425e390c412a753bb691",
+      "equalsApprovedCandidate": false
+    },
+    {
+      "path": "package-lock.json",
+      "sha256": "2fdc15136e273e5a16256445af766035820a757631a99d0003af0d48029c3ec9",
+      "equalsApprovedCandidate": true
+    },
+    {
+      "path": "package.json",
+      "sha256": "598f236f8371efd1300e127dc5234e66fa3328ac04a9446a65e6bcf807c5cfd1",
+      "equalsApprovedCandidate": true
+    },
+    {
+      "path": "src/StorageUploads.tsx",
+      "sha256": "5bf0e30c9639ec4fc08a09f4199ff18d68cdac35b926cfb7d76b27f0c09d15fe",
+      "equalsApprovedCandidate": true
+    },
+    {
+      "path": "src/StorageVideo.tsx",
+      "sha256": "6b2ba382a77599f4f9b72221b42b31bac414aaadc01f21e9a8ed95a395538f80",
+      "equalsApprovedCandidate": true
+    },
+    {
+      "path": "src/VideoWorkspace.tsx",
+      "sha256": "4f0afe28c8847843678ff4358358a60ea66fdfb4876299b52aa9abf871412734",
+      "equalsApprovedCandidate": true
+    },
+    {
+      "path": "src/hangyeol/components/empty-state.tsx",
+      "sha256": "08c20e97b6fb5a5f6451e04ba17669a9aca35836b92300ce307f0f030f1a5803",
+      "equalsApprovedCandidate": true
+    },
+    {
+      "path": "src/hangyeol/primitives/badge.tsx",
+      "sha256": "46003a0d6f98612a29a61271a4678c90442f5f41314c1be1d57dec36a798af4d",
+      "equalsApprovedCandidate": true
+    },
+    {
+      "path": "src/hangyeol/primitives/progress.tsx",
+      "sha256": "122e0bc502d1f4dc29a9f490899f48c2831152938debf0590a4741495cb081ad",
+      "equalsApprovedCandidate": true
+    },
+    {
+      "path": "src/storage.css",
+      "sha256": "81c50637b6723f3ebcbbffa8124115ddb14c8ae52765ed0f4d9356536786db82",
+      "equalsApprovedCandidate": true
+    },
+    {
+      "path": "tests/browser/storage-upload.spec.ts",
+      "sha256": "eae101ba35704224fb9f7e757c2811fac6089027aca1d9d337372fff8a46f7e8",
+      "equalsApprovedCandidate": true
+    }
+  ],
+  "REN-04": [
+    {
+      "path": "hangyeol.json",
+      "sha256": "7d02b9c2f42f392947e77b768fd42de8bf08fad28216425e390c412a753bb691",
+      "equalsApprovedCandidate": true
+    },
+    {
+      "path": "src/JobDetail.tsx",
+      "sha256": "927937c30edb4d0fc08a725454e4850995da844001427aa57616b6c3e02c14d8",
+      "equalsApprovedCandidate": true
+    },
+    {
+      "path": "src/StageProgress.tsx",
+      "sha256": "08cff2fd60ceb1c997848cb78679f787b7e08b2e9db6051a67cb924d48046018",
+      "equalsApprovedCandidate": true
+    },
+    {
+      "path": "src/SubtitleEditor.tsx",
+      "sha256": "ae5d3d5e55a774f35fad59e9f9c6e2d0331cdcb2d069f2cb10de999608141f7c",
+      "equalsApprovedCandidate": true
+    },
+    {
+      "path": "src/TicketSummary.tsx",
+      "sha256": "c3d5d48d133553c0ac7b712a47b066a67fdb6cd4b3862c6b6e1e38fae1420bf9",
+      "equalsApprovedCandidate": true
+    },
+    {
+      "path": "src/ticket.css",
+      "sha256": "fb6a35746dfe21e67d795ed9aa002b83c981cbe3155e48696369751842ff1ad7",
+      "equalsApprovedCandidate": true
+    },
+    {
+      "path": "src/hangyeol/primitives/textarea.tsx",
+      "sha256": "f45de7730dff5092725196bcd6a0e9d7c3c075ec7bbd0629856eadbf902600af",
+      "equalsApprovedCandidate": true
+    },
+    {
+      "path": "tests/browser/ticket-review.spec.ts",
+      "sha256": "a3a8c4dddb03f6c48441b2d85f524237ef43e6690baf90da9e308e8ea813d874",
+      "equalsApprovedCandidate": true
+    }
+  ],
+  "REN-05": [
+    {
+      "path": "src/WorkflowDialog.tsx",
+      "sha256": "fc496f356bc1911265a15ffd433af6e069c2cad4db6469ee081f1613ad08e83c",
+      "equalsApprovedCandidate": true
+    },
+    {
+      "path": "src/workflow.css",
+      "sha256": "5b70a0ca0c5e90f4e55ca68b98c6804f4b69239a2c7ce5d05e4a0b390ec5bc7e",
+      "equalsApprovedCandidate": true
+    },
+    {
+      "path": "tests/browser/workflow-confirmation.spec.ts",
+      "sha256": "077ed12fd0e094625f2767403207b722116cb076057053c76208dd163bfcf79b",
+      "equalsApprovedCandidate": true
+    }
+  ],
+  "REN-06": [
+    {
+      "path": "src/SettingsPage.tsx",
+      "sha256": "32f0696b764f72a0ea01982858688850eebf573289bd80b85f047e6a8fd0339f",
+      "equalsApprovedCandidate": true
+    },
+    {
+      "path": "src/AuthGate.tsx",
+      "sha256": "69754490c976721488d578b14fb525ed6a5c19d1b7197b80c956e774899cbfe8",
+      "equalsApprovedCandidate": true
+    },
+    {
+      "path": "src/settings-renewal.css",
+      "sha256": "ab73a2a1299924317c2b0395a20c975e608057649550a1d1269c91e404017246",
+      "equalsApprovedCandidate": true
+    },
+    {
+      "path": "tests/browser/settings-provider.spec.ts",
+      "sha256": "2041f228f15e647328e4e196aebd10f550b7c961eefaf5e0f7cdd4564591c696",
+      "equalsApprovedCandidate": true
+    }
+  ]
+}

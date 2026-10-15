@@ -1,0 +1,185 @@
+{
+  "task": "REN-07",
+  "createdAt": "2026-10-15T02:58:08.053677+00:00",
+  "branch": "renewal",
+  "head": "50e1342311879062d31713ccd950a0b936183b01",
+  "productionSourceChanges": 0,
+  "repositoryTestChanges": 0,
+  "newScratchHarness": true,
+  "newEvidenceOnly": true,
+  "trackedBlobBytesCompared": 562,
+  "allTrackedBytesEqualIndexAndHEAD": true,
+  "relatedExistingChecksReused": true,
+  "newConnectedScenarioPassed": true,
+  "newConnectedScenarioCount": 1,
+  "newScreenshotCount": 18,
+  "failedHarnessExecutionsPreserved": 2,
+  "apiCallsFixtureOnly": true,
+  "realServerProviderModelMediaSuccessVerified": false,
+  "serverPaidEnforcementBypassAtomicity": "separate unimplemented/unverified",
+  "committedOrPushed": false,
+  "filesExcludingReceipt": [
+    {
+      "path": "01-login.png",
+      "size": 39196,
+      "sha256": "ef58f4cde189489f436f3a12a5abfcfec6feb2b6befff1e31738cb82ab0b4468"
+    },
+    {
+      "path": "02-library-empty.png",
+      "size": 63795,
+      "sha256": "eaf8b09343f70b0aab2ab82553a6bb01badd54976104e7f9366d407a642b5453"
+    },
+    {
+      "path": "03-registration-failed.png",
+      "size": 80861,
+      "sha256": "795769af81f39d4919ea69d586a5c6290da460f31b755f3ef535348f3cef56aa"
+    },
+    {
+      "path": "04-registered-library.png",
+      "size": 79534,
+      "sha256": "6a0d400bf97e55ec98bf35ca95ec7cc11962ff2c9562ec92c66111fa7941cb8c"
+    },
+    {
+      "path": "05-source-detail.png",
+      "size": 81890,
+      "sha256": "1f395108fc99d92ae85a0b3dad7d663988c1e6616de41125db4cd007c4834548"
+    },
+    {
+      "path": "06-workflow-unconfirmed.png",
+      "size": 93336,
+      "sha256": "c8a1685b28b704ad76cf07386c605c223559bd29c149e4efb4a570c84432639d"
+    },
+    {
+      "path": "07-confirmation-reset.png",
+      "size": 93942,
+      "sha256": "b32a2eb0e7b5a8c536e1d9b318061a2e6b1c1c85f582f7f3b9ab3db6c8dca623"
+    },
+    {
+      "path": "08-ticket-progress-partial.png",
+      "size": 116718,
+      "sha256": "461d54c5f47c4987cf38587521356059784a2ed4215ce38adde4eb351ed580f0"
+    },
+    {
+      "path": "09-review-pending.png",
+      "size": 109393,
+      "sha256": "9d5fb1d1d7992a6437600aa51be49c5f6db5150fdb77f85357a305268e601e80"
+    },
+    {
+      "path": "10-save-failed-input-retained.png",
+      "size": 103454,
+      "sha256": "bcddc04d07059cfa9bd510b649df371df2ed342f3d1c9a7463ad4c8599397585"
+    },
+    {
+      "path": "11-draft-saved.png",
+      "size": 98879,
+      "sha256": "dd1072b741972b57fbfbf35182cd1afed06901c1a20cab73c72c0df4a041cfdb"
+    },
+    {
+      "path": "12-final-result-links.png",
+      "size": 112808,
+      "sha256": "89bd91a3a05cd957c389b758fc58bda687bd74888b1858fdb29ce7cfd2defe16"
+    },
+    {
+      "path": "13-mobile-editor.png",
+      "size": 78078,
+      "sha256": "70790a6b2211084ccf011ff7cf423bc340ba7df916aac1e96432475a222ddb42"
+    },
+    {
+      "path": "14-mobile-source-backlink.png",
+      "size": 74218,
+      "sha256": "60105c4a94399d36e2451a89b204eccbb5ccd69680d74d1c0252009eee451f7b"
+    },
+    {
+      "path": "15-mobile-job-list.png",
+      "size": 40231,
+      "sha256": "bc197598a5af679ed8b6b951af41e0e017780f5c6392b598ee3a5933315b9902"
+    },
+    {
+      "path": "16-mobile-settings.png",
+      "size": 158677,
+      "sha256": "e89274b5851b83ce00b8ffaaf1ca64bd1c732007904b47d51a0baf5d57c94352"
+    },
+    {
+      "path": "17-session-expired.png",
+      "size": 39991,
+      "sha256": "4a18329ffcdd7103e40cf731f91357b8c95cbcb4ff2cf718ccf7e5e49043190c"
+    },
+    {
+      "path": "18-logged-out.png",
+      "size": 33688,
+      "sha256": "daf12386c17744efb7c5fb31abd583893b37834d2d55ccac3b3e976f12461ada"
+    },
+    {
+      "path": "README.md",
+      "size": 8766,
+      "sha256": "a109d06e26daa607d9e70149fd763af20c2a023634a80f55009dd548e4fcbbc2"
+    },
+    {
+      "path": "connected-demo.mp4",
+      "size": 1054857,
+      "sha256": "5d00dadb0b773e42cde5e2aa5c99f7811ddb39afc75e5ea9d3a341b7bf7ef668"
+    },
+    {
+      "path": "connected-demo.spec.cjs.txt",
+      "size": 18511,
+      "sha256": "5ae1465c9662a4fc85b41a9140f02538548d55beed2d4ca910fbc11cea084915"
+    },
+    {
+      "path": "connected-run.log",
+      "size": 214,
+      "sha256": "d5a7a5e562651776af475c353fa315ad9a94a68ce4fc9906d404cdc521d4d082"
+    },
+    {
+      "path": "execution.json",
+      "size": 15601,
+      "sha256": "e027aa50ab605c2eeed50a1066a255613d834d42000b853c055af638b428969c"
+    },
+    {
+      "path": "failed-executions/attempt-1-harness.cjs.txt",
+      "size": 18073,
+      "sha256": "66954da4d2a7036d9a8dc02692a5b4ae73b94304d45716612f17f7356151aa52"
+    },
+    {
+      "path": "failed-executions/attempt-1-trace.zip",
+      "size": 5448376,
+      "sha256": "ebf2a28ac908d4fddc6c5c84a3c1e70bf653590adbceac241f080e1578e5ebd3"
+    },
+    {
+      "path": "failed-executions/attempt-1.log",
+      "size": 5797,
+      "sha256": "da22ae8c948e2c82f6351fee76ad1c89c002b9bdf8cd45925c238150aa40f73e"
+    },
+    {
+      "path": "failed-executions/attempt-2-harness.cjs.txt",
+      "size": 18427,
+      "sha256": "881047472c0c00b97c715082348b5de5a0970e275f8a5237188c649e6bc31567"
+    },
+    {
+      "path": "failed-executions/attempt-2-trace.zip",
+      "size": 7538536,
+      "sha256": "dc3931b9273d9eba3475ff359fb58e28bed90bc1fb32a005c2a9c6f7a9a399d7"
+    },
+    {
+      "path": "failed-executions/attempt-2.log",
+      "size": 3132,
+      "sha256": "5bf7205be8dfefdc143475f68d5fad9c43e2de5e638c4042addf59996111cd59"
+    },
+    {
+      "path": "journey.json",
+      "size": 10208,
+      "sha256": "133002178c9c3c93ae31902dd1c11e8dfe070b6118ddab8f934a3844c2215f51"
+    },
+    {
+      "path": "playwright.config.cjs.txt",
+      "size": 659,
+      "sha256": "8975759ba0e2df87fea943ae00dec7fc9fe5c5b87de3d15b99e9c8e04d1a8ca7"
+    },
+    {
+      "path": "reused-evidence-parity.json",
+      "size": 4677,
+      "sha256": "ca0a12c51e43f45c2703a6a8aea06356eecf72c1ed49332486b8976ec265fab0"
+    }
+  ],
+  "allPathCountIncludingReceipt": 33,
+  "originalVideoSha256": "dbe99fec2f77d4ec3d2487e49a9c4c76581a74bc3bbe7f9df3e8a4cea4106825"
+}
