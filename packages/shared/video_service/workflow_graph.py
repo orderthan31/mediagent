@@ -1,7 +1,7 @@
 """Pure editor graph validation. This does not select assets or execute a graph."""
 import math
 import re
-from .node_contracts import NODES, validate_node
+from .node_contracts import NODES, VALUE_TYPES, node_spec, validate_node
 
 
 def validate_graph(payload):
@@ -22,7 +22,7 @@ def validate_graph(payload):
     if not isinstance(payload['name'], str) or not 1 <= len(payload['name'].strip()) <= 80:
         issue('이름은 1~80자로 입력하세요.')
     templates = {n['id']: n for n in NODES}
-    types = {t for n in NODES for t in n['inputs'].values()}
+    types = {t for n in NODES for t in n['inputs'].values()} | set(VALUE_TYPES)
     inputs, nodes, edges = payload['inputs'], payload['nodes'], payload['edges']
     if not isinstance(inputs, dict) or len(inputs) > 20 or any(not re.fullmatch('[A-Za-z][A-Za-z0-9_-]{0,39}', k) or not isinstance(v,str) or v not in types for k,v in inputs.items()):
         issue('외부 입력 이름/유형을 확인하세요. 최대20개입니다.'); return result()
@@ -41,6 +41,7 @@ def validate_graph(payload):
         position = n['position']
         if not isinstance(position,dict) or set(position) != {'x','y'} or any(type(position[k]) not in (int,float) or not math.isfinite(position[k]) or not 0 <= position[k] <= limit for k,limit in [('x',4000),('y',3000)]):
             issue('노드 배치는 유한한 x0~4000/y0~3000 좌표여야 합니다.',identity)
+    resolved = {identity:(node_spec(n['type'], n['options']) or {}) for identity,n in indexed.items()}
     incoming = {identity:{} for identity in indexed}; adjacency = {identity:[] for identity in indexed}; targets=set(); edge_ids=set()
     for e in edges:
         if not isinstance(e,dict) or set(e) != {'id','source','target'} or not isinstance(e['id'],str) or not re.fullmatch('[A-Za-z0-9_-]{1,64}',e['id']):
@@ -51,8 +52,8 @@ def validate_graph(payload):
         if any(not isinstance(e[k],dict) or set(e[k]) != {'node','port'} or any(not isinstance(e[k][f],str) for f in ('node','port')) for k in ('source','target')):
             issue('연결 포트 형식이 올바르지 않습니다.',edge_id=identity); continue
         a,b=e['source'],e['target']
-        outputs = inputs if a['node']=='$input' else templates[indexed[a['node']]['type']]['outputs'] if a['node'] in indexed else {}
-        target_inputs = templates[indexed[b['node']]['type']]['inputs'] if b['node'] in indexed else {}
+        outputs = inputs if a['node']=='$input' else resolved[a['node']]['outputs'] if a['node'] in indexed else {}
+        target_inputs = resolved[b['node']]['inputs'] if b['node'] in indexed else {}
         if a['port'] not in outputs or b['port'] not in target_inputs:
             issue('존재하지 않는 노드/포트에 연결되었습니다.',edge_id=identity); continue
         if a['node'] != '$input': adjacency[a['node']].append((b['node'],identity))
@@ -63,7 +64,7 @@ def validate_graph(payload):
             issue('출력과 입력의 자료 유형이 맞지 않습니다.',b['node'],identity); continue
         incoming[b['node']][b['port']]=outputs[a['port']]
     for identity,n in indexed.items():
-        template=templates[n['type']]
+        template=resolved[identity]
         missing=set(template['inputs'])-set(template['optional_inputs'])-set(incoming[identity])
         if missing: issue('필수 입력 연결이 없습니다: '+', '.join(sorted(missing)),identity)
         for ports in (dict(template['inputs']),incoming[identity]):

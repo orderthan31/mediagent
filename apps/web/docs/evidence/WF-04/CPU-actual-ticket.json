@@ -1,0 +1,524 @@
+{
+  "mode": "Synthetic CPU FFmpeg, real graph store/scheduler/native adapters; no provider/GPU/user source",
+  "ticket": {
+    "id": "bfafe297fe934bc4bc2609f5e5e3f790",
+    "revision": 17,
+    "request_id": "native",
+    "request": {
+      "definition_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "definition_revision": 1,
+      "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "options": {
+        "branch_choices": {
+          "choose": "both"
+        }
+      }
+    },
+    "definition": {
+      "catalog_version": 1,
+      "revision": 1,
+      "name": "수동 분기·결과 목록",
+      "inputs": {
+        "video": "video"
+      },
+      "nodes": [
+        {
+          "id": "choose",
+          "type": "select",
+          "position": {
+            "x": 340,
+            "y": 140
+          },
+          "options": {
+            "data_type": "video",
+            "selection": "both"
+          }
+        },
+        {
+          "id": "a",
+          "type": "encode",
+          "position": {
+            "x": 720,
+            "y": 40
+          },
+          "options": {
+            "subtitle_mode": "none"
+          }
+        },
+        {
+          "id": "b",
+          "type": "encode",
+          "position": {
+            "x": 720,
+            "y": 360
+          },
+          "options": {
+            "subtitle_mode": "none"
+          }
+        },
+        {
+          "id": "joined",
+          "type": "join",
+          "position": {
+            "x": 1100,
+            "y": 180
+          },
+          "options": {
+            "left_type": "validation_report",
+            "right_type": "validation_report"
+          }
+        },
+        {
+          "id": "verify_a",
+          "type": "validate_video",
+          "position": {
+            "x": 900,
+            "y": 500
+          },
+          "options": {}
+        },
+        {
+          "id": "verify_b",
+          "type": "validate_video",
+          "position": {
+            "x": 900,
+            "y": 500
+          },
+          "options": {}
+        }
+      ],
+      "edges": [
+        {
+          "id": "0",
+          "source": {
+            "node": "$input",
+            "port": "video"
+          },
+          "target": {
+            "node": "choose",
+            "port": "value"
+          }
+        },
+        {
+          "id": "1",
+          "source": {
+            "node": "choose",
+            "port": "a"
+          },
+          "target": {
+            "node": "a",
+            "port": "video"
+          }
+        },
+        {
+          "id": "2",
+          "source": {
+            "node": "choose",
+            "port": "b"
+          },
+          "target": {
+            "node": "b",
+            "port": "video"
+          }
+        },
+        {
+          "id": "3",
+          "source": {
+            "node": "verify_a",
+            "port": "report"
+          },
+          "target": {
+            "node": "joined",
+            "port": "left"
+          }
+        },
+        {
+          "id": "4",
+          "source": {
+            "node": "verify_b",
+            "port": "report"
+          },
+          "target": {
+            "node": "joined",
+            "port": "right"
+          }
+        },
+        {
+          "id": "verify_a",
+          "source": {
+            "node": "a",
+            "port": "video"
+          },
+          "target": {
+            "node": "verify_a",
+            "port": "video"
+          }
+        },
+        {
+          "id": "verify_b",
+          "source": {
+            "node": "b",
+            "port": "video"
+          },
+          "target": {
+            "node": "verify_b",
+            "port": "video"
+          }
+        }
+      ],
+      "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "definition_sha256": "9b161c4bd652b5308dc17c685aa1721d301ff5b9800e7bbfdb9abcd417f6391d",
+    "asset": {
+      "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "size_bytes": 6134,
+      "source_mtime_ns": 1792091276135142838
+    },
+    "options": {
+      "branch_choices": {
+        "choose": "both"
+      }
+    },
+    "sequence": {
+      "supported": true,
+      "reasons": [],
+      "steps": [
+        {
+          "id": "choose",
+          "type": "select",
+          "options": {
+            "data_type": "video",
+            "selection": "both"
+          },
+          "bindings": {
+            "value": {
+              "node": "$input",
+              "port": "video"
+            }
+          },
+          "outputs": {
+            "a": "video",
+            "b": "video"
+          },
+          "selected": true,
+          "active_bindings": {
+            "value": {
+              "node": "$input",
+              "port": "video"
+            }
+          },
+          "dependencies": []
+        },
+        {
+          "id": "a",
+          "type": "encode",
+          "options": {
+            "subtitle_mode": "none",
+            "video_codec": "h264",
+            "resolution": "original",
+            "quality_profile": "balanced"
+          },
+          "bindings": {
+            "video": {
+              "node": "choose",
+              "port": "a"
+            }
+          },
+          "outputs": {
+            "video": "video"
+          },
+          "selected": true,
+          "active_bindings": {
+            "video": {
+              "node": "choose",
+              "port": "a"
+            }
+          },
+          "dependencies": [
+            "choose"
+          ],
+          "native_bindings": {
+            "video": {
+              "node": "$input",
+              "port": "video"
+            }
+          }
+        },
+        {
+          "id": "b",
+          "type": "encode",
+          "options": {
+            "subtitle_mode": "none",
+            "video_codec": "h264",
+            "resolution": "original",
+            "quality_profile": "balanced"
+          },
+          "bindings": {
+            "video": {
+              "node": "choose",
+              "port": "b"
+            }
+          },
+          "outputs": {
+            "video": "video"
+          },
+          "selected": true,
+          "active_bindings": {
+            "video": {
+              "node": "choose",
+              "port": "b"
+            }
+          },
+          "dependencies": [
+            "choose"
+          ],
+          "native_bindings": {
+            "video": {
+              "node": "$input",
+              "port": "video"
+            }
+          }
+        },
+        {
+          "id": "verify_a",
+          "type": "validate_video",
+          "options": {},
+          "bindings": {
+            "video": {
+              "node": "a",
+              "port": "video"
+            }
+          },
+          "outputs": {
+            "report": "validation_report"
+          },
+          "selected": true,
+          "active_bindings": {
+            "video": {
+              "node": "a",
+              "port": "video"
+            }
+          },
+          "dependencies": [
+            "a"
+          ],
+          "native_bindings": {
+            "video": {
+              "node": "a",
+              "port": "video"
+            }
+          }
+        },
+        {
+          "id": "verify_b",
+          "type": "validate_video",
+          "options": {},
+          "bindings": {
+            "video": {
+              "node": "b",
+              "port": "video"
+            }
+          },
+          "outputs": {
+            "report": "validation_report"
+          },
+          "selected": true,
+          "active_bindings": {
+            "video": {
+              "node": "b",
+              "port": "video"
+            }
+          },
+          "dependencies": [
+            "b"
+          ],
+          "native_bindings": {
+            "video": {
+              "node": "b",
+              "port": "video"
+            }
+          }
+        },
+        {
+          "id": "joined",
+          "type": "join",
+          "options": {
+            "left_type": "validation_report",
+            "right_type": "validation_report"
+          },
+          "bindings": {
+            "left": {
+              "node": "verify_a",
+              "port": "report"
+            },
+            "right": {
+              "node": "verify_b",
+              "port": "report"
+            }
+          },
+          "outputs": {
+            "manifest": "artifact_manifest"
+          },
+          "selected": true,
+          "active_bindings": {
+            "left": {
+              "node": "verify_a",
+              "port": "report"
+            },
+            "right": {
+              "node": "verify_b",
+              "port": "report"
+            }
+          },
+          "dependencies": [
+            "verify_a",
+            "verify_b"
+          ]
+        }
+      ],
+      "paid_roles": [],
+      "choices": {
+        "choose": "both"
+      },
+      "notice": "수동 선택을 생성 시 고정합니다. 합류는 선택된 결과 참조 목록이며 미디어/clock 병합이 아닙니다. 운영 실행기 연결/유료 확인은 별도입니다."
+    },
+    "status": "completed",
+    "confirmation": {
+      "token": "1b6ec930437e88dcb94fb362d748b315d5280691412cda8d06dea9d40424dbf3",
+      "paid_confirmed": false
+    },
+    "settings_snapshot": {
+      "revision": 0
+    },
+    "steps": [
+      {
+        "id": "choose",
+        "type": "select",
+        "status": "succeeded",
+        "artifacts": {
+          "a": {
+            "type": "video",
+            "sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451",
+            "bytes": 6134,
+            "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "clock": {
+              "basis": "original",
+              "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+            },
+            "reference": {
+              "node": "$input",
+              "port": "video"
+            }
+          },
+          "b": {
+            "type": "video",
+            "sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451",
+            "bytes": 6134,
+            "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "clock": {
+              "basis": "original",
+              "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+            },
+            "reference": {
+              "node": "$input",
+              "port": "video"
+            }
+          }
+        },
+        "partial_artifacts": {}
+      },
+      {
+        "id": "a",
+        "type": "encode",
+        "status": "succeeded",
+        "artifacts": {
+          "video": {
+            "type": "video",
+            "path": "work/a/final.mp4",
+            "sha256": "b099b8a5ba8189797147edf83f29c3a987e899793c3410fad5170e9276ecb6fc",
+            "bytes": 8866,
+            "clock": {
+              "basis": "original",
+              "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+            }
+          }
+        },
+        "partial_artifacts": {}
+      },
+      {
+        "id": "b",
+        "type": "encode",
+        "status": "succeeded",
+        "artifacts": {
+          "video": {
+            "type": "video",
+            "path": "work/b/final.mp4",
+            "sha256": "b099b8a5ba8189797147edf83f29c3a987e899793c3410fad5170e9276ecb6fc",
+            "bytes": 8866,
+            "clock": {
+              "basis": "original",
+              "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+            }
+          }
+        },
+        "partial_artifacts": {}
+      },
+      {
+        "id": "verify_a",
+        "type": "validate_video",
+        "status": "succeeded",
+        "artifacts": {
+          "report": {
+            "type": "validation_report",
+            "path": "work/verify_a/validation.json",
+            "sha256": "9bce15535bf12323d6d168f103614397010acb07a1208176175837da0c2238ca",
+            "bytes": 83,
+            "clock": {
+              "basis": "original",
+              "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+            }
+          }
+        },
+        "partial_artifacts": {}
+      },
+      {
+        "id": "verify_b",
+        "type": "validate_video",
+        "status": "succeeded",
+        "artifacts": {
+          "report": {
+            "type": "validation_report",
+            "path": "work/verify_b/validation.json",
+            "sha256": "9bce15535bf12323d6d168f103614397010acb07a1208176175837da0c2238ca",
+            "bytes": 83,
+            "clock": {
+              "basis": "original",
+              "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+            }
+          }
+        },
+        "partial_artifacts": {}
+      },
+      {
+        "id": "joined",
+        "type": "join",
+        "status": "succeeded",
+        "artifacts": {
+          "manifest": {
+            "type": "artifact_manifest",
+            "path": "work/joined/manifest.json",
+            "sha256": "a1f07f891c5e0bff9e5f57624d7b5237a39831bd3dcd03c7f20ba25b1122fc29",
+            "bytes": 1000
+          }
+        },
+        "partial_artifacts": {}
+      }
+    ]
+  }
+}

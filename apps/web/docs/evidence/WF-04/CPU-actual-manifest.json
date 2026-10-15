@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "kind": "artifact_manifest",
+  "members": {
+    "verify_a.report": {
+      "type": "validation_report",
+      "path": "work/verify_a/validation.json",
+      "sha256": "9bce15535bf12323d6d168f103614397010acb07a1208176175837da0c2238ca",
+      "bytes": 83,
+      "clock": {
+        "basis": "original",
+        "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+      }
+    },
+    "verify_b.report": {
+      "type": "validation_report",
+      "path": "work/verify_b/validation.json",
+      "sha256": "9bce15535bf12323d6d168f103614397010acb07a1208176175837da0c2238ca",
+      "bytes": 83,
+      "clock": {
+        "basis": "original",
+        "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+      }
+    }
+  },
+  "notice": "선택 결과의 참조 목록입니다. 내용/clock 병합이 아닙니다."
+}

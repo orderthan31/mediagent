@@ -13,17 +13,25 @@ type Definition = {
   name: string;
   catalog_version: number;
   inputs: Record<string, string>;
-  nodes: unknown[];
+  nodes: { id: string; type: string; options: Record<string, string> }[];
   edges: unknown[];
 };
 type Spec = { id: string; label: string };
-type Artifact = { type: string; path: string; bytes: number; sha256: string };
+type Artifact = {
+  type: string;
+  path?: string;
+  bytes: number;
+  sha256: string;
+  reference?: { node: string; port: string };
+};
 type Step = {
   id: string;
   type: string;
   status: string;
   artifacts: Record<string, Artifact>;
   partial_artifacts: Record<string, Artifact>;
+  blocked_by?: string[];
+  error_type?: string;
 };
 type Ticket = {
   id: string;
@@ -31,7 +39,13 @@ type Ticket = {
   status: string;
   asset: { asset_id: string; original_filename: string };
   definition: Definition;
-  options: { source_language: string; target_language: string; video_description: string };
+  options: {
+    source_language: string;
+    target_language: string;
+    video_description: string;
+    branch_choices?: Record<string, string>;
+  };
+  sequence?: { choices?: Record<string, string> };
   steps: Step[];
   confirmation: { token: string } | null;
   settings_snapshot: Record<string, string | boolean | number> | null;
@@ -41,7 +55,8 @@ type Plan = {
   token: string;
   settings: Record<string, string | number | boolean>;
   paid_roles: string[];
-  steps: { id: string; type: string; options: Record<string, string> }[];
+  steps: { id: string; type: string; options: Record<string, string>; selected?: boolean }[];
+  choices?: Record<string, string>;
   notice: string;
 };
 type Capability = {
@@ -50,7 +65,6 @@ type Capability = {
   notice: string;
 };
 type Runtime = { connected: boolean; mode: string; notice: string };
-const base = '/settings/workflow-tickets';
 const stateLabel: Record<string, string> = {
   held: '생성 보류',
   confirmed: '계획 확인 · 실행 대기',
@@ -59,6 +73,8 @@ const stateLabel: Record<string, string> = {
   completed: '선택 단계 완료',
   pending: '대기',
   succeeded: '성공',
+  skipped: '미선택 건너뜀',
+  blocked: '선행 실패로 차단',
 };
 const graphPayload = (d: Definition) => ({
   catalog_version: d.catalog_version,
@@ -69,7 +85,12 @@ const graphPayload = (d: Definition) => ({
   edges: d.edges,
 });
 
-export const WorkflowTickets = () => {
+export const WorkflowTickets = ({ graph = false }: { graph?: boolean }) => {
+  const base = graph ? '/settings/graph-tickets' : '/settings/workflow-tickets';
+  const states: Record<string, string> = graph
+    ? { ...stateLabel, failed: '선택 가지 실패 · 독립 결과 보존' }
+    : stateLabel;
+  const [choices, setChoices] = useState<Record<string, string>>({});
   const [definitions, setDefinitions] = useState<{ id: string; name: string; revision: number }[]>(
     [],
   );
@@ -154,7 +175,14 @@ export const WorkflowTickets = () => {
     setBusy('definition');
     try {
       const d = await request<Definition>('/settings/workflow-definitions/' + identity);
-      const cap = await jsonPost<Capability>(base + '/capability', graphPayload(d));
+      const nextChoices = Object.fromEntries(
+        d.nodes.filter((n) => n.type === 'select').map((n) => [n.id, n.options.selection || 'a']),
+      );
+      setChoices(nextChoices);
+      const cap = await jsonPost<Capability>(
+        base + '/capability',
+        graph ? { definition: graphPayload(d), choices: nextChoices } : graphPayload(d),
+      );
       setDefinition(d);
       setCapability(cap);
       setDefinitions((rows) =>
@@ -164,6 +192,28 @@ export const WorkflowTickets = () => {
       );
     } catch (e) {
       setError(e instanceof Error ? e.message : '정의/실행 범위 조회 실패');
+    } finally {
+      setBusy('');
+    }
+  };
+  const chooseBranch = async (identity: string, value: string) => {
+    const next = { ...choices, [identity]: value };
+    setChoices(next);
+    changed();
+    setCapability(null);
+    if (!definition) {
+      return;
+    }
+    setBusy('choice');
+    try {
+      setCapability(
+        await jsonPost<Capability>(base + '/capability', {
+          definition: graphPayload(definition),
+          choices: next,
+        }),
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '분기 실행 범위 재확인 실패');
     } finally {
       setBusy('');
     }
@@ -185,6 +235,7 @@ export const WorkflowTickets = () => {
           source_language: sourceLanguage,
           target_language: targetLanguage,
           video_description: description,
+          ...(graph ? { branch_choices: choices } : {}),
         },
       });
       selection.current++;
@@ -279,15 +330,20 @@ export const WorkflowTickets = () => {
       setBusy('');
     }
   };
-  const artifactLink = (step: Step, port: string, meta: Artifact, partial: boolean) => (
-    <a
-      key={port}
-      className={partial ? 'partial-link' : 'artifact-link'}
-      href={`/api${base}/${ticket?.id}/artifacts/${encodeURIComponent(step.id)}/${encodeURIComponent(port)}${partial ? '?partial=true' : ''}`}
-    >
-      {partial ? '부분 결과' : '산출물'} {port} · {meta.bytes} bytes
-    </a>
-  );
+  const artifactLink = (step: Step, port: string, meta: Artifact, partial: boolean) =>
+    !meta.path ? (
+      <span key={port} className="artifact-reference">
+        참조 {port} · {meta.reference?.node}.{meta.reference?.port} · {meta.type}
+      </span>
+    ) : (
+      <a
+        key={port}
+        className={partial ? 'partial-link' : 'artifact-link'}
+        href={`/api${base}/${ticket?.id}/artifacts/${encodeURIComponent(step.id)}/${encodeURIComponent(port)}${partial ? '?partial=true' : ''}`}
+      >
+        {partial ? '부분 결과' : '산출물'} {port} · {meta.bytes} bytes
+      </a>
+    );
   useEffect(() => {
     void load();
   }, []);
@@ -323,8 +379,10 @@ export const WorkflowTickets = () => {
     <main className="serving-page workflow-tickets">
       <div className="serving-heading">
         <div>
-          <p className="workspace-eyebrow">정의 기반 순차 처리</p>
-          <h1>순차 워크플로우 티켓</h1>
+          <p className="workspace-eyebrow">
+            {graph ? '수동 선택 · 제어된 동시 진행 · 결과 참조 합류' : '정의 기반 순차 처리'}
+          </p>
+          <h1>{graph ? '분기·병렬 워크플로우 티켓' : '순차 워크플로우 티켓'}</h1>
         </div>
         <Button variant="secondary" disabled={!!busy} onClick={() => void load()}>
           서버 목록 새로 불러오기
@@ -336,12 +394,21 @@ export const WorkflowTickets = () => {
       </p>
       <p className="serving-help">
         정의는 생성 때 ID·revision·내용을 고정합니다. 계획 확인 때 서빙 설정을 결합하고 변경 시
-        재확인을 요구합니다. 비밀키는 복사하지 않습니다. 첫 실패에서 중단하며 자동 재시도·취소 후
-        재개는 제공하지 않습니다.
+        재확인을 요구합니다. 비밀키는 복사하지 않습니다.{' '}
+        {graph
+          ? '독립 가지는 실패를 전파하지 않고 결과를 보존합니다. join은 목록이며 미디어/clock 병합이 아닙니다.'
+          : '첫 실패에서 중단합니다.'}{' '}
+        자동 재시도·취소 후 재개는 제공하지 않습니다.
       </p>
       {runtime && (
         <p>
-          <Badge tone="neutral">{runtime.connected ? runtime.mode : '새 순차 실행기 미연결'}</Badge>{' '}
+          <Badge tone="neutral">
+            {runtime.connected
+              ? runtime.mode
+              : graph
+                ? '병렬 실행기 미연결'
+                : '새 순차 실행기 미연결'}
+          </Badge>{' '}
           {runtime.notice}
         </p>
       )}
@@ -426,6 +493,23 @@ export const WorkflowTickets = () => {
               />
             </label>
           </div>
+          {graph &&
+            definition?.nodes
+              .filter((n) => n.type === 'select')
+              .map((n) => (
+                <label key={n.id}>
+                  수동 분기 {n.id}
+                  <select
+                    aria-label={`분기 ${n.id} 선택`}
+                    value={choices[n.id] || n.options.selection || 'a'}
+                    onChange={(e) => void chooseBranch(n.id, e.target.value)}
+                  >
+                    <option value="a">a 선택</option>
+                    <option value="b">b 선택</option>
+                    <option value="both">둘 다</option>
+                  </select>
+                </label>
+              ))}
           <div className="ticket-actions">
             <Button
               variant="secondary"
@@ -451,7 +535,13 @@ export const WorkflowTickets = () => {
         {capability && (
           <div className="execution-capability">
             <Badge tone="neutral">
-              {capability.supported ? '순차 범위 지원' : '현재 순차 실행 미지원'}
+              {capability.supported
+                ? graph
+                  ? '분기·병렬 범위 지원'
+                  : '순차 범위 지원'
+                : graph
+                  ? '현재 병렬 실행 미지원'
+                  : '현재 순차 실행 미지원'}
             </Badge>
             <p className="serving-help">
               {capability.notice} 타입 검증 통과와 실제 실행 가능성/성공은 다릅니다.
@@ -470,9 +560,12 @@ export const WorkflowTickets = () => {
         )}
       </section>
       <section className="ticket-panel">
-        <h2>저장된 순차 티켓</h2>
+        <h2>{graph ? '저장된 분기·병렬 티켓' : '저장된 순차 티켓'}</h2>
         {ready && tickets.length === 0 && (
-          <p>저장된 새 순차 티켓 없음. 기존 고정 workflow/작업은 변경하지 않습니다.</p>
+          <p>
+            {graph ? '저장된 새 병렬 티켓 없음.' : '저장된 새 순차 티켓 없음.'} 기존 고정
+            workflow/작업은 변경하지 않습니다.
+          </p>
         )}
         <div className="ticket-list">
           {tickets.map((t) => (
@@ -482,7 +575,7 @@ export const WorkflowTickets = () => {
               disabled={!!busy}
               onClick={() => void open(t.id)}
             >
-              {t.definition.name} · {stateLabel[t.status] || t.status} · {t.id.slice(0, 6)}
+              {t.definition.name} · {states[t.status] || t.status} · {t.id.slice(0, 6)}
             </Button>
           ))}
         </div>
@@ -492,7 +585,7 @@ export const WorkflowTickets = () => {
           <div className="serving-heading">
             <h2>{ticket.definition.name}</h2>
             <Badge tone="neutral">
-              <span className="ticket-state">{stateLabel[ticket.status] || ticket.status}</span>
+              <span className="ticket-state">{states[ticket.status] || ticket.status}</span>
             </Badge>
           </div>
           <p>
@@ -503,6 +596,15 @@ export const WorkflowTickets = () => {
             티켓 {ticket.id} · 언어 {ticket.options.source_language} →{' '}
             {ticket.options.target_language}. 위의 새 입력을 바꾸면 이전 확인을 재사용하지 않습니다.
           </p>
+          {graph && (
+            <p className="ticket-choices">
+              고정 수동 선택:{' '}
+              {Object.entries(ticket.sequence?.choices || {})
+                .map(([k, v]) => `${k}=${v}`)
+                .join(' / ') || '수동 분기 없음'}{' '}
+              · 동시 상한 2
+            </p>
+          )}
           <div className="ticket-actions">
             <Button variant="secondary" disabled={!!busy} onClick={() => void open(ticket.id)}>
               티켓 서버값 다시 불러오기
@@ -540,7 +642,8 @@ export const WorkflowTickets = () => {
               <ol>
                 {plan.steps.map((s) => (
                   <li key={s.id}>
-                    {label(s.type)} ·{' '}
+                    {label(s.type)}
+                    {s.selected === false ? ' · 미선택 건너뜀' : ''} ·{' '}
                     {Object.entries(s.options)
                       .map(([k, v]) => `${k}=${v}`)
                       .join(' / ') || '정의된 기본 옵션'}
@@ -593,18 +696,32 @@ export const WorkflowTickets = () => {
               </div>
               {!runtime?.connected && (
                 <p className="serving-help">
-                  현재 순차 실행기가 미연결이라 실행 요청은 비활성입니다. 기존 큐/Worker를 자동
-                  시작하지 않습니다.
+                  현재 실행기가 미연결이라 실행 요청은 비활성입니다. 기존 큐/Worker를 자동 시작하지
+                  않습니다.
                 </p>
               )}
             </section>
           )}
           <ol className="ticket-steps">
             {ticket.steps.map((step) => (
-              <li className="ticket-step" key={step.id}>
+              <li
+                className="ticket-step"
+                key={step.id}
+                data-node-id={step.id}
+                data-status={step.status}
+              >
                 <h3>
-                  {label(step.type)} · {stateLabel[step.status] || step.status}
+                  {label(step.type)} ·{' '}
+                  {graph && step.status === 'failed' ? '실패' : states[step.status] || step.status}
                 </h3>
+                {graph && <p className="serving-help">노드 {step.id}</p>}
+                {(step.blocked_by || step.error_type) && (
+                  <p className="serving-help">
+                    {step.blocked_by
+                      ? `필수 선행 실패/차단: ${step.blocked_by.join(', ')}`
+                      : `단계 실패: ${step.error_type}`}
+                  </p>
+                )}
                 <div className="ticket-artifacts">
                   {Object.entries(step.artifacts).map(([p, m]) => artifactLink(step, p, m, false))}
                   {Object.entries(step.partial_artifacts).map(([p, m]) =>
@@ -621,9 +738,10 @@ export const WorkflowTickets = () => {
         </section>
       )}
       <p className="serving-help">
-        지원 범위는 단일 처리 사슬입니다. 얼굴 합성 세션/preview·GPU VAD·추가
-        검수/Decision·병렬/합류는 이번 순차 어댑터에서 미지원입니다. 단계 상태는 실행기가 기록한
-        결과이며 실모델 품질 검증을 뜻하지 않습니다.
+        {graph
+          ? '수동 선택·독립 병렬·선택 필수 합류를 지원합니다. 합류 출력은 노드ID.포트 결과 참조 manifest이며 미디어/clock 병합 또는 단일 미디어 입력이 아닙니다. 얼굴 합성 세션/preview·GPU VAD·새 사람검수/AI Decision은 미지원입니다.'
+          : '지원 범위는 단일 처리 사슬입니다. 얼굴 합성 세션/preview·GPU VAD·추가 검수/Decision·병렬/합류는 이번 순차 어댑터에서 미지원입니다.'}{' '}
+        단계 상태는 실행기가 기록한 결과이며 실모델 품질 검증을 뜻하지 않습니다.
       </p>
     </main>
   );

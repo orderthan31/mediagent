@@ -26,10 +26,36 @@ NODES = [
          role='faceswap', choices={'preset': ['fast', 'balanced', 'quality'], 'video_codec': ['h264', 'hevc']}),
 ]
 
+VALUE_TYPES = ['video', 'audio', 'transcript', 'subtitle', 'timeline_map', 'media_metadata', 'validation_report', 'artifact_manifest']
+NODES.extend([
+    {**node('select', '수동 선택 분기', {'value': 'video'}, {'a': 'video', 'b': 'video'}, role='control',
+            choices={'data_type': VALUE_TYPES, 'selection': ['a', 'b', 'both']}),
+     'execution': 'explicit_graph_ticket', 'entrypoint': 'video_service.graph_tickets:GraphTicketStore.run',
+     'port_types_from_options': {'inputs': {'value': 'data_type'}, 'outputs': {'a': 'data_type', 'b': 'data_type'}}},
+    {**node('join', '선택 결과 합류 목록', {'left': 'video', 'right': 'video'}, {'manifest': 'artifact_manifest'}, role='control',
+            choices={'left_type': VALUE_TYPES, 'right_type': VALUE_TYPES}),
+     'execution': 'explicit_graph_ticket', 'entrypoint': 'video_service.graph_tickets:GraphTicketStore.run',
+     'port_types_from_options': {'inputs': {'left': 'left_type', 'right': 'right_type'}}},
+])
+
+
+def node_spec(identity, options=None):
+    selected = next((n for n in NODES if n['id'] == identity), None)
+    if selected is None:
+        return None
+    selected = deepcopy(selected)
+    supplied = options if isinstance(options, dict) else {}
+    for direction, ports in selected.get('port_types_from_options', {}).items():
+        for port, key in ports.items():
+            value = supplied.get(key, selected['options'][key][0])
+            if isinstance(value, str) and value in selected['options'][key]:
+                selected[direction][port] = value
+    return selected
+
 
 def node_catalog():
     return {'version': 1, 'nodes': deepcopy(NODES), 'standalone_execution': False,
-            'scope': '현재 고정 workflow 및 얼굴 합성 실행기의 처리 단계입니다. 개별 노드 실행 API·캔버스·DAG 엔진은 아직 없습니다.',
+            'scope': '고정 workflow 처리 단계와 명시 수동 분기/결과 목록 합류 계약입니다. 실행 가능 범위는 순차/병렬 티켓의 서버 검사로 구분하며 운영 실행기 연결과 모델 성공은 별도입니다.',
             'notes': ['번인은 encode의 subtitle_mode=burn이며 독립 실행 단계가 아닙니다.',
                       '전처리의 NVIDIA VAD·얼굴 합성은 해당 엔진과 모델 환경이 별도로 필요합니다.',
                       '서빙 역할은 단일 media_worker의 논리 역할이며 분산 Worker 등록부가 아닙니다.']}
@@ -38,7 +64,7 @@ def node_catalog():
 def validate_node(payload):
     if not isinstance(payload, dict) or set(payload) - {'node', 'inputs', 'options'}:
         raise ValueError('노드 검증 요청 형식을 확인하세요.')
-    selected = next((n for n in NODES if n['id'] == payload.get('node')), None)
+    selected = node_spec(payload.get('node'), payload.get('options'))
     if selected is None:
         raise ValueError('현재 실행 경로가 없는 노드입니다.')
     inputs, options = payload.get('inputs'), payload.get('options', {})

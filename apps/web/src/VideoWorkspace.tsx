@@ -55,6 +55,7 @@ const workspaceLinks = [
   { id: 'serving', label: '노드·서빙', href: '#/serving' },
   { id: 'editor', label: '워크플로우', href: '#/workflow-editor' },
   { id: 'workflow-tickets', label: '순차 티켓', href: '#/workflow-tickets' },
+  { id: 'graph-tickets', label: '분기·병렬 티켓', href: '#/graph-tickets' },
   { id: 'settings', label: '설정', href: '#/settings' },
 ];
 export const VideoWorkspace = () => {
@@ -118,9 +119,12 @@ export const VideoWorkspace = () => {
   const settingsView = route === '#/settings';
   const servingView = route === '#/serving';
   const editorView = route === '#/workflow-editor';
-  const workflowTicketsView = route === '#/workflow-tickets';
+  const graphTicketsView = route === '#/graph-tickets';
+  const workflowTicketsView = route === '#/workflow-tickets' || graphTicketsView;
   const currentHref = workflowTicketsView
-    ? '#/workflow-tickets'
+    ? graphTicketsView
+      ? '#/graph-tickets'
+      : '#/workflow-tickets'
     : editorView
       ? '#/workflow-editor'
       : servingView
@@ -131,7 +135,9 @@ export const VideoWorkspace = () => {
             ? '#/jobs'
             : '#/';
   const locationLabel = workflowTicketsView
-    ? '순차 워크플로우 티켓'
+    ? graphTicketsView
+      ? '분기·병렬 워크플로우 티켓'
+      : '순차 워크플로우 티켓'
     : editorView
       ? '워크플로우 편집기'
       : servingView
@@ -487,7 +493,10 @@ export const VideoWorkspace = () => {
           onChange={(e) => void attachSrt(e.target.files?.[0])}
         />
         {workflowTicketsView ? (
-          <WorkflowTickets />
+          <WorkflowTickets
+            key={graphTicketsView ? 'graph' : 'sequential'}
+            graph={graphTicketsView}
+          />
         ) : editorView ? (
           <WorkflowEditor />
         ) : servingView ? (

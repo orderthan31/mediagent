@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { request } from './api';
+import { resolvePorts as resolveSpec } from './workflow-spec';
 import { jsonPost } from './video-api';
 import { Button } from './hangyeol/primitives/button';
 import { Input } from './hangyeol/primitives/input';
@@ -30,6 +31,7 @@ type Spec = {
   outputs: Record<string, string>;
   optional_inputs: string[];
   options: Record<string, string[]>;
+  port_types_from_options?: Partial<Record<'inputs' | 'outputs', Record<string, string>>>;
 };
 type Summary = { id: string; name: string; revision: number };
 type Validation = {
@@ -83,7 +85,10 @@ export const WorkflowEditor = () => {
     sy: number;
   } | null>(null);
   const node = doc.nodes.find((n) => n.id === selected),
-    spec = catalog.find((n) => n.id === node?.type);
+    spec = resolveSpec(
+      catalog.find((n) => n.id === node?.type),
+      node?.options,
+    );
   const inputTypes = [...new Set(catalog.flatMap((n) => Object.values(n.inputs)))];
   const nodeLabel = (identity: string) =>
     identity === '$input'
@@ -458,7 +463,10 @@ export const WorkflowEditor = () => {
                     ))}
                   </article>
                   {doc.nodes.map((n) => {
-                    const s = catalog.find((x) => x.id === n.type);
+                    const s = resolveSpec(
+                      catalog.find((x) => x.id === n.type),
+                      n.options,
+                    );
                     if (!s) {
                       return null;
                     }

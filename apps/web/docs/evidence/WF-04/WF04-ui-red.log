@@ -1,0 +1,34 @@
+
+Running 1 test using 1 worker
+
+[1/1] tests\browser\graph-tickets.spec.ts:7:3 › real graph orchestration and manual routing 1440
+  1) tests\browser\graph-tickets.spec.ts:7:3 › real graph orchestration and manual routing 1440 ────
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('heading', { name: '분기·병렬 워크플로우 티켓', exact: true })
+    Expected: visible
+    Timeout: 15000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 15000ms
+      - waiting for getByRole('heading', { name: '분기·병렬 워크플로우 티켓', exact: true })
+
+
+      48 |     });
+      49 |     await page.goto('/#/graph-tickets');
+    > 50 |     await expect(page.getByRole('heading', { name: '분기·병렬 워크플로우 티켓', exact: true })).toBeVisible({ timeout: 15000 });
+         |                                                                                      ^
+      51 |     await page.getByLabel('입력 영상', { exact: true }).selectOption('b'.repeat(32));
+      52 |     await page.getByLabel('저장 워크플로우', { exact: true }).selectOption('c'.repeat(32));
+      53 |     await expect(page.locator('.execution-reasons')).toContainText('GPU');
+        at <workspace>\apps\web\tests\browser\graph-tickets.spec.ts:50:86
+
+    Test timeout of 30000ms exceeded.
+
+    Error Context: ..\..\..\..\AppData\Local\hermes\cache\scratch\s2-audit\browser-results\graph-tickets-real-graph-o-ed066-ion-and-manual-routing-1440\error-context.md
+
+
+  1 failed
+    tests\browser\graph-tickets.spec.ts:7:3 › real graph orchestration and manual routing 1440 ─────

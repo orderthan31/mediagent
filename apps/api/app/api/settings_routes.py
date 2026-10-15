@@ -213,3 +213,5 @@ async def write_definition(identity: str, request: Request):
 
 from app.api.workflow_ticket_routes import router as workflow_ticket_router
 router.include_router(workflow_ticket_router)
+from app.api.graph_ticket_routes import router as graph_ticket_router
+router.include_router(graph_ticket_router)

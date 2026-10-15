@@ -44,6 +44,9 @@ class TicketStore:
         record['revision']+=1
         write_json_atomic(self.directory_for(record['id'])/'ticket.json',record)
 
+    def _compile_definition(self, graph, options):
+        return compile_sequence(graph)
+
     def create(self, request_id, identity, definition_loader, asset_loader):
         self.directory.mkdir(parents=True,exist_ok=True,mode=0o700)
         with _file_lock(self.directory/'admission.lock'):
@@ -55,7 +58,7 @@ class TicketStore:
             if definition['id']!=identity['definition_id'] or definition['revision']!=identity['definition_revision'] or asset['asset_id']!=identity['asset_id']:
                 raise TicketConflict('선택한 정의/입력이 변경되었습니다. 다시 선택하세요.')
             graph={k:definition[k] for k in ('catalog_version','revision','name','inputs','nodes','edges')}
-            plan=compile_sequence(graph)
+            plan=self._compile_definition(graph, identity['options'])
             if not plan['supported']:raise ValueError('지원하지 않는 순차 정의입니다. 실행 범위 검사 이유를 확인하세요.')
             record={'id':uuid4().hex,'revision':0,'request_id':request_id,'request':copy.deepcopy(identity),
                     'definition':definition,'definition_sha256':digest(definition),'asset':asset,'options':copy.deepcopy(identity['options']),
@@ -67,7 +70,7 @@ class TicketStore:
         record=self.get(identity)
         if digest(record['definition'])!=record['definition_sha256']:raise TicketConflict('실행 정의 snapshot 무결성이 다릅니다.')
         graph={k:record['definition'][k] for k in ('catalog_version','revision','name','inputs','nodes','edges')}
-        compiled=compile_sequence(graph)
+        compiled=self._compile_definition(graph, record['options'])
         if not compiled['supported'] or compiled!=record['sequence']:
             raise TicketConflict('저장된 순서/포트/옵션이 고정 정의와 다르거나 현재 실행 범위에서 지원하지 않습니다.')
         public=public_preferences(preferences)

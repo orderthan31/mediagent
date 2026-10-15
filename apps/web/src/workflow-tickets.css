@@ -1,7 +1,7 @@
 [data-hangyeol] .workflow-tickets .ticket-panel { border: 1px solid var(--g-line); padding: 22px; border-radius: 18px; margin: 24px 0; background: var(--g-surface); }
 [data-hangyeol] .workflow-tickets .ticket-actions, [data-hangyeol] .workflow-tickets .ticket-list { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin: 14px 0; }
 [data-hangyeol] .workflow-tickets .ticket-steps { padding-left: 24px; }
-[data-hangyeol] .workflow-tickets .ticket-step { padding: 16px; margin: 14px 0; border: 1px solid var(--g-line); border-radius: 12px; }
+[data-hangyeol] .workflow-tickets .ticket-step { padding: 16px; margin: 14px 0; border: 1px solid var(--g-line); border-radius: 12px; overflow-wrap: anywhere; }
 [data-hangyeol] .workflow-tickets .ticket-artifacts { display: flex; gap: 12px; flex-wrap: wrap; }
 [data-hangyeol] .workflow-tickets .ticket-artifacts a { color: #4338ca; overflow-wrap: anywhere; font-weight: 600; }
 [data-hangyeol] .workflow-tickets .partial-link { border-left: 3px solid #b45309; padding-left: 8px; }

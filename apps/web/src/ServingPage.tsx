@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { request } from './api';
+import { resolvePorts } from './workflow-spec';
 import { jsonPost } from './video-api';
 import { Button } from './hangyeol/primitives/button';
 import { Input } from './hangyeol/primitives/input';
@@ -35,6 +36,7 @@ type Node = {
   optional_inputs: string[];
   worker_role: string;
   options: Record<string, string[]>;
+  port_types_from_options?: Partial<Record<'inputs' | 'outputs', Record<string, string>>>;
   embedded_operations: string[];
   entrypoint: string;
 };
@@ -64,7 +66,10 @@ export const ServingPage = () => {
   const [inputs, setInputs] = useState<Record<string, string>>({ video: 'video' });
   const [options, setOptions] = useState<Record<string, string>>({});
   const [validation, setValidation] = useState('');
-  const node = catalog?.nodes.find((n) => n.id === selected);
+  const node = resolvePorts(
+    catalog?.nodes.find((n) => n.id === selected),
+    options,
+  );
 
   const load = async () => {
     setBusy('load');
