@@ -1,0 +1,295 @@
+{
+  "serving": {
+    "revision": 0,
+    "workers": {
+      "transcription": {
+        "provider": "gemini",
+        "model": "gemini-3.8-flash",
+        "fallback_provider": "gemini",
+        "fallback_model": "",
+        "credential": {
+          "has_api_key": false,
+          "key_source": "none"
+        },
+        "fallback_credential": {
+          "has_api_key": false,
+          "key_source": "none"
+        },
+        "credential_provider": "gemini",
+        "fallback_credential_provider": "gemini",
+        "connection": "unverified"
+      },
+      "translation": {
+        "provider": "gemini",
+        "model": "gemini-3.8-flash",
+        "fallback_provider": "gemini",
+        "fallback_model": "",
+        "credential": {
+          "has_api_key": false,
+          "key_source": "none"
+        },
+        "fallback_credential": {
+          "has_api_key": false,
+          "key_source": "none"
+        },
+        "credential_provider": "gemini",
+        "fallback_credential_provider": "gemini",
+        "connection": "unverified"
+      }
+    },
+    "fallback_on_error": false,
+    "fallback_on_block": false,
+    "providers": {
+      "gemini": "Gemini",
+      "openai": "OpenAI",
+      "xai": "xAI (Grok)",
+      "openrouter": "OpenRouter",
+      "anthropic": "Anthropic"
+    },
+    "stt_models": {
+      "gemini": [],
+      "openai": [
+        "whisper-1",
+        "gpt-4o-transcribe-diarize"
+      ],
+      "xai": [
+        "grok-voice-transcribe-2.0",
+        "grok-voice-transcribe-1.0"
+      ],
+      "openrouter": [
+        "microsoft/mai-transcribe-2",
+        "openai/whisper-large-v3"
+      ]
+    },
+    "runtime": {
+      "process": "media_worker.worker:Worker",
+      "connection": "unverified",
+      "notice": "논리 처리 역할별 설정입니다. 저장·키 보유·지원 모델은 Worker 연결이나 추론 성공을 뜻하지 않습니다."
+    },
+    "fixed_workers": [
+      {
+        "id": "media",
+        "provider": "FFmpeg/FFprobe",
+        "model": null,
+        "editable": false,
+        "reason": "영상 분석·오디오 추출·자막 생성·번인/인코딩은 기존 로컬 실행기를 사용합니다."
+      },
+      {
+        "id": "faceswap",
+        "provider": "FaceFusion",
+        "model": null,
+        "editable": false,
+        "reason": "엔진/모델은 Worker 실행 환경에서 지정합니다. 이 화면은 모델을 내려받거나 Worker를 시작하지 않습니다."
+      }
+    ]
+  },
+  "catalog": {
+    "version": 1,
+    "nodes": [
+      {
+        "id": "analyze",
+        "label": "영상 분석",
+        "inputs": {
+          "video": "video"
+        },
+        "outputs": {
+          "metadata": "media_metadata"
+        },
+        "optional_inputs": [],
+        "worker_role": "media",
+        "options": {},
+        "embedded_operations": [],
+        "execution": "existing_fixed_workflow",
+        "entrypoint": "media_worker.worker:Worker.process"
+      },
+      {
+        "id": "extract_audio",
+        "label": "오디오 추출",
+        "inputs": {
+          "video": "video"
+        },
+        "outputs": {
+          "audio": "audio"
+        },
+        "optional_inputs": [],
+        "worker_role": "media",
+        "options": {},
+        "embedded_operations": [],
+        "execution": "existing_fixed_workflow",
+        "entrypoint": "media_worker.worker:Worker.process"
+      },
+      {
+        "id": "preprocess_audio",
+        "label": "음성 전처리",
+        "inputs": {
+          "audio": "audio"
+        },
+        "outputs": {
+          "audio": "audio",
+          "timeline": "timeline_map"
+        },
+        "optional_inputs": [],
+        "worker_role": "media",
+        "options": {
+          "audio_filter": [
+            "off",
+            "conservative",
+            "strong",
+            "silence3"
+          ],
+          "vad_mode": [
+            "off",
+            "nvidia"
+          ]
+        },
+        "embedded_operations": [],
+        "execution": "existing_fixed_workflow",
+        "entrypoint": "media_worker.worker:Worker.process"
+      },
+      {
+        "id": "transcribe",
+        "label": "음성 전사",
+        "inputs": {
+          "audio": "audio",
+          "timeline": "timeline_map"
+        },
+        "outputs": {
+          "transcript": "transcript"
+        },
+        "optional_inputs": [],
+        "worker_role": "transcription",
+        "options": {},
+        "embedded_operations": [
+          "filter_transcript",
+          "restore_timeline"
+        ],
+        "execution": "existing_fixed_workflow",
+        "entrypoint": "media_worker.worker:Worker.process"
+      },
+      {
+        "id": "translate",
+        "label": "자막 번역",
+        "inputs": {
+          "transcript": "transcript"
+        },
+        "outputs": {
+          "transcript": "transcript"
+        },
+        "optional_inputs": [],
+        "worker_role": "translation",
+        "options": {},
+        "embedded_operations": [],
+        "execution": "existing_fixed_workflow",
+        "entrypoint": "media_worker.worker:Worker.process"
+      },
+      {
+        "id": "generate_subtitle",
+        "label": "자막 생성",
+        "inputs": {
+          "transcript": "transcript"
+        },
+        "outputs": {
+          "subtitles": "subtitle"
+        },
+        "optional_inputs": [],
+        "worker_role": "media",
+        "options": {},
+        "embedded_operations": [],
+        "execution": "existing_fixed_workflow",
+        "entrypoint": "media_worker.worker:Worker.process"
+      },
+      {
+        "id": "encode",
+        "label": "영상 인코딩·번인",
+        "inputs": {
+          "video": "video",
+          "subtitles": "subtitle"
+        },
+        "outputs": {
+          "video": "video"
+        },
+        "optional_inputs": [
+          "subtitles"
+        ],
+        "worker_role": "media",
+        "options": {
+          "subtitle_mode": [
+            "burn",
+            "soft",
+            "none"
+          ],
+          "video_codec": [
+            "h264",
+            "hevc"
+          ],
+          "resolution": [
+            "original",
+            "1080p",
+            "720p"
+          ],
+          "quality_profile": [
+            "balanced",
+            "high",
+            "compact"
+          ]
+        },
+        "embedded_operations": [
+          "burn_subtitles"
+        ],
+        "execution": "existing_fixed_workflow",
+        "entrypoint": "media_worker.worker:Worker.process"
+      },
+      {
+        "id": "validate_video",
+        "label": "출력 영상 검증",
+        "inputs": {
+          "video": "video"
+        },
+        "outputs": {
+          "report": "validation_report"
+        },
+        "optional_inputs": [],
+        "worker_role": "media",
+        "options": {},
+        "embedded_operations": [],
+        "execution": "existing_fixed_workflow",
+        "entrypoint": "media_worker.worker:Worker.process"
+      },
+      {
+        "id": "faceswap",
+        "label": "얼굴 합성",
+        "inputs": {
+          "video": "video",
+          "session": "faceswap_session",
+          "preview": "faceswap_preview"
+        },
+        "outputs": {
+          "video": "video"
+        },
+        "optional_inputs": [],
+        "worker_role": "faceswap",
+        "options": {
+          "preset": [
+            "fast",
+            "balanced",
+            "quality"
+          ],
+          "video_codec": [
+            "h264",
+            "hevc"
+          ]
+        },
+        "embedded_operations": [],
+        "execution": "existing_fixed_workflow",
+        "entrypoint": "media_worker.faceswap.runner:execute"
+      }
+    ],
+    "standalone_execution": false,
+    "scope": "현재 고정 workflow 및 얼굴 합성 실행기의 처리 단계입니다. 개별 노드 실행 API·캔버스·DAG 엔진은 아직 없습니다.",
+    "notes": [
+      "번인은 encode의 subtitle_mode=burn이며 독립 실행 단계가 아닙니다.",
+      "전처리의 NVIDIA VAD·얼굴 합성은 해당 엔진과 모델 환경이 별도로 필요합니다.",
+      "서빙 역할은 단일 media_worker의 논리 역할이며 분산 Worker 등록부가 아닙니다."
+    ]
+  }
+}

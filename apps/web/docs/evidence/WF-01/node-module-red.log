@@ -1,0 +1,20 @@
+E
+======================================================================
+ERROR: test_node_serving (unittest.loader._FailedTest.test_node_serving)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_node_serving
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.12/unittest/loader.py", line 396, in _find_test_path
+    module = self._get_module_from_name(name)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/unittest/loader.py", line 339, in _get_module_from_name
+    __import__(name)
+  File "/src/tests/test_node_serving.py", line 6, in <module>
+    from video_service.node_contracts import node_catalog, validate_node
+ModuleNotFoundError: No module named 'video_service.node_contracts'
+
+
+----------------------------------------------------------------------
+Ran 1 test in 0.000s
+
+FAILED (errors=1)

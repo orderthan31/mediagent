@@ -115,3 +115,56 @@ async def list_models(request: Request, provider: str = 'gemini'):
 @router.get('/llm/stt-models')
 def stt_models():
     return {'providers': STT_MODELS}
+
+
+async def serving_json(request):
+    if request.headers.get('content-type', '').split(';')[0] != 'application/json':
+        raise HTTPException(415, 'JSON 요청이 필요합니다.')
+    raw = bytearray()
+    async for chunk in request.stream():
+        raw.extend(chunk)
+        if len(raw) > 8192:
+            raise HTTPException(413, '요청이 너무 큽니다.')
+    try:
+        return json.loads(raw)
+    except (ValueError, UnicodeDecodeError):
+        raise HTTPException(422, 'JSON 형식을 확인하세요.') from None
+
+
+@router.get('/node-catalog')
+def get_node_catalog():
+    from video_service.node_contracts import node_catalog
+    return node_catalog()
+
+
+@router.post('/node-validation')
+async def check_node(request: Request):
+    from video_service.node_contracts import validate_node
+    payload = await serving_json(request)
+    try:
+        return validate_node(payload)
+    except (ValueError, TypeError):
+        raise HTTPException(422, '노드·필수 입력 유형·옵션 조합을 확인하세요. 번인에는 자막 입력이 필요합니다.') from None
+
+
+@router.get('/serving')
+def get_serving(request: Request):
+    from video_service.serving import serving_settings
+    try:
+        return serving_settings(settings.storage_root, request.state.settings_owner)
+    except Exception:
+        raise HTTPException(503, '서빙 설정을 읽지 못했습니다. 기존 설정 저장소·암호화키를 확인하세요.') from None
+
+
+@router.put('/serving')
+async def update_serving(request: Request):
+    from video_service.serving import save_serving
+    payload = await serving_json(request)
+    try:
+        return save_serving(settings.storage_root, request.state.settings_owner, payload)
+    except SettingsConflict:
+        raise HTTPException(409, '설정이 변경되었습니다. 새로 불러온 뒤 Worker 설정을 다시 선택하세요.') from None
+    except (ValueError, TypeError):
+        raise HTTPException(422, '지원 공급자·모델·서로 다른 폴백을 확인하세요. 전사 Anthropic·임의 STT 모델·키 변경은 지원하지 않습니다.') from None
+    except Exception:
+        raise HTTPException(503, '서빙 설정을 저장하지 못했습니다. 입력은 유지됩니다.') from None

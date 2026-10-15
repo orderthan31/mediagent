@@ -16,6 +16,7 @@ import { base, Job, request, resumeUpload, uploadRequest } from './api';
 import { AccountMenu } from './AuthGate';
 import { JobDetail } from './JobDetail';
 import { SettingsPage } from './SettingsPage';
+import { ServingPage } from './ServingPage';
 import { failureMessage, isContentBlocked } from './job-failure';
 import { StageProgress } from './StageProgress';
 import { QueuePanel } from './QueuePanel';
@@ -49,6 +50,7 @@ import './feature-renewal.css';
 const workspaceLinks = [
   { id: 'videos', label: '영상 보관함', href: '#/' },
   { id: 'jobs', label: '작업 목록', href: '#/jobs' },
+  { id: 'serving', label: '노드·서빙', href: '#/serving' },
   { id: 'settings', label: '설정', href: '#/settings' },
 ];
 export const VideoWorkspace = () => {
@@ -110,16 +112,25 @@ export const VideoWorkspace = () => {
     jobId = route.match(/^#\/jobs\/([a-f0-9]{32})$/)?.[1];
   const jobsView = route === '#/jobs';
   const settingsView = route === '#/settings';
-  const currentHref = settingsView ? '#/settings' : jobsView || jobId ? '#/jobs' : '#/';
-  const locationLabel = settingsView
-    ? '설정'
-    : jobId
-      ? '작업 목록 / 작업 상세'
-      : jobsView
-        ? '작업 목록'
-        : assetId
-          ? '영상 보관함 / 영상 상세'
-          : '영상 보관함';
+  const servingView = route === '#/serving';
+  const currentHref = servingView
+    ? '#/serving'
+    : settingsView
+      ? '#/settings'
+      : jobsView || jobId
+        ? '#/jobs'
+        : '#/';
+  const locationLabel = servingView
+    ? '노드·서빙'
+    : settingsView
+      ? '설정'
+      : jobId
+        ? '작업 목록 / 작업 상세'
+        : jobsView
+          ? '작업 목록'
+          : assetId
+            ? '영상 보관함 / 영상 상세'
+            : '영상 보관함';
   const shownVideos = videos.filter((v) =>
     v.original_filename.toLocaleLowerCase().includes(query.toLocaleLowerCase()),
   );
@@ -461,7 +472,9 @@ export const VideoWorkspace = () => {
           hidden
           onChange={(e) => void attachSrt(e.target.files?.[0])}
         />
-        {settingsView ? (
+        {servingView ? (
+          <ServingPage />
+        ) : settingsView ? (
           <SettingsPage />
         ) : jobId ? (
           <JobDetail
