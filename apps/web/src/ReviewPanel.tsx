@@ -24,18 +24,20 @@ export type ReviewDocument = {
 
 export const ReviewPanel = ({
   ticketId,
+  ticketBase = '/settings/review-tickets',
   node,
   initial,
   executed,
   changed,
 }: {
   ticketId: string;
+  ticketBase?: string;
   node: string;
   initial: ReviewDocument;
   executed: boolean;
   changed: () => Promise<void>;
 }) => {
-  const base = `/settings/review-tickets/${ticketId}/reviews/${encodeURIComponent(node)}`;
+  const base = `${ticketBase}/${ticketId}/reviews/${encodeURIComponent(node)}`;
   const [server, setServer] = useState(initial);
   const [cues, setCues] = useState(initial.cues);
   const [dirty, setDirty] = useState(false);

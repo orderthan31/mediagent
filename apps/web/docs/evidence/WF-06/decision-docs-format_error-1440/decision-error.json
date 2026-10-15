@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "kind": "decision_error",
+  "code": "format_error",
+  "error_type": "DecisionFormatError",
+  "input_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451",
+  "conditions": {
+    "a": {
+      "field": "label",
+      "op": "eq",
+      "value": "pass"
+    },
+    "b": {
+      "field": "label",
+      "op": "eq",
+      "value": "reject"
+    }
+  },
+  "adapter": {
+    "id": "offline-controlled-fixture",
+    "revision": "1",
+    "schema_version": 1,
+    "paid": false
+  }
+}

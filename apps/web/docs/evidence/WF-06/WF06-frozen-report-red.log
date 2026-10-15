@@ -1,0 +1,15 @@
+test_successful_judgment_is_pinned_against_consistent_report_route_tamper (test_workflow_decision.DecisionAdapterTests.test_successful_judgment_is_pinned_against_consistent_report_route_tamper) ... FAIL
+
+======================================================================
+FAIL: test_successful_judgment_is_pinned_against_consistent_report_route_tamper (test_workflow_decision.DecisionAdapterTests.test_successful_judgment_is_pinned_against_consistent_report_route_tamper)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/src/tests/test_workflow_decision.py", line 156, in test_successful_judgment_is_pinned_against_consistent_report_route_tamper
+    with self.assertRaises(TicketConflict):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: TicketConflict not raised
+
+----------------------------------------------------------------------
+Ran 1 test in 0.334s
+
+FAILED (failures=1)

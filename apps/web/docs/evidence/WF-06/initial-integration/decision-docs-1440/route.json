@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "kind": "decision_route",
+  "definition_hash": "d1e31d4131be2062e39cf5a35f501111fdd4acbc9cf85c34ab480b782fc28b67",
+  "input_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451",
+  "report_sha256": "c2bbff48519f019eb2cde00f6b1fc6c7214c314f452a3c8b83a97980ab9c0c1d",
+  "evaluation": {
+    "conditions": {
+      "a": {
+        "field": "label",
+        "op": "eq",
+        "value": "pass"
+      },
+      "b": {
+        "field": "label",
+        "op": "eq",
+        "value": "reject"
+      }
+    },
+    "matches": {
+      "a": true,
+      "b": false
+    },
+    "selected_port": "a"
+  }
+}

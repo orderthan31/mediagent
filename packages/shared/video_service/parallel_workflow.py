@@ -54,7 +54,7 @@ def compile_parallel(definition):
     return result
 
 
-def compile_graph(definition, choices=None, *, allow_review=False):
+def compile_graph(definition, choices=None, *, allow_review=False, allow_decision=False, decision_routes=None):
     """Approved manual routing plus typed manifest joins; no data/clock merge."""
     from .node_contracts import node_spec
     validation = validate_graph(definition)
@@ -65,6 +65,14 @@ def compile_graph(definition, choices=None, *, allow_review=False):
     if not validation['valid']:
         return result
     nodes = {n['id']: n for n in definition['nodes']}
+    deciders = {identity for identity, n in nodes.items() if n['type'] == 'decision'}
+    if deciders and not allow_decision:
+        reject('AI 판단은 신규 AI 판단 티켓만 지원합니다. 기존 수동 선택/순차/검수 티켓에 소급하지 않습니다.')
+        return result
+    routes = {} if decision_routes is None else decision_routes
+    if not isinstance(routes, dict) or set(routes) - deciders or any(v not in ('a', 'b') for v in routes.values()):
+        reject('서버가 검증한 고정 판단 경로가 필요합니다.')
+        return result
     reviewers = {identity for identity, n in nodes.items() if n['type'] == 'review'}
     if reviewers and not allow_review:
         reject('사람 검수는 신규 검수 지원 티켓으로 생성하세요. 기존 순차/병렬 티켓에 소급하지 않습니다.')
@@ -91,11 +99,11 @@ def compile_graph(definition, choices=None, *, allow_review=False):
     for identity in nodes:
         visit(identity)
     def origin(binding):
-        if binding['node'] in selectors | reviewers:
+        if binding['node'] in selectors | reviewers | deciders and binding['port'] != 'result':
             return origin(bindings[binding['node']]['value'])
         return dict(binding)
     native = deepcopy(definition)
-    native['nodes'] = [n for n in native['nodes'] if n['type'] not in {'select', 'join', 'review'}]
+    native['nodes'] = [n for n in native['nodes'] if n['type'] not in {'select', 'join', 'review', 'decision'}]
     native_ids = {n['id'] for n in native['nodes']}
     native['edges'] = [{**deepcopy(e), 'source': origin(e['source'])} for e in native['edges'] if e['target']['node'] in native_ids]
     if definition['inputs'] != {'video': 'video'}:
@@ -119,7 +127,7 @@ def compile_graph(definition, choices=None, *, allow_review=False):
             opts['selection'] = chosen[identity]
         def edge_active(binding):
             parent, port = binding['node'], binding['port']
-            return parent == '$input' or (active[parent] and (parent not in selectors or chosen[parent] == 'both' or chosen[parent] == port))
+            return parent == '$input' or (active[parent] and (parent not in selectors or chosen[parent] == 'both' or chosen[parent] == port) and (parent not in deciders or port == 'result' or parent not in routes or routes[parent] == port))
         required = {port: b for port, b in bindings[identity].items() if edge_active(b)}
         selected = bool(required) if node['type'] == 'join' else len(required) == len(bindings[identity])
         active[identity] = selected
@@ -128,6 +136,11 @@ def compile_graph(definition, choices=None, *, allow_review=False):
                 'dependencies': sorted({b['node'] for b in required.values() if b['node'] != '$input'})}
         if identity in normalized:
             step['native_bindings'] = normalized[identity]['bindings']
+        if allow_decision:
+            parents = {b['node'] for b in required.values()}
+            unresolved = identity in deciders and identity not in routes
+            unresolved = unresolved or any(n.get('routing_state') == 'unresolved' for n in steps if n['id'] in parents)
+            step['routing_state'] = 'unresolved' if selected and unresolved else 'fixed'
         steps.append(step)
     result.update(supported=True, steps=steps,
                   paid_roles=sorted({{'transcribe': 'transcription', 'translate': 'translation'}[n['type']] for n in steps if n['selected'] and n['type'] in {'transcribe', 'translate'}}))

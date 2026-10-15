@@ -1,0 +1,47 @@
+
+Running 8 tests using 1 worker
+
+[1/8] tests\browser\decision-tickets.spec.ts:7:3 › actual structured judgment, fixed route and explicit continuation 1440
+[2/8] tests\browser\decision-tickets.spec.ts:7:3 › actual structured judgment, fixed route and explicit continuation 390
+  1) tests\browser\decision-tickets.spec.ts:7:3 › actual structured judgment, fixed route and explicit continuation 390
+
+    Error: expect(locator).toContainText(expected) failed
+
+    Locator: locator('.workflow-tickets > [role="status"]')
+    Expected substring: "실행 응답을 저장"
+    Received string:    "확인한 계획을 저장했습니다. 아직 실행하지 않았습니다."
+    Timeout: 5000ms
+
+    Call log:
+      - Expect "toContainText" with timeout 5000ms
+      - waiting for locator('.workflow-tickets > [role="status"]')
+        9 × locator resolved to <p role="status">확인한 계획을 저장했습니다. 아직 실행하지 않았습니다.</p>
+          - unexpected value "확인한 계획을 저장했습니다. 아직 실행하지 않았습니다."
+
+
+      147 |         })
+      148 |         .click();
+    > 149 |       await expect(page.locator('.workflow-tickets > [role="status"]')).toContainText(
+          |                                                                         ^
+      150 |         '실행 응답을 저장',
+      151 |       );
+      152 |     };
+        at run (PRIVATE_WORKSPACE\dev\mediagent-s2\apps\web\tests\browser\decision-tickets.spec.ts:149:73)
+        at PRIVATE_WORKSPACE\dev\mediagent-s2\apps\web\tests\browser\decision-tickets.spec.ts:177:5
+
+    Test timeout of 30000ms exceeded.
+
+    Error Context: ..\..\..\..\AppData\Local\hermes\cache\scratch\s2-audit\browser-results\decision-tickets-actual-st-ec110-d-explicit-continuation-390\error-context.md
+
+
+[3/8] tests\browser\graph-tickets.spec.ts:7:3 › real graph orchestration and manual routing 1440
+[4/8] tests\browser\graph-tickets.spec.ts:7:3 › real graph orchestration and manual routing 390
+[5/8] tests\browser
+eview-tickets.spec.ts:7:3 › actual durable review gates and explicit continuation 1440
+[6/8] tests\browser
+eview-tickets.spec.ts:7:3 › actual durable review gates and explicit continuation 390
+[7/8] tests\browser\workflow-tickets.spec.ts:7:3 › definition ticket real orchestration 1440
+[8/8] tests\browser\workflow-tickets.spec.ts:7:3 › definition ticket real orchestration 390
+  1 failed
+    tests\browser\decision-tickets.spec.ts:7:3 › actual structured judgment, fixed route and explicit continuation 390
+  7 passed (12.1m)

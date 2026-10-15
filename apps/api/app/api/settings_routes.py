@@ -217,3 +217,5 @@ from app.api.graph_ticket_routes import router as graph_ticket_router
 router.include_router(graph_ticket_router)
 from app.api.review_ticket_routes import router as review_ticket_router
 router.include_router(review_ticket_router)
+from app.api.decision_ticket_routes import router as decision_ticket_router
+router.include_router(decision_ticket_router)

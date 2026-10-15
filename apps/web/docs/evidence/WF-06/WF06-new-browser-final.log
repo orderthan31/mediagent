@@ -1,0 +1,8 @@
+
+Running 2 tests using 1 worker
+
+[1/2] tests\browser\decision-tickets.spec.ts:7:3 › actual structured judgment, fixed route and explicit continuation 1440
+[2/2] tests\browser\decision-tickets.spec.ts:7:3 › actual structured judgment, fixed route and explicit continuation 390
+  Slow test file: tests\browser\decision-tickets.spec.ts (5.2m)
+  Consider running tests from slow files in parallel. See: https://playwright.dev/docs/test-parallel
+  2 passed (5.2m)

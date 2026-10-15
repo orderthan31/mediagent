@@ -15,6 +15,34 @@ from .storage import resolve_under, write_json_atomic
 
 
 class ReviewTicketStore(GraphTicketStore):
+    execution_contract = 'review-v1'
+    boundary_types = {'review'}
+    confirmation_statuses = {'held', 'confirmed', 'awaiting_review', 'continuation_confirmed'}
+
+    def _make_executor(self, record, bound, factory, execution):
+        return factory(bound, deepcopy(record['options']))
+
+    def _execution_sequence(self, record):
+        return record['sequence']
+
+    def _gate_approval(self, record, identity):
+        return record['reviews'].get(identity, {}).get('approval')
+
+    def _resume_gate(self, record, plan, identity):
+        return plan['review_signatures'].get(identity, {}).get('approval')
+
+    def _plan_extension(self, record):
+        return {}
+
+    def _execute_extension(self, step, incoming, work, resolve, execute, record, plan):
+        return None
+
+    def _waiting_status(self, record):
+        return 'awaiting_review'
+
+    def _preserve_serving(self, step):
+        return False
+
     def __init__(self, root, owner=None):
         super().__init__(root, owner)
         self.directory = (Path(root) / '.workflow-review-tickets' / self.directory.name).resolve()
@@ -24,7 +52,7 @@ class ReviewTicketStore(GraphTicketStore):
 
     def _save(self, record):
         record.pop('reviews', None)
-        record.setdefault('execution_contract', 'review-v1')
+        record.setdefault('execution_contract', self.execution_contract)
         record.setdefault('phase', 0)
         record.setdefault('run_requests', {})
         super()._save(record)
@@ -60,7 +88,7 @@ class ReviewTicketStore(GraphTicketStore):
 
     def get(self, identity):
         record = super().get(identity)
-        if record.get('execution_contract') != 'review-v1':
+        if record.get('execution_contract') != self.execution_contract:
             raise TicketConflict('신규 검수 지원 티켓이 아닙니다.')
         record['reviews'] = {}
         for step in record['sequence']['steps']:
@@ -77,27 +105,30 @@ class ReviewTicketStore(GraphTicketStore):
         available = {k for k, v in state.items() if v['status'] == 'succeeded'}
         eligible = []
         approved_gates = []
-        for step in record['sequence']['steps']:
+        execution = self._execution_sequence(record)
+        for step in execution['steps']:
             status = state.get(step['id'], {}).get('status', 'pending')
             if not step['selected'] or status in {'succeeded', 'failed', 'blocked', 'skipped'}:
                 continue
             if not all(p in available for p in step['dependencies']):
                 continue
-            approval = record['reviews'].get(step['id'], {}).get('approval')
+            approval = self._gate_approval(record, step['id'])
             if status == 'waiting' and not approval:
                 continue
             eligible.append(step['id'])
-            if step['type'] == 'review':
+            if step['type'] in self.boundary_types:
                 if approval:
                     available.add(step['id'])
                     approved_gates.append(step['id'])
             else:
                 available.add(step['id'])
         signatures = {node: {k: doc[k] for k in ('target', 'revision', 'state_revision', 'sha256', 'document_sha256', 'approval')} for node, doc in record['reviews'].items()}
-        token = digest({'base': base['token'], 'phase': record['phase'], 'reviews': signatures,
-                        'state': state, 'eligible': eligible, 'source_sha256': record.get('source_sha256')})
-        roles = sorted({{'transcribe': 'transcription', 'translate': 'translation'}[n['type']] for n in record['sequence']['steps'] if n['id'] in eligible and n['type'] in {'transcribe', 'translate'}})
-        return {**base, 'token': token, 'phase': record['phase'], 'review_signatures': signatures, 'eligible_steps': eligible,
+        token_fields = {'base': base['token'], 'phase': record['phase'], 'reviews': signatures,
+                        'state': state, 'eligible': eligible, 'source_sha256': record.get('source_sha256')}
+        token_fields.update(self._plan_extension(record))
+        token = digest(token_fields)
+        roles = sorted({{'transcribe': 'transcription', 'translate': 'translation'}[n['type']] for n in execution['steps'] if n['id'] in eligible and n['type'] in {'transcribe', 'translate'}})
+        return {**base, 'steps': execution['steps'], 'token': token, 'phase': record['phase'], 'review_signatures': signatures, 'eligible_steps': eligible,
                 'paid_roles': roles, 'ready': bool(eligible) and (record['phase'] == 0 or bool(approved_gates)),
                 'notice': '저장·자료 승인·계획 확인·이어 실행은 별도입니다. 승인 revision/SHA와 미실행 단계·서빙을 결합합니다. 완료 단계는 재실행하지 않습니다.'}
 
@@ -105,7 +136,7 @@ class ReviewTicketStore(GraphTicketStore):
         with _file_lock(self.directory_for(identity) / 'state.lock'):
             record = self.get(identity)
             plan = self.plan(identity, preferences)
-            if (record['revision'] != revision or record['status'] not in {'held', 'confirmed', 'awaiting_review', 'continuation_confirmed'}
+            if (record['revision'] != revision or record['status'] not in self.confirmation_statuses
                     or token != plan['token'] or not plan['ready']):
                 raise TicketConflict('검수/수정본/계획/서빙이 바뀌었거나 승인 대기 중입니다. 새 계획을 확인하세요.')
             if plan['paid_roles'] and paid_confirmed is not True:
@@ -168,8 +199,13 @@ class ReviewTicketStore(GraphTicketStore):
                     for node, outcome in seed['nodes'].items():
                         if outcome['status'] == 'succeeded':
                             values.update({(node, port): deepcopy(meta) for port, meta in outcome['result']['artifacts'].items()})
-                        elif outcome['status'] == 'waiting' and plan['review_signatures'].get(node, {}).get('approval'):
+                        elif outcome['status'] == 'waiting' and self._resume_gate(record, plan, node):
                             seed['nodes'][node] = {'status': 'pending'}
+                execution = self._execution_sequence(record)
+                if seed:
+                    for step in execution['steps']:
+                        if not step['selected'] and seed['nodes'][step['id']]['status'] == 'pending':
+                            seed['nodes'][step['id']] = {'status': 'skipped', 'reason': 'unselected'}
                 def resolve(meta, seen=None):
                     if 'reference' in meta:
                         b = meta['reference']
@@ -185,7 +221,7 @@ class ReviewTicketStore(GraphTicketStore):
                     return path
                 for meta in list(values.values()):
                     resolve(meta)
-                execute = executor_factory(bound, deepcopy(record['options']))
+                execute = self._make_executor(record, bound, executor_factory, execution)
                 def node_execute(step):
                     check()
                     work = ticket_dir / 'work' / step['id']
@@ -193,6 +229,9 @@ class ReviewTicketStore(GraphTicketStore):
                     incoming = {p: deepcopy(values[(b['node'], b['port'])]) for p, b in step['active_bindings'].items()}
                     for meta in incoming.values():
                         resolve(meta)
+                    extension = self._execute_extension(step, incoming, work, resolve, execute, record, plan)
+                    if extension is not None:
+                        return extension
                     if step['type'] == 'review':
                         meta = incoming['value']
                         content = None
@@ -246,7 +285,7 @@ class ReviewTicketStore(GraphTicketStore):
                         for step in record['steps']:
                             outcome = snapshot['nodes'][step['id']]
                             step['status'] = outcome['status']
-                            if outcome['status'] == 'running':
+                            if outcome['status'] == 'running' and not self._preserve_serving(step):
                                 step['serving_snapshot'] = deepcopy(record['settings_snapshot'])
                             for key in ('wait', 'error_type', 'blocked_by', 'reason'):
                                 if key in outcome:
@@ -257,13 +296,13 @@ class ReviewTicketStore(GraphTicketStore):
                                 values.update({(step['id'], p): deepcopy(m) for p, m in step['artifacts'].items()})
                         record['scheduler'] = deepcopy(snapshot)
                         self._save(record)
-                settled = run_ready(record['sequence']['steps'], node_execute, publish, max_workers=2, settle=True, initial=seed)
+                settled = run_ready(execution['steps'], node_execute, publish, max_workers=2, settle=True, initial=seed)
                 check()
                 if file_sha(source) != source_sha:
                     raise TicketConflict('원본 내용 무결성이 변경되었습니다.')
                 statuses = {n['status'] for n in settled['nodes'].values()}
                 if 'waiting' in statuses:
-                    record['status'] = 'awaiting_review'
+                    record['status'] = self._waiting_status(record)
                 elif statuses & {'pending', 'running'}:
                     raise TicketConflict('필수 단계가 정리되지 않았습니다. 완료하지 않습니다.')
                 else:

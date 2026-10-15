@@ -1,0 +1,1151 @@
+{
+  "mode": "actual synthetic CPU encode/probe; explicit structured adapter fixture, NOT external inference",
+  "result": {
+    "id": "0d09aa0d987c41cd98a80964586a8191",
+    "revision": 27,
+    "request_id": "actual-cpu",
+    "request": {
+      "definition_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "definition_revision": 1,
+      "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "options": {}
+    },
+    "definition": {
+      "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "catalog_version": 1,
+      "revision": 1,
+      "name": "격리 구조화 AI 판단",
+      "inputs": {
+        "video": "video"
+      },
+      "nodes": [
+        {
+          "id": "judge",
+          "type": "decision",
+          "options": {
+            "data_type": "video"
+          },
+          "position": {
+            "x": 0,
+            "y": 100
+          }
+        },
+        {
+          "id": "gate",
+          "type": "review",
+          "options": {
+            "data_type": "video"
+          },
+          "position": {
+            "x": 200,
+            "y": 100
+          }
+        },
+        {
+          "id": "a",
+          "type": "encode",
+          "options": {
+            "subtitle_mode": "none"
+          },
+          "position": {
+            "x": 400,
+            "y": 100
+          }
+        },
+        {
+          "id": "b",
+          "type": "encode",
+          "options": {
+            "subtitle_mode": "none"
+          },
+          "position": {
+            "x": 600,
+            "y": 100
+          }
+        },
+        {
+          "id": "joined",
+          "type": "join",
+          "options": {
+            "left_type": "video",
+            "right_type": "video"
+          },
+          "position": {
+            "x": 800,
+            "y": 100
+          }
+        },
+        {
+          "id": "independent",
+          "type": "analyze",
+          "options": {},
+          "position": {
+            "x": 1000,
+            "y": 100
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "e0",
+          "source": {
+            "node": "$input",
+            "port": "video"
+          },
+          "target": {
+            "node": "judge",
+            "port": "value"
+          }
+        },
+        {
+          "id": "e1",
+          "source": {
+            "node": "judge",
+            "port": "a"
+          },
+          "target": {
+            "node": "gate",
+            "port": "value"
+          }
+        },
+        {
+          "id": "e2",
+          "source": {
+            "node": "gate",
+            "port": "value"
+          },
+          "target": {
+            "node": "a",
+            "port": "video"
+          }
+        },
+        {
+          "id": "e3",
+          "source": {
+            "node": "judge",
+            "port": "b"
+          },
+          "target": {
+            "node": "b",
+            "port": "video"
+          }
+        },
+        {
+          "id": "e4",
+          "source": {
+            "node": "a",
+            "port": "video"
+          },
+          "target": {
+            "node": "joined",
+            "port": "left"
+          }
+        },
+        {
+          "id": "e5",
+          "source": {
+            "node": "b",
+            "port": "video"
+          },
+          "target": {
+            "node": "joined",
+            "port": "right"
+          }
+        },
+        {
+          "id": "e6",
+          "source": {
+            "node": "$input",
+            "port": "video"
+          },
+          "target": {
+            "node": "independent",
+            "port": "video"
+          }
+        }
+      ]
+    },
+    "definition_sha256": "114732cd5265f2e574c75222663b8b66bc2b276557071b677b91bcf0b2aa1b05",
+    "asset": {
+      "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "size_bytes": 6134,
+      "source_mtime_ns": 1792103191576287121
+    },
+    "options": {},
+    "sequence": {
+      "supported": true,
+      "reasons": [],
+      "steps": [
+        {
+          "id": "judge",
+          "type": "decision",
+          "options": {
+            "data_type": "video",
+            "a_field": "label",
+            "a_op": "eq",
+            "a_value": "pass",
+            "b_field": "label",
+            "b_op": "eq",
+            "b_value": "reject"
+          },
+          "bindings": {
+            "value": {
+              "node": "$input",
+              "port": "video"
+            }
+          },
+          "outputs": {
+            "a": "video",
+            "b": "video",
+            "result": "decision_result"
+          },
+          "selected": true,
+          "active_bindings": {
+            "value": {
+              "node": "$input",
+              "port": "video"
+            }
+          },
+          "dependencies": [],
+          "routing_state": "unresolved"
+        },
+        {
+          "id": "gate",
+          "type": "review",
+          "options": {
+            "data_type": "video"
+          },
+          "bindings": {
+            "value": {
+              "node": "judge",
+              "port": "a"
+            }
+          },
+          "outputs": {
+            "value": "video"
+          },
+          "selected": true,
+          "active_bindings": {
+            "value": {
+              "node": "judge",
+              "port": "a"
+            }
+          },
+          "dependencies": [
+            "judge"
+          ],
+          "routing_state": "unresolved"
+        },
+        {
+          "id": "a",
+          "type": "encode",
+          "options": {
+            "subtitle_mode": "none",
+            "video_codec": "h264",
+            "resolution": "original",
+            "quality_profile": "balanced"
+          },
+          "bindings": {
+            "video": {
+              "node": "gate",
+              "port": "value"
+            }
+          },
+          "outputs": {
+            "video": "video"
+          },
+          "selected": true,
+          "active_bindings": {
+            "video": {
+              "node": "gate",
+              "port": "value"
+            }
+          },
+          "dependencies": [
+            "gate"
+          ],
+          "native_bindings": {
+            "video": {
+              "node": "$input",
+              "port": "video"
+            }
+          },
+          "routing_state": "unresolved"
+        },
+        {
+          "id": "b",
+          "type": "encode",
+          "options": {
+            "subtitle_mode": "none",
+            "video_codec": "h264",
+            "resolution": "original",
+            "quality_profile": "balanced"
+          },
+          "bindings": {
+            "video": {
+              "node": "judge",
+              "port": "b"
+            }
+          },
+          "outputs": {
+            "video": "video"
+          },
+          "selected": true,
+          "active_bindings": {
+            "video": {
+              "node": "judge",
+              "port": "b"
+            }
+          },
+          "dependencies": [
+            "judge"
+          ],
+          "native_bindings": {
+            "video": {
+              "node": "$input",
+              "port": "video"
+            }
+          },
+          "routing_state": "unresolved"
+        },
+        {
+          "id": "joined",
+          "type": "join",
+          "options": {
+            "left_type": "video",
+            "right_type": "video"
+          },
+          "bindings": {
+            "left": {
+              "node": "a",
+              "port": "video"
+            },
+            "right": {
+              "node": "b",
+              "port": "video"
+            }
+          },
+          "outputs": {
+            "manifest": "artifact_manifest"
+          },
+          "selected": true,
+          "active_bindings": {
+            "left": {
+              "node": "a",
+              "port": "video"
+            },
+            "right": {
+              "node": "b",
+              "port": "video"
+            }
+          },
+          "dependencies": [
+            "a",
+            "b"
+          ],
+          "routing_state": "unresolved"
+        },
+        {
+          "id": "independent",
+          "type": "analyze",
+          "options": {},
+          "bindings": {
+            "video": {
+              "node": "$input",
+              "port": "video"
+            }
+          },
+          "outputs": {
+            "metadata": "media_metadata"
+          },
+          "selected": true,
+          "active_bindings": {
+            "video": {
+              "node": "$input",
+              "port": "video"
+            }
+          },
+          "dependencies": [],
+          "native_bindings": {
+            "video": {
+              "node": "$input",
+              "port": "video"
+            }
+          },
+          "routing_state": "fixed"
+        }
+      ],
+      "paid_roles": [],
+      "choices": {},
+      "notice": "수동 선택을 생성 시 고정합니다. 합류는 선택된 결과 참조 목록이며 미디어/clock 병합이 아닙니다. 운영 실행기 연결/유료 확인은 별도입니다."
+    },
+    "status": "completed",
+    "confirmation": null,
+    "settings_snapshot": {
+      "revision": 0
+    },
+    "steps": [
+      {
+        "id": "judge",
+        "type": "decision",
+        "status": "succeeded",
+        "artifacts": {
+          "a": {
+            "type": "video",
+            "sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451",
+            "bytes": 6134,
+            "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "clock": {
+              "basis": "original",
+              "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+            },
+            "reference": {
+              "node": "$input",
+              "port": "video"
+            },
+            "decision_provenance": {
+              "sha256": "5f705acd05e101e89c4712e7aeb4cf6aa344e0147c42d1c954b5bb7be4ff0cc1",
+              "report_sha256": "bb07959053e17e0800aa2fc1a7ccef1296507642faf5c323ed84bfdcce8fa492",
+              "input_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451",
+              "selected_port": "a",
+              "adapter": {
+                "id": "controlled-offline-fixture",
+                "revision": "1",
+                "schema_version": 1,
+                "paid": false
+              }
+            }
+          },
+          "result": {
+            "type": "decision_result",
+            "path": "work/judge/decision.json",
+            "sha256": "bb07959053e17e0800aa2fc1a7ccef1296507642faf5c323ed84bfdcce8fa492",
+            "bytes": 709
+          }
+        },
+        "partial_artifacts": {},
+        "serving_snapshot": {
+          "revision": 0
+        },
+        "wait": {
+          "kind": "decision_confirmation",
+          "report_sha256": "bb07959053e17e0800aa2fc1a7ccef1296507642faf5c323ed84bfdcce8fa492",
+          "route_sha256": "5f705acd05e101e89c4712e7aeb4cf6aa344e0147c42d1c954b5bb7be4ff0cc1",
+          "selected_port": "a"
+        }
+      },
+      {
+        "id": "gate",
+        "type": "review",
+        "status": "succeeded",
+        "artifacts": {
+          "value": {
+            "type": "video",
+            "sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451",
+            "bytes": 6134,
+            "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "clock": {
+              "basis": "original",
+              "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+            },
+            "reference": {
+              "node": "judge",
+              "port": "a"
+            },
+            "decision_provenance": {
+              "sha256": "5f705acd05e101e89c4712e7aeb4cf6aa344e0147c42d1c954b5bb7be4ff0cc1",
+              "report_sha256": "bb07959053e17e0800aa2fc1a7ccef1296507642faf5c323ed84bfdcce8fa492",
+              "input_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451",
+              "selected_port": "a",
+              "adapter": {
+                "id": "controlled-offline-fixture",
+                "revision": "1",
+                "schema_version": 1,
+                "paid": false
+              }
+            },
+            "review_provenance": {
+              "revision": 1,
+              "sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451",
+              "document_sha256": "3ee3ba4e0b2a214ffae9b069108c35e9a1c5561bc27255a0f5a816e3fe9f076d",
+              "input_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451",
+              "target": "af207cf0659bfbf08a08b866a649a3fbc23fcfa2328fa384a52c7a01110b1a57",
+              "request_id": "explicit-cpu-review",
+              "node": "gate"
+            }
+          }
+        },
+        "partial_artifacts": {},
+        "serving_snapshot": {
+          "revision": 0
+        },
+        "wait": {
+          "target": "af207cf0659bfbf08a08b866a649a3fbc23fcfa2328fa384a52c7a01110b1a57",
+          "revision": 1,
+          "sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+        }
+      },
+      {
+        "id": "a",
+        "type": "encode",
+        "status": "succeeded",
+        "artifacts": {
+          "video": {
+            "type": "video",
+            "path": "work/a/final.mp4",
+            "sha256": "b099b8a5ba8189797147edf83f29c3a987e899793c3410fad5170e9276ecb6fc",
+            "bytes": 8866,
+            "clock": {
+              "basis": "original",
+              "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+            }
+          }
+        },
+        "partial_artifacts": {},
+        "serving_snapshot": {
+          "revision": 0
+        }
+      },
+      {
+        "id": "b",
+        "type": "encode",
+        "status": "skipped",
+        "artifacts": {},
+        "partial_artifacts": {},
+        "reason": "unselected"
+      },
+      {
+        "id": "joined",
+        "type": "join",
+        "status": "succeeded",
+        "artifacts": {
+          "manifest": {
+            "type": "artifact_manifest",
+            "path": "work/joined/manifest.json",
+            "sha256": "2a90c4def64c047d3a49562b4a0d749eb550c44e4ddef47a27e85f0ca663cb55",
+            "bytes": 457
+          }
+        },
+        "partial_artifacts": {},
+        "serving_snapshot": {
+          "revision": 0
+        }
+      },
+      {
+        "id": "independent",
+        "type": "analyze",
+        "status": "succeeded",
+        "artifacts": {
+          "metadata": {
+            "type": "media_metadata",
+            "path": "work/independent/metadata.json",
+            "sha256": "7f1a801be711137f5e82a23b3f440da88b28182831166d2f618f0eac74dea751",
+            "bytes": 3360,
+            "clock": {
+              "basis": "original",
+              "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+            }
+          }
+        },
+        "partial_artifacts": {},
+        "serving_snapshot": {
+          "revision": 0
+        }
+      }
+    ],
+    "execution_contract": "decision-v1",
+    "phase": 3,
+    "run_requests": {
+      "cpu-0": {
+        "digest": "5ca740d72eb3557955777b156ca73fb38f386a3c0d5a5b211e2abd111cf12cd2",
+        "phase": 0,
+        "status": "settled"
+      },
+      "cpu-1": {
+        "digest": "a879b1c7950a1df786f0c57378d979ba29b9ea9a3da7b27c0b865a3ece0015cf",
+        "phase": 1,
+        "status": "settled"
+      },
+      "cpu-2": {
+        "digest": "65cc3244b60ee34a5a833a8ffc2d735676b13fa20210cce3c54a618b1b5a4fbc",
+        "phase": 2,
+        "status": "settled"
+      }
+    },
+    "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451",
+    "scheduler": {
+      "revision": 17,
+      "nodes": {
+        "judge": {
+          "status": "succeeded",
+          "result": {
+            "artifacts": {
+              "a": {
+                "type": "video",
+                "sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451",
+                "bytes": 6134,
+                "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "clock": {
+                  "basis": "original",
+                  "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                  "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+                },
+                "reference": {
+                  "node": "$input",
+                  "port": "video"
+                },
+                "decision_provenance": {
+                  "sha256": "5f705acd05e101e89c4712e7aeb4cf6aa344e0147c42d1c954b5bb7be4ff0cc1",
+                  "report_sha256": "bb07959053e17e0800aa2fc1a7ccef1296507642faf5c323ed84bfdcce8fa492",
+                  "input_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451",
+                  "selected_port": "a",
+                  "adapter": {
+                    "id": "controlled-offline-fixture",
+                    "revision": "1",
+                    "schema_version": 1,
+                    "paid": false
+                  }
+                }
+              },
+              "result": {
+                "type": "decision_result",
+                "path": "work/judge/decision.json",
+                "sha256": "bb07959053e17e0800aa2fc1a7ccef1296507642faf5c323ed84bfdcce8fa492",
+                "bytes": 709
+              }
+            }
+          }
+        },
+        "gate": {
+          "status": "succeeded",
+          "result": {
+            "artifacts": {
+              "value": {
+                "type": "video",
+                "sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451",
+                "bytes": 6134,
+                "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "clock": {
+                  "basis": "original",
+                  "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                  "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+                },
+                "reference": {
+                  "node": "judge",
+                  "port": "a"
+                },
+                "decision_provenance": {
+                  "sha256": "5f705acd05e101e89c4712e7aeb4cf6aa344e0147c42d1c954b5bb7be4ff0cc1",
+                  "report_sha256": "bb07959053e17e0800aa2fc1a7ccef1296507642faf5c323ed84bfdcce8fa492",
+                  "input_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451",
+                  "selected_port": "a",
+                  "adapter": {
+                    "id": "controlled-offline-fixture",
+                    "revision": "1",
+                    "schema_version": 1,
+                    "paid": false
+                  }
+                },
+                "review_provenance": {
+                  "revision": 1,
+                  "sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451",
+                  "document_sha256": "3ee3ba4e0b2a214ffae9b069108c35e9a1c5561bc27255a0f5a816e3fe9f076d",
+                  "input_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451",
+                  "target": "af207cf0659bfbf08a08b866a649a3fbc23fcfa2328fa384a52c7a01110b1a57",
+                  "request_id": "explicit-cpu-review",
+                  "node": "gate"
+                }
+              }
+            }
+          }
+        },
+        "a": {
+          "status": "succeeded",
+          "result": {
+            "artifacts": {
+              "video": {
+                "type": "video",
+                "path": "work/a/final.mp4",
+                "sha256": "b099b8a5ba8189797147edf83f29c3a987e899793c3410fad5170e9276ecb6fc",
+                "bytes": 8866,
+                "clock": {
+                  "basis": "original",
+                  "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                  "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+                }
+              }
+            }
+          }
+        },
+        "b": {
+          "status": "skipped",
+          "reason": "unselected"
+        },
+        "joined": {
+          "status": "succeeded",
+          "result": {
+            "artifacts": {
+              "manifest": {
+                "type": "artifact_manifest",
+                "path": "work/joined/manifest.json",
+                "sha256": "2a90c4def64c047d3a49562b4a0d749eb550c44e4ddef47a27e85f0ca663cb55",
+                "bytes": 457
+              }
+            }
+          }
+        },
+        "independent": {
+          "status": "succeeded",
+          "result": {
+            "artifacts": {
+              "metadata": {
+                "type": "media_metadata",
+                "path": "work/independent/metadata.json",
+                "sha256": "7f1a801be711137f5e82a23b3f440da88b28182831166d2f618f0eac74dea751",
+                "bytes": 3360,
+                "clock": {
+                  "basis": "original",
+                  "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                  "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+                }
+              }
+            }
+          }
+        }
+      },
+      "unresolved": []
+    },
+    "reviews": {
+      "gate": {
+        "cues": null,
+        "duration": null,
+        "editable": false,
+        "kind": "video",
+        "read_only_reason": "미디어·metadata·timeline·manifest는 확인만 지원합니다.",
+        "source": {
+          "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "bytes": 6134,
+          "clock": {
+            "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "basis": "original",
+            "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+          },
+          "decision_provenance": {
+            "adapter": {
+              "id": "controlled-offline-fixture",
+              "paid": false,
+              "revision": "1",
+              "schema_version": 1
+            },
+            "input_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451",
+            "report_sha256": "bb07959053e17e0800aa2fc1a7ccef1296507642faf5c323ed84bfdcce8fa492",
+            "selected_port": "a",
+            "sha256": "5f705acd05e101e89c4712e7aeb4cf6aa344e0147c42d1c954b5bb7be4ff0cc1"
+          },
+          "reference": {
+            "node": "$input",
+            "port": "video"
+          },
+          "sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451",
+          "type": "video"
+        },
+        "target": "af207cf0659bfbf08a08b866a649a3fbc23fcfa2328fa384a52c7a01110b1a57",
+        "revision": 1,
+        "state_revision": 2,
+        "sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451",
+        "document_sha256": "3ee3ba4e0b2a214ffae9b069108c35e9a1c5561bc27255a0f5a816e3fe9f076d",
+        "approval": {
+          "revision": 1,
+          "sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451",
+          "document_sha256": "3ee3ba4e0b2a214ffae9b069108c35e9a1c5561bc27255a0f5a816e3fe9f076d",
+          "input_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451",
+          "target": "af207cf0659bfbf08a08b866a649a3fbc23fcfa2328fa384a52c7a01110b1a57",
+          "request_id": "explicit-cpu-review"
+        },
+        "status": "approved",
+        "request_changes_reason": ""
+      }
+    },
+    "decisions": {
+      "judge": {
+        "status": "succeeded",
+        "sha256": "5f705acd05e101e89c4712e7aeb4cf6aa344e0147c42d1c954b5bb7be4ff0cc1",
+        "report_sha256": "bb07959053e17e0800aa2fc1a7ccef1296507642faf5c323ed84bfdcce8fa492",
+        "input": {
+          "type": "video",
+          "sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451",
+          "bytes": 6134,
+          "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "clock": {
+            "basis": "original",
+            "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+          }
+        },
+        "input_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451",
+        "conditions": {
+          "a": {
+            "field": "label",
+            "op": "eq",
+            "value": "pass"
+          },
+          "b": {
+            "field": "label",
+            "op": "eq",
+            "value": "reject"
+          }
+        },
+        "matches": {
+          "a": true,
+          "b": false
+        },
+        "selected_port": "a",
+        "adapter": {
+          "id": "controlled-offline-fixture",
+          "revision": "1",
+          "schema_version": 1,
+          "paid": false
+        },
+        "judgment": {
+          "version": 1,
+          "label": "pass",
+          "confidence": 0.9,
+          "reason": "Controlled fixture only, NOT external model inference"
+        }
+      }
+    },
+    "execution_view": {
+      "supported": true,
+      "reasons": [],
+      "steps": [
+        {
+          "id": "judge",
+          "type": "decision",
+          "options": {
+            "data_type": "video",
+            "a_field": "label",
+            "a_op": "eq",
+            "a_value": "pass",
+            "b_field": "label",
+            "b_op": "eq",
+            "b_value": "reject"
+          },
+          "bindings": {
+            "value": {
+              "node": "$input",
+              "port": "video"
+            }
+          },
+          "outputs": {
+            "a": "video",
+            "b": "video",
+            "result": "decision_result"
+          },
+          "selected": true,
+          "active_bindings": {
+            "value": {
+              "node": "$input",
+              "port": "video"
+            }
+          },
+          "dependencies": [],
+          "routing_state": "fixed"
+        },
+        {
+          "id": "gate",
+          "type": "review",
+          "options": {
+            "data_type": "video"
+          },
+          "bindings": {
+            "value": {
+              "node": "judge",
+              "port": "a"
+            }
+          },
+          "outputs": {
+            "value": "video"
+          },
+          "selected": true,
+          "active_bindings": {
+            "value": {
+              "node": "judge",
+              "port": "a"
+            }
+          },
+          "dependencies": [
+            "judge"
+          ],
+          "routing_state": "fixed"
+        },
+        {
+          "id": "a",
+          "type": "encode",
+          "options": {
+            "subtitle_mode": "none",
+            "video_codec": "h264",
+            "resolution": "original",
+            "quality_profile": "balanced"
+          },
+          "bindings": {
+            "video": {
+              "node": "gate",
+              "port": "value"
+            }
+          },
+          "outputs": {
+            "video": "video"
+          },
+          "selected": true,
+          "active_bindings": {
+            "video": {
+              "node": "gate",
+              "port": "value"
+            }
+          },
+          "dependencies": [
+            "gate"
+          ],
+          "native_bindings": {
+            "video": {
+              "node": "$input",
+              "port": "video"
+            }
+          },
+          "routing_state": "fixed"
+        },
+        {
+          "id": "b",
+          "type": "encode",
+          "options": {
+            "subtitle_mode": "none",
+            "video_codec": "h264",
+            "resolution": "original",
+            "quality_profile": "balanced"
+          },
+          "bindings": {
+            "video": {
+              "node": "judge",
+              "port": "b"
+            }
+          },
+          "outputs": {
+            "video": "video"
+          },
+          "selected": false,
+          "active_bindings": {},
+          "dependencies": [],
+          "native_bindings": {
+            "video": {
+              "node": "$input",
+              "port": "video"
+            }
+          },
+          "routing_state": "fixed"
+        },
+        {
+          "id": "joined",
+          "type": "join",
+          "options": {
+            "left_type": "video",
+            "right_type": "video"
+          },
+          "bindings": {
+            "left": {
+              "node": "a",
+              "port": "video"
+            },
+            "right": {
+              "node": "b",
+              "port": "video"
+            }
+          },
+          "outputs": {
+            "manifest": "artifact_manifest"
+          },
+          "selected": true,
+          "active_bindings": {
+            "left": {
+              "node": "a",
+              "port": "video"
+            }
+          },
+          "dependencies": [
+            "a"
+          ],
+          "routing_state": "fixed"
+        },
+        {
+          "id": "independent",
+          "type": "analyze",
+          "options": {},
+          "bindings": {
+            "video": {
+              "node": "$input",
+              "port": "video"
+            }
+          },
+          "outputs": {
+            "metadata": "media_metadata"
+          },
+          "selected": true,
+          "active_bindings": {
+            "video": {
+              "node": "$input",
+              "port": "video"
+            }
+          },
+          "dependencies": [],
+          "native_bindings": {
+            "video": {
+              "node": "$input",
+              "port": "video"
+            }
+          },
+          "routing_state": "fixed"
+        }
+      ],
+      "paid_roles": [],
+      "choices": {},
+      "notice": "수동 선택을 생성 시 고정합니다. 합류는 선택된 결과 참조 목록이며 미디어/clock 병합이 아닙니다. 운영 실행기 연결/유료 확인은 별도입니다."
+    }
+  },
+  "probe": {
+    "streams": [
+      {
+        "index": 0,
+        "codec_name": "h264",
+        "codec_long_name": "H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10",
+        "profile": "High",
+        "codec_type": "video",
+        "codec_tag_string": "avc1",
+        "codec_tag": "0x31637661",
+        "width": 64,
+        "height": 64,
+        "coded_width": 64,
+        "coded_height": 64,
+        "closed_captions": 0,
+        "film_grain": 0,
+        "has_b_frames": 2,
+        "sample_aspect_ratio": "1:1",
+        "display_aspect_ratio": "1:1",
+        "pix_fmt": "yuv420p",
+        "level": 10,
+        "chroma_location": "left",
+        "field_order": "progressive",
+        "refs": 1,
+        "is_avc": "true",
+        "nal_length_size": "4",
+        "id": "0x1",
+        "r_frame_rate": "10/1",
+        "avg_frame_rate": "10/1",
+        "time_base": "1/10240",
+        "start_pts": 0,
+        "start_time": "0.000000",
+        "duration_ts": 4096,
+        "duration": "0.400000",
+        "bit_rate": "15380",
+        "bits_per_raw_sample": "8",
+        "nb_frames": "4",
+        "extradata_size": 45,
+        "disposition": {
+          "default": 1,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0,
+          "captions": 0,
+          "descriptions": 0,
+          "metadata": 0,
+          "dependent": 0,
+          "still_image": 0
+        },
+        "tags": {
+          "language": "und",
+          "handler_name": "VideoHandler",
+          "vendor_id": "[0][0][0][0]",
+          "encoder": "Lavc59.37.100 libx264"
+        }
+      },
+      {
+        "index": 1,
+        "codec_name": "aac",
+        "codec_long_name": "AAC (Advanced Audio Coding)",
+        "profile": "LC",
+        "codec_type": "audio",
+        "codec_tag_string": "mp4a",
+        "codec_tag": "0x6134706d",
+        "sample_fmt": "fltp",
+        "sample_rate": "44100",
+        "channels": 1,
+        "channel_layout": "mono",
+        "bits_per_sample": 0,
+        "id": "0x2",
+        "r_frame_rate": "0/0",
+        "avg_frame_rate": "0/0",
+        "time_base": "1/44100",
+        "start_pts": 0,
+        "start_time": "0.000000",
+        "duration_ts": 18434,
+        "duration": "0.418005",
+        "bit_rate": "117757",
+        "nb_frames": "19",
+        "extradata_size": 5,
+        "disposition": {
+          "default": 1,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0,
+          "captions": 0,
+          "descriptions": 0,
+          "metadata": 0,
+          "dependent": 0,
+          "still_image": 0
+        },
+        "tags": {
+          "language": "und",
+          "handler_name": "SoundHandler",
+          "vendor_id": "[0][0][0][0]"
+        }
+      }
+    ],
+    "format": {
+      "filename": "/tmp/tmpl5u7464z/.workflow-decision-tickets/local/0d09aa0d987c41cd98a80964586a8191/work/a/final.mp4",
+      "nb_streams": 2,
+      "nb_programs": 0,
+      "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+      "format_long_name": "QuickTime / MOV",
+      "start_time": "0.000000",
+      "duration": "0.418000",
+      "size": "8866",
+      "bit_rate": "169684",
+      "probe_score": 100,
+      "tags": {
+        "major_brand": "isom",
+        "minor_version": "512",
+        "compatible_brands": "isomiso2avc1mp41",
+        "encoder": "Lavf59.27.100"
+      }
+    }
+  },
+  "video_sha256": "b099b8a5ba8189797147edf83f29c3a987e899793c3410fad5170e9276ecb6fc"
+}

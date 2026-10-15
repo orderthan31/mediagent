@@ -5,6 +5,7 @@ import { Button } from './hangyeol/primitives/button';
 import { Input } from './hangyeol/primitives/input';
 import { Badge } from './hangyeol/primitives/badge';
 import { ReviewPanel, type ReviewDocument } from './ReviewPanel';
+import { DecisionPanel, type DecisionEvidence } from './DecisionPanel';
 import './serving.css';
 import './workflow-tickets.css';
 
@@ -53,6 +54,7 @@ type Ticket = {
   error?: string;
   phase?: number;
   reviews?: Record<string, ReviewDocument>;
+  decisions?: Record<string, DecisionEvidence>;
 };
 type Plan = {
   token: string;
@@ -91,17 +93,23 @@ const graphPayload = (d: Definition) => ({
 });
 
 export const WorkflowTickets = ({
-  graph = false,
-  review = false,
+  graph: graphMode = false,
+  review: reviewMode = false,
+  decision = false,
 }: {
   graph?: boolean;
   review?: boolean;
+  decision?: boolean;
 }) => {
-  const base = review
-    ? '/settings/review-tickets'
-    : graph
-      ? '/settings/graph-tickets'
-      : '/settings/workflow-tickets';
+  const review = reviewMode || decision,
+    graph = graphMode || decision;
+  const base = decision
+    ? '/settings/decision-tickets'
+    : review
+      ? '/settings/review-tickets'
+      : graph
+        ? '/settings/graph-tickets'
+        : '/settings/workflow-tickets';
   const reviewUpdate = async () => {
     setPlan(null);
     setPaid(false);
@@ -114,7 +122,7 @@ export const WorkflowTickets = ({
     body: { request_id: string; revision: number; token: string };
   } | null>(null);
   const plannable = review
-    ? ['held', 'confirmed', 'awaiting_review', 'continuation_confirmed']
+    ? ['held', 'confirmed', 'awaiting_review', 'awaiting_decision', 'continuation_confirmed']
     : ['held', 'confirmed'];
   const states: Record<string, string> = graph
     ? {
@@ -122,6 +130,7 @@ export const WorkflowTickets = ({
         failed: '선택 가지 실패 · 독립 결과 보존',
         ...(review
           ? {
+              awaiting_decision: '판단 완료 · 선택 후행 확인 대기',
               awaiting_review: '사람 검수 대기',
               waiting: '사람 검수 대기',
               continuation_confirmed: '이어 실행 계획 확인 · 요청 대기',
@@ -432,24 +441,36 @@ export const WorkflowTickets = ({
       <div className="serving-heading">
         <div>
           <p className="workspace-eyebrow">
-            {review
-              ? '원하는 지원 지점 · 영속 검수 대기 · 명시 승인·이어 실행'
-              : graph
-                ? '수동 선택 · 제어된 동시 진행 · 결과 참조 합류'
-                : '정의 기반 순차 처리'}
+            {decision
+              ? '구조화 판단 · 서버 조건 평가 · 결과 고정 · 선택 후행 새 확인'
+              : review
+                ? '원하는 지원 지점 · 영속 검수 대기 · 명시 승인·이어 실행'
+                : graph
+                  ? '수동 선택 · 제어된 동시 진행 · 결과 참조 합류'
+                  : '정의 기반 순차 처리'}
           </p>
           <h1>
-            {review
-              ? '사람 검수 워크플로우 티켓'
-              : graph
-                ? '분기·병렬 워크플로우 티켓'
-                : '순차 워크플로우 티켓'}
+            {decision
+              ? 'AI 판단 워크플로우 티켓'
+              : review
+                ? '사람 검수 워크플로우 티켓'
+                : graph
+                  ? '분기·병렬 워크플로우 티켓'
+                  : '순차 워크플로우 티켓'}
           </h1>
         </div>
         <Button variant="secondary" disabled={!!busy} onClick={() => void load()}>
           서버 목록 새로 불러오기
         </Button>
       </div>
+      {decision && (
+        <p className="serving-help">
+          기본 작업 동선은 영상 + 저장 워크플로우 → 흐름/노드 설정 요약 → 명시 계획 확인 →
+          티켓입니다. 이 화면은 신규 AI 판단 경로의 기능 검증 화면이며 내부 실행기를 다시 고르는
+          최종 제품 진입이 아닙니다. 처리 옵션은 워크플로우 편집기에서 노드를 클릭해 설정합니다.
+          노드별 등록 모델 연결은 아직 미지원이며 전역 역할 설정을 노드 연결로 간주하지 않습니다.
+        </p>
+      )}
       <p>
         영상과 저장 정의를 선택해 <strong>보류 티켓</strong>을 만듭니다. 생성/계획 확인은 실행이나
         기존 큐 등록이 아닙니다.
@@ -467,11 +488,13 @@ export const WorkflowTickets = ({
           <Badge tone="neutral">
             {runtime.connected
               ? runtime.mode
-              : review
-                ? '검수 실행기 미연결'
-                : graph
-                  ? '병렬 실행기 미연결'
-                  : '새 순차 실행기 미연결'}
+              : decision
+                ? 'AI 판단 실행기 미연결'
+                : review
+                  ? '검수 실행기 미연결'
+                  : graph
+                    ? '병렬 실행기 미연결'
+                    : '새 순차 실행기 미연결'}
           </Badge>{' '}
           {runtime.notice}
         </p>
@@ -600,11 +623,13 @@ export const WorkflowTickets = ({
           <div className="execution-capability">
             <Badge tone="neutral">
               {capability.supported
-                ? review
-                  ? '검수 범위 지원'
-                  : graph
-                    ? '분기·병렬 범위 지원'
-                    : '순차 범위 지원'
+                ? decision
+                  ? 'AI 판단 범위 지원'
+                  : review
+                    ? '검수 범위 지원'
+                    : graph
+                      ? '분기·병렬 범위 지원'
+                      : '순차 범위 지원'
                 : graph
                   ? '현재 병렬 실행 미지원'
                   : '현재 순차 실행 미지원'}
@@ -627,15 +652,23 @@ export const WorkflowTickets = ({
       </section>
       <section className="ticket-panel">
         <h2>
-          {review ? '저장된 검수 지원 티켓' : graph ? '저장된 분기·병렬 티켓' : '저장된 순차 티켓'}
+          {decision
+            ? '저장된 AI 판단 티켓'
+            : review
+              ? '저장된 검수 지원 티켓'
+              : graph
+                ? '저장된 분기·병렬 티켓'
+                : '저장된 순차 티켓'}
         </h2>
         {ready && tickets.length === 0 && (
           <p>
-            {review
-              ? '저장된 검수 지원 티켓 없음.'
-              : graph
-                ? '저장된 새 병렬 티켓 없음.'
-                : '저장된 새 순차 티켓 없음.'}{' '}
+            {decision
+              ? '저장된 AI 판단 티켓 없음.'
+              : review
+                ? '저장된 검수 지원 티켓 없음.'
+                : graph
+                  ? '저장된 새 병렬 티켓 없음.'
+                  : '저장된 새 순차 티켓 없음.'}{' '}
             기존 고정 workflow/작업은 변경하지 않습니다.
           </p>
         )}
@@ -792,7 +825,11 @@ export const WorkflowTickets = ({
               >
                 <h3>
                   {label(step.type)} ·{' '}
-                  {graph && step.status === 'failed' ? '실패' : states[step.status] || step.status}
+                  {decision && step.type === 'decision' && step.status === 'waiting'
+                    ? '판단 완료 · 선택 후행 확인 대기'
+                    : graph && step.status === 'failed'
+                      ? '실패'
+                      : states[step.status] || step.status}
                 </h3>
                 {graph && <p className="serving-help">노드 {step.id}</p>}
                 {(step.blocked_by || step.error_type) && (
@@ -802,9 +839,13 @@ export const WorkflowTickets = ({
                       : `단계 실패: ${step.error_type}`}
                   </p>
                 )}
+                {decision && step.type === 'decision' && (
+                  <DecisionPanel evidence={ticket.decisions?.[step.id]} status={step.status} />
+                )}
                 {review && ticket.reviews?.[step.id] && (
                   <ReviewPanel
                     key={ticket.id + ':' + step.id}
+                    ticketBase={base}
                     ticketId={ticket.id}
                     node={step.id}
                     initial={ticket.reviews[step.id]}
@@ -828,11 +869,13 @@ export const WorkflowTickets = ({
         </section>
       )}
       <p className="serving-help">
-        {review
-          ? '검수 대기는 해당 후행만 멈춥니다. 승인 전 필수 join은 대기하고 독립 가지의 성공/부분 결과는 보존합니다. 최신 서빙은 미실행 부분의 새 계획 확인에만 사용하며 완료 단계는 재실행하지 않습니다. 실패 재시도·crash 복구·AI Decision은 미지원입니다.'
-          : graph
-            ? '수동 선택·독립 병렬·선택 필수 합류를 지원합니다. 합류 출력은 노드ID.포트 결과 참조 manifest이며 미디어/clock 병합 또는 단일 미디어 입력이 아닙니다. 얼굴 합성 세션/preview·GPU VAD·새 사람검수/AI Decision은 미지원입니다.'
-            : '지원 범위는 단일 처리 사슬입니다. 얼굴 합성 세션/preview·GPU VAD·추가 검수/Decision·병렬/합류는 이번 순차 어댑터에서 미지원입니다.'}{' '}
+        {decision
+          ? '판단 adapter의 구조화 결과와 서버 조건으로 정확히 한 경로만 선택합니다. review/reject는 라벨이며 자동 검수 생성/가지 종료 명령이 아닙니다. 판단 결과는 고정하고, 결과·미실행 경로·서빙 새 계획 확인 뒤 별도 이어실행합니다. 오류/형식/조건 실패는 차단하며 기본경로·자동 재판정·일반 복구는 없습니다. 영상/음성 판단은 현재 metadata-only 계약이고 실미디어 모델 추론을 뜻하지 않습니다.'
+          : review
+            ? '검수 대기는 해당 후행만 멈춥니다. 승인 전 필수 join은 대기하고 독립 가지의 성공/부분 결과는 보존합니다. 최신 서빙은 미실행 부분의 새 계획 확인에만 사용하며 완료 단계는 재실행하지 않습니다. 실패 재시도·crash 복구·AI Decision은 미지원입니다.'
+            : graph
+              ? '수동 선택·독립 병렬·선택 필수 합류를 지원합니다. 합류 출력은 노드ID.포트 결과 참조 manifest이며 미디어/clock 병합 또는 단일 미디어 입력이 아닙니다. 얼굴 합성 세션/preview·GPU VAD·새 사람검수/AI Decision은 미지원입니다.'
+              : '지원 범위는 단일 처리 사슬입니다. 얼굴 합성 세션/preview·GPU VAD·추가 검수/Decision·병렬/합류는 이번 순차 어댑터에서 미지원입니다.'}{' '}
         단계 상태는 실행기가 기록한 결과이며 실모델 품질 검증을 뜻하지 않습니다.
       </p>
     </main>

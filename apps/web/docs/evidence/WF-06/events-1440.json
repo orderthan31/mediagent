@@ -1,0 +1,2170 @@
+{
+  "mode": "actual isolated ASGI/store/executor; controlled structured adapter, NOT external inference",
+  "events": [
+    {
+      "method": "GET",
+      "path": "/api/settings/node-catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/node-catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/node-catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets/runtime",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets/runtime",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/node-catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/workflow-definitions/validate",
+      "status": 200,
+      "payload": {
+        "catalog_version": 1,
+        "revision": 1,
+        "name": "격리 구조화 AI 판단",
+        "inputs": {
+          "video": "video"
+        },
+        "nodes": [
+          {
+            "id": "judge",
+            "type": "decision",
+            "options": {
+              "data_type": "video"
+            },
+            "position": {
+              "x": 450,
+              "y": 100
+            }
+          },
+          {
+            "id": "gate",
+            "type": "review",
+            "options": {
+              "data_type": "video"
+            },
+            "position": {
+              "x": 200,
+              "y": 100
+            }
+          },
+          {
+            "id": "a",
+            "type": "encode",
+            "options": {
+              "subtitle_mode": "none"
+            },
+            "position": {
+              "x": 400,
+              "y": 100
+            }
+          },
+          {
+            "id": "b",
+            "type": "encode",
+            "options": {
+              "subtitle_mode": "none"
+            },
+            "position": {
+              "x": 600,
+              "y": 100
+            }
+          },
+          {
+            "id": "joined",
+            "type": "join",
+            "options": {
+              "left_type": "video",
+              "right_type": "video"
+            },
+            "position": {
+              "x": 800,
+              "y": 100
+            }
+          },
+          {
+            "id": "independent",
+            "type": "analyze",
+            "options": {},
+            "position": {
+              "x": 1000,
+              "y": 100
+            }
+          }
+        ],
+        "edges": [
+          {
+            "id": "e0",
+            "source": {
+              "node": "$input",
+              "port": "video"
+            },
+            "target": {
+              "node": "judge",
+              "port": "value"
+            }
+          },
+          {
+            "id": "e1",
+            "source": {
+              "node": "judge",
+              "port": "a"
+            },
+            "target": {
+              "node": "gate",
+              "port": "value"
+            }
+          },
+          {
+            "id": "e2",
+            "source": {
+              "node": "gate",
+              "port": "value"
+            },
+            "target": {
+              "node": "a",
+              "port": "video"
+            }
+          },
+          {
+            "id": "e3",
+            "source": {
+              "node": "judge",
+              "port": "b"
+            },
+            "target": {
+              "node": "b",
+              "port": "video"
+            }
+          },
+          {
+            "id": "e4",
+            "source": {
+              "node": "a",
+              "port": "video"
+            },
+            "target": {
+              "node": "joined",
+              "port": "left"
+            }
+          },
+          {
+            "id": "e5",
+            "source": {
+              "node": "b",
+              "port": "video"
+            },
+            "target": {
+              "node": "joined",
+              "port": "right"
+            }
+          },
+          {
+            "id": "e6",
+            "source": {
+              "node": "$input",
+              "port": "video"
+            },
+            "target": {
+              "node": "independent",
+              "port": "video"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "method": "PUT",
+      "path": "/api/settings/workflow-definitions/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "status": 200,
+      "payload": {
+        "catalog_version": 1,
+        "revision": 1,
+        "name": "격리 구조화 AI 판단",
+        "inputs": {
+          "video": "video"
+        },
+        "nodes": [
+          {
+            "id": "judge",
+            "type": "decision",
+            "options": {
+              "data_type": "video"
+            },
+            "position": {
+              "x": 450,
+              "y": 100
+            }
+          },
+          {
+            "id": "gate",
+            "type": "review",
+            "options": {
+              "data_type": "video"
+            },
+            "position": {
+              "x": 200,
+              "y": 100
+            }
+          },
+          {
+            "id": "a",
+            "type": "encode",
+            "options": {
+              "subtitle_mode": "none"
+            },
+            "position": {
+              "x": 400,
+              "y": 100
+            }
+          },
+          {
+            "id": "b",
+            "type": "encode",
+            "options": {
+              "subtitle_mode": "none"
+            },
+            "position": {
+              "x": 600,
+              "y": 100
+            }
+          },
+          {
+            "id": "joined",
+            "type": "join",
+            "options": {
+              "left_type": "video",
+              "right_type": "video"
+            },
+            "position": {
+              "x": 800,
+              "y": 100
+            }
+          },
+          {
+            "id": "independent",
+            "type": "analyze",
+            "options": {},
+            "position": {
+              "x": 1000,
+              "y": 100
+            }
+          }
+        ],
+        "edges": [
+          {
+            "id": "e0",
+            "source": {
+              "node": "$input",
+              "port": "video"
+            },
+            "target": {
+              "node": "judge",
+              "port": "value"
+            }
+          },
+          {
+            "id": "e1",
+            "source": {
+              "node": "judge",
+              "port": "a"
+            },
+            "target": {
+              "node": "gate",
+              "port": "value"
+            }
+          },
+          {
+            "id": "e2",
+            "source": {
+              "node": "gate",
+              "port": "value"
+            },
+            "target": {
+              "node": "a",
+              "port": "video"
+            }
+          },
+          {
+            "id": "e3",
+            "source": {
+              "node": "judge",
+              "port": "b"
+            },
+            "target": {
+              "node": "b",
+              "port": "video"
+            }
+          },
+          {
+            "id": "e4",
+            "source": {
+              "node": "a",
+              "port": "video"
+            },
+            "target": {
+              "node": "joined",
+              "port": "left"
+            }
+          },
+          {
+            "id": "e5",
+            "source": {
+              "node": "b",
+              "port": "video"
+            },
+            "target": {
+              "node": "joined",
+              "port": "right"
+            }
+          },
+          {
+            "id": "e6",
+            "source": {
+              "node": "$input",
+              "port": "video"
+            },
+            "target": {
+              "node": "independent",
+              "port": "video"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets/runtime",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/node-catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/node-catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets/runtime",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/decision-tickets/capability",
+      "status": 200,
+      "payload": {
+        "definition": {
+          "catalog_version": 1,
+          "revision": 2,
+          "name": "격리 구조화 AI 판단",
+          "inputs": {
+            "video": "video"
+          },
+          "nodes": [
+            {
+              "id": "judge",
+              "type": "decision",
+              "options": {
+                "data_type": "video"
+              },
+              "position": {
+                "x": 450,
+                "y": 100
+              }
+            },
+            {
+              "id": "gate",
+              "type": "review",
+              "options": {
+                "data_type": "video"
+              },
+              "position": {
+                "x": 200,
+                "y": 100
+              }
+            },
+            {
+              "id": "a",
+              "type": "encode",
+              "options": {
+                "subtitle_mode": "none"
+              },
+              "position": {
+                "x": 400,
+                "y": 100
+              }
+            },
+            {
+              "id": "b",
+              "type": "encode",
+              "options": {
+                "subtitle_mode": "none"
+              },
+              "position": {
+                "x": 600,
+                "y": 100
+              }
+            },
+            {
+              "id": "joined",
+              "type": "join",
+              "options": {
+                "left_type": "video",
+                "right_type": "video"
+              },
+              "position": {
+                "x": 800,
+                "y": 100
+              }
+            },
+            {
+              "id": "independent",
+              "type": "analyze",
+              "options": {},
+              "position": {
+                "x": 1000,
+                "y": 100
+              }
+            }
+          ],
+          "edges": [
+            {
+              "id": "e0",
+              "source": {
+                "node": "$input",
+                "port": "video"
+              },
+              "target": {
+                "node": "judge",
+                "port": "value"
+              }
+            },
+            {
+              "id": "e1",
+              "source": {
+                "node": "judge",
+                "port": "a"
+              },
+              "target": {
+                "node": "gate",
+                "port": "value"
+              }
+            },
+            {
+              "id": "e2",
+              "source": {
+                "node": "gate",
+                "port": "value"
+              },
+              "target": {
+                "node": "a",
+                "port": "video"
+              }
+            },
+            {
+              "id": "e3",
+              "source": {
+                "node": "judge",
+                "port": "b"
+              },
+              "target": {
+                "node": "b",
+                "port": "video"
+              }
+            },
+            {
+              "id": "e4",
+              "source": {
+                "node": "a",
+                "port": "video"
+              },
+              "target": {
+                "node": "joined",
+                "port": "left"
+              }
+            },
+            {
+              "id": "e5",
+              "source": {
+                "node": "b",
+                "port": "video"
+              },
+              "target": {
+                "node": "joined",
+                "port": "right"
+              }
+            },
+            {
+              "id": "e6",
+              "source": {
+                "node": "$input",
+                "port": "video"
+              },
+              "target": {
+                "node": "independent",
+                "port": "video"
+              }
+            }
+          ]
+        },
+        "choices": {}
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/decision-tickets",
+      "status": 201,
+      "payload": {
+        "request_id": "567f3457-3ac7-4072-bc8b-8cf1c2c4a81d",
+        "definition_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "definition_revision": 2,
+        "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "options": {
+          "source_language": "auto",
+          "target_language": "ko",
+          "video_description": "",
+          "branch_choices": {}
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets/459723ce74944f908fb8da8a621fe6d7/plan",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/decision-tickets/459723ce74944f908fb8da8a621fe6d7/confirm",
+      "status": 200,
+      "payload": {
+        "revision": 1,
+        "token": "86598abf47e157a4107c7bb1b53d2db8a62d0f30026372b1ee0b059ff10c8356",
+        "paid_confirmed": true
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/decision-tickets/459723ce74944f908fb8da8a621fe6d7/start",
+      "status": 200,
+      "payload": {
+        "request_id": "4204c0e0-485c-4871-8b78-159be1f68f11",
+        "revision": 2,
+        "token": "86598abf47e157a4107c7bb1b53d2db8a62d0f30026372b1ee0b059ff10c8356"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets/459723ce74944f908fb8da8a621fe6d7",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets/459723ce74944f908fb8da8a621fe6d7",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets/459723ce74944f908fb8da8a621fe6d7",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/node-catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets/runtime",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/node-catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets/runtime",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets/459723ce74944f908fb8da8a621fe6d7",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets/459723ce74944f908fb8da8a621fe6d7/plan",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/decision-tickets/459723ce74944f908fb8da8a621fe6d7/confirm",
+      "status": 200,
+      "payload": {
+        "revision": 9,
+        "token": "186ec64b37f09bf0cb424a0a5ee140e7cb81b753c3bd8834a407f395359c3758",
+        "paid_confirmed": false
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/decision-tickets/459723ce74944f908fb8da8a621fe6d7/continue",
+      "status": 200,
+      "payload": {
+        "request_id": "e08891d4-8362-41d9-97fb-88bb37897fd5",
+        "revision": 10,
+        "token": "186ec64b37f09bf0cb424a0a5ee140e7cb81b753c3bd8834a407f395359c3758"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets/459723ce74944f908fb8da8a621fe6d7",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets/459723ce74944f908fb8da8a621fe6d7",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets/459723ce74944f908fb8da8a621fe6d7",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/decision-tickets/459723ce74944f908fb8da8a621fe6d7/reviews/gate/decision",
+      "status": 200,
+      "payload": {
+        "target": "5ba47afa1eb80df75946799df1b6e35f0bd9cb47161d583106b68d483049597e",
+        "state_revision": 1,
+        "revision": 1,
+        "sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451",
+        "action": "approve",
+        "reason": "",
+        "request_id": "c49be339-b510-4b98-9612-9cf8b1105545"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets/459723ce74944f908fb8da8a621fe6d7",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets/459723ce74944f908fb8da8a621fe6d7/plan",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/decision-tickets/459723ce74944f908fb8da8a621fe6d7/confirm",
+      "status": 200,
+      "payload": {
+        "revision": 17,
+        "token": "581d342604d3e9a2cce6a85776da41cc8f47c35ad198197cdbae39352748767f",
+        "paid_confirmed": false
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets/459723ce74944f908fb8da8a621fe6d7",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/decision-tickets/459723ce74944f908fb8da8a621fe6d7/continue",
+      "status": 200,
+      "payload": {
+        "request_id": "7d811488-74f4-4c49-ae12-8803bde2af04",
+        "revision": 18,
+        "token": "581d342604d3e9a2cce6a85776da41cc8f47c35ad198197cdbae39352748767f"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets/459723ce74944f908fb8da8a621fe6d7",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets/459723ce74944f908fb8da8a621fe6d7",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/decision-tickets/capability",
+      "status": 200,
+      "payload": {
+        "definition": {
+          "catalog_version": 1,
+          "revision": 2,
+          "name": "격리 구조화 AI 판단",
+          "inputs": {
+            "video": "video"
+          },
+          "nodes": [
+            {
+              "id": "judge",
+              "type": "decision",
+              "options": {
+                "data_type": "video"
+              },
+              "position": {
+                "x": 450,
+                "y": 100
+              }
+            },
+            {
+              "id": "gate",
+              "type": "review",
+              "options": {
+                "data_type": "video"
+              },
+              "position": {
+                "x": 200,
+                "y": 100
+              }
+            },
+            {
+              "id": "a",
+              "type": "encode",
+              "options": {
+                "subtitle_mode": "none"
+              },
+              "position": {
+                "x": 400,
+                "y": 100
+              }
+            },
+            {
+              "id": "b",
+              "type": "encode",
+              "options": {
+                "subtitle_mode": "none"
+              },
+              "position": {
+                "x": 600,
+                "y": 100
+              }
+            },
+            {
+              "id": "joined",
+              "type": "join",
+              "options": {
+                "left_type": "video",
+                "right_type": "video"
+              },
+              "position": {
+                "x": 800,
+                "y": 100
+              }
+            },
+            {
+              "id": "independent",
+              "type": "analyze",
+              "options": {},
+              "position": {
+                "x": 1000,
+                "y": 100
+              }
+            }
+          ],
+          "edges": [
+            {
+              "id": "e0",
+              "source": {
+                "node": "$input",
+                "port": "video"
+              },
+              "target": {
+                "node": "judge",
+                "port": "value"
+              }
+            },
+            {
+              "id": "e1",
+              "source": {
+                "node": "judge",
+                "port": "a"
+              },
+              "target": {
+                "node": "gate",
+                "port": "value"
+              }
+            },
+            {
+              "id": "e2",
+              "source": {
+                "node": "gate",
+                "port": "value"
+              },
+              "target": {
+                "node": "a",
+                "port": "video"
+              }
+            },
+            {
+              "id": "e3",
+              "source": {
+                "node": "judge",
+                "port": "b"
+              },
+              "target": {
+                "node": "b",
+                "port": "video"
+              }
+            },
+            {
+              "id": "e4",
+              "source": {
+                "node": "a",
+                "port": "video"
+              },
+              "target": {
+                "node": "joined",
+                "port": "left"
+              }
+            },
+            {
+              "id": "e5",
+              "source": {
+                "node": "b",
+                "port": "video"
+              },
+              "target": {
+                "node": "joined",
+                "port": "right"
+              }
+            },
+            {
+              "id": "e6",
+              "source": {
+                "node": "$input",
+                "port": "video"
+              },
+              "target": {
+                "node": "independent",
+                "port": "video"
+              }
+            }
+          ]
+        },
+        "choices": {}
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/decision-tickets",
+      "status": 201,
+      "payload": {
+        "request_id": "765ed86e-4cdb-414e-bda5-13fd646261af",
+        "definition_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "definition_revision": 2,
+        "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "options": {
+          "source_language": "auto",
+          "target_language": "ko",
+          "video_description": "",
+          "branch_choices": {}
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets/18a1ccbac49842e3bbc12f84fe74f7aa/plan",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/decision-tickets/18a1ccbac49842e3bbc12f84fe74f7aa/confirm",
+      "status": 200,
+      "payload": {
+        "revision": 1,
+        "token": "86598abf47e157a4107c7bb1b53d2db8a62d0f30026372b1ee0b059ff10c8356",
+        "paid_confirmed": true
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/decision-tickets/18a1ccbac49842e3bbc12f84fe74f7aa/start",
+      "status": 200,
+      "payload": {
+        "request_id": "ddc0f353-8dd2-43a9-b316-d6351b724646",
+        "revision": 2,
+        "token": "86598abf47e157a4107c7bb1b53d2db8a62d0f30026372b1ee0b059ff10c8356"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets/18a1ccbac49842e3bbc12f84fe74f7aa",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets/18a1ccbac49842e3bbc12f84fe74f7aa",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets/18a1ccbac49842e3bbc12f84fe74f7aa",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets/18a1ccbac49842e3bbc12f84fe74f7aa/plan",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/decision-tickets/18a1ccbac49842e3bbc12f84fe74f7aa/confirm",
+      "status": 200,
+      "payload": {
+        "revision": 9,
+        "token": "64d836f7acc5134e45d99ca9eddf7f6cdbfbf761fb31dbb8473bd17d909ad49b",
+        "paid_confirmed": false
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/decision-tickets/18a1ccbac49842e3bbc12f84fe74f7aa/continue",
+      "status": 200,
+      "payload": {
+        "request_id": "629e3d57-2de5-47ba-816e-68df256ff45e",
+        "revision": 10,
+        "token": "64d836f7acc5134e45d99ca9eddf7f6cdbfbf761fb31dbb8473bd17d909ad49b"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets/18a1ccbac49842e3bbc12f84fe74f7aa",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets/18a1ccbac49842e3bbc12f84fe74f7aa",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets/18a1ccbac49842e3bbc12f84fe74f7aa",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/decision-tickets/capability",
+      "status": 200,
+      "payload": {
+        "definition": {
+          "catalog_version": 1,
+          "revision": 2,
+          "name": "격리 구조화 AI 판단",
+          "inputs": {
+            "video": "video"
+          },
+          "nodes": [
+            {
+              "id": "judge",
+              "type": "decision",
+              "options": {
+                "data_type": "video"
+              },
+              "position": {
+                "x": 450,
+                "y": 100
+              }
+            },
+            {
+              "id": "gate",
+              "type": "review",
+              "options": {
+                "data_type": "video"
+              },
+              "position": {
+                "x": 200,
+                "y": 100
+              }
+            },
+            {
+              "id": "a",
+              "type": "encode",
+              "options": {
+                "subtitle_mode": "none"
+              },
+              "position": {
+                "x": 400,
+                "y": 100
+              }
+            },
+            {
+              "id": "b",
+              "type": "encode",
+              "options": {
+                "subtitle_mode": "none"
+              },
+              "position": {
+                "x": 600,
+                "y": 100
+              }
+            },
+            {
+              "id": "joined",
+              "type": "join",
+              "options": {
+                "left_type": "video",
+                "right_type": "video"
+              },
+              "position": {
+                "x": 800,
+                "y": 100
+              }
+            },
+            {
+              "id": "independent",
+              "type": "analyze",
+              "options": {},
+              "position": {
+                "x": 1000,
+                "y": 100
+              }
+            }
+          ],
+          "edges": [
+            {
+              "id": "e0",
+              "source": {
+                "node": "$input",
+                "port": "video"
+              },
+              "target": {
+                "node": "judge",
+                "port": "value"
+              }
+            },
+            {
+              "id": "e1",
+              "source": {
+                "node": "judge",
+                "port": "a"
+              },
+              "target": {
+                "node": "gate",
+                "port": "value"
+              }
+            },
+            {
+              "id": "e2",
+              "source": {
+                "node": "gate",
+                "port": "value"
+              },
+              "target": {
+                "node": "a",
+                "port": "video"
+              }
+            },
+            {
+              "id": "e3",
+              "source": {
+                "node": "judge",
+                "port": "b"
+              },
+              "target": {
+                "node": "b",
+                "port": "video"
+              }
+            },
+            {
+              "id": "e4",
+              "source": {
+                "node": "a",
+                "port": "video"
+              },
+              "target": {
+                "node": "joined",
+                "port": "left"
+              }
+            },
+            {
+              "id": "e5",
+              "source": {
+                "node": "b",
+                "port": "video"
+              },
+              "target": {
+                "node": "joined",
+                "port": "right"
+              }
+            },
+            {
+              "id": "e6",
+              "source": {
+                "node": "$input",
+                "port": "video"
+              },
+              "target": {
+                "node": "independent",
+                "port": "video"
+              }
+            }
+          ]
+        },
+        "choices": {}
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/decision-tickets",
+      "status": 201,
+      "payload": {
+        "request_id": "3c637b85-2e5b-4f14-91b7-f4281e742375",
+        "definition_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "definition_revision": 2,
+        "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "options": {
+          "source_language": "auto",
+          "target_language": "ko",
+          "video_description": "",
+          "branch_choices": {}
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets/15316e11af61409ca4ebe8abc53f2f44/plan",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/decision-tickets/15316e11af61409ca4ebe8abc53f2f44/confirm",
+      "status": 200,
+      "payload": {
+        "revision": 1,
+        "token": "86598abf47e157a4107c7bb1b53d2db8a62d0f30026372b1ee0b059ff10c8356",
+        "paid_confirmed": true
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/decision-tickets/15316e11af61409ca4ebe8abc53f2f44/start",
+      "status": 200,
+      "payload": {
+        "request_id": "bc5d5ecf-01a5-484d-bd94-0b18314058d6",
+        "revision": 2,
+        "token": "86598abf47e157a4107c7bb1b53d2db8a62d0f30026372b1ee0b059ff10c8356"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets/15316e11af61409ca4ebe8abc53f2f44",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets/15316e11af61409ca4ebe8abc53f2f44",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets/15316e11af61409ca4ebe8abc53f2f44",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/decision-tickets/capability",
+      "status": 200,
+      "payload": {
+        "definition": {
+          "catalog_version": 1,
+          "revision": 2,
+          "name": "격리 구조화 AI 판단",
+          "inputs": {
+            "video": "video"
+          },
+          "nodes": [
+            {
+              "id": "judge",
+              "type": "decision",
+              "options": {
+                "data_type": "video"
+              },
+              "position": {
+                "x": 450,
+                "y": 100
+              }
+            },
+            {
+              "id": "gate",
+              "type": "review",
+              "options": {
+                "data_type": "video"
+              },
+              "position": {
+                "x": 200,
+                "y": 100
+              }
+            },
+            {
+              "id": "a",
+              "type": "encode",
+              "options": {
+                "subtitle_mode": "none"
+              },
+              "position": {
+                "x": 400,
+                "y": 100
+              }
+            },
+            {
+              "id": "b",
+              "type": "encode",
+              "options": {
+                "subtitle_mode": "none"
+              },
+              "position": {
+                "x": 600,
+                "y": 100
+              }
+            },
+            {
+              "id": "joined",
+              "type": "join",
+              "options": {
+                "left_type": "video",
+                "right_type": "video"
+              },
+              "position": {
+                "x": 800,
+                "y": 100
+              }
+            },
+            {
+              "id": "independent",
+              "type": "analyze",
+              "options": {},
+              "position": {
+                "x": 1000,
+                "y": 100
+              }
+            }
+          ],
+          "edges": [
+            {
+              "id": "e0",
+              "source": {
+                "node": "$input",
+                "port": "video"
+              },
+              "target": {
+                "node": "judge",
+                "port": "value"
+              }
+            },
+            {
+              "id": "e1",
+              "source": {
+                "node": "judge",
+                "port": "a"
+              },
+              "target": {
+                "node": "gate",
+                "port": "value"
+              }
+            },
+            {
+              "id": "e2",
+              "source": {
+                "node": "gate",
+                "port": "value"
+              },
+              "target": {
+                "node": "a",
+                "port": "video"
+              }
+            },
+            {
+              "id": "e3",
+              "source": {
+                "node": "judge",
+                "port": "b"
+              },
+              "target": {
+                "node": "b",
+                "port": "video"
+              }
+            },
+            {
+              "id": "e4",
+              "source": {
+                "node": "a",
+                "port": "video"
+              },
+              "target": {
+                "node": "joined",
+                "port": "left"
+              }
+            },
+            {
+              "id": "e5",
+              "source": {
+                "node": "b",
+                "port": "video"
+              },
+              "target": {
+                "node": "joined",
+                "port": "right"
+              }
+            },
+            {
+              "id": "e6",
+              "source": {
+                "node": "$input",
+                "port": "video"
+              },
+              "target": {
+                "node": "independent",
+                "port": "video"
+              }
+            }
+          ]
+        },
+        "choices": {}
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/decision-tickets",
+      "status": 201,
+      "payload": {
+        "request_id": "316f8d4d-2fe9-4b08-a468-f0ebdee425bb",
+        "definition_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "definition_revision": 2,
+        "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "options": {
+          "source_language": "auto",
+          "target_language": "ko",
+          "video_description": "",
+          "branch_choices": {}
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets/71432ed0a58c436cac25acb1b5f49707/plan",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/decision-tickets/71432ed0a58c436cac25acb1b5f49707/confirm",
+      "status": 200,
+      "payload": {
+        "revision": 1,
+        "token": "86598abf47e157a4107c7bb1b53d2db8a62d0f30026372b1ee0b059ff10c8356",
+        "paid_confirmed": true
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/decision-tickets/71432ed0a58c436cac25acb1b5f49707/start",
+      "status": 200,
+      "payload": {
+        "request_id": "c0abf699-6db0-4fb8-976c-042e076f5d1b",
+        "revision": 2,
+        "token": "86598abf47e157a4107c7bb1b53d2db8a62d0f30026372b1ee0b059ff10c8356"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets/71432ed0a58c436cac25acb1b5f49707",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets/71432ed0a58c436cac25acb1b5f49707",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets/71432ed0a58c436cac25acb1b5f49707",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/decision-tickets/capability",
+      "status": 200,
+      "payload": {
+        "definition": {
+          "catalog_version": 1,
+          "revision": 2,
+          "name": "격리 구조화 AI 판단",
+          "inputs": {
+            "video": "video"
+          },
+          "nodes": [
+            {
+              "id": "judge",
+              "type": "decision",
+              "options": {
+                "data_type": "video"
+              },
+              "position": {
+                "x": 450,
+                "y": 100
+              }
+            },
+            {
+              "id": "gate",
+              "type": "review",
+              "options": {
+                "data_type": "video"
+              },
+              "position": {
+                "x": 200,
+                "y": 100
+              }
+            },
+            {
+              "id": "a",
+              "type": "encode",
+              "options": {
+                "subtitle_mode": "none"
+              },
+              "position": {
+                "x": 400,
+                "y": 100
+              }
+            },
+            {
+              "id": "b",
+              "type": "encode",
+              "options": {
+                "subtitle_mode": "none"
+              },
+              "position": {
+                "x": 600,
+                "y": 100
+              }
+            },
+            {
+              "id": "joined",
+              "type": "join",
+              "options": {
+                "left_type": "video",
+                "right_type": "video"
+              },
+              "position": {
+                "x": 800,
+                "y": 100
+              }
+            },
+            {
+              "id": "independent",
+              "type": "analyze",
+              "options": {},
+              "position": {
+                "x": 1000,
+                "y": 100
+              }
+            }
+          ],
+          "edges": [
+            {
+              "id": "e0",
+              "source": {
+                "node": "$input",
+                "port": "video"
+              },
+              "target": {
+                "node": "judge",
+                "port": "value"
+              }
+            },
+            {
+              "id": "e1",
+              "source": {
+                "node": "judge",
+                "port": "a"
+              },
+              "target": {
+                "node": "gate",
+                "port": "value"
+              }
+            },
+            {
+              "id": "e2",
+              "source": {
+                "node": "gate",
+                "port": "value"
+              },
+              "target": {
+                "node": "a",
+                "port": "video"
+              }
+            },
+            {
+              "id": "e3",
+              "source": {
+                "node": "judge",
+                "port": "b"
+              },
+              "target": {
+                "node": "b",
+                "port": "video"
+              }
+            },
+            {
+              "id": "e4",
+              "source": {
+                "node": "a",
+                "port": "video"
+              },
+              "target": {
+                "node": "joined",
+                "port": "left"
+              }
+            },
+            {
+              "id": "e5",
+              "source": {
+                "node": "b",
+                "port": "video"
+              },
+              "target": {
+                "node": "joined",
+                "port": "right"
+              }
+            },
+            {
+              "id": "e6",
+              "source": {
+                "node": "$input",
+                "port": "video"
+              },
+              "target": {
+                "node": "independent",
+                "port": "video"
+              }
+            }
+          ]
+        },
+        "choices": {}
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/decision-tickets",
+      "status": 201,
+      "payload": {
+        "request_id": "e48df382-90f2-4fd4-b951-870db9986779",
+        "definition_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "definition_revision": 2,
+        "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "options": {
+          "source_language": "auto",
+          "target_language": "ko",
+          "video_description": "",
+          "branch_choices": {}
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets/c26284d94791422bafbae38590c0bcdb/plan",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/decision-tickets/c26284d94791422bafbae38590c0bcdb/confirm",
+      "status": 200,
+      "payload": {
+        "revision": 1,
+        "token": "86598abf47e157a4107c7bb1b53d2db8a62d0f30026372b1ee0b059ff10c8356",
+        "paid_confirmed": true
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/decision-tickets/c26284d94791422bafbae38590c0bcdb/start",
+      "status": 200,
+      "payload": {
+        "request_id": "81398f93-9e0d-4904-9f8f-56de0dad3e81",
+        "revision": 2,
+        "token": "86598abf47e157a4107c7bb1b53d2db8a62d0f30026372b1ee0b059ff10c8356"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets/c26284d94791422bafbae38590c0bcdb",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets/c26284d94791422bafbae38590c0bcdb",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/decision-tickets",
+      "status": 200
+    }
+  ],
+  "trace": [
+    {
+      "node": "independent",
+      "phase_serving_revision": 0,
+      "mode": "explicit_deterministic_fixture"
+    },
+    {
+      "mode": "explicit_structured_adapter_fixture_NOT_external_inference",
+      "decision_input": {
+        "type": "video",
+        "sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451",
+        "bytes": 6134,
+        "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "clock": {
+          "basis": "original",
+          "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+        }
+      }
+    },
+    {
+      "node": "a",
+      "phase_serving_revision": 0,
+      "mode": "explicit_deterministic_fixture"
+    },
+    {
+      "node": "independent",
+      "phase_serving_revision": 0,
+      "mode": "explicit_deterministic_fixture"
+    },
+    {
+      "mode": "explicit_structured_adapter_fixture_NOT_external_inference",
+      "decision_input": {
+        "type": "video",
+        "sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451",
+        "bytes": 6134,
+        "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "clock": {
+          "basis": "original",
+          "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+        }
+      }
+    },
+    {
+      "node": "b",
+      "phase_serving_revision": 0,
+      "mode": "explicit_deterministic_fixture"
+    },
+    {
+      "node": "independent",
+      "phase_serving_revision": 0,
+      "mode": "explicit_deterministic_fixture"
+    },
+    {
+      "mode": "explicit_structured_adapter_fixture_NOT_external_inference",
+      "decision_input": {
+        "type": "video",
+        "sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451",
+        "bytes": 6134,
+        "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "clock": {
+          "basis": "original",
+          "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+        }
+      }
+    },
+    {
+      "node": "independent",
+      "phase_serving_revision": 0,
+      "mode": "explicit_deterministic_fixture"
+    },
+    {
+      "mode": "explicit_structured_adapter_fixture_NOT_external_inference",
+      "decision_input": {
+        "type": "video",
+        "sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451",
+        "bytes": 6134,
+        "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "clock": {
+          "basis": "original",
+          "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+        }
+      }
+    },
+    {
+      "node": "independent",
+      "phase_serving_revision": 0,
+      "mode": "explicit_deterministic_fixture"
+    },
+    {
+      "mode": "explicit_structured_adapter_fixture_NOT_external_inference",
+      "decision_input": {
+        "type": "video",
+        "sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451",
+        "bytes": 6134,
+        "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "clock": {
+          "basis": "original",
+          "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+        }
+      }
+    }
+  ],
+  "errors": []
+}

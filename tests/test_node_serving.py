@@ -16,7 +16,9 @@ class NodeServingTests(unittest.TestCase):
             plan = workflow_plan(template, subtitle_input=template == 'translate', subtitle_mode='none')
             self.assertTrue(set(plan['stages']) <= set(nodes))
         self.assertIn('faceswap', nodes)
-        self.assertNotIn('decision', nodes)
+        self.assertEqual(nodes['decision']['execution'], 'explicit_decision_ticket')
+        self.assertEqual(nodes['decision']['worker_role'], 'control')
+        self.assertEqual(nodes['decision']['outputs']['result'], 'decision_result')
         self.assertEqual(nodes['encode']['embedded_operations'], ['burn_subtitles'])
         self.assertFalse(node_catalog()['standalone_execution'])
 

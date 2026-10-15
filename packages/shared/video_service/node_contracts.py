@@ -26,8 +26,13 @@ NODES = [
          role='faceswap', choices={'preset': ['fast', 'balanced', 'quality'], 'video_codec': ['h264', 'hevc']}),
 ]
 
-VALUE_TYPES = ['video', 'audio', 'transcript', 'subtitle', 'timeline_map', 'media_metadata', 'validation_report', 'artifact_manifest']
+from .decision_conditions import OPTIONS as DECISION_OPTIONS
+
+VALUE_TYPES = ['video', 'audio', 'transcript', 'subtitle', 'timeline_map', 'media_metadata', 'validation_report', 'artifact_manifest', 'decision_result']
 NODES.extend([
+    {**node('decision', 'AI 판단 · 조건 경로', {'value': 'video'}, {'a': 'video', 'b': 'video', 'result': 'decision_result'}, role='control', choices={'data_type': VALUE_TYPES, **DECISION_OPTIONS}),
+     'execution': 'explicit_decision_ticket', 'entrypoint': 'video_service.decision_tickets:DecisionTicketStore.run',
+     'port_types_from_options': {'inputs': {'value': 'data_type'}, 'outputs': {'a': 'data_type', 'b': 'data_type'}}},
     {**node('review', '사람 검수', {'value': 'video'}, {'value': 'video'}, role='control', choices={'data_type': VALUE_TYPES}),
      'execution': 'explicit_review_ticket', 'entrypoint': 'video_service.review_tickets:ReviewTicketStore.run',
      'port_types_from_options': {'inputs': {'value': 'data_type'}, 'outputs': {'value': 'data_type'}}},
@@ -84,6 +89,9 @@ def validate_node(payload):
         raise ValueError('이 노드가 지원하지 않는 옵션입니다.')
     if any(not isinstance(v, str) or v not in selected['options'][k] for k, v in options.items()):
         raise ValueError('지원하지 않는 처리 옵션 조합입니다.')
+    if selected['id'] == 'decision':
+        from .decision_conditions import conditions
+        conditions(options)
     if selected['id'] == 'encode' and (options.get('subtitle_mode', 'burn') != 'none') != ('subtitles' in inputs):
         raise ValueError('burn/soft에는 자막 입력이 필요하며 none에는 자막 입력을 연결하지 않습니다.')
     return {'valid': True, 'scope': 'port_types_and_options_only', 'node': selected['id'],

@@ -1,0 +1,26 @@
+{
+  "unique_passes": 8,
+  "new_decision": 2,
+  "existing_regression": 6,
+  "passed_tests": [
+    "tests\\browser\\decision-tickets.spec.ts:7:3 \u203a actual structured judgment, fixed route and explicit continuation 1440",
+    "tests\\browser\\decision-tickets.spec.ts:7:3 \u203a actual structured judgment, fixed route and explicit continuation 390",
+    "tests\\browser\\graph-tickets.spec.ts:7:3 \u203a real graph orchestration and manual routing 1440",
+    "tests\\browser\\graph-tickets.spec.ts:7:3 \u203a real graph orchestration and manual routing 390",
+    "tests\\browser\\review-tickets.spec.ts:7:3 \u203a actual durable review gates and explicit continuation 1440",
+    "tests\\browser\\review-tickets.spec.ts:7:3 \u203a actual durable review gates and explicit continuation 390",
+    "tests\\browser\\workflow-tickets.spec.ts:7:3 \u203a definition ticket real orchestration 1440",
+    "tests\\browser\\workflow-tickets.spec.ts:7:3 \u203a definition ticket real orchestration 390"
+  ],
+  "historical_full_batch": {
+    "passed": 7,
+    "failed": 1,
+    "excluded_failure": [
+      "tests\\browser\\decision-tickets.spec.ts:7:3 \u203a actual structured judgment, fixed route and explicit continuation 390"
+    ],
+    "note": "Mobile status assertion deadline expired before Docker-backed list refresh. Snapshot and durable ticket showed completed. Explicit HTTP-response+list-status wait corrected; only affected Decision journeys rerun."
+  },
+  "new_final_log": "WF06-new-browser-final.log",
+  "historical_log": "WF06-browser-final.log",
+  "same_test_reruns_not_added": true
+}

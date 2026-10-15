@@ -614,7 +614,8 @@ export const WorkflowEditor = () => {
               <p className="editor-help">
                 실제 파일·세션은 여기서 연결하지 않습니다. 입력 포트당 소스 하나를 연결하세요. 수동
                 분기·결과 목록 합류는 <a href="#/graph-tickets">분기·병렬 티켓</a>에서 계획 확인 후
-                실행 요청합니다.
+                실행 요청합니다. AI 조건 판단은 <a href="#/decision-tickets">AI 판단 티켓</a>에서
+                구조화 결과·서버 조건을 고정하고 선택 후행을 새로 확인합니다.
               </p>
               <fieldset disabled={!!busy}>
                 <label>
