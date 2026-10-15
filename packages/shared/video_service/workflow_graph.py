@@ -58,7 +58,7 @@ def validate_graph(payload):
             issue('존재하지 않는 노드/포트에 연결되었습니다.',edge_id=identity); continue
         if a['node'] != '$input': adjacency[a['node']].append((b['node'],identity))
         key=(b['node'],b['port'])
-        if key in targets: issue('입력 하나에는 출력 하나만 연결할 수 있습니다. 합류 결합은 아직 지원하지 않습니다.',b['node'],identity)
+        if key in targets: issue('입력 하나에는 출력 하나만 연결하세요. 결과 목록 합류는 join의 서로 다른 입력 포트를 사용하세요.',b['node'],identity)
         targets.add(key)
         if outputs[a['port']] != target_inputs[b['port']]:
             issue('출력과 입력의 자료 유형이 맞지 않습니다.',b['node'],identity); continue

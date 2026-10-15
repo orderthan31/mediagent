@@ -612,8 +612,9 @@ export const WorkflowEditor = () => {
               )}
               <h3>외부 입력 선언</h3>
               <p className="editor-help">
-                실제 파일·세션은 연결하지 않습니다. 입력 포트당 소스 하나만 허용하며 합류/분기
-                실행은 지원하지 않습니다.
+                실제 파일·세션은 여기서 연결하지 않습니다. 입력 포트당 소스 하나를 연결하세요. 수동
+                분기·결과 목록 합류는 <a href="#/graph-tickets">분기·병렬 티켓</a>에서 계획 확인 후
+                실행 요청합니다.
               </p>
               <fieldset disabled={!!busy}>
                 <label>
