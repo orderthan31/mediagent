@@ -1,0 +1,6 @@
+
+Running 1 test using 1 worker
+
+  ✓  1 tests/browser/ticket-review.spec.ts:71:1 › 현재 단계·실패/부분 결과·대기는 실제 상태와 분리해 표시한다 (3.0s)
+
+  1 passed (5.6s)

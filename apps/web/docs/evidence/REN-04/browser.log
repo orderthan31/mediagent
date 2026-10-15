@@ -1,0 +1,8 @@
+
+Running 3 tests using 1 worker
+
+  ✓  1 tests/browser/ticket-review.spec.ts:71:1 › 현재 단계·실패/부분 결과·대기는 실제 상태와 분리해 표시한다 (2.3s)
+  ✓  2 tests/browser/ticket-review.spec.ts:148:1 › 완료 티켓의 결과 링크·원문/번역·저장 성공과 readonly 거부를 보존한다 (1.5s)
+  ✓  3 tests/browser/ticket-review.spec.ts:204:1 › 검수 대기 티켓에서 부분 결과·요청 흐름을 구분하고 저장 충돌/실패 시 입력을 보존한다 (1.4s)
+
+  3 passed (7.2s)

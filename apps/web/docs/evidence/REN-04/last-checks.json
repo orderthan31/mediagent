@@ -1,0 +1,44 @@
+[
+  {
+    "name": "last-format",
+    "command": [
+      "node",
+      "node_modules/prettier/bin/prettier.cjs",
+      "--write",
+      "src/TicketSummary.tsx",
+      "tests/browser/ticket-review.spec.ts"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "last-lint",
+    "command": [
+      "node",
+      "node_modules/eslint/bin/eslint.js",
+      "src/TicketSummary.tsx",
+      "tests/browser/ticket-review.spec.ts"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "last-build",
+    "command": [
+      "npm",
+      "run",
+      "build"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "state-green",
+    "command": [
+      "node",
+      "node_modules/@playwright/test/cli.js",
+      "test",
+      "tests/browser/ticket-review.spec.ts",
+      "--grep",
+      "현재 단계"
+    ],
+    "exit": 0
+  }
+]

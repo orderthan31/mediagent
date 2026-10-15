@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, Plus, Save, Trash2, X, Play } from 'lucide-react';
 import { Job, request } from './api';
+import { Button } from './hangyeol/primitives/button';
+import { Input } from './hangyeol/primitives/input';
+import { Textarea } from './hangyeol/primitives/textarea';
+import { EmptyState } from './hangyeol/components/empty-state';
+import './ticket.css';
 type Cue = {
   start: number;
   end: number;
@@ -174,7 +179,7 @@ export const SubtitleEditor = ({
   return (
     <dialog
       ref={modal}
-      className="editor-modal"
+      className="editor-modal ticket-editor"
       aria-labelledby="subtitle-editor-title"
       onCancel={(e) => {
         e.preventDefault();
@@ -214,14 +219,15 @@ export const SubtitleEditor = ({
             <h2 id="subtitle-editor-title">자막 수정</h2>
             <p>{job.original_filename}</p>
           </div>
-          <button
+          <Button
+            variant="secondary"
             className="icon"
             title="편집 닫기"
             disabled={saving}
             onClick={() => (dirty ? setDiscard(true) : onClose())}
           >
             <X size={20} />
-          </button>
+          </Button>
         </div>
         {error && (
           <p className="alert" role="alert">
@@ -270,7 +276,8 @@ export const SubtitleEditor = ({
                 {draft.duration.toFixed(2)}초 · {cues.length}개 · v{draft.revision}
                 {dirty ? ' · 저장 전' : ''}
               </span>
-              <button
+              <Button
+                variant="secondary"
                 className="icon"
                 title="자막 추가"
                 disabled={
@@ -281,9 +288,15 @@ export const SubtitleEditor = ({
                 onClick={add}
               >
                 <Plus size={18} />
-              </button>
+              </Button>
             </div>
             <div className="editor-cues">
+              {!cues.length && (
+                <EmptyState
+                  heading="현재 트랙에 자막이 없습니다."
+                  description="자막 추가로 새 문구를 작성할 수 있어요."
+                />
+              )}
               <div className="cue-heading">
                 <span>시작 (초)</span>
                 <span>종료 (초)</span>
@@ -294,7 +307,7 @@ export const SubtitleEditor = ({
                 const index = page * pageSize + offset;
                 return (
                   <div className="cue-row" key={`${track}-${index}`}>
-                    <input
+                    <Input
                       type="number"
                       step="0.001"
                       min="0"
@@ -308,7 +321,7 @@ export const SubtitleEditor = ({
                         })
                       }
                     />
-                    <input
+                    <Input
                       type="number"
                       step="0.001"
                       min="0"
@@ -320,7 +333,7 @@ export const SubtitleEditor = ({
                         update(index, { end: e.target.value === '' ? NaN : Number(e.target.value) })
                       }
                     />
-                    <textarea
+                    <Textarea
                       aria-label={`자막 ${index + 1} 문구`}
                       rows={2}
                       maxLength={1000}
@@ -328,54 +341,58 @@ export const SubtitleEditor = ({
                       disabled={saving}
                       onChange={(e) => update(index, { text: e.target.value })}
                     />
-                    <button
+                    <Button
+                      variant="secondary"
                       className="icon danger"
                       title={`자막 ${index + 1} 삭제`}
                       disabled={saving || (!completed && cues.length <= 1)}
                       onClick={() => remove(index)}
                     >
                       <Trash2 size={16} />
-                    </button>
+                    </Button>
                   </div>
                 );
               })}
             </div>
             <div className="editor-footer">
               <div>
-                <button
+                <Button
+                  variant="secondary"
                   className="icon"
                   title="이전 자막 페이지"
                   disabled={page === 0}
                   onClick={() => setPage(page - 1)}
                 >
                   <ChevronLeft size={18} />
-                </button>
+                </Button>
                 <span>
                   {page + 1} / {pages}
                 </span>
-                <button
+                <Button
+                  variant="secondary"
                   className="icon"
                   title="다음 자막 페이지"
                   disabled={page + 1 >= pages}
                   onClick={() => setPage(page + 1)}
                 >
                   <ChevronRight size={18} />
-                </button>
+                </Button>
               </div>
               <div>
-                <button
-                  className="icon"
+                <Button
+                  variant="secondary"
                   title={completed ? '자막 저장' : '초안 저장'}
                   disabled={saving || !dirty}
                   onClick={() => void save('save')}
                 >
                   <Save size={19} />
-                </button>
+                  {completed ? '자막 저장' : '초안 저장'}
+                </Button>
                 {!completed && (
-                  <button disabled={saving} onClick={() => void save('render')}>
+                  <Button variant="primary" disabled={saving} onClick={() => void save('render')}>
                     <Play size={16} />
                     최종 출력
-                  </button>
+                  </Button>
                 )}
               </div>
             </div>
@@ -384,10 +401,12 @@ export const SubtitleEditor = ({
         {discard && (
           <div className="editor-discard">
             <span>저장하지 않은 변경이 있습니다.</span>
-            <button onClick={() => setDiscard(false)}>계속 편집</button>
-            <button className="destructive" onClick={onClose}>
+            <Button variant="secondary" onClick={() => setDiscard(false)}>
+              계속 편집
+            </Button>
+            <Button variant="secondary" className="destructive" onClick={onClose}>
               변경 버리고 닫기
-            </button>
+            </Button>
           </div>
         )}
       </section>

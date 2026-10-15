@@ -1,0 +1,6 @@
+src/JobDetail.tsx 95ms
+src/StageProgress.tsx 9ms (unchanged)
+src/SubtitleEditor.tsx 31ms
+src/TicketSummary.tsx 4ms (unchanged)
+src/ticket.css 34ms (unchanged)
+tests/browser/ticket-review.spec.ts 17ms

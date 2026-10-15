@@ -1,0 +1,53 @@
+[
+  {
+    "name": "mobile-last-format",
+    "command": [
+      "node",
+      "node_modules/prettier/bin/prettier.cjs",
+      "--write",
+      "src/ticket.css",
+      "tests/browser/ticket-review.spec.ts"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "browser-last-types",
+    "command": [
+      "node",
+      "node_modules/typescript/bin/tsc",
+      "-p",
+      "tests/browser/tsconfig.json"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "mobile-last-lint",
+    "command": [
+      "node",
+      "node_modules/eslint/bin/eslint.js",
+      "tests/browser/ticket-review.spec.ts"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "mobile-last-build",
+    "command": [
+      "npm",
+      "run",
+      "build"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "completed-green",
+    "command": [
+      "node",
+      "node_modules/@playwright/test/cli.js",
+      "test",
+      "tests/browser/ticket-review.spec.ts",
+      "--grep",
+      "완료 티켓"
+    ],
+    "exit": 0
+  }
+]

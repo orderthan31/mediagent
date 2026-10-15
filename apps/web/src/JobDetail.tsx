@@ -17,7 +17,11 @@ import { VideoAsset } from './video-api';
 import { StageProgress } from './StageProgress';
 import { failureMessage, isContentBlocked } from './job-failure';
 import { SubtitleEditor } from './SubtitleEditor';
+import { TicketSummary } from './TicketSummary';
+import { Button } from './hangyeol/primitives/button';
+import { TextField } from './hangyeol/components/text-field';
 import './job-detail.css';
+import './ticket.css';
 type Cue = {
   start: number;
   end: number;
@@ -136,17 +140,17 @@ export const JobDetail = ({
     };
   }, [id, reload]);
   return (
-    <main className="job-detail">
+    <main className="job-detail ticket-detail">
       <div className="detail-page-heading">
         <a
           href={job?.metadata.asset_id ? `#/videos/${job.metadata.asset_id}` : '#/jobs'}
           className="icon"
-          title="작업 목록으로"
+          title={job?.metadata.asset_id ? '입력 영상으로' : '작업 목록으로'}
         >
           <ArrowLeft size={22} />
         </a>
         <div>
-          <p className="eyebrow">작업 상세</p>
+          <p className="eyebrow">티켓 상세</p>
           <h1 ref={heading} tabIndex={-1}>
             {job?.original_filename || '작업 불러오는 중'}
           </h1>
@@ -168,27 +172,20 @@ export const JobDetail = ({
             </div>
           </details>
         )}
-        <button className="icon" title="작업 새로고침" onClick={() => setReload((n) => n + 1)}>
+        {job?.status === 'AWAITING_REVIEW' && (
+          <Button onClick={() => setEditing(true)}>자막 검수</Button>
+        )}
+        <Button variant="secondary" title="작업 새로고침" onClick={() => setReload((n) => n + 1)}>
           <RefreshCw size={18} />
-        </button>
+          새로고침
+        </Button>
       </div>
       {error && (
         <p role="alert" className="alert">
           {error}
         </p>
       )}
-      {job && (
-        <div className="detail-stage">
-          <span className={'status ' + job.status.toLowerCase()}>
-            {job.status === 'AWAITING_REVIEW' && job.metadata.content_block_review
-              ? '차단 구간 검토'
-              : isContentBlocked(job)
-                ? '콘텐츠 차단'
-                : labels[job.status] || job.status}
-          </span>
-          <StageProgress job={job} />
-        </div>
-      )}
+      {job && <TicketSummary job={job} labels={labels} />}
       {job && failureMessage(job) && (
         <p className="alert" role="alert">
           {failureMessage(job)}
@@ -248,14 +245,15 @@ export const JobDetail = ({
                   등록된 원본 열기
                 </a>
               ) : (
-                <button
+                <Button
+                  variant="secondary"
                   onClick={() => {
                     setPromotionError('');
                     promotionDialog.current?.showModal();
                   }}
                 >
                   <FolderPlus size={16} />새 원본으로 등록
-                </button>
+                </Button>
               )}
             </div>
           )}
@@ -280,7 +278,8 @@ export const JobDetail = ({
                 ['translated', '번역 자막'],
               ] as const
             ).map(([value, label]) => (
-              <button
+              <Button
+                variant="secondary"
                 id={`tab-${value}`}
                 key={value}
                 role="tab"
@@ -305,26 +304,32 @@ export const JobDetail = ({
                 }}
               >
                 {label}
-              </button>
+              </Button>
             ))}
           </div>
+          {track?.partial && (
+            <p className="ticket-partial" role="status">
+              일부 결과 · 티켓 전체 완료를 뜻하지 않습니다.
+            </p>
+          )}
+          {job && !['COMPLETED', 'AWAITING_REVIEW'].includes(job.status) && (
+            <p className="ticket-note">
+              읽기 전용 미리보기 · 현재 상태에서는 자막 편집을 제공하지 않습니다.
+            </p>
+          )}
           <div className="cue-toolbar">
-            <label className="cue-search">
-              <Search size={16} />
-              <input
-                aria-label="자막 검색"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="검색"
-              />
-              {query && (
-                <button className="icon" title="검색 지우기" onClick={() => setQuery('')}>
-                  <X size={16} />
-                </button>
-              )}
-            </label>
+            <TextField
+              label="자막 검색"
+              prefix={<Search size={16} aria-hidden="true" />}
+              value={query}
+              onValueChange={setQuery}
+              placeholder="대사에서 검색"
+              clearable
+            />
             <span>
-              {cues.length}개{track?.partial ? ' · 일부 결과' : ''}
+              {track?.available
+                ? `${cues.length}개${track.partial ? ' · 일부 결과' : ''}`
+                : '자막 개수 미확인'}
             </span>
           </div>
           <div
@@ -337,7 +342,8 @@ export const JobDetail = ({
             {track?.available ? (
               cues.length ? (
                 cues.map((cue, index) => (
-                  <button
+                  <Button
+                    variant="secondary"
                     className={
                       'preview-cue ' + (time >= cue.start && time < cue.end ? 'current' : '')
                     }
@@ -348,7 +354,7 @@ export const JobDetail = ({
                   >
                     <time>{timestamp(cue.start)}</time>
                     <span>{cue.text}</span>
-                  </button>
+                  </Button>
                 ))
               ) : (
                 <div className="text-empty">
@@ -371,9 +377,10 @@ export const JobDetail = ({
           </div>
           {job?.status === 'COMPLETED' && !preview?.expired && track?.available && (
             <div className="text-download">
-              <button className="icon" title="최종 자막 편집" onClick={() => setEditing(true)}>
+              <Button variant="primary" title="최종 자막 편집" onClick={() => setEditing(true)}>
                 <Pencil size={18} />
-              </button>
+                자막 수정
+              </Button>
               <a
                 className="download"
                 href={`${base}/jobs/${id}/results/${tab === 'original' ? 'original' : 'translated'}.srt`}
@@ -413,12 +420,17 @@ export const JobDetail = ({
           </p>
         )}
         <div>
-          <button autoFocus disabled={promoting} onClick={() => promotionDialog.current?.close()}>
+          <Button
+            variant="secondary"
+            autoFocus
+            disabled={promoting}
+            onClick={() => promotionDialog.current?.close()}
+          >
             취소
-          </button>
-          <button disabled={promoting} onClick={() => void promote()}>
+          </Button>
+          <Button variant="secondary" disabled={promoting} onClick={() => void promote()}>
             {promoting ? '등록 중…' : '새 원본 등록'}
-          </button>
+          </Button>
         </div>
       </dialog>
     </main>

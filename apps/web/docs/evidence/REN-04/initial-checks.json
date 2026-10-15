@@ -1,0 +1,38 @@
+[
+  {
+    "name": "syntax-fix",
+    "command": [
+      "node",
+      "node_modules/eslint/bin/eslint.js",
+      "tests/browser/ticket-review.spec.ts",
+      "src/TicketSummary.tsx",
+      "--fix"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "format",
+    "command": [
+      "node",
+      "node_modules/prettier/bin/prettier.cjs",
+      "--write",
+      "src/JobDetail.tsx",
+      "src/StageProgress.tsx",
+      "src/SubtitleEditor.tsx",
+      "src/TicketSummary.tsx",
+      "src/ticket.css",
+      "tests/browser/ticket-review.spec.ts"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "browser",
+    "command": [
+      "node",
+      "node_modules/@playwright/test/cli.js",
+      "test",
+      "tests/browser/ticket-review.spec.ts"
+    ],
+    "exit": 0
+  }
+]

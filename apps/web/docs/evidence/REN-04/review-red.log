@@ -1,0 +1,47 @@
+
+Running 1 test using 1 worker
+
+[WebServer] [2m9:38:19 AM[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/jobs/cccccccccccccccccccccccccccccccc[39m
+[WebServer] Error: connect ECONNREFUSED 127.0.0.1:8000
+[WebServer]     at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[WebServer] [2m9:38:19 AM[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/jobs/cccccccccccccccccccccccccccccccc/preview[39m
+[WebServer] Error: connect ECONNREFUSED 127.0.0.1:8000
+[WebServer]     at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+  ✘  1 tests/browser/ticket-review.spec.ts:25:1 › 검수 대기 티켓에서 부분 결과·요청 흐름을 구분하고 저장 충돌/실패 시 입력을 보존한다 (6.0s)
+
+
+  1) tests/browser/ticket-review.spec.ts:25:1 › 검수 대기 티켓에서 부분 결과·요청 흐름을 구분하고 저장 충돌/실패 시 입력을 보존한다 ───
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByText('티켓 상세', { exact: true })
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for getByText('티켓 상세', { exact: true })[22m
+
+
+      34 |   });
+      35 |   await page.goto(`/#/jobs/${id}`);
+    > 36 |   await expect(page.getByText('티켓 상세', { exact: true })).toBeVisible();
+         |                                                          ^
+      37 |   await expect(page.getByRole('heading', { name: '요청된 처리 흐름', exact: true })).toBeVisible();
+      38 |   await expect(page.getByText('일부 결과 · 티켓 전체 완료를 뜻하지 않습니다.', { exact: true })).toBeVisible();
+      39 |   await page.screenshot({ path: `${evidence}/review-desktop.png`, fullPage: true });
+        at /Users/austinko/dev/mideagent/apps/web/tests/browser/ticket-review.spec.ts:36:58
+
+    Error Context: test-results/auth-ui/ticket-review-검수-대기-티켓에서-부-71c87-름을-구분하고-저장-충돌-실패-시-입력을-보존한다/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/auth-ui/ticket-review-검수-대기-티켓에서-부-71c87-름을-구분하고-저장-충돌-실패-시-입력을-보존한다/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/auth-ui/ticket-review-검수-대기-티켓에서-부-71c87-름을-구분하고-저장-충돌-실패-시-입력을-보존한다/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    tests/browser/ticket-review.spec.ts:25:1 › 검수 대기 티켓에서 부분 결과·요청 흐름을 구분하고 저장 충돌/실패 시 입력을 보존한다 ────

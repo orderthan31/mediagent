@@ -1,0 +1,15 @@
+
+> video-subtitle-web@0.1.0 build
+> tsc -p tsconfig.json && vite build
+
+vite v7.3.6 building client environment for production...
+transforming...
+node_modules/@radix-ui/react-progress/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-progress/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-primitive/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-primitive/dist/index.mjs" was ignored.
+✓ 1625 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.43 kB │ gzip:  0.32 kB
+dist/assets/index-BMK1gZTR.css   61.54 kB │ gzip: 12.41 kB
+dist/assets/index-x3ry01-9.js   308.72 kB │ gzip: 97.44 kB
+✓ built in 1.02s

@@ -82,6 +82,10 @@
     "src/hangyeol/components/empty-state.tsx": {
       "version": "0.0.2-adapter.1",
       "hash": "74aa0b3653d943f8897ceea8381abda65195d3340b517702959df580e781acc2"
+    },
+    "src/hangyeol/primitives/textarea.tsx": {
+      "version": "0.0.2-adapter.1",
+      "hash": "4a5128bf6d2f554979369996e40cc7157bdebf92893cbe31bd2d5bdec7aab634"
     }
   },
   "version": "0.0.2-adapter.1",
@@ -109,6 +113,7 @@
     "gnb",
     "badge",
     "progress",
-    "empty-state"
+    "empty-state",
+    "textarea"
   ]
 }

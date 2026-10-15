@@ -1,4 +1,5 @@
 import type { Job } from './api';
+import { Progress } from './hangyeol/primitives/progress';
 import './progress.css';
 export const StageProgress = ({ job }: { job: Job }) => {
   const translation = job.metadata.translation_progress;
@@ -23,8 +24,8 @@ export const StageProgress = ({ job }: { job: Job }) => {
           )}
           {translation.failed > 0 && ` · 실패 ${translation.failed}`}
         </p>
-        <progress
-          aria-label="번역 진행률"
+        <Progress
+          label="번역 진행률"
           aria-valuetext={`${completed} / ${translation.total} 묶음 완료, ${percent}%`}
           max={Math.max(1, translation.total)}
           value={translation.total ? completed : 1}
@@ -49,8 +50,8 @@ export const StageProgress = ({ job }: { job: Job }) => {
           )}
           {stt.failed > 0 && ` · 실패 ${stt.failed}`}
         </p>
-        <progress
-          aria-label="전사 진행률"
+        <Progress
+          label="전사 진행률"
           max={Math.max(1, stt.total)}
           value={stt.total ? completed : 1}
         />
@@ -68,7 +69,9 @@ export const StageProgress = ({ job }: { job: Job }) => {
         {job.status_message || '인코딩'}
         {valid ? ` · ${Math.round(Math.max(0, Math.min(1, fraction)) * 100)}%` : ''}
       </p>
-      {valid && <progress aria-label="인코딩 진행률" max={1} value={fraction} />}
+      {valid && (
+        <Progress label="인코딩 진행률" max={1} value={Math.max(0, Math.min(1, fraction))} />
+      )}
     </div>
   );
 };
