@@ -21,6 +21,8 @@ import { JobDetail } from './JobDetail';
 import { SettingsPage } from './SettingsPage';
 import { failureMessage, isContentBlocked } from './job-failure';
 import { StageProgress } from './StageProgress';
+import { QueuePanel } from './QueuePanel';
+import { JobTiming } from './JobTiming';
 import { SubtitleEditor } from './SubtitleEditor';
 import { UploadItem, UploadQueue } from './upload-queue';
 import { isVideoFile } from './video-file';
@@ -308,6 +310,7 @@ export const VideoWorkspace = () => {
               )}
             </div>
             <StageProgress job={job} />
+            <JobTiming job={job} />
           </article>
         ))}
         {!items.length && (
@@ -672,6 +675,7 @@ export const VideoWorkspace = () => {
                   영상 업로드
                 </button>
               </div>
+              {jobsView && <QueuePanel jobs={jobs} onChanged={refresh} />}
               {!jobsView && (uploads.length > 0 || pendingSessions.length > 0) && (
                 <section className="upload-shelf">
                   <h2>
@@ -781,11 +785,16 @@ export const VideoWorkspace = () => {
                 />
               </label>
               {jobsView ? (
-                jobRows(
-                  jobs.filter((j) =>
-                    j.original_filename.toLocaleLowerCase().includes(query.toLocaleLowerCase()),
-                  ),
-                )
+                <section aria-label="진행 중 작업과 기록">
+                  <h2>진행 중·작업 기록</h2>
+                  {jobRows(
+                    jobs.filter(
+                      (j) =>
+                        j.status !== 'QUEUED' &&
+                        j.original_filename.toLocaleLowerCase().includes(query.toLocaleLowerCase()),
+                    ),
+                  )}
+                </section>
               ) : (
                 <div className="asset-list">
                   {shownVideos.map((v) => (

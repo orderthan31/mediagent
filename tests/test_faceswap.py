@@ -34,7 +34,7 @@ class FaceSwapTests(unittest.TestCase):
         self.stack.enter_context(patch.object(asset_routes, 'inspect_video', lambda _: {
             'duration': 1, 'has_audio': True, 'width': 320, 'height': 240, 'frame_rate': '5/1'}))
         self.stack.enter_context(patch.object(asset_routes, 'reserve_copy', lambda _: None))
-        self.stack.enter_context(patch.object(faceswap_routes, 'capacity', lambda _: None))
+        self.stack.enter_context(patch.object(faceswap_routes, 'capacity', lambda *args, **kwargs: None))
         self.stack.enter_context(patch.dict(os.environ, {'MIN_FREE_SPACE_BYTES': '0', 'FACEFUSION_ENABLED': 'false'}))
         self.client = TestClient(app)
         job = self.repo.create_job(original_filename='sample.mp4', expected_size=5,
@@ -77,6 +77,36 @@ class FaceSwapTests(unittest.TestCase):
         self.upload()
         self.assertEqual((self.repo.job_dir(job['job_id']) / 'input/source.jpg').read_bytes(), snapshot)
         self.assertEqual(self.repo.read(job['job_id']).metadata['faceswap']['revision'], 2)
+
+    def test_mask_validation_and_cursor_analysis_preserve_identity(self):
+        self.upload()
+        options = {**self.session['settings'], 'reference_frame': 3,
+                   'mask_types': ['box', 'occlusion', 'area', 'region'],
+                   'mask_areas': ['lower-face'], 'mask_regions': ['skin', 'nose'],
+                   'mask_padding': [10, 20, 30, 40], 'detector_angles': [0, 90]}
+        for invalid in ({'mask_types': []}, {'mask_types': ['polygon']}, {'mask_blur': .33},
+                        {'mask_padding': [101, 0, 0, 0]}, {'mask_padding': [0]},
+                        {'mask_areas': []}, {'mask_regions': ['invalid']}, {'detector_angles': [45]}):
+            response = self.client.put(self.base, json={'revision': self.session['revision'], 'settings': {**options, **invalid}})
+            self.assertEqual(response.status_code, 422, response.text)
+        response = self.client.put(self.base, json={'revision': self.session['revision'], 'settings': options})
+        self.assertEqual(response.status_code, 200, response.text)
+        self.session = response.json()
+        job = self.execute('analyze_reference', analysis_frame=5).json()
+        self.assertEqual(job['metadata']['faceswap']['settings'], options)
+        self.assertEqual(job['metadata']['analysis_frame'], 5)
+        self.assertEqual(self.client.get(self.base).json()['settings']['reference_frame'], 3)
+
+    def test_legacy_sessions_receive_mask_defaults_without_revision_change(self):
+        store = FaceSwapSessions(self.repo)
+        record = store.read_session(self.session['session_id'], self.session['owner_id'])
+        record['settings'] = {'reference_frame': 7, 'face_position': 0, 'source_position': 0,
+                              'distance': .3, 'preset': 'fast', 'video_codec': 'h264'}
+        store.save_session(record)
+        loaded = self.client.get(self.base).json()
+        self.assertEqual(loaded['settings']['mask_types'], ['box'])
+        self.assertEqual(loaded['settings']['reference_frame'], 7)
+        self.assertEqual(loaded['revision'], record['revision'])
 
     def test_idempotency_request_limits_and_render_gate(self):
         self.upload()
@@ -123,7 +153,8 @@ class FaceSwapTests(unittest.TestCase):
             (output / 'preview.png').write_bytes(self.image)
             (output / 'original.png').write_bytes(self.image)
             write_json_atomic(output / 'result.json', {'matched_faces': 1})
-        with patch('media_worker.faceswap.runner.invoke', side_effect=fake), patch.dict(os.environ, {'FACEFUSION_ENABLED': 'true'}):
+        with patch('media_worker.faceswap.runner.invoke', side_effect=fake), patch.dict(os.environ, {'FACEFUSION_ENABLED': 'true'}), \
+                patch('media_worker.worker.assert_capacity', side_effect=AssertionError('Preview must not scan the library')):
             Worker(self.repo, None, provider_factory=factory).process(job_id)
         self.assertEqual(self.repo.read(job_id).status, JobStatus.COMPLETED)
         factory.assert_not_called()
@@ -166,6 +197,13 @@ class FaceSwapTests(unittest.TestCase):
         self.session = self.client.put(self.base, json={'revision': self.session['revision'],
             'settings': {**self.session['settings'], 'source_position': -1}}).json()
         self.assertEqual(self.execute('preview').status_code, 422)
+
+    def test_no_match_preview_cannot_start_full_render(self):
+        self.upload()
+        preview = self.execute('preview').json()
+        self.repo.update_status(preview['job_id'], JobStatus.COMPLETED,
+                                metadata={'faceswap_result': {'matched_faces': 0}})
+        self.assertEqual(self.execute('render', preview_job_id=preview['job_id']).status_code, 409)
 
 
 class FaceSwapProcessTests(unittest.TestCase):

@@ -57,7 +57,7 @@ export const StageProgress = ({ job }: { job: Job }) => {
       </div>
     );
   }
-  if (!['ENCODING', 'FACE_SWAPPING'].includes(job.status)) {
+  if (!['ENCODING', 'FACE_SWAPPING', 'VALIDATING'].includes(job.status)) {
     return null;
   }
   const fraction = job.metadata.stage_progress;
@@ -65,12 +65,18 @@ export const StageProgress = ({ job }: { job: Job }) => {
   return (
     <div className="stage-progress" aria-live="polite">
       <p>
-        {job.status_message || '인코딩'}
+        {job.status_message || (job.status === 'VALIDATING' ? '출력 무결성 검사' : '인코딩')}
         {valid ? ` · ${Math.round(Math.max(0, Math.min(1, fraction)) * 100)}%` : ''}
       </p>
       {valid && (
         <progress
-          aria-label={job.status === 'FACE_SWAPPING' ? '얼굴 합성 진행률' : '인코딩 진행률'}
+          aria-label={
+            job.status === 'VALIDATING'
+              ? '출력 검사 진행률'
+              : job.status === 'FACE_SWAPPING'
+                ? '얼굴 합성 진행률'
+                : '인코딩 진행률'
+          }
           max={1}
           value={fraction}
         />

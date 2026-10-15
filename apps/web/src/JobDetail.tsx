@@ -15,6 +15,7 @@ import {
 import { base, Job, request } from './api';
 import { VideoAsset } from './video-api';
 import { StageProgress } from './StageProgress';
+import { JobTiming } from './JobTiming';
 import { failureMessage, isContentBlocked } from './job-failure';
 import { SubtitleEditor } from './SubtitleEditor';
 import './job-detail.css';
@@ -200,6 +201,7 @@ export const JobDetail = ({
                 : labels[job.status] || job.status}
           </span>
           <StageProgress job={job} />
+          <JobTiming job={job} />
         </div>
       )}
       {job && failureMessage(job) && (

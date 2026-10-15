@@ -5,7 +5,7 @@ from contextvars import ContextVar
 import threading
 import time
 
-from video_service.capacity import used_bytes, assert_capacity, assert_free_space, StorageLimitError
+from video_service.capacity import used_bytes, audited_usage, assert_capacity, assert_free_space, StorageLimitError
 from .llm_diagnostics import emit
 
 
@@ -24,7 +24,8 @@ class CapacityEstimate:
         with self.lock:
             now = time.monotonic()
             if self.updated is None or now - self.updated >= self.interval:
-                self.total = used_bytes(self.root)
+                estimate = audited_usage(self.root)
+                self.total = used_bytes(self.root) if estimate is None else estimate
                 self.updated = time.monotonic()
             if self.total + additional > quota:
                 raise StorageLimitError("Service storage quota exceeded")

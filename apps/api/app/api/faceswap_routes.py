@@ -1,7 +1,7 @@
 from io import BytesIO
 import hashlib
 import shutil
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Query
@@ -13,7 +13,7 @@ from app.api import routes
 from app.api.asset_routes import asset_errors
 from app.core.config import settings
 from video_service.assets import VideoAssetRepository
-from video_service.capacity import assert_capacity, remaining_reservations
+from video_service.capacity import assert_capacity, remaining_reservations, reserve_preview_capacity
 from video_service.faceswap import FaceSwapSessions, MAX_SOURCE_BYTES, digest, reservation, public_capabilities, configured_chunk_seconds
 from video_service.locking import job_lock, download_lock
 from video_service.models import JobRecord, JobOptions, JobStatus, utc_now_iso, TERMINAL_STATUSES
@@ -37,6 +37,12 @@ class Options(Strict):
     distance: float = Field(default=.3, ge=.05, le=1, multiple_of=.05, allow_inf_nan=False)
     preset: Literal['fast', 'balanced', 'quality'] = 'balanced'
     video_codec: Literal['h264', 'hevc'] = 'h264'
+    mask_types: list[Literal['box', 'occlusion', 'area', 'region']] = Field(default=['box'], min_length=1, max_length=4)
+    mask_blur: float = Field(default=.3, ge=0, le=1, multiple_of=.05, allow_inf_nan=False)
+    mask_padding: list[Annotated[int, Field(ge=0, le=100)]] = Field(default=[0, 0, 0, 0], min_length=4, max_length=4)
+    mask_areas: list[Literal['upper-face', 'lower-face', 'mouth']] = Field(default=['upper-face', 'lower-face', 'mouth'], min_length=1, max_length=3)
+    mask_regions: list[Literal['skin', 'left-eyebrow', 'right-eyebrow', 'left-eye', 'right-eye', 'glasses', 'nose', 'mouth', 'upper-lip', 'lower-lip']] = Field(default=['skin', 'left-eyebrow', 'right-eyebrow', 'left-eye', 'right-eye', 'glasses', 'nose', 'mouth', 'upper-lip', 'lower-lip'], min_length=1, max_length=10)
+    detector_angles: list[Literal[0, 90, 180, 270]] = Field(default=[0], min_length=1, max_length=4)
 
 
 class SessionUpdate(Strict):
@@ -49,6 +55,8 @@ class Execute(Strict):
     revision: int = Field(ge=0)
     operation: Literal['analyze_source', 'analyze_reference', 'preview', 'render']
     preview_frame: int = Field(default=1, ge=1, le=10000000)
+    preview_resolution: Literal[512, 768, 1024] = 1024
+    analysis_frame: int | None = Field(default=None, ge=1, le=10000000)
     preview_job_id: str | None = Field(default=None, pattern=r'^[0-9a-f]{32}$')
 
 
@@ -57,8 +65,11 @@ def owned(session_id, request):
     return store, store.read_session(session_id, request.state.owner_id)
 
 
-def capacity(additional):
+def capacity(additional, *, interactive=True):
     repo = routes.repository
+    if interactive:
+        return reserve_preview_capacity(repo, settings.service_quota_bytes, settings.min_free_space_bytes,
+                                        additional, max_age=settings.storage_audit_interval_seconds * 2)
     assert_capacity(repo.storage_root, settings.service_quota_bytes, settings.min_free_space_bytes,
                     remaining_reservations(repo) + additional)
 
@@ -191,12 +202,13 @@ def execute(session_id: str, payload: Execute, request: Request):
             if (preview.metadata.get('owner_id') != request.state.owner_id or
                     preview.metadata.get('faceswap_operation') != 'preview' or
                     preview.metadata.get('faceswap_key') != key or preview.status != JobStatus.COMPLETED or
+                    preview.metadata.get('faceswap_result', {}).get('matched_faces', 1) == 0 or
                     preview.metadata.get('results_expired_at')):
                 raise HTTPException(409, '현재 설정으로 미리보기를 다시 생성하세요.')
         assets = VideoAssetRepository(repo)
         asset = assets.read(record['asset_id'], owner_id=request.state.owner_id)
         reserved = reservation(asset, payload.operation == 'render')
-        capacity(reserved)
+        capacity(reserved, interactive=payload.operation != 'render')
         job_id = uuid4().hex
         directory = repo.job_dir(job_id)
         for name in ('input', 'work', 'output'):
@@ -212,11 +224,15 @@ def execute(session_id: str, payload: Execute, request: Request):
                                   'faceswap_key': key, 'faceswap_operation': payload.operation,
                                   'faceswap_request_id': str(payload.request_id), 'faceswap_request': identity,
                                   'preview_frame': payload.preview_frame, 'reserved_bytes': reserved,
+                                  'preview_resolution': payload.preview_resolution,
+                                  'analysis_frame': payload.analysis_frame,
                                   'faceswap_chunk_seconds': configured_chunk_seconds(),
                                   'queued_at': utc_now_iso(), 'internal': payload.operation != 'render',
                                   'workflow': {'version': 2, 'template': 'faceswap',
                                                'stages': ['analyze', 'faceswap', 'encode', 'validate_video']}})
         repo.save(job)
+        if payload.operation != 'render':
+            write_json_atomic(repo.storage_root / '.faceswap-wakeup', {'request_id': str(payload.request_id)})
         return routes.job_to_response(job)
 
 

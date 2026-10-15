@@ -2,9 +2,13 @@ from __future__ import annotations
 
 import shutil
 import re
+import os
+import sqlite3
+import logging
 from pathlib import Path
 from typing import Iterable
 from uuid import uuid4
+from datetime import datetime
 
 from .models import JobOptions, JobRecord, JobStatus, QualityProfile, TERMINAL_STATUSES, utc_now_iso
 from .storage import ensure_dir, read_json, resolve_under, safe_suffix, write_json_atomic
@@ -82,11 +86,26 @@ class FilesystemJobRepository:
         return JobRecord.from_dict(read_json(path))
 
     def save(self, record: JobRecord) -> JobRecord:
+        if record.status == JobStatus.QUEUED:
+            record.metadata.setdefault('stage_started_at', record.metadata.get('queued_at', record.created_at))
         record.touch()
         write_json_atomic(self.job_file(record.job_id), record.to_dict())
+        if record.status == JobStatus.QUEUED:
+            try:
+                # Shared wake signal; ordinary workflows should wake the worker too.
+                (self.storage_root / '.faceswap-wakeup').touch()
+            except OSError:
+                # The durable queue is authoritative; polling is the fallback.
+                pass
         return record
 
     def list(self) -> list[JobRecord]:
+        if os.getenv('JOB_INDEX_ENABLED', 'false').lower() == 'true':
+            from .job_index import indexed_jobs
+            try:
+                return indexed_jobs(self.storage_root)
+            except (OSError, sqlite3.Error):
+                logging.getLogger(__name__).warning('Job index unavailable; reading durable manifests')
         records: list[JobRecord] = []
         if not self.storage_root.exists():
             return records
@@ -112,9 +131,19 @@ class FilesystemJobRepository:
         metadata: dict | None = None,
     ) -> JobRecord:
         record = self.read(job_id)
+        now = utc_now_iso()
+        if status != record.status:
+            started = record.metadata.get('stage_started_at')
+            timings = dict(record.metadata.get('stage_durations_seconds', {}))
+            if started and record.status not in TERMINAL_STATUSES:
+                elapsed = max(0, (datetime.fromisoformat(now) - datetime.fromisoformat(started)).total_seconds())
+                timings[record.status.value] = round(timings.get(record.status.value, 0) + elapsed, 3)
+            record.metadata.update(stage_started_at=now, stage_durations_seconds=timings)
+            record.metadata['stage_wait_baseline_seconds'] = record.metadata.get('resource_wait_seconds', 0)
         record.status = status
         if status == JobStatus.QUEUED:
             record.metadata["queued_at"] = utc_now_iso()
+            record.completed_at = None
         record.status_message = message
         record.error = error
         if metadata:

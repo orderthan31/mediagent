@@ -53,12 +53,12 @@ def main():
         run('version', base + ['--version'], 30)
         run('headless-help', base + ['headless-run', '--help'], 30)
         report['version'] = (output / 'version.log').read_text().strip()
-        # Validate every model needed by the explicitly selected 3.5.4 defaults.
+        # Validate every model needed by the selected HyperSwap defaults.
         # Refuse to proceed rather than let the engine repair/download a model.
         models = ['2dfan4', 'arcface_w600k_r50', 'bisenet_resnet_34', 'fairface',
                   'fan_68_5', 'hyperswap_1a_256', 'nsfw_1', 'nsfw_2', 'nsfw_3',
                   'xseg_1', 'yoloface_8n']
-        if report['version'] != 'FaceFusion 3.5.4':
+        if report['version'] not in {'FaceFusion 3.5.4', 'FaceFusion 3.9.0'}:
             raise RuntimeError('Review model requirements for this engine version before smoke testing')
         for model in models:
             path = engine / '.assets/models' / (model + '.onnx')

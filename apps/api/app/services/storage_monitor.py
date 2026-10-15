@@ -8,17 +8,20 @@ from starlette.concurrency import run_in_threadpool
 
 from video_service.capacity import used_bytes, remaining_reservations
 from video_service.repository import FilesystemJobRepository
+from video_service.storage import write_json_atomic
 
 logger = logging.getLogger("uvicorn.error")
 
 
 def storage_snapshot(settings):
+    started = time.time()
     repository = FilesystemJobRepository(settings.storage_root)
     actual = used_bytes(settings.storage_root)
     reserved = remaining_reservations(repository)
     free = shutil.disk_usage(settings.storage_root).free
     return {
         "checked_at": time.time(),
+        "started_at": started,
         "used_bytes": actual,
         "remaining_reserved_bytes": reserved,
         "free_bytes": free,
@@ -30,11 +33,12 @@ def storage_snapshot(settings):
 async def monitor_storage(app, settings):
     while True:
         # Admission checks remain authoritative; the audit is an advisory snapshot.
-        await anyio.sleep(settings.storage_audit_interval_seconds)
         try:
             snapshot = await run_in_threadpool(storage_snapshot, settings)
             app.state.storage_snapshot = snapshot
+            await run_in_threadpool(write_json_atomic, settings.storage_root / '.storage-audit.json', snapshot)
             log = logger.warning if snapshot["over_quota"] or snapshot["low_space"] else logger.info
             log("Storage audit: %s", snapshot)
         except Exception:
             logger.exception("Storage audit failed; admission checks remain enabled")
+        await anyio.sleep(settings.storage_audit_interval_seconds)

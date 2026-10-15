@@ -16,7 +16,7 @@ def environment():
     engine = Path(os.environ.get('FACEFUSION_PATH', '/opt/facefusion'))
     if not python.is_file() or not (engine / 'facefusion.py').is_file():
         raise ValueError('FaceFusion 전용 Python 및 엔진 경로를 설정하세요.')
-    env = dict(os.environ, PYTHONDONTWRITEBYTECODE='1', PYTHONUNBUFFERED='1')
+    env = dict(os.environ, PYTHONDONTWRITEBYTECODE='1', PYTHONUNBUFFERED='1', OMP_NUM_THREADS='1')
     env.pop('PYTHONPATH', None)
     env['PATH'] = os.pathsep.join([str(python.parent), str(python.parent / 'Library/bin'),
                                   str(python.parent / 'Scripts'), env.get('PATH', '')])
@@ -30,6 +30,11 @@ def environment():
 def invoke(payload, work, check, timeout):
     python, engine, env = environment()
     env['FACEFUSION_PARENT_PID'] = str(os.getpid())
+    if payload['operation'] in {'analyze_source', 'analyze_reference', 'preview'}:
+        from .warm import invoke as invoke_warm
+        return invoke_warm(payload, work, check, timeout, python=python, engine=engine, env=env)
+    from .warm import release
+    release()
     request = work / 'request.json'
     write_json_atomic(request, payload)
     run([str(python), '-B', str(Path(__file__).with_name('bridge.py')), '--engine', str(engine),
@@ -70,11 +75,17 @@ def refresh_capabilities(repo, stop, *, force=False):
 def heartbeat_capabilities(repo):
     path = repo.storage_root / '.faceswap-capabilities.json'
     if os.environ.get('FACEFUSION_ENABLED', 'false').lower() == 'true' and path.exists():
-        result = read_json(path)
-        write_json_atomic(path, {**result, 'checked_at': utc_now_iso()})
+        from video_service.locking import _file_lock, JobBusyError
+        try:
+            with _file_lock(repo.storage_root / '.faceswap-heartbeat.lock'):
+                result = read_json(path)
+                write_json_atomic(path, {**result, 'checked_at': utc_now_iso()})
+        except JobBusyError:
+            pass
 
 
 def execute(worker, record, check):
+    started = time.monotonic()
     if os.environ.get('FACEFUSION_ENABLED', 'false').lower() != 'true':
         raise ValueError('이 Worker에서 얼굴 합성 기능이 비활성화되어 있습니다.')
     from ..media import probe
@@ -93,7 +104,9 @@ def execute(worker, record, check):
     output = work / 'output'
     payload = {**snapshot, 'operation': operation, 'source': str(source.resolve()),
                'target': str(repo.source_path(record).resolve()), 'output': str(output.resolve()),
-               'preview_frame': record.metadata['preview_frame']}
+               'preview_frame': record.metadata['preview_frame'],
+               'preview_resolution': record.metadata.get('preview_resolution', 1024),
+               'analysis_frame': record.metadata.get('analysis_frame')}
     worker.transition(record.job_id, JobStatus.FACE_SWAPPING,
                       message='전체 영상 얼굴 합성' if operation == 'render' else '얼굴 분석 및 미리보기')
     last = 0
@@ -142,7 +155,19 @@ def execute(worker, record, check):
             raise ValueError('합성 결과의 영상 길이가 일치하지 않습니다.')
         if any(s['codec_type'] == 'audio' for s in original['streams']) and not any(s['codec_type'] == 'audio' for s in final['streams']):
             raise ValueError('합성 결과의 오디오가 없습니다.')
-        validate_decodable(target, work, check)
+        worker.transition(record.job_id, JobStatus.VALIDATING, message='출력 영상·오디오 전체 무결성 검사 중')
+        from ..progress import encoding_progress
+        last_validation_update = 0
+        def validation_check():
+            nonlocal last_validation_update
+            check()
+            if time.monotonic() - last_validation_update >= 1:
+                fraction = encoding_progress(work / 'validate-decode.log', final['duration'])
+                if fraction is not None:
+                    worker.transition(record.job_id, JobStatus.VALIDATING,
+                        message='출력 영상·오디오 전체 무결성 검사 중', metadata={'stage_progress': fraction})
+                last_validation_update = time.monotonic()
+        validate_decodable(target, work, validation_check)
         check()
         target.replace(root / 'output/final.mp4')
         worker.transition(record.job_id, JobStatus.COMPLETED,
@@ -154,4 +179,7 @@ def execute(worker, record, check):
             image.replace(root / 'output' / image.name)
             files.append(image.name)
         worker.transition(record.job_id, JobStatus.COMPLETED,
-                          metadata={'faceswap_result': result, 'faceswap_files': files, 'result_files': []})
+                          metadata={'faceswap_result': result, 'faceswap_files': files, 'result_files': [],
+                                    'faceswap_processing_seconds': round(time.monotonic() - started, 3)})
+        from .retention import prune_previews
+        prune_previews(repo, snapshot['session_id'], record.metadata.get('owner_id'))

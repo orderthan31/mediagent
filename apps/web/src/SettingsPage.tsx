@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { KeyRound, RefreshCw, Save, Settings, Trash2 } from 'lucide-react';
 import { request } from './api';
 import './settings.css';
+import { StorageSettings } from './StorageSettings';
 
 const providers = [
   ['gemini', 'Gemini'],
@@ -168,7 +169,7 @@ export const SettingsPage = () => {
       <div className="settings-heading">
         <h1>
           <Settings size={24} />
-          AI 공급자 설정
+          설정
         </h1>
         <div className="settings-heading-actions">
           <button
@@ -191,6 +192,8 @@ export const SettingsPage = () => {
           </button>
         </div>
       </div>
+      <StorageSettings />
+      <h2>AI 공급자 설정</h2>
       {error && (
         <p className="alert" role="alert">
           {error}

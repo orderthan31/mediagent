@@ -27,6 +27,12 @@
 .faceswap-dialog header p {
   overflow-wrap: anywhere;
 }
+.faceswap-dialog > header {
+  position: static;
+  height: auto;
+  padding: 0 0 12px;
+  background: transparent;
+}
 .faceswap-grid {
   border: 0;
   padding: 0;
@@ -129,4 +135,41 @@
   .faceswap-session {
     flex-wrap: wrap;
   }
+}
+.faceswap-guide {
+  background: #f2f6fc;
+  border: 1px solid #d8e5f5;
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
+  line-height: 1.6;
+}
+.faceswap-guide p {
+  margin: 6px 0 0;
+}
+.faceswap-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+.faceswap-checks label {
+  display: flex;
+  align-items: center;
+}
+.faceswap-padding {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.faceswap-padding input { width: 100%; min-width: 0; }
+.faceswap-dialog details { margin: 16px 0; }
+.faceswap-source { grid-column: 1 / -1; order: 0; }
+.faceswap-source .faceswap-frame { display: none; }
+.faceswap-source .faceswap-faces { padding-bottom: 0; }
+.faceswap-target { order: 1; }
+.faceswap-preview { order: 2; }
+.faceswap-settings { grid-column: 1 / -1; order: 3; }
+.faceswap-settings .faceswap-padding { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 720px) {
+  .faceswap-settings .faceswap-padding { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

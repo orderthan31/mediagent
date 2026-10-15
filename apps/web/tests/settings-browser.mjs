@@ -43,6 +43,24 @@ try {
     if (url.pathname.endsWith('/auth/session')) {
       return route.fulfill({ json: { enabled: false, user: null } });
     }
+    if (url.pathname.endsWith('/settings/storage')) {
+      return route.fulfill({
+        json: {
+          checked_at: Date.now() / 1000,
+          disk: {
+            total_bytes: 1024 ** 4,
+            used_bytes: 1024 ** 3,
+            free_bytes: 1024 ** 4 - 1024 ** 3,
+          },
+          host_disk: null,
+          container: false,
+          total_bytes: 0,
+          quota_bytes: 300 * 1024 ** 3,
+          categories: {},
+          jobs: [],
+        },
+      });
+    }
     if (url.pathname.endsWith('/settings/llm/models')) {
       assert.equal(url.searchParams.get('provider'), 'openrouter');
       return route.fulfill({ json: { models: ['vendor/test-model:free'] } });

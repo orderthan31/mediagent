@@ -6,7 +6,7 @@ def validate_decodable(target, work, check):
     from .process import run_process
 
     run_process([executable("ffmpeg"), "-nostdin", "-v", "error", "-xerror", "-i", target,
-        "-map", "0:v:0", "-map", "0:a:0?", "-f", "null", "-"],
+        "-map", "0:v:0", "-map", "0:a:0?", "-progress", "pipe:1", "-nostats", "-f", "null", "-"],
         cwd=work, log_name="validate-decode.log", check=check)
 
 

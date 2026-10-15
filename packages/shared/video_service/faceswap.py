@@ -12,7 +12,12 @@ from .models import utc_now_iso
 
 MAX_SOURCE_BYTES = 10 * 1024**2
 DEFAULTS = {'reference_frame': 1, 'face_position': -1, 'source_position': -1,
-            'distance': .3, 'preset': 'balanced', 'video_codec': 'h264'}
+            'distance': .3, 'preset': 'balanced', 'video_codec': 'h264',
+            'mask_types': ['box'], 'mask_blur': .3, 'mask_padding': [0, 0, 0, 0],
+            'mask_areas': ['upper-face', 'lower-face', 'mouth'],
+            'mask_regions': ['skin', 'left-eyebrow', 'right-eyebrow', 'left-eye', 'right-eye',
+                             'glasses', 'nose', 'mouth', 'upper-lip', 'lower-lip'],
+            'detector_angles': [0]}
 
 
 def digest(value):
@@ -30,6 +35,7 @@ class FaceSwapSessions(FilesystemJobRepository):
         record = read_json(path)
         if record['owner_id'] != owner:
             raise JobNotFoundError(session_id)
+        record['settings'] = {**DEFAULTS, **record['settings']}
         return record
 
     def save_session(self, record):
@@ -37,6 +43,8 @@ class FaceSwapSessions(FilesystemJobRepository):
 
     def sessions(self, owner, asset_id=None):
         records = [read_json(path) for path in self.storage_root.glob('*/session.json')]
+        for record in records:
+            record['settings'] = {**DEFAULTS, **record['settings']}
         return [r for r in records if r['owner_id'] == owner and
                 (asset_id is None or r['asset_id'] == asset_id)]
 

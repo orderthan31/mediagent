@@ -7,6 +7,9 @@ import hashlib
 from pathlib import Path
 import time
 from threading import Event
+from concurrent.futures import ThreadPoolExecutor
+from .resources import job_resources, resource_slot, gpu_slot, LIMITS
+from video_service.queue_control import QueueControl, QUEUE_LOCK_ID
 
 from video_service.locking import job_lock, JobBusyError, encoding_slot, wait_for_job_lock
 from video_service.models import JobStatus, TERMINAL_STATUSES, utc_now_iso
@@ -45,6 +48,8 @@ class Worker:
         self.provider = provider
         self.stop = stop if stop is not None else Event()
         self.provider_factory = provider_factory
+        self._pool = None
+        self._active = {}
 
     def check_stopping(self):
         if self.stop.is_set():
@@ -57,7 +62,9 @@ class Worker:
             if record.metadata.get("cancel_requested") or record.status == JobStatus.CANCELLED:
                 raise Cancelled()
         with wait_for_job_lock(self.repository, job_id, check=check_cancel):
-            metadata = {"stage_progress": None, **kwargs.pop("metadata", {})}
+            metadata = {"stage_progress": None, "wait_reason": None, "wait_started_at": None,
+                        "paid_operation_in_flight": False,
+                        **kwargs.pop("metadata", {})}
             return self.repository.update_status(job_id, status, metadata=metadata, **kwargs)
 
     def cleanup(self, job_id, keep_output=False):
@@ -73,15 +80,18 @@ class Worker:
 
     def process(self, job_id):
         repo = self.repository
-        with job_lock(repo, job_id, "execution"), capture_calls(repo.storage_root,
+        with job_lock(repo, job_id, "execution"), job_resources(repo, job_id), capture_calls(repo.storage_root,
                 repo.job_dir(job_id) / "work" / "llm" if repo.preserve_artifacts else None):
-            with job_lock(repo, job_id):
+            with job_lock(repo, QUEUE_LOCK_ID), job_lock(repo, job_id):
                 if self.stop.is_set():
                     return
                 record = repo.read(job_id)
                 if record.status != JobStatus.QUEUED:
                     return
-                repo.update_status(job_id, JobStatus.ANALYZING, metadata={"failure": None})
+                if QueueControl(repo.storage_root).read(record.metadata.get('owner_id'))['paused']:
+                    return
+                repo.update_status(job_id, JobStatus.ANALYZING, metadata={"failure": None,
+                    'recovery_policy_version': 1, 'recovery_required': False, 'wait_reason': None})
             last_heartbeat = 0
             last_progress = 0
             progress_path = None
@@ -107,9 +117,15 @@ class Worker:
                 if time.monotonic() - last_heartbeat > 5:
                     from .faceswap.runner import heartbeat_capabilities
                     heartbeat_capabilities(repo)
-                    assert_capacity(repo.storage_root,
-                        int(os.getenv("VIDEO_SERVICE_QUOTA_BYTES", str(300 * 1024**3))),
-                        int(os.getenv("MIN_FREE_SPACE_BYTES", str(50 * 1024**3))))
+                    if record.metadata.get('faceswap_operation') in {'analyze_source', 'analyze_reference', 'preview'}:
+                        # Admission already reserved the bounded preview workspace. Do
+                        # not enumerate the entire host-mounted library per frame.
+                        from video_service.capacity import assert_free_space
+                        assert_free_space(repo.storage_root, int(os.getenv('MIN_FREE_SPACE_BYTES', str(50 * 1024**3))))
+                    else:
+                        assert_capacity(repo.storage_root,
+                            int(os.getenv("VIDEO_SERVICE_QUOTA_BYTES", str(300 * 1024**3))),
+                            int(os.getenv("MIN_FREE_SPACE_BYTES", str(50 * 1024**3))))
                     try:
                         with job_lock(repo, job_id):
                             repo.heartbeat(job_id)
@@ -120,7 +136,8 @@ class Worker:
             try:
                 if record.metadata.get('faceswap_operation'):
                     from .faceswap.runner import execute
-                    execute(self, record, check)
+                    with gpu_slot(check, keep_preview=True):
+                        execute(self, record, check)
                     return
                 if self.provider_factory is not None:
                     self.provider = self.provider_factory(record.metadata.get('owner_id'))
@@ -144,7 +161,7 @@ class Worker:
                     self.provider.validate_for_stages(stages)
                 encoder = None
                 if not workflow:
-                    with encoding_slot(repo, int(os.getenv('MAX_ENCODING_JOBS', '1')), check):
+                    with gpu_slot(check), encoding_slot(repo, int(os.getenv('MAX_ENCODING_JOBS', '1')), check):
                         encoder = select_encoder(work, check, video_codec=record.options.video_codec)
                 selected = None
                 selected_audio = None
@@ -224,8 +241,9 @@ class Worker:
                         if filter_enabled not in {"true", "false"}:
                             raise ValueError("VOCALIZATION_FILTER_ENABLED must be true or false")
                         if filter_enabled == "true" and record.options.audio_filter != "off":
-                            analysis = checkpoints.run("vocalizations", lambda: self.provider.detect_vocalizations(
+                            analysis = checkpoints.run("vocalizations", lambda: self.paid_call(job_id, check, lambda: self.provider.detect_vocalizations(
                                 audio, record.options.source_language, check, strength=record.options.audio_filter))
+                            )
                             vocalizations, protected_audio = analysis["removals"], analysis["protected"]
                             write_json_atomic(work / "vocalization-analysis.json", analysis)
                         def prepare_audio():
@@ -250,9 +268,9 @@ class Worker:
                                 current.status_message = "진행 중 요청 회수 중" if value["draining"] else "음성 전사 중"
                                 repo.save(current)
                         try:
-                            segments = [TranscriptSegment.from_dict(item) for item in checkpoints.run("transcribe-packed-60-v2", lambda: [
+                            segments = [TranscriptSegment.from_dict(item) for item in checkpoints.run("transcribe-packed-60-v2", lambda: self.paid_call(job_id, check, lambda: [
                                 s.to_dict() for s in self.provider.transcribe(audio, record.options.source_language, check,
-                                    spans=spans, work=work, progress=transcription_progress)])]
+                                    spans=spans, work=work, progress=transcription_progress)]))]
                         except PartialTranscriptionError as exc:
                             partial = restore_segments(exc.segments, spans, work / "partial-cross-boundary.json")
                             prefix = restore_segments(exc.prefix, spans, work / "partial-prefix-cross-boundary.json")
@@ -289,9 +307,9 @@ class Worker:
                                 repo.save(current)
                         try:
                             translated = [TranscriptSegment.from_dict(item) for item in checkpoints.run("translate-packed-40-v2-" + language,
-                                lambda: [s.to_dict() for s in self.provider.translate(segments, language, check,
+                                lambda: self.paid_call(job_id, check, lambda: [s.to_dict() for s in self.provider.translate(segments, language, check,
                                     work=work, progress=translation_progress,
-                                    video_description=record.options.video_description)])]
+                                    video_description=record.options.video_description)]))]
                         except PartialTranslationError as exc:
                             write_json_atomic(work / f"partial-{stem}.json", {"incomplete": True,
                                 "failed_batches": [i + 1 for i in exc.failed],
@@ -350,24 +368,31 @@ class Worker:
                     return
                 self.transition(job_id, JobStatus.ENCODING, message="인코딩 슬롯 대기 중")
                 target = (output / "final.mp4").resolve()
-                with encoding_slot(repo, int(os.getenv("MAX_ENCODING_JOBS", "1")), check):
+                with gpu_slot(check), encoding_slot(repo, int(os.getenv("MAX_ENCODING_JOBS", "1")), check):
                     if encoder is None:
                         encoder = select_encoder(work, check, video_codec=record.options.video_codec)
                     software = encoder in {"libx265", "libx264"}
                     self.transition(job_id, JobStatus.ENCODING, message="영상 인코딩 중")
                     progress_path = work / "encode.log"
                     progress_duration = metadata["duration"]
-                    run_process(encoding_args(source, target, videos[0], record.options.quality_profile.value, software,
-                        record.options.video_codec, record.options.subtitle_mode, record.options.target_language,
-                        record.options.resolution, record.options.additional_languages),
-                        cwd=work, log_name="encode.log", check=check)
+                    def encode_output():
+                        run_process(encoding_args(source, target, videos[0], record.options.quality_profile.value, software,
+                            record.options.video_codec, record.options.subtitle_mode, record.options.target_language,
+                            record.options.resolution, record.options.additional_languages),
+                            cwd=work, log_name="encode.log", check=check)
+                        return 'final.mp4'
+                    checkpoints.run('encode-output-v1', encode_output, files=('../output/final.mp4',))
                     progress_path = None
-                self.transition(job_id, JobStatus.VALIDATING)
+                self.transition(job_id, JobStatus.VALIDATING, message="출력 영상 정보 확인 중")
                 final = probe(target, work, check)
                 validate_output(metadata, final, target.stat().st_size, record.options.video_codec,
                     record.options.subtitle_mode, record.options.resolution,
                     subtitle_count=len(languages))
+                self.transition(job_id, JobStatus.VALIDATING, message="출력 영상·오디오 전체 무결성 검사 중")
+                progress_path = work / 'validate-decode.log'
+                progress_duration = final['duration']
                 validate_decodable(target, work, check)
+                progress_path = None
                 size = target.stat().st_size
                 result_files.insert(0, 'final.mp4')
                 self.transition(job_id, JobStatus.COMPLETED, metadata={"output_bytes": size,
@@ -384,11 +409,22 @@ class Worker:
                     repo.update_status(job_id, JobStatus.CANCELLED if cancelled else JobStatus.FAILED,
                         error=None if cancelled else f"{failure['provider']} 콘텐츠 정책에 의해 차단되었습니다. 자동 재시도를 중단했습니다." if failure else str(exc),
                         metadata={"stage_progress": None, "failure": failure,
-                            "interrupted": isinstance(exc, WorkerStopping),
+                            "interrupted": isinstance(exc, WorkerStopping) or self.stop.is_set(),
                             "failed_stage": current.status.value,
+                            "wait_reason": None, "wait_started_at": None,
                             "cleanup_pending": False, "cleanup_error": None})
                 if isinstance(exc, KeyboardInterrupt):
                     raise
+
+    def paid_call(self, job_id, check, operation):
+        with resource_slot('llm', check):
+            with wait_for_job_lock(self.repository, job_id, check=check):
+                record = self.repository.read(job_id)
+                record.metadata['paid_operation_in_flight'] = True
+                self.repository.save(record)
+            result = operation()
+            # Cleared at the next stage transition, after checkpoint publication.
+            return result
 
     def collect(self, *, expire=True):
         if self.stop.is_set():
@@ -409,6 +445,11 @@ class Worker:
             try:
                 with job_lock(self.repository, record.job_id, "execution"), job_lock(self.repository, record.job_id):
                     record = self.repository.read(record.job_id)
+                    if (record.status == JobStatus.FAILED and record.metadata.get('interrupted')
+                            and not record.metadata.get('recovery_required')):
+                        from .recovery import recover_interrupted
+                        if recover_interrupted(self.repository, record):
+                            continue
                     if not expire and record.status in (*TERMINAL_STATUSES, JobStatus.UPLOADING, JobStatus.AWAITING_REVIEW):
                         continue
                     age = (now - datetime.fromisoformat(record.completed_at or record.updated_at)).total_seconds()
@@ -442,6 +483,9 @@ class Worker:
                                 message="업로드 보관 기간이 만료되었습니다.",
                                 metadata={"upload_expired_at": now.isoformat()})
                     elif record.status not in {JobStatus.QUEUED, JobStatus.READY}:
+                        from .recovery import recover_interrupted
+                        if recover_interrupted(self.repository, record):
+                            continue
                         self.repository.update_status(record.job_id, JobStatus.FAILED, error="Worker interrupted; retry to resume",
                             metadata={"interrupted": True, "failed_stage": record.status.value})
             except (JobBusyError, JobNotFoundError):
@@ -452,7 +496,10 @@ class Worker:
     def tick(self):
         try:
             with job_lock(self.repository, "f" * 32, "execution"):
-                self._tick_serial()
+                if int(os.getenv('MAX_CONCURRENT_JOBS', '1')) > 1:
+                    self._tick_parallel()
+                else:
+                    self._tick_serial()
         except JobBusyError:
             return
 
@@ -460,10 +507,11 @@ class Worker:
         if self.stop.is_set():
             return
         from .faceswap.runner import refresh_capabilities
-        refresh_capabilities(self.repository, self.stop)
+        with job_resources(self.repository, None), gpu_slot(self.check_stopping, keep_preview=True):
+            refresh_capabilities(self.repository, self.stop)
         self.collect(expire=False)
         jobs = self.repository.find_by_statuses([JobStatus.QUEUED])
-        for job in sorted(jobs, key=lambda item: (item.metadata.get("queued_at", item.created_at), item.job_id)):
+        for job in QueueControl(self.repository.storage_root).ordered(jobs):
             if self.stop.is_set():
                 return
             try:
@@ -471,16 +519,94 @@ class Worker:
             except (JobBusyError, JobNotFoundError):
                 continue
 
+    def _tick_parallel(self):
+        limit = int(os.getenv('MAX_CONCURRENT_JOBS', '1'))
+        if not 1 <= limit <= 8:
+            raise ValueError('MAX_CONCURRENT_JOBS must be between 1 and 8')
+        if self.stop.is_set():
+            return
+        for identity, future in list(self._active.items()):
+            if future.done():
+                del self._active[identity]
+                try:
+                    future.result()
+                except (JobBusyError, JobNotFoundError):
+                    pass
+                except Exception:
+                    logging.exception('Concurrent worker failed for %s', identity)
+        if not self._active:
+            from .faceswap.runner import refresh_capabilities
+            with job_resources(self.repository, None), gpu_slot(self.check_stopping, keep_preview=True):
+                refresh_capabilities(self.repository, self.stop)
+        self.collect(expire=False)
+        if self._pool is None:
+            self._pool = ThreadPoolExecutor(max_workers=limit, thread_name_prefix='media-job')
+        jobs = QueueControl(self.repository.storage_root).ordered(
+            self.repository.find_by_statuses([JobStatus.QUEUED]))
+        def admission_resource(record):
+            if record.metadata.get('faceswap_operation'):
+                return 'gpu'
+            if record.status == JobStatus.ENCODING:
+                return 'gpu'
+            if record.status in {JobStatus.VALIDATING, JobStatus.GENERATING_SUBTITLE}:
+                return 'io'
+            workflow = record.metadata.get('workflow', {})
+            if workflow.get('template') == 'encode':
+                return 'gpu'
+            if workflow.get('template') == 'extract_audio':
+                return 'io'
+            return 'llm'
+        occupied = {resource: 0 for resource in LIMITS}
+        for identity in self._active:
+            occupied[admission_resource(self.repository.read(identity))] += 1
+        for job in jobs:
+            if len(self._active) >= limit or self.stop.is_set():
+                break
+            if job.job_id in self._active:
+                continue
+            resource = admission_resource(job)
+            name, default = LIMITS[resource]
+            # Do not fill every execution slot with jobs waiting for the same
+            # resource; continue scanning for independent work further in the queue.
+            if occupied[resource] >= int(os.getenv(name, str(default))):
+                continue
+            # Each job owns a provider instance. ContextVars and resource leases are
+            # scoped to the executing thread, not shared mutable provider settings.
+            child = Worker(self.repository, self.provider, self.stop, self.provider_factory)
+            self._active[job.job_id] = self._pool.submit(child.process, job.job_id)
+            occupied[resource] += 1
+
+    def close(self):
+        self.stop.set()
+        if self._pool is not None:
+            self._pool.shutdown(wait=True, cancel_futures=True)
+            self._pool = None
+
     def run(self, poll_interval=5):
-        while not self.stop.is_set():
+        wakeup = self.repository.storage_root / '.faceswap-wakeup'
+        def generation():
             try:
-                self.tick()
-                self.stop.wait(poll_interval)
-            except KeyboardInterrupt:
-                self.stop.set()
-            except Exception:
-                logging.exception("Worker iteration failed")
-                self.stop.wait(5)
+                return wakeup.stat().st_mtime_ns
+            except FileNotFoundError:
+                return 0
+        try:
+            while not self.stop.is_set():
+                try:
+                    before = generation()
+                    self.tick()
+                    deadline = time.monotonic() + (min(.5, poll_interval) if self._active else poll_interval)
+                    while generation() == before and time.monotonic() < deadline:
+                        if self.stop.wait(min(.1, max(0, deadline - time.monotonic()))):
+                            break
+                except KeyboardInterrupt:
+                    self.stop.set()
+                except Exception:
+                    logging.exception("Worker iteration failed")
+                    self.stop.wait(5)
+        finally:
+            self.close()
+            from .faceswap.warm import release
+            release()
 
 
 def main():

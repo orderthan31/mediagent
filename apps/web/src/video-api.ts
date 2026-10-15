@@ -9,6 +9,7 @@ export type VideoAsset = {
     width: number;
     height: number;
     has_audio: boolean;
+    frame_rate?: string;
   };
   provenance: {
     kind: string;

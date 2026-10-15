@@ -119,7 +119,9 @@ def preprocess_audio(source, work, check=lambda: None, audio_filter="conservativ
             intervals = subtract_intervals(intervals, vocalizations, duration)
     if vad_mode == "nvidia":
         from .nvidia_vad import detect_intervals
-        speech = detect_intervals(source, work, check)
+        from .resources import gpu_slot
+        with gpu_slot(check):
+            speech = detect_intervals(source, work, check)
         intervals = [(max(a, c), min(b, d)) for a, b in intervals for c, d in speech
                      if min(b, d) > max(a, c)]
     output = work / "processed-audio.wav"

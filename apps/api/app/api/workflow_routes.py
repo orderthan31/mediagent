@@ -10,6 +10,8 @@ from pydantic import BaseModel, ConfigDict, Field, UUID4
 from app.api import routes
 from app.api.asset_routes import asset_errors
 from app.core.config import settings
+from app.services.request_locks import admission_lock
+from app.services.admission_capacity import check_admission_capacity
 from video_service.artifacts import SubtitleArtifactRepository
 from video_service.assets import VideoAssetRepository
 from video_service.capacity import assert_capacity, remaining_reservations
@@ -48,7 +50,7 @@ def create_workflow(asset_id: str, payload: WorkflowCreate, request: Request):
     repo = routes.repository
     assets = VideoAssetRepository(repo)
     owner = request.state.owner_id
-    with asset_errors(), job_lock(repo, '0' * 32), assets.lock(), ExitStack() as input_locks:
+    with asset_errors(), admission_lock(repo), assets.lock(), ExitStack() as input_locks:
         asset = assets.read(asset_id, owner_id=owner)
         identity = payload.model_dump(mode='json')
         existing = next((r for r in repo.list() if r.metadata.get('owner_id') == owner
@@ -80,8 +82,7 @@ def create_workflow(asset_id: str, payload: WorkflowCreate, request: Request):
             if audio_job.status != JobStatus.COMPLETED or audio_job.metadata.get('results_expired_at') or not audio_source.is_file():
                 raise HTTPException(status_code=409, detail='Completed extracted audio is unavailable.')
         reservation = asset['size_bytes'] * 4 + 1024**2 + (audio_source.stat().st_size if audio_source else 0)
-        assert_capacity(repo.storage_root, settings.service_quota_bytes, settings.min_free_space_bytes,
-                        remaining_reservations(repo) + reservation)
+        check_admission_capacity(repo, settings, reservation, strict=assert_capacity)
         job_id = uuid4().hex
         directory = repo.job_dir(job_id)
         for name in ['input', 'work', 'output']:
@@ -92,8 +93,9 @@ def create_workflow(asset_id: str, payload: WorkflowCreate, request: Request):
         if payload.subtitle_artifact_id:
             metadata['subtitle_input'] = artifacts.snapshot(asset_id, payload.subtitle_artifact_id,
                 directory / 'input/subtitle.json', owner_id=owner,
-                before_write=lambda size: assert_capacity(repo.storage_root, settings.service_quota_bytes,
-                    settings.min_free_space_bytes, remaining_reservations(repo) + reservation + size))
+                before_write=lambda size: check_admission_capacity(repo, settings, size,
+                    strict=lambda root, quota, minimum, additional:
+                        assert_capacity(root, quota, minimum, additional + reservation)))
         if audio_source is not None:
             destination = directory / 'input/audio.wav'
             shutil.copyfile(audio_source, destination)

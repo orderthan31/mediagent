@@ -9,6 +9,8 @@ from app.api.asset_routes import asset_errors
 from app.core.config import settings
 from app.schemas.jobs import UploadVerifyRequest
 from app.services.upload_service import UploadConflictError, UploadService
+from app.services.request_locks import admission_lock
+from app.services.admission_capacity import check_admission_capacity
 from video_service.assets import VideoAssetRepository
 from video_service.capacity import StorageLimitError, assert_capacity, assert_free_space, remaining_reservations
 from video_service.locking import job_lock
@@ -48,7 +50,7 @@ def summary(record):
 @router.post('', status_code=201)
 def create_upload(payload: VideoUploadCreate, request: Request):
     repo = upload_repository()
-    with asset_errors(), job_lock(routes.repository, '0' * 32):
+    with asset_errors(), admission_lock(routes.repository):
         record = next((r for r in repo.list() if r.metadata.get('upload_request_id') == str(payload.request_id)
                        and r.metadata.get('owner_id') == request.state.owner_id), None)
         if record:
@@ -58,8 +60,7 @@ def create_upload(payload: VideoUploadCreate, request: Request):
             if payload.size > settings.max_upload_bytes:
                 raise HTTPException(status_code=413, detail='Video exceeds upload limit.')
             reservation = payload.size * 2 + 4096
-            assert_capacity(routes.repository.storage_root, settings.service_quota_bytes,
-                settings.min_free_space_bytes, remaining_reservations(routes.repository) + reservation)
+            check_admission_capacity(routes.repository, settings, reservation, strict=assert_capacity)
             record = repo.create_job(original_filename=payload.filename, expected_size=payload.size,
                 source_language='auto', target_language='ko', quality_profile=QualityProfile.BALANCED,
                 metadata={'kind': 'video_upload', 'owner_id': request.state.owner_id,
@@ -138,7 +139,7 @@ def verify_upload(upload_id: str, payload: UploadVerifyRequest, request: Request
 @router.post('/{upload_id}/complete')
 def complete_upload(upload_id: str, request: Request):
     repo = upload_repository()
-    with asset_errors(), job_lock(routes.repository, '0' * 32):
+    with asset_errors(), admission_lock(routes.repository):
         with job_lock(repo, upload_id):
             record = owned_upload(upload_id, request)
             if record.status == JobStatus.UPLOADING:
@@ -147,8 +148,8 @@ def complete_upload(upload_id: str, request: Request):
                 except UploadConflictError as exc:
                     raise HTTPException(status_code=409, detail={'expected_offset': exc.expected_offset}) from exc
         def reserve_copy(size):
-            assert_capacity(routes.repository.storage_root, settings.service_quota_bytes,
-                settings.min_free_space_bytes, remaining_reservations(routes.repository, {upload_id: 0}) + size)
+            check_admission_capacity(routes.repository, settings, size, strict=assert_capacity,
+                                     overrides={upload_id: 0})
         asset = VideoAssetRepository(routes.repository).register_upload(upload_id,
             owner_id=request.state.owner_id, before_copy=reserve_copy, upload_repository=repo, inspect_source=inspect_video)
         return {'status': 'ready', 'video': asset}

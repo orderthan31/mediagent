@@ -1,5 +1,5 @@
 """Non-blocking OS locks; released automatically when a process exits."""
-from contextlib import contextmanager, ExitStack
+from contextlib import contextmanager, asynccontextmanager, ExitStack
 import os
 import time
 import math
@@ -7,6 +7,24 @@ import math
 
 class JobBusyError(Exception):
     pass
+
+
+@asynccontextmanager
+async def async_job_lock(repository, job_id, *, timeout=5):
+    """Wait without blocking the event loop that is receiving the competing chunk."""
+    import asyncio
+    deadline = time.monotonic() + timeout
+    with ExitStack() as stack:
+        while True:
+            try:
+                stack.enter_context(job_lock(repository, job_id))
+                break
+            except JobBusyError:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise
+                await asyncio.sleep(min(.05, remaining))
+        yield
 
 
 @contextmanager

@@ -1,5 +1,5 @@
 # Optional overlay: all queued work remains in the same worker and execution lock.
-# Mount an existing 3.5.4 model directory read-only; no model downloads at runtime.
+# Existing HyperSwap models are compatible with 3.9.0; mount read-only.
 services:
   api:
     environment:

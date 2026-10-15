@@ -115,14 +115,16 @@ class TranslationTransportTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_cancel_stops_inflight_request(self):
         stopped = asyncio.Event()
+        started = asyncio.Event()
         async def never(*args, **kwargs):
             try:
+                started.set()
                 await asyncio.Event().wait()
             finally:
                 stopped.set()
         self.client.post.side_effect = never
         task = asyncio.create_task(self.request())
-        await asyncio.sleep(.03)
+        await asyncio.wait_for(started.wait(), timeout=3)
         task.cancel()
         with self.assertRaises(asyncio.CancelledError):
             await task

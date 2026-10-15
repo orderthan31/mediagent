@@ -29,6 +29,7 @@ from media_worker.media import executable
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--multi', action='store_true', help='Swap panel order halfway through a two-person clip')
+    parser.add_argument('--advanced', action='store_true', help='Verify mask options in preview and chunked CLI rendering')
     parser.add_argument('--chunk-seconds', type=int, default=600, choices=range(1, 601), help='Force short chunks to verify boundaries')
     args = parser.parse_args()
     os.environ['FACEFUSION_CHUNK_SECONDS'] = str(args.chunk_seconds)
@@ -72,8 +73,12 @@ def main():
         session = api('POST', f"/videos/{asset['asset_id']}/faceswap-sessions", json={'request_id': str(uuid4())})
         base = '/faceswap/sessions/' + session['session_id']
         session = api('POST', base + '/source?revision=0', content=(fixture / 'source.jpg').read_bytes())
+        advanced = {'mask_types': ['box', 'occlusion', 'area', 'region'],
+                    'mask_blur': .4, 'mask_padding': [2, 3, 4, 5],
+                    'mask_areas': ['upper-face', 'lower-face', 'mouth'],
+                    'detector_angles': [0, 90]} if args.advanced else {}
         session = api('PUT', base, json={'revision': session['revision'],
-                      'settings': {**session['settings'], 'preset': 'fast', 'source_position': 0, 'face_position': 1 if args.multi else 0}})
+                      'settings': {**session['settings'], **advanced, 'preset': 'fast', 'source_position': 0, 'face_position': 1 if args.multi else 0}})
         def no_llm(_):
             raise AssertionError('Face-swap must not initialize LLM providers')
         worker = Worker(repo, None, provider_factory=no_llm)
@@ -82,12 +87,19 @@ def main():
             print('RUN', operation, flush=True)
             job = api('POST', base + '/requests', json={'request_id': str(uuid4()),
                 'revision': session['revision'], 'operation': operation, 'preview_frame': 8 if args.multi else 4,
+                'analysis_frame': (8 if args.multi else 4) if operation == 'analyze_reference' else None,
                 'preview_job_id': ids.get('preview')})
             ids[operation] = job['job_id']
             worker.process(job['job_id'])
             finished = repo.read(job['job_id'])
             print(finished.status, finished.error, flush=True)
+            if finished.status != JobStatus.COMPLETED:
+                for log in (repo.job_dir(job['job_id']) / 'work').rglob('engine.log'):
+                    print(log.read_text(errors='replace')[-6000:], flush=True)
             assert finished.status == JobStatus.COMPLETED, (finished.error, str(repo.job_dir(job['job_id'])))
+            if operation == 'analyze_reference':
+                assert finished.metadata['faceswap_result']['frame_number'] == (8 if args.multi else 4)
+                assert finished.metadata['faceswap']['settings']['reference_frame'] == 1
             if args.multi and operation == 'analyze_reference':
                 assert len(finished.metadata['faceswap_result']['faces']) == 2
             if args.multi and operation == 'preview':
