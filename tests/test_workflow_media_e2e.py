@@ -53,7 +53,8 @@ class WorkflowMediaE2E(unittest.TestCase):
         stack = ExitStack()
         self.addCleanup(stack.close)
         stack.enter_context(patch.object(routes, 'repository', self.repo))
-        settings = SimpleNamespace(service_quota_bytes=128*1024**2, min_free_space_bytes=0, max_upload_bytes=16*1024**2)
+        settings = SimpleNamespace(service_quota_bytes=128*1024**2, min_free_space_bytes=0,
+                                   max_upload_bytes=16*1024**2, storage_audit_interval_seconds=300)
         for module in [asset_routes, video_upload_routes, workflow_routes]:
             stack.enter_context(patch.object(module, 'settings', settings))
         stack.enter_context(patch.dict('os.environ', {'PAID_LLM_ENABLED': 'false', 'VIDEO_ENCODER': 'libx264',
@@ -111,6 +112,29 @@ class WorkflowMediaE2E(unittest.TestCase):
         stream = self.client.get('/api/videos/' + promoted['asset_id'] + '/stream', headers={'Range': 'bytes=0-31'})
         self.assertEqual(stream.status_code, 206)
         self.run_job('encode', asset=promoted, options={'subtitle_mode': 'none'})
+        self.assertEqual((self.provider.transcriptions, self.provider.translations), (1, 1))
+
+    def test_interrupted_validation_reuses_encoded_video_without_encoding_again(self):
+        from media_worker.shutdown import WorkerStopping
+        response = self.client.post('/api/videos/' + self.asset['asset_id'] + '/jobs', json={
+            'request_id': str(uuid4()), 'template': 'full',
+            'options': {'video_codec': 'h264', 'subtitle_mode': 'burn', 'audio_filter': 'off',
+                        'source_language': 'en', 'target_language': 'en'}})
+        self.assertEqual(response.status_code, 201, response.text)
+        identity = response.json()['job_id']
+        with patch('media_worker.worker.validate_decodable', side_effect=WorkerStopping()):
+            Worker(self.repo, self.provider).process(identity)
+        self.assertTrue(self.repo.read(identity).metadata['interrupted'])
+        target = self.repo.job_dir(identity) / 'output/final.mp4'
+        before = target.stat().st_mtime_ns
+        with patch.dict('os.environ', {'AUTO_RESUME_INTERRUPTED': 'true'}):
+            Worker(self.repo, self.provider).collect(expire=False)
+        self.assertEqual(self.repo.read(identity).status, JobStatus.QUEUED)
+        with patch('media_worker.worker.run_process', side_effect=AssertionError('Must reuse encoded output')):
+            Worker(self.repo, self.provider).process(identity)
+        record = self.repo.read(identity)
+        self.assertEqual(record.status, JobStatus.COMPLETED, record.error)
+        self.assertEqual(target.stat().st_mtime_ns, before)
         self.assertEqual((self.provider.transcriptions, self.provider.translations), (1, 1))
 
     def test_full_and_transcription_translation_without_encoding(self):

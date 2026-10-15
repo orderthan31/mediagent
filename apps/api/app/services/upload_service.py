@@ -6,7 +6,7 @@ from typing import Callable
 from starlette.concurrency import run_in_threadpool
 
 from video_service.models import JobStatus
-from video_service.locking import job_lock
+from video_service.locking import job_lock, async_job_lock
 from video_service.repository import FilesystemJobRepository
 from video_service.capacity import StorageLimitError
 
@@ -31,7 +31,7 @@ class UploadService:
         expected_offset: int,
         body: AsyncIterator[bytes],
     ) -> int:
-        with job_lock(self.repository, job_id):
+        async with async_job_lock(self.repository, job_id):
             return await self._append_chunk(job_id=job_id, expected_offset=expected_offset, body=body)
 
     async def _append_chunk(self, *, job_id: str, expected_offset: int, body: AsyncIterator[bytes]) -> int:

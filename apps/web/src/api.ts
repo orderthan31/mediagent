@@ -1,6 +1,7 @@
 import { blockSize, verifyUploadedPrefix } from './upload-verification';
 import { authenticatedFetch } from './auth-session';
 import { abortable } from './abortable';
+import { canRetryBusy, retryBusy } from './busy-retry';
 export const base = import.meta.env.VITE_API_BASE_URL || '/api';
 export type Job = {
   job_id: string;
@@ -27,6 +28,15 @@ export type Job = {
     cancel_requested?: boolean;
     duration?: number;
     stage_progress?: number | null;
+    stage_started_at?: string;
+    stage_durations_seconds?: Record<string, number>;
+    resource_wait_seconds?: number;
+    stage_wait_baseline_seconds?: number;
+    wait_reason?: string | null;
+    wait_started_at?: string | null;
+    auto_recovery_count?: number;
+    recovery_required?: boolean;
+    recovery_reason?: string;
     result_files?: string[];
     failed_stage?: string;
     content_block_review?: boolean;
@@ -62,6 +72,7 @@ export type Job = {
       draining: boolean;
     };
     results_expired_at?: string;
+    faceswap_chunks?: { total: number; completed: number; current: number | null; seconds: number };
     upload_expired_at?: string;
   };
 };
@@ -74,7 +85,8 @@ export class ApiError extends Error {
   }
 }
 export const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
-  const response = await authenticatedFetch(base + path, init, path === '/auth/login');
+  const send = () => authenticatedFetch(base + path, init, path === '/auth/login');
+  const response = canRetryBusy(path, init) ? await retryBusy(send, init?.signal) : await send();
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
     throw new ApiError(

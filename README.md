@@ -88,3 +88,7 @@ API와 Worker는 루트 `.env`를 읽습니다. 기존 프로세스 환경변수
 Windows에서는 `scripts/setup-ffmpeg.ps1`로 프로젝트 `.tools`에 FFmpeg를 준비할 수 있습니다. Worker는 PATH에 도구가 없으면 이 경로를 찾습니다. `ALLOW_SOFTWARE_ENCODER_FALLBACK=true`이면 GPU 사전 검사 실패 시 libx265로 전환합니다.
 
 기본 실행은 로컬 익명 모드이며 선택적 계정 인증을 지원합니다. 외부 공개 전에는 HTTPS와 인증 설정이 필요합니다. 잠금 파일은 저장소의 `.locks`에 유지되며 프로세스가 종료되면 OS 잠금은 해제됩니다. API와 Worker는 동일한 잠금 규약을 사용합니다. 접수 시 활성 작업의 예약 용량을 합산하고 Worker는 처리 중 실제 사용량을 검사합니다. 예약량은 원본의 4배 추정치이며 상세 제한은 개발 현황 문서에 기록합니다.
+
+## 얼굴 합성
+
+기존 영상 상세의 **얼굴 합성**에서 Source/대상 선택, 미리보기, 전체 합성 및 결과 영상 등록을 제공합니다. FaceFusion 3.5.4를 별도 환경에서 실행하며 기본은 비활성화입니다. [실행·검증 가이드](docs/faceswap.md)와 [통합 명세](docs/facefusion-integration-plan.md)를 참고하세요.

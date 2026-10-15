@@ -1,0 +1,292 @@
+/usr/local/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
+======================================================================
+ERROR: test_cancel_and_timeout_stop_process_tree (unittest.loader._FailedTest.test_cancel_and_timeout_stop_process_tree)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_cancel_and_timeout_stop_process_tree'
+
+======================================================================
+ERROR: test_cancel_failure_recovery_and_session_delete (unittest.loader._FailedTest.test_cancel_failure_recovery_and_session_delete)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_cancel_failure_recovery_and_session_delete'
+
+======================================================================
+ERROR: test_capacity_and_asset_deletion_protection (unittest.loader._FailedTest.test_capacity_and_asset_deletion_protection)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_capacity_and_asset_deletion_protection'
+
+======================================================================
+ERROR: test_disabled_and_stale_capability_refuses_execution (unittest.loader._FailedTest.test_disabled_and_stale_capability_refuses_execution)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_disabled_and_stale_capability_refuses_execution'
+
+======================================================================
+ERROR: test_idempotency_request_limits_and_render_gate (unittest.loader._FailedTest.test_idempotency_request_limits_and_render_gate)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_idempotency_request_limits_and_render_gate'
+
+======================================================================
+ERROR: test_legacy_sessions_receive_mask_defaults_without_revision_change (unittest.loader._FailedTest.test_legacy_sessions_receive_mask_defaults_without_revision_change)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_legacy_sessions_receive_mask_defaults_without_revision_change'
+
+======================================================================
+ERROR: test_mask_validation_and_cursor_analysis_preserve_identity (unittest.loader._FailedTest.test_mask_validation_and_cursor_analysis_preserve_identity)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_mask_validation_and_cursor_analysis_preserve_identity'
+
+======================================================================
+ERROR: test_no_match_preview_cannot_start_full_render (unittest.loader._FailedTest.test_no_match_preview_cannot_start_full_render)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_no_match_preview_cannot_start_full_render'
+
+======================================================================
+ERROR: test_owner_isolation_for_sessions_and_files (unittest.loader._FailedTest.test_owner_isolation_for_sessions_and_files)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_owner_isolation_for_sessions_and_files'
+
+======================================================================
+ERROR: test_revision_source_validation_and_snapshot (unittest.loader._FailedTest.test_revision_source_validation_and_snapshot)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_revision_source_validation_and_snapshot'
+
+======================================================================
+ERROR: test_unselected_faces_and_expired_preview_are_rejected (unittest.loader._FailedTest.test_unselected_faces_and_expired_preview_are_rejected)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_unselected_faces_and_expired_preview_are_rejected'
+
+======================================================================
+ERROR: test_worker_skips_llm_and_publishes_preview (unittest.loader._FailedTest.test_worker_skips_llm_and_publishes_preview)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_worker_skips_llm_and_publishes_preview'
+
+======================================================================
+ERROR: test_bounds_history_and_preserves_other_sessions_and_render (unittest.loader._FailedTest.test_bounds_history_and_preserves_other_sessions_and_render)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_bounds_history_and_preserves_other_sessions_and_render'
+
+======================================================================
+ERROR: test_keeps_last_success_after_failures_and_in_use_preview (unittest.loader._FailedTest.test_keeps_last_success_after_failures_and_in_use_preview)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_keeps_last_success_after_failures_and_in_use_preview'
+
+======================================================================
+ERROR: test_cancellation_stops_process_without_waiting_for_inference (unittest.loader._FailedTest.test_cancellation_stops_process_without_waiting_for_inference)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_cancellation_stops_process_without_waiting_for_inference'
+
+======================================================================
+ERROR: test_failure_releases_engine (unittest.loader._FailedTest.test_failure_releases_engine)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_failure_releases_engine'
+
+======================================================================
+ERROR: test_idle_engine_releases_memory (unittest.loader._FailedTest.test_idle_engine_releases_memory)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_idle_engine_releases_memory'
+
+======================================================================
+ERROR: test_reuses_process_and_serializes_distinct_results (unittest.loader._FailedTest.test_reuses_process_and_serializes_distinct_results)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_reuses_process_and_serializes_distinct_results'
+
+======================================================================
+ERROR: test_timeout_stops_process (unittest.loader._FailedTest.test_timeout_stops_process)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_timeout_stops_process'
+
+======================================================================
+ERROR: test_busy_timeout_stays_typed_and_body_is_never_replayed (unittest.loader._FailedTest.test_busy_timeout_stays_typed_and_body_is_never_replayed)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_busy_timeout_stays_typed_and_body_is_never_replayed'
+
+======================================================================
+ERROR: test_parallel_creates_wait_and_repeated_ids_do_not_duplicate (unittest.loader._FailedTest.test_parallel_creates_wait_and_repeated_ids_do_not_duplicate)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_parallel_creates_wait_and_repeated_ids_do_not_duplicate'
+
+======================================================================
+ERROR: test_recent_audit_admits_upload_without_recursive_scan (unittest.loader._FailedTest.test_recent_audit_admits_upload_without_recursive_scan)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_recent_audit_admits_upload_without_recursive_scan'
+
+======================================================================
+ERROR: test_competing_chunks_wait_without_blocking_or_duplicate_bytes (unittest.loader._FailedTest.test_competing_chunks_wait_without_blocking_or_duplicate_bytes)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_competing_chunks_wait_without_blocking_or_duplicate_bytes'
+
+======================================================================
+ERROR: test_actual_partial_upload_not_counted_twice (unittest.loader._FailedTest.test_actual_partial_upload_not_counted_twice)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_actual_partial_upload_not_counted_twice'
+
+======================================================================
+ERROR: test_api_admission_uses_worker_expansion_until_terminal (unittest.loader._FailedTest.test_api_admission_uses_worker_expansion_until_terminal)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_api_admission_uses_worker_expansion_until_terminal'
+
+======================================================================
+ERROR: test_disk_watermark_prevents_admission (unittest.loader._FailedTest.test_disk_watermark_prevents_admission)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_disk_watermark_prevents_admission'
+
+======================================================================
+ERROR: test_expansion_respects_disk_watermark (unittest.loader._FailedTest.test_expansion_respects_disk_watermark)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_expansion_respects_disk_watermark'
+
+======================================================================
+ERROR: test_failed_expansion_does_not_publish_reservation (unittest.loader._FailedTest.test_failed_expansion_does_not_publish_reservation)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_failed_expansion_does_not_publish_reservation'
+
+======================================================================
+ERROR: test_hour_of_pcm_reserves_both_audio_copies (unittest.loader._FailedTest.test_hour_of_pcm_reserves_both_audio_copies)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_hour_of_pcm_reserves_both_audio_copies'
+
+======================================================================
+ERROR: test_pending_upload_reserves_working_space (unittest.loader._FailedTest.test_pending_upload_reserves_working_space)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_pending_upload_reserves_working_space'
+
+======================================================================
+ERROR: test_preview_admission_avoids_scan_and_charges_each_request (unittest.loader._FailedTest.test_preview_admission_avoids_scan_and_charges_each_request)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_preview_admission_avoids_scan_and_charges_each_request'
+
+======================================================================
+ERROR: test_preview_budget_carries_concurrent_audit_writes (unittest.loader._FailedTest.test_preview_budget_carries_concurrent_audit_writes)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_preview_budget_carries_concurrent_audit_writes'
+
+======================================================================
+ERROR: test_preview_stale_audit_falls_back_to_strict_check (unittest.loader._FailedTest.test_preview_stale_audit_falls_back_to_strict_check)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_preview_stale_audit_falls_back_to_strict_check'
+
+======================================================================
+ERROR: test_preview_still_checks_live_free_space (unittest.loader._FailedTest.test_preview_still_checks_live_free_space)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_preview_still_checks_live_free_space'
+
+======================================================================
+ERROR: test_running_job_checks_actual_quota (unittest.loader._FailedTest.test_running_job_checks_actual_quota)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_running_job_checks_actual_quota'
+
+======================================================================
+ERROR: test_second_analysis_accounts_for_first_reservation (unittest.loader._FailedTest.test_second_analysis_accounts_for_first_reservation)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_second_analysis_accounts_for_first_reservation'
+
+======================================================================
+ERROR: test_written_audio_consumes_reservation_without_double_counting (unittest.loader._FailedTest.test_written_audio_consumes_reservation_without_double_counting)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_written_audio_consumes_reservation_without_double_counting'
+
+======================================================================
+ERROR: test_detects_external_growth_and_low_space (unittest.loader._FailedTest.test_detects_external_growth_and_low_space)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_detects_external_growth_and_low_space'
+
+======================================================================
+ERROR: test_partial_upload_consumes_reservation_and_audit_is_read_only (unittest.loader._FailedTest.test_partial_upload_consumes_reservation_and_audit_is_read_only)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_partial_upload_consumes_reservation_and_audit_is_read_only'
+
+======================================================================
+ERROR: test_terminal_jobs_keep_actual_files_but_release_unused_reservations (unittest.loader._FailedTest.test_terminal_jobs_keep_actual_files_but_release_unused_reservations)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_terminal_jobs_keep_actual_files_but_release_unused_reservations'
+
+======================================================================
+ERROR: test_accounting_and_owner_visibility (unittest.loader._FailedTest.test_accounting_and_owner_visibility)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_accounting_and_owner_visibility'
+
+======================================================================
+ERROR: test_active_failed_and_download_protection (unittest.loader._FailedTest.test_active_failed_and_download_protection)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_active_failed_and_download_protection'
+
+======================================================================
+ERROR: test_api_cleans_selected_job_and_refreshes_usage (unittest.loader._FailedTest.test_api_cleans_selected_job_and_refreshes_usage)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_api_cleans_selected_job_and_refreshes_usage'
+
+======================================================================
+ERROR: test_api_validation_origin_and_auth (unittest.loader._FailedTest.test_api_validation_origin_and_auth)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_api_validation_origin_and_auth'
+
+======================================================================
+ERROR: test_full_delete_keeps_library_and_settings (unittest.loader._FailedTest.test_full_delete_keeps_library_and_settings)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_full_delete_keeps_library_and_settings'
+
+======================================================================
+ERROR: test_host_disk_probe_optional (unittest.loader._FailedTest.test_host_disk_probe_optional)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_host_disk_probe_optional'
+
+======================================================================
+ERROR: test_nested_junction_is_not_followed_or_deleted (unittest.loader._FailedTest.test_nested_junction_is_not_followed_or_deleted)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_nested_junction_is_not_followed_or_deleted'
+
+======================================================================
+ERROR: test_temporary_preserves_editing_and_outputs (unittest.loader._FailedTest.test_temporary_preserves_editing_and_outputs)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_temporary_preserves_editing_and_outputs'
+
+======================================================================
+ERROR: test_encrypted_multi_credentials_and_environment_fallback (unittest.loader._FailedTest.test_encrypted_multi_credentials_and_environment_fallback)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_encrypted_multi_credentials_and_environment_fallback'
+
+======================================================================
+ERROR: test_external_translation_uses_existing_queue_and_checkpoint (unittest.loader._FailedTest.test_external_translation_uses_existing_queue_and_checkpoint)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_external_translation_uses_existing_queue_and_checkpoint'
+
+======================================================================
+ERROR: test_primary_cache_identity_separates_providers (unittest.loader._FailedTest.test_primary_cache_identity_separates_providers)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_primary_cache_identity_separates_providers'
+
+======================================================================
+ERROR: test_translation_only_does_not_require_gemini_key (unittest.loader._FailedTest.test_translation_only_does_not_require_gemini_key)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_translation_only_does_not_require_gemini_key'
+
+======================================================================
+ERROR: test_unknown_providers_urls_and_credential_actions_rejected (unittest.loader._FailedTest.test_unknown_providers_urls_and_credential_actions_rejected)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_unknown_providers_urls_and_credential_actions_rejected'
+
+======================================================================
+ERROR: test_trace_contains_provider_usage_and_redacts_key (unittest.loader._FailedTest.test_trace_contains_provider_usage_and_redacts_key)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_trace_contains_provider_usage_and_redacts_key'
+
+======================================================================
+ERROR: test_extract_reuse_transcribe_translate_encode_promote (unittest.loader._FailedTest.test_extract_reuse_transcribe_translate_encode_promote)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_extract_reuse_transcribe_translate_encode_promote'
+
+======================================================================
+ERROR: test_full_and_transcription_translation_without_encoding (unittest.loader._FailedTest.test_full_and_transcription_translation_without_encoding)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_full_and_transcription_translation_without_encoding'
+
+======================================================================
+ERROR: test_interrupted_validation_reuses_encoded_video_without_encoding_again (unittest.loader._FailedTest.test_interrupted_validation_reuses_encoded_video_without_encoding_again)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_interrupted_validation_reuses_encoded_video_without_encoding_again'
+
+----------------------------------------------------------------------
+Ran 57 tests in 0.005s
+
+FAILED (errors=57)

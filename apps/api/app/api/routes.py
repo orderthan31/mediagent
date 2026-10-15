@@ -21,6 +21,7 @@ from app.schemas.jobs import (
 )
 from app.services.storage_guard import StorageGuard, StorageLimitError
 from app.services.upload_service import UploadConflictError, UploadService
+from app.services.request_locks import admission_lock
 from app.services.result_response import ResultResponse
 from app.services.job_preview import read_preview
 from app.services.final_subtitles import read_final_draft, save_final_draft
@@ -69,7 +70,7 @@ def health() -> dict[str, str]:
 @router.post("/uploads", response_model=UploadCreateResponse, status_code=status.HTTP_201_CREATED)
 def create_upload(payload: UploadCreateRequest, request: Request) -> UploadCreateResponse:
     try:
-        with job_lock(repository, "0" * 32):
+        with admission_lock(repository):
             request_id = str(payload.request_id) if payload.request_id else None
             record = next((job for job in repository.list()
                 if job.metadata.get("upload_request_id") == request_id
@@ -199,7 +200,7 @@ def complete_upload(job_id: str) -> dict[str, str]:
 
 @router.post("/jobs/{job_id}/start")
 def start_job(job_id: str) -> dict[str, str]:
-    with job_lock(repository, "0" * 32), job_lock(repository, job_id):
+    with admission_lock(repository), job_lock(repository, job_id):
         record = _read_job_or_404(job_id)
         if record.status == JobStatus.QUEUED:
             return {"status": "queued"}
@@ -221,7 +222,7 @@ def start_job(job_id: str) -> dict[str, str]:
 def list_jobs(request: Request) -> JobListResponse:
     records = sorted(repository.list(), key=lambda record: (record.created_at, record.job_id), reverse=True)
     return JobListResponse(jobs=[job_to_response(record) for record in records
-        if record.metadata.get("owner_id") == request.state.owner_id])
+        if record.metadata.get("owner_id") == request.state.owner_id and not record.metadata.get('internal')])
 
 
 @router.get("/jobs/{job_id}")
@@ -346,7 +347,9 @@ def retry_job(job_id: str) -> dict[str, str]:
         assert_capacity(repository.storage_root, settings.service_quota_bytes, settings.min_free_space_bytes,
             remaining_reservations(repository) + max(0, reserved - used_bytes(repository.job_dir(job_id))))
         record.metadata.update(cancel_requested=False, interrupted=False, cleanup_pending=False,
-            cleanup_error=None, stage_progress=None, retry_count=record.metadata.get("retry_count", 0) + 1)
+            cleanup_error=None, stage_progress=None, recovery_required=False, recovery_reason=None,
+            paid_operation_in_flight=False, wait_reason=None,
+            retry_count=record.metadata.get("retry_count", 0) + 1)
         record.completed_at = None
         repository.save(record)
         repository.update_status(job_id, JobStatus.QUEUED, message="보존된 체크포인트에서 재시도합니다.")

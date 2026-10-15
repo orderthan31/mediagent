@@ -25,6 +25,8 @@ try {
     revision: 0,
     transcription_model: 'test-stt',
     transcription_fallback_model: '',
+    transcription_provider: 'gemini',
+    transcription_fallback_provider: 'gemini',
     translation_model: 'test-translation',
     translation_fallback_model: '',
     translation_provider: 'gemini',
@@ -41,9 +43,39 @@ try {
     if (url.pathname.endsWith('/auth/session')) {
       return route.fulfill({ json: { enabled: false, user: null } });
     }
+    if (url.pathname.endsWith('/settings/storage')) {
+      return route.fulfill({
+        json: {
+          checked_at: Date.now() / 1000,
+          disk: {
+            total_bytes: 1024 ** 4,
+            used_bytes: 1024 ** 3,
+            free_bytes: 1024 ** 4 - 1024 ** 3,
+          },
+          host_disk: null,
+          container: false,
+          total_bytes: 0,
+          quota_bytes: 300 * 1024 ** 3,
+          categories: {},
+          jobs: [],
+        },
+      });
+    }
     if (url.pathname.endsWith('/settings/llm/models')) {
       assert.equal(url.searchParams.get('provider'), 'openrouter');
       return route.fulfill({ json: { models: ['vendor/test-model:free'] } });
+    }
+    if (url.pathname.endsWith('/settings/llm/stt-models')) {
+      return route.fulfill({
+        json: {
+          providers: {
+            gemini: [],
+            openai: ['whisper-1', 'gpt-4o-transcribe-diarize'],
+            xai: ['grok-voice-transcribe-2.0', 'grok-voice-transcribe-1.0'],
+            openrouter: ['microsoft/mai-transcribe-2', 'openai/whisper-large-v3'],
+          },
+        },
+      });
     }
     if (url.pathname.endsWith('/settings/llm')) {
       if (route.request().method() === 'PUT') {
@@ -78,9 +110,24 @@ try {
   await page.getByLabel('폴백 공급자', { exact: true }).selectOption('anthropic');
   await page.getByLabel('번역 폴백 모델', { exact: true }).fill('test-fallback');
   await page.getByLabel('요청 오류 시 폴백 사용').check();
-  await page.getByRole('button', { name: '설정 저장' }).click();
+  await page.getByLabel('전사 공급자', { exact: true }).selectOption('xai');
+  await page.getByLabel('전사 모델', { exact: true }).selectOption('grok-voice-transcribe-2.0');
+  await page.getByLabel('전사 폴백 공급자', { exact: true }).selectOption('openai');
+  await page.getByLabel('전사 폴백 모델', { exact: true }).selectOption('whisper-1');
+  assert.equal(
+    await page
+      .getByLabel('전사 공급자', { exact: true })
+      .locator('option[value="anthropic"]')
+      .count(),
+    0,
+  );
+  await page.getByRole('button', { name: '설정 저장' }).first().click();
   await page.getByRole('status').filter({ hasText: '저장했습니다' }).waitFor();
   assert.equal(saved.length, 1);
+  assert.equal(saved[0].transcription_provider, 'xai');
+  assert.equal(saved[0].transcription_model, 'grok-voice-transcribe-2.0');
+  assert.equal(saved[0].transcription_fallback_provider, 'openai');
+  assert.equal(saved[0].transcription_fallback_model, 'whisper-1');
   assert.equal(saved[0].translation_provider, 'openrouter');
   assert.equal(saved[0].translation_fallback_provider, 'anthropic');
   assert.equal(saved[0].credential_updates.openrouter.api_key, 'test-router-key-not-real-12345');
@@ -104,7 +151,7 @@ try {
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: `${screenshots}/settings-mobile.png`, fullPage: true });
   await page.getByRole('button', { name: '등록 키 삭제' }).click();
-  await page.getByRole('button', { name: '설정 저장' }).click();
+  await page.getByRole('button', { name: '설정 저장' }).last().click();
   await page.getByRole('status').filter({ hasText: '저장했습니다' }).waitFor();
   assert.deepEqual(saved[1].credential_updates.openrouter, { remove_api_key: true });
   assert.deepEqual(errors, []);

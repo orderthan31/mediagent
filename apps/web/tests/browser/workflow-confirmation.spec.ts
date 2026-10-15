@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import fs from 'node:fs/promises';
-const evidence = 'docs/evidence/REN-05';
+const evidence = 'docs/evidence/INT-03/regression-workflow';
 const asset = 'a'.repeat(32);
 const video = {
   asset_id: asset,

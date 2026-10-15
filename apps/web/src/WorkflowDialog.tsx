@@ -298,11 +298,13 @@ export const WorkflowDialog = ({
           <label>
             작업 종류
             <select value={template} onChange={(e) => changeTemplate(e.target.value)}>
-              {Object.entries(templates).map(([id, name]) => (
-                <option key={id} value={id}>
-                  {name}
-                </option>
-              ))}
+              {Object.entries(templates)
+                .filter(([id]) => id !== 'faceswap')
+                .map(([id, name]) => (
+                  <option key={id} value={id}>
+                    {name}
+                  </option>
+                ))}
             </select>
           </label>
           {acceptsSubtitle && (

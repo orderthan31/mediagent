@@ -10,6 +10,7 @@ services:
     restart: unless-stopped
     environment: &storage
       VIDEO_STORAGE_ROOT: /data/video-jobs
+      HOST_DISK_PROBE_PATH: /host-disk-probe
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       XAI_API_KEY: ${XAI_API_KEY:-}
@@ -24,9 +25,14 @@ services:
       AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-true}
       AUTH_SESSION_HOURS: ${AUTH_SESSION_HOURS:-8}
       STORAGE_AUDIT_INTERVAL_SECONDS: ${STORAGE_AUDIT_INTERVAL_SECONDS:-300}
+      JOB_INDEX_ENABLED: ${JOB_INDEX_ENABLED:-true}
+      JOB_DATABASE_DIR: /data/job-databases
       WEB_CORS_ORIGINS: ${WEB_CORS_ORIGINS:-http://localhost:8080,http://127.0.0.1:8080}
     volumes:
       - jobs:/data/video-jobs
+      - job-databases:/data/job-databases
+      # Read-only, non-sensitive folder on the host drive; statvfs reports its real capacity.
+      - ${HOST_DISK_PROBE_DIR:-./scripts}:/host-disk-probe:ro
     ports:
       - "127.0.0.1:${DOCKER_API_PORT:-8000}:8000"
     healthcheck:
@@ -59,8 +65,15 @@ services:
       ORPHAN_GRACE_HOURS: ${ORPHAN_GRACE_HOURS:-2}
       WORKER_POLL_INTERVAL_SECONDS: ${WORKER_POLL_INTERVAL_SECONDS:-5}
       MAX_ENCODING_JOBS: ${MAX_ENCODING_JOBS:-1}
+      MAX_CONCURRENT_JOBS: ${MAX_CONCURRENT_JOBS:-3}
+      MAX_GPU_JOBS: ${MAX_GPU_JOBS:-1}
+      MAX_IO_JOBS: ${MAX_IO_JOBS:-2}
+      MAX_LLM_JOBS: ${MAX_LLM_JOBS:-1}
+      AUTO_RESUME_INTERRUPTED: ${AUTO_RESUME_INTERRUPTED:-true}
+      MAX_AUTO_RECOVERIES: ${MAX_AUTO_RECOVERIES:-2}
     volumes:
       - jobs:/data/video-jobs
+      - job-databases:/data/job-databases
     depends_on:
       api:
         condition: service_healthy
@@ -82,3 +95,4 @@ services:
         condition: service_healthy
 volumes:
   jobs:
+  job-databases:

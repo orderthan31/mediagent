@@ -1,0 +1,98 @@
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 366B 0.0s done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/nginx:1.28-alpine
+#2 DONE 1.8s
+
+#3 [internal] load metadata for docker.io/library/node:24-alpine
+#3 DONE 1.9s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 246B 0.0s done
+#4 DONE 0.0s
+
+#5 [build 1/7] FROM docker.io/library/node:24-alpine@sha256:44fce696f38ba8c987c4db89954051000bbd05ffd8d8659ba15ed4a8602e937f
+#5 resolve docker.io/library/node:24-alpine@sha256:44fce696f38ba8c987c4db89954051000bbd05ffd8d8659ba15ed4a8602e937f 0.0s done
+#5 DONE 0.0s
+
+#6 [stage-1 1/3] FROM docker.io/library/nginx:1.28-alpine@sha256:a8b39bd9cf0f83869a2162827a0caf6137ddf759d50a171451b335cecc87d236
+#6 resolve docker.io/library/nginx:1.28-alpine@sha256:a8b39bd9cf0f83869a2162827a0caf6137ddf759d50a171451b335cecc87d236 0.0s done
+#6 DONE 0.0s
+
+#7 [internal] load build context
+#7 transferring context: 36.07MB 1.9s done
+#7 DONE 1.9s
+
+#8 [build 2/7] WORKDIR /web
+#8 CACHED
+
+#9 [build 3/7] COPY apps/web/package.json apps/web/package-lock.json ./
+#9 DONE 0.1s
+
+#10 [build 4/7] COPY apps/web/vendor ./vendor
+#10 DONE 0.0s
+
+#11 [build 5/7] RUN npm ci
+#11 4.322 npm warn deprecated eslint@9.39.5: This version is no longer supported. Please see https://eslint.org/version-support for other options.
+#11 6.503
+#11 6.503 added 200 packages, and audited 201 packages in 6s
+#11 6.503
+#11 6.503 55 packages are looking for funding
+#11 6.503   run `npm fund` for details
+#11 6.505
+#11 6.505 2 high severity vulnerabilities
+#11 6.505
+#11 6.505 To address all issues, run:
+#11 6.505   npm audit fix
+#11 6.505
+#11 6.505 Run `npm audit` for details.
+#11 6.506 npm warn install-scripts 1 package has install scripts not yet covered by allowScripts:
+#11 6.506 npm warn install-scripts   esbuild@0.28.2 (postinstall: node install.js)
+#11 6.506 npm warn install-scripts
+#11 6.506 npm warn install-scripts Run `npm install-scripts ls` to review, or `npm install-scripts approve <pkg>` to allow.
+#11 6.507 npm notice
+#11 6.507 npm notice New major version of npm available! 11.19.1 -> 12.2.0
+#11 6.507 npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+#11 6.507 npm notice To update run: npm install -g npm@12.2.0
+#11 6.507 npm notice
+#11 DONE 6.8s
+
+#12 [build 6/7] COPY apps/web ./
+#12 DONE 0.2s
+
+#13 [build 7/7] RUN npm run build
+#13 0.264
+#13 0.264 > video-subtitle-web@0.1.0 build
+#13 0.264 > tsc -p tsconfig.json && vite build
+#13 0.264
+#13 2.655 vite v7.3.6 building client environment for production...
+#13 2.703 transforming...
+#13 3.910 node_modules/@radix-ui/react-progress/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-progress/dist/index.mjs" was ignored.
+#13 3.980 node_modules/@radix-ui/react-primitive/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-primitive/dist/index.mjs" was ignored.
+#13 4.415 ✓ 1637 modules transformed.
+#13 4.554 rendering chunks...
+#13 4.561 computing gzip size...
+#13 4.570 dist/index.html                   0.43 kB │ gzip:   0.32 kB
+#13 4.570 dist/assets/index-DCAGgdz6.css   79.86 kB │ gzip:  15.40 kB
+#13 4.570 dist/assets/index-tqSOzrgA.js   350.33 kB │ gzip: 109.51 kB
+#13 4.570 ✓ built in 1.90s
+#13 DONE 4.7s
+
+#14 [stage-1 2/3] COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
+#14 CACHED
+
+#15 [stage-1 3/3] COPY --from=build /web/dist /usr/share/nginx/html
+#15 DONE 0.0s
+
+#16 exporting to image
+#16 exporting layers 0.1s done
+#16 exporting manifest sha256:537632072fb026271d10c6ded3ac9d876c6a7063ed4335b1a8fc80647c5b4a56 done
+#16 exporting config sha256:003f607e271796996fcf2d14c3d82159e847a84d3f49533bc0b596e92052d4c7 done
+#16 exporting attestation manifest sha256:22c5ea560565d9215e9f15d00cd4d8b6b6e6c2106ec3824258c9d04680f0f392 0.0s done
+#16 exporting manifest list sha256:fef5264a8db6d673e15329c28faeff04a99b87813b9b74a39bd6ef6014313c15 done
+#16 naming to docker.io/library/mediagent-s2-check:web done
+#16 unpacking to docker.io/library/mediagent-s2-check:web 0.0s done
+#16 DONE 0.2s

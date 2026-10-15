@@ -4,6 +4,9 @@ import os
 import subprocess
 from threading import Event, Thread
 import time
+import json
+import logging
+from .resources import limited
 
 
 class Cancelled(Exception):
@@ -14,6 +17,7 @@ class ProcessLogLimitError(RuntimeError):
     pass
 
 
+@limited('io')
 def run_process(args, *, cwd: Path, log_name: str, check=lambda: None, timeout=7200, max_log_bytes=None, stderr_log_name=None):
     """Bound saved output and fail rather than parse an incomplete process log."""
     limit = int(os.getenv("MAX_PROCESS_LOG_BYTES", str(8 * 1024**2))) if max_log_bytes is None else max_log_bytes
@@ -26,6 +30,14 @@ def run_process(args, *, cwd: Path, log_name: str, check=lambda: None, timeout=7
     overflow = Event()
     failures = []
     tails = {}
+    callback_seconds = 0.0
+    def timed_check():
+        nonlocal callback_seconds
+        before = time.monotonic()
+        try:
+            check()
+        finally:
+            callback_seconds += time.monotonic() - before
     with ExitStack() as stack:
         output = stack.enter_context(log.open('wb'))
         errors = stack.enter_context((cwd / stderr_log_name).open('wb')) if stderr_log_name else None
@@ -60,7 +72,7 @@ def run_process(args, *, cwd: Path, log_name: str, check=lambda: None, timeout=7
             for reader in readers:
                 reader.start()
             while process.poll() is None:
-                check()
+                timed_check()
                 if failures:
                     raise OSError("Cannot save media process output") from failures[0]
                 if overflow.is_set():
@@ -76,7 +88,7 @@ def run_process(args, *, cwd: Path, log_name: str, check=lambda: None, timeout=7
                 raise OSError("Cannot save media process output") from failures[0]
             if overflow.is_set():
                 raise ProcessLogLimitError(f"Process log exceeded {limit} bytes ({log_name})")
-            check()
+            timed_check()
             if process.returncode:
                 detail = (tails.get('stderr') or tails.get('stdout', b'')).decode("utf-8", errors="replace")
                 raise RuntimeError(f"{Path(str(args[0])).name} exited with {process.returncode}: {detail}")
@@ -96,4 +108,15 @@ def run_process(args, *, cwd: Path, log_name: str, check=lambda: None, timeout=7
             for reader in readers:
                 if reader.ident is not None and reader.is_alive():
                     reader.join(timeout=1)
+            # Aggregate process and control/IO time without recording arguments or media names.
+            try:
+                metrics = cwd / 'process-timings.jsonl'
+                if metrics.exists() and metrics.stat().st_size > 512 * 1024:
+                    metrics.replace(cwd / 'process-timings.previous.jsonl')
+                with metrics.open('a', encoding='utf-8') as stream:
+                    stream.write(json.dumps({'operation': log_name, 'executable': Path(str(args[0])).name,
+                        'elapsed_seconds': round(time.monotonic() - started, 3),
+                        'control_seconds': round(callback_seconds, 3), 'returncode': process.returncode}) + '\n')
+            except OSError:
+                logging.getLogger(__name__).warning('Could not save process timing metrics')
     return log

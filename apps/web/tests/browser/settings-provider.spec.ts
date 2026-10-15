@@ -1,11 +1,13 @@
 import { expect, test } from '@playwright/test';
 import fs from 'node:fs/promises';
-const evidence = 'docs/evidence/REN-06';
+const evidence = 'docs/evidence/INT-03/regression-settings';
 const fakeKey = 'fixture-only-not-a-real-api-key';
 const fakeToken = 'fixture-only-not-a-real-session';
 const longModel = 'fixture-model-' + 'long-model-id-'.repeat(8);
 const preferences = {
   revision: 7,
+  transcription_provider: 'gemini',
+  transcription_fallback_provider: 'gemini',
   transcription_model: longModel,
   transcription_fallback_model: '',
   translation_model: 'fixture-translation',
@@ -38,6 +40,19 @@ test.beforeEach(async ({ page }) => {
         csrf_token: fakeToken,
       },
       '/api/settings/llm': preferences,
+      '/api/settings/storage': {
+        checked_at: 1792022400,
+        disk: { total_bytes: 1000, used_bytes: 100, free_bytes: 900 },
+        host_disk: null,
+        container: true,
+        total_bytes: 100,
+        quota_bytes: 1000,
+        categories: {},
+        jobs: [],
+      },
+      '/api/settings/llm/stt-models': {
+        providers: { gemini: [], openai: ['whisper-1'], xai: [], openrouter: [] },
+      },
       '/api/videos': { videos: [] },
       '/api/jobs': { jobs: [] },
       '/api/video-uploads': { uploads: [] },

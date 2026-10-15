@@ -52,7 +52,7 @@ def get_video(asset_id: str, request: Request):
         asset = VideoAssetRepository(routes.repository).read(asset_id, owner_id=request.state.owner_id)
         jobs = [routes.job_to_response(job) for job in routes.repository.list()
                 if job.metadata.get('asset_id') == asset_id
-                and job.metadata.get('owner_id') == request.state.owner_id]
+                and job.metadata.get('owner_id') == request.state.owner_id and not job.metadata.get('internal')]
         return {'video': asset, 'jobs': jobs}
 
 

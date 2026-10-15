@@ -1,0 +1,50 @@
+
+Running 2 tests using 1 worker
+
+[1/2] tests\browser\integrated-operator.spec.ts:427:3 › safe integrated operator journey 1440px
+  1) tests\browser\integrated-operator.spec.ts:427:3 › safe integrated operator journey 1440px ─────
+
+    Error: browserType.launch: Executable doesn't exist at <workspace>\AppData\Local\ms-playwright\chromium_headless_shell-1194\chrome-win\headless_shell.exe
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     npx playwright install                                              ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\auth-ui\integrated-operator-safe-integrated-operator-journey-1440px\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\auth-ui\integrated-operator-safe-integrated-operator-journey-1440px\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[2/2] tests\browser\integrated-operator.spec.ts:427:3 › safe integrated operator journey 390px
+  2) tests\browser\integrated-operator.spec.ts:427:3 › safe integrated operator journey 390px ──────
+
+    Error: browserType.launch: Executable doesn't exist at <workspace>\AppData\Local\ms-playwright\chromium_headless_shell-1194\chrome-win\headless_shell.exe
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     npx playwright install                                              ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\auth-ui\integrated-operator-safe-integrated-operator-journey-390px\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\auth-ui\integrated-operator-safe-integrated-operator-journey-390px\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+  2 failed
+    tests\browser\integrated-operator.spec.ts:427:3 › safe integrated operator journey 1440px ──────
+    tests\browser\integrated-operator.spec.ts:427:3 › safe integrated operator journey 390px ───────

@@ -1,11 +1,13 @@
 import json
 
 import httpx
+from typing import Literal
+from pydantic import BaseModel, Field
 from fastapi import APIRouter, Depends, HTTPException, Request
 from app.api.auth_routes import require_session
 from app.core.config import settings
 from video_service.llm_settings import LLMSettingsStore, SettingsConflict
-from video_service.llm_providers import PROVIDERS, provider_headers, valid_model
+from video_service.llm_providers import PROVIDERS, STT_MODELS, provider_headers, valid_model
 
 
 def authorize(request: Request):
@@ -18,6 +20,29 @@ def authorize(request: Request):
 
 
 router = APIRouter(prefix='/api/settings', dependencies=[Depends(authorize)])
+
+
+class StorageCleanupRequest(BaseModel):
+    mode: Literal['temporary', 'jobs']
+    job_ids: list[str] = Field(min_length=1, max_length=100)
+
+
+@router.get('/storage')
+def get_storage(request: Request):
+    from app.services.storage_settings import inventory
+    try:
+        return inventory(settings, request.state.settings_owner)
+    except (OSError, ValueError):
+        raise HTTPException(503, '저장 공간을 확인하지 못했습니다. 잠시 후 다시 조회하세요.') from None
+
+
+@router.post('/storage/cleanup')
+def clean_storage(payload: StorageCleanupRequest, request: Request):
+    import re
+    from app.services.storage_settings import cleanup
+    if len(set(payload.job_ids)) != len(payload.job_ids) or any(not re.fullmatch('[0-9a-f]{32}', value) for value in payload.job_ids):
+        raise HTTPException(422, '작업 ID를 확인하세요.')
+    return cleanup(settings, request.state.settings_owner, payload.job_ids, payload.mode)
 
 
 @router.get('/llm')
@@ -85,3 +110,8 @@ async def list_models(request: Request, provider: str = 'gemini'):
         raise
     except Exception:
         raise HTTPException(502, '공급자 모델 목록을 가져오지 못했습니다. 모델명은 직접 입력할 수 있습니다.') from None
+
+
+@router.get('/llm/stt-models')
+def stt_models():
+    return {'providers': STT_MODELS}

@@ -27,8 +27,9 @@ from .translation_inputs import translation_groups
 from .translation_requests import requests as translation_requests, align_result, SCHEMA as TRANSLATION_SCHEMA
 from .llm_diagnostics import emit, exception_details, attempt_context, new_context
 from .content_block import check_content_block, BLOCKED_TEXT, ContentBlockedError
-from video_service.llm_providers import PROVIDERS, valid_model
+from video_service.llm_providers import PROVIDERS, valid_model, valid_stt_model
 from .translation_transport import ModelRequestError, request_translation
+from .stt_transport import request_transcription
 
 
 REQUEST_DEADLINE_SECONDS = 125
@@ -46,10 +47,17 @@ class GeminiProvider:
         self.transcription_model = preferences.get('transcription_model', self.transcription_model)
         self.translation_model = preferences.get('translation_model', self.translation_model)
         self.translation_provider = preferences.get('translation_provider', 'gemini')
+        self.transcription_provider = preferences.get('transcription_provider', 'gemini')
         self.preferences = preferences
         if (self.translation_provider not in PROVIDERS or not valid_model(self.translation_provider, self.translation_model)
-                or not all(valid_model('gemini', model) for model in (self.transcription_model, self.audio_filter_model))):
+                or not valid_stt_model(self.transcription_provider, self.transcription_model)
+                or not valid_model('gemini', self.audio_filter_model)):
             raise ValueError("Set valid transcription/translation model names")
+
+    @property
+    def transcription_identity(self):
+        provider = getattr(self, 'transcription_provider', 'gemini')
+        return self.transcription_model if provider == 'gemini' else f'{provider}:{self.transcription_model}'
 
     @property
     def translation_identity(self):
@@ -58,8 +66,15 @@ class GeminiProvider:
 
     def validate_for_stages(self, stages):
         required = set()
-        if 'transcribe' in stages or ('extract_audio' in stages and os.getenv('VOCALIZATION_FILTER_ENABLED', 'false').lower() == 'true'):
+        if 'extract_audio' in stages and os.getenv('VOCALIZATION_FILTER_ENABLED', 'false').lower() == 'true':
             required.add('gemini')
+        if 'transcribe' in stages:
+            required.add(self.transcription_provider)
+            if self.preferences.get('transcription_fallback_model') and any(self.preferences.get(flag) for flag in ('fallback_on_error', 'fallback_on_block')):
+                fallback_provider = self.preferences.get('transcription_fallback_provider', 'gemini')
+                if not valid_stt_model(fallback_provider, self.preferences['transcription_fallback_model']):
+                    raise ValueError('Unsupported transcription fallback model')
+                required.add(fallback_provider)
         if 'translate' in stages:
             required.add(self.translation_provider)
             if self.preferences.get('translation_fallback_model') and any(self.preferences.get(flag) for flag in ('fallback_on_error', 'fallback_on_block')):
@@ -86,12 +101,14 @@ class GeminiProvider:
             finally:
                 sdk.close()
 
-    async def _request(self, parts, schema, check, model, transcription_config=None, *, max_attempts=3, trace_attempt=None):
+    async def _request(self, parts, schema, check, model, transcription_config=None, *, max_attempts=3, trace_attempt=None, stt_language=None):
         preferences = getattr(self, 'preferences', {})
         context = attempt_context.get()
         stage = context['identity'].get('stage') if context else None
-        provider = preferences.get('translation_provider', 'gemini') if stage == 'translation' else 'gemini'
-        fallback_provider = preferences.get('translation_fallback_provider', 'gemini') if stage == 'translation' else 'gemini'
+        if stt_language is not None:
+            stage = 'transcription'
+        provider = preferences.get(f'{stage}_provider', 'gemini') if stage in {'transcription', 'translation'} else 'gemini'
+        fallback_provider = preferences.get(f'{stage}_fallback_provider', 'gemini') if stage in {'transcription', 'translation'} else 'gemini'
         fallback = preferences.get(f'{stage}_fallback_model') if stage in {'transcription', 'translation'} else None
         identity = context['identity'] if context else {}
         slot = (identity.get('job_id'), identity.get('queue_id'), stage, identity.get('segment'))
@@ -105,6 +122,9 @@ class GeminiProvider:
                 return await self._request_once(parts, schema, check, selected_model, transcription_config,
                     max_attempts=attempts, trace_attempt=trace_attempt)
             key = preferences.get('api_keys', {}).get(selected_provider, '')
+            if stage == 'transcription':
+                return await request_transcription(selected_provider, key, selected_model, parts,
+                    stt_language or 'auto', check, trace_attempt, retry_delay)
             return await request_translation(selected_provider, key, selected_model, parts, schema,
                 check, trace_attempt, retry_delay)
         # The segment queue owns the retry budget. Once it retries a failed
@@ -297,8 +317,8 @@ class GeminiProvider:
                     emit("response_validation_failed", category="remote_output_invalid_json", status=response.status_code)
                     raise
 
-    def request(self, parts, schema, check, model, transcription_config=None):
-        return asyncio.run(self._request(parts, schema, check, model, transcription_config))
+    def request(self, parts, schema, check, model, transcription_config=None, **kwargs):
+        return asyncio.run(self._request(parts, schema, check, model, transcription_config, **kwargs))
 
     def detect_vocalizations(self, source, language, check, strength="conservative"):
         from .vocalizations import detect_vocalizations
@@ -307,7 +327,7 @@ class GeminiProvider:
     def transcribe_window(self, audio, left, right, language, check, depth=0):
         audio.setpos(left)
         digest = hashlib.sha256(audio.readframes(right - left)).hexdigest()
-        identity = ["sentence-window-v1", self.transcription_model, transcription_prompt(language, (right - left) / audio.getframerate()),
+        identity = ["sentence-window-v1", self.transcription_identity, transcription_prompt(language, (right - left) / audio.getframerate()),
             audio.getframerate(), audio.getnchannels(), audio.getsampwidth(), digest]
         return cached_result(identity, lambda: self._transcribe_window(audio, left, right, language, check, depth))
 
@@ -326,7 +346,7 @@ class GeminiProvider:
                     items = self.request([{"text": transcription_prompt(language, duration, allow_overlap=True)},
                         {"inlineData": {"mimeType": "audio/wav",
                             "data": base64.b64encode(buffer.getvalue()).decode("ascii")}}],
-                        SENTENCE_SCHEMA, check, self.transcription_model)
+                        SENTENCE_SCHEMA, check, self.transcription_model, stt_language=language)
                 return validate_sentences(items, duration)
             except ValueError:
                 if attempt == 1:
@@ -343,7 +363,7 @@ class GeminiProvider:
                 list(transcription_windows(total, rate, spans, context_seconds=0))
             regions = identity_timeline(total / rate)
             windows = list(transcription_windows(total, rate, regions, context_seconds=0, window_seconds=60))
-        identity = ["packed-sentence-60-v2", self.transcription_model, transcription_prompt(language, 60),
+        identity = ["packed-sentence-60-v2", self.transcription_identity, transcription_prompt(language, 60),
                     source.stat().st_size, source.stat().st_mtime_ns, [(a, b, c) for a, b, c, _ in windows]]
         key = hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
         path = work / "transcription" / f"{key}.json" if work is not None else None
@@ -377,7 +397,7 @@ class GeminiProvider:
             with audio_window(left, right, rate, 0):
                 return await self._request([{"text": prompts[index]},
                     {"inlineData": {"mimeType": "audio/wav", "data": base64.b64encode(buffer.getvalue()).decode("ascii")}}],
-                    SENTENCE_SCHEMA, lambda: None, self.transcription_model, max_attempts=1, trace_attempt=attempt)
+                    SENTENCE_SCHEMA, lambda: None, self.transcription_model, max_attempts=1, trace_attempt=attempt, stt_language=language)
 
         def segments(results):
             output = []

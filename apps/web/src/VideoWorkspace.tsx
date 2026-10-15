@@ -18,10 +18,13 @@ import { JobDetail } from './JobDetail';
 import { SettingsPage } from './SettingsPage';
 import { failureMessage, isContentBlocked } from './job-failure';
 import { StageProgress } from './StageProgress';
+import { QueuePanel } from './QueuePanel';
+import { JobTiming } from './JobTiming';
 import { SubtitleEditor } from './SubtitleEditor';
 import { UploadItem, UploadQueue } from './upload-queue';
 import { isVideoFile } from './video-file';
 import { WorkflowDialog } from './WorkflowDialog';
+import { FaceSwapDialog } from './FaceSwapDialog';
 import {
   jsonPost,
   statusLabels,
@@ -42,6 +45,7 @@ import './video-workspace.css';
 import './workspace-polish.css';
 import './workspace-shell.css';
 import './storage.css';
+import './feature-renewal.css';
 const workspaceLinks = [
   { id: 'videos', label: '영상 보관함', href: '#/' },
   { id: 'jobs', label: '작업 목록', href: '#/jobs' },
@@ -62,6 +66,7 @@ export const VideoWorkspace = () => {
   const [detail, setDetail] = useState<VideoDetail | null>(null),
     [subtitleInputs, setSubtitleInputs] = useState<SubtitleInput[]>([]),
     [workflow, setWorkflow] = useState(false),
+    [faceswap, setFaceswap] = useState(false),
     [review, setReview] = useState<Job | null>(null);
   const input = useRef<HTMLInputElement>(null),
     srtInput = useRef<HTMLInputElement>(null),
@@ -319,6 +324,7 @@ export const VideoWorkspace = () => {
               )}
             </div>
             <StageProgress job={job} />
+            <JobTiming job={job} />
           </article>
         ))}
         {!items.length && (
@@ -334,6 +340,7 @@ export const VideoWorkspace = () => {
     const navigate = () => {
       setRoute(location.hash || '#/');
       setWorkflow(false);
+      setFaceswap(false);
       setDetail(null);
       setSubtitleInputs([]);
       setQuery('');
@@ -494,6 +501,9 @@ export const VideoWorkspace = () => {
                         <p className="workspace-eyebrow">원본 영상</p>
                         <h1>{detail.video.original_filename}</h1>
                       </div>
+                      <Button variant="secondary" onClick={() => setFaceswap(true)}>
+                        얼굴 합성
+                      </Button>
                       <Button onClick={() => setWorkflow(true)}>
                         <Play size={17} aria-hidden="true" />새 작업
                       </Button>
@@ -585,6 +595,7 @@ export const VideoWorkspace = () => {
                     </Button>
                   </div>
                 </div>
+                {jobsView && <QueuePanel jobs={jobs} onChanged={refresh} />}
                 {!jobsView && (
                   <StorageUploads
                     uploads={uploads}
@@ -662,6 +673,17 @@ export const VideoWorkspace = () => {
             onClose={() => setWorkflow(false)}
             onCreated={(job) => {
               setWorkflow(false);
+              location.hash = `/jobs/${job.job_id}`;
+              void refresh();
+            }}
+          />
+        )}
+        {faceswap && detail && (
+          <FaceSwapDialog
+            detail={detail}
+            onClose={() => setFaceswap(false)}
+            onCreated={(job) => {
+              setFaceswap(false);
               location.hash = `/jobs/${job.job_id}`;
               void refresh();
             }}

@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import fs from 'node:fs/promises';
 
-const evidence = 'docs/evidence/REN-04';
+const evidence = 'docs/evidence/INT-03/regression-ticket';
 const id = 'c'.repeat(32);
 const original =
   '아주 긴 원문 자막입니다. 영상 처리와 검수 상태를 구분하고 긴 번역도 읽을 수 있어야 합니다.';

@@ -12,6 +12,7 @@ const currentStages: Record<string, string> = {
   TRANSLATING: 'translate',
   GENERATING_SUBTITLE: 'generate_subtitle',
   ENCODING: 'encode',
+  FACE_SWAPPING: 'faceswap',
   VALIDATING: 'validate_video',
 };
 const explanations: Record<string, string> = {
@@ -36,7 +37,9 @@ export const TicketSummary = ({ job, labels }: { job: Job; labels: Record<string
       <span>
         {job.metadata.workflow
           ? templates[job.metadata.workflow.template] || job.metadata.workflow.template
-          : '처리 티켓'}
+          : job.metadata.faceswap_chunks
+            ? '얼굴 합성 티켓'
+            : '처리 티켓'}
       </span>
     </div>
     <p>

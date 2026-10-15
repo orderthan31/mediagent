@@ -2,7 +2,8 @@
 
 Open Settings from the workspace sidebar (`#/settings`). Select or enter primary
 and fallback model IDs separately for transcription and translation. Transcription
-still uses Gemini. Translation supports Gemini, OpenAI, xAI, OpenRouter and Anthropic,
+supports Gemini, OpenAI, xAI and OpenRouter timestamp-capable models.
+Translation supports Gemini, OpenAI, xAI, OpenRouter and Anthropic,
 with independently selected primary and fallback providers. Model-list
 refresh calls the selected provider's official Models API using its saved/environment key;
 it does not generate content. Availability in that list does not guarantee a
@@ -81,3 +82,41 @@ cross-provider quality/speed evaluation has been run. Real-model compatibility a
 account entitlements still require an explicitly authorized paid smoke test.
 
 See [STT provider research](stt-providers.md) for the separate audio roadmap.
+
+## Transcription Protocol
+
+The STT primary and fallback each select their own provider and model, independently
+of translation. Credentials are shared with translation for the same provider.
+Existing settings default to Gemini without overwriting registered keys.
+`GET /api/settings/llm/stt-models` supplies the supported model catalog to the UI
+without making any paid or upstream request. Non-Gemini STT is restricted to known
+timestamp-capable contracts, not arbitrary chat or text-only transcription models:
+
+- OpenAI: `whisper-1` (verbose JSON segments), `gpt-4o-transcribe-diarize`
+  (diarized JSON with automatic chunking).
+- xAI: `grok-voice-transcribe-2.0`, `grok-voice-transcribe-1.0` (word times grouped
+  into utterances at punctuation, pauses and five-second boundaries).
+- OpenRouter: `microsoft/mai-transcribe-2`, `openai/whisper-large-v3` (verbose JSON).
+- Gemini: existing manually entered model IDs and official SDK remain supported.
+- Anthropic: not offered for STT until a supported audio/timestamp contract exists.
+
+Dedicated STT uses multipart WAV uploads to fixed endpoints, a language hint (omitted
+for auto detection), and a conservative 25 MB per-clip limit. xAI options precede
+the file field. No translation prompt or Gemini generation options are sent.
+These engines do not implement Gemini's semantic exclusion prompt: singing, cries,
+or background voices can still be transcribed. Compare quality on an authorized
+sample before replacing Gemini as a production default. OpenRouter's STT gateway
+routing is managed by OpenRouter, unlike the chat routing flags used for translation.
+
+All engines retain the 60-second packed-audio clock, three concurrent requests,
+queue retry/drain/cancel behavior and original-video timeline restoration. Missing,
+reversed or out-of-range timestamps are errors; no timestamps are fabricated.
+External response traces retain the full response and usage; request traces retain
+clip clock, model, language, byte size and audio hash. The preserved preprocessed
+audio can reconstruct the exact clip; no additional audio copies are generated.
+Partial queue caches include the primary provider/model. Completed transcription
+receipts remain reusable even if settings change; selecting another model does
+not force a completed transcription to run again.
+
+Deploy API, worker and web together for the new STT fields and catalog endpoint.
+Contract tests do not establish actual account access or real-audio accuracy.

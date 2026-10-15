@@ -1,0 +1,150 @@
+
+Running 12 tests using 1 worker
+
+[1/12] tests\browser\integrated-operator.spec.ts:427:3 › safe integrated operator journey 1440px
+[2/12] tests\browser\integrated-operator.spec.ts:427:3 › safe integrated operator journey 390px
+[3/12] tests\browser\settings-provider.spec.ts:90:1 › 키 출처·변경 대기·모델 조회와 저장 충돌/키 초기화·성공 적용을 구분한다
+  1) tests\browser\settings-provider.spec.ts:90:1 › 키 출처·변경 대기·모델 조회와 저장 충돌/키 초기화·성공 적용을 구분한다 ──────
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText('키 보유 상태와 모델 목록 조회는 연결·추론 성공을 뜻하지 않습니다.', { exact: true })
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByText('키 보유 상태와 모델 목록 조회는 연결·추론 성공을 뜻하지 않습니다.', { exact: true })
+
+
+      90 |       exact: true,
+      91 |     }),
+    > 92 |   ).toBeVisible();
+         |     ^
+      93 |   await page.evaluate(() => scrollTo(0, 0));
+      94 |   await page.screenshot({ path: `${evidence}/settings-desktop.png`, fullPage: true });
+      95 |   await page.getByRole('button', { name: 'Gemini 모델 목록 조회', exact: true }).click();
+        at <workspace>\apps\web\tests\browser\settings-provider.spec.ts:92:5
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "Cannot read properties of undefined (reading 'filter')",
+    + ]
+
+      51 |   });
+      52 | });
+    > 53 | test.afterEach(() => expect(errors).toEqual([]));
+         |                                     ^
+      54 |
+      55 | test('키 출처·변경 대기·모델 조회와 저장 충돌/키 초기화·성공 적용을 구분한다', async ({ page }) => {
+      56 |   const puts: Record<string, unknown>[] = [],
+        at <workspace>\apps\web\tests\browser\settings-provider.spec.ts:53:37
+
+    Test timeout of 30000ms exceeded.
+
+
+[4/12] tests\browser\settings-provider.spec.ts:318:1 › 초기 조회/모델 조회·저장 대기와 실패 및 필수 입력을 구분한다
+  2) tests\browser\settings-provider.spec.ts:318:1 › 초기 조회/모델 조회·저장 대기와 실패 및 필수 입력을 구분한다 ───────────
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText('설정을 불러오는 중입니다.', { exact: true })
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByText('설정을 불러오는 중입니다.', { exact: true })
+
+
+      211 |   await page.goto('/#/settings');
+      212 |   await expect.poll(() => pending.length).toBeGreaterThan(0);
+    > 213 |   await expect(page.getByText('설정을 불러오는 중입니다.', { exact: true })).toBeVisible();
+          |                                                                   ^
+      214 |   await expect(
+      215 |     page.getByRole('button', { name: '설정 새로 불러오기', exact: true }),
+      216 |   ).toBeDisabled();
+        at <workspace>\apps\web\tests\browser\settings-provider.spec.ts:213:67
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "Cannot read properties of undefined (reading 'filter')",
+    + ]
+
+      51 |   });
+      52 | });
+    > 53 | test.afterEach(() => expect(errors).toEqual([]));
+         |                                     ^
+      54 |
+      55 | test('키 출처·변경 대기·모델 조회와 저장 충돌/키 초기화·성공 적용을 구분한다', async ({ page }) => {
+      56 |   const puts: Record<string, unknown>[] = [],
+        at <workspace>\apps\web\tests\browser\settings-provider.spec.ts:53:37
+
+    Test timeout of 30000ms exceeded.
+
+
+[5/12] tests\browser\settings-provider.spec.ts:457:1 › 계정 메뉴·로그아웃 실패/성공·로그인 재입력과 세션 만료 계약을 보존한다
+  3) tests\browser\settings-provider.spec.ts:457:1 › 계정 메뉴·로그아웃 실패/성공·로그인 재입력과 세션 만료 계약을 보존한다 ──────
+
+    Test timeout of 30000ms exceeded.
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "Cannot read properties of undefined (reading 'filter')",
+    + ]
+
+      51 |   });
+      52 | });
+    > 53 | test.afterEach(() => expect(errors).toEqual([]));
+         |                                     ^
+      54 |
+      55 | test('키 출처·변경 대기·모델 조회와 저장 충돌/키 초기화·성공 적용을 구분한다', async ({ page }) => {
+      56 |   const puts: Record<string, unknown>[] = [],
+        at <workspace>\apps\web\tests\browser\settings-provider.spec.ts:53:37
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+      - waiting for getByRole('button', { name: '로그아웃', exact: true })
+
+
+      294 |   );
+      295 |   await page.goto('/#/settings');
+    > 296 |   await page.getByRole('button', { name: '로그아웃', exact: true }).click();
+          |                                                                 ^
+      297 |   await expect(page.getByRole('alert')).toHaveText('fixture 로그아웃 실패');
+      298 |   await expect(page.getByRole('button', { name: '로그아웃', exact: true })).toBeVisible();
+      299 |   await page.getByRole('button', { name: '로그아웃', exact: true }).click();
+        at <workspace>\apps\web\tests\browser\settings-provider.spec.ts:296:65
+
+    Test timeout of 30000ms exceeded.
+
+
+[6/12] tests\browser\ticket-review.spec.ts:107:1 › 현재 단계·실패/부분 결과·대기는 실제 상태와 분리해 표시한다
+[7/12] tests\browser\ticket-review.spec.ts:241:1 › 완료 티켓의 결과 링크·원문/번역·저장 성공과 readonly 거부를 보존한다
+[8/12] tests\browser\ticket-review.spec.ts:406:1 › 검수 대기 티켓에서 부분 결과·요청 흐름을 구분하고 저장 충돌/실패 시 입력을 보존한다
+[9/12] tests\browser\workflow-confirmation.spec.ts:70:1 › 유료 단계는 별도 확인 전 form submit도 거부하고 같은 payload 재시도는 request_id를 보존한다
+[10/12] tests\browser\workflow-confirmation.spec.ts:148:1 › 옵션·음성·원본·계획 갱신에 이전 확인을 승계하지 않는다
+[11/12] tests\browser\workflow-confirmation.spec.ts:285:1 › 계획 대기·실패·유료 정보 누락과 늦은 이전 응답은 생성 허가가 아니다
+[12/12] tests\browser\workflow-confirmation.spec.ts:417:1 › 자막 가져오기·필수 선택·재사용·유료 없는 계획과 기존 티켓 생성 연결을 보존한다
+  3 failed
+    tests\browser\settings-provider.spec.ts:90:1 › 키 출처·변경 대기·모델 조회와 저장 충돌/키 초기화·성공 적용을 구분한다 ───────
+    tests\browser\settings-provider.spec.ts:318:1 › 초기 조회/모델 조회·저장 대기와 실패 및 필수 입력을 구분한다 ────────────
+    tests\browser\settings-provider.spec.ts:457:1 › 계정 메뉴·로그아웃 실패/성공·로그인 재입력과 세션 만료 계약을 보존한다 ───────
+  9 passed (2.5m)

@@ -58,19 +58,20 @@ class StorageMonitorTests(unittest.TestCase):
 class StorageMonitorLifecycleTests(unittest.IsolatedAsyncioTestCase):
     async def test_background_audit_recovers_and_stops_cleanly(self):
         app = SimpleNamespace(state=SimpleNamespace())
-        settings = SimpleNamespace(storage_audit_interval_seconds=0.01)
+        settings = SimpleNamespace(storage_audit_interval_seconds=0.01, storage_root=ROOT)
         snapshot = {'over_quota': False, 'low_space': False}
         with patch('app.services.storage_monitor.storage_snapshot', side_effect=[OSError('temporary'), snapshot, snapshot]) as scan:
-            with patch('app.services.storage_monitor.logger') as log:
+            with patch('app.services.storage_monitor.logger') as log, patch('app.services.storage_monitor.write_json_atomic') as persist:
                 async with anyio.create_task_group() as tasks:
                     tasks.start_soon(monitor_storage, app, settings)
                     with anyio.fail_after(2):
-                        while not hasattr(app.state, 'storage_snapshot'):
+                        while not persist.called:
                             await anyio.sleep(0.005)
                     tasks.cancel_scope.cancel()
                 self.assertGreaterEqual(scan.call_count, 2)
                 log.exception.assert_called_once()
                 self.assertEqual(app.state.storage_snapshot, snapshot)
+                persist.assert_called_with(ROOT / '.storage-audit.json', snapshot)
 
 
 if __name__ == '__main__':

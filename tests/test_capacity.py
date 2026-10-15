@@ -4,6 +4,7 @@ import sys
 import unittest
 from unittest.mock import patch
 from uuid import uuid4
+import time
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT / "packages/shared"), str(ROOT / "apps/api")]
@@ -11,9 +12,40 @@ from app.services.storage_guard import StorageGuard
 from video_service.capacity import StorageLimitError, assert_capacity, reserve_workspace, workspace_reservation, remaining_reservations
 from video_service.repository import FilesystemJobRepository
 from video_service.models import QualityProfile, JobStatus
+from video_service.capacity import reserve_preview_capacity
+from video_service.storage import write_json_atomic
 
 
 class CapacityTests(unittest.TestCase):
+    def audit(self, used=1000, stamp=None):
+        write_json_atomic(self.root / '.storage-audit.json', {'started_at': stamp or time.time(), 'used_bytes': used})
+
+    def test_preview_admission_avoids_scan_and_charges_each_request(self):
+        self.audit()
+        with patch('video_service.capacity.used_bytes', side_effect=AssertionError('No recursive scans')):
+            reserve_preview_capacity(self.repo, 1300, 0, 200)
+            with self.assertRaises(StorageLimitError):
+                reserve_preview_capacity(self.repo, 1300, 0, 200)
+
+    def test_preview_budget_carries_concurrent_audit_writes(self):
+        self.audit(stamp=time.time() - 1)
+        reserve_preview_capacity(self.repo, 1400, 0, 300)
+        self.audit()
+        with self.assertRaises(StorageLimitError):
+            reserve_preview_capacity(self.repo, 1400, 0, 200)
+
+    def test_preview_stale_audit_falls_back_to_strict_check(self):
+        self.audit(stamp=time.time() - 700)
+        with patch('video_service.capacity.assert_capacity') as strict:
+            reserve_preview_capacity(self.repo, 1400, 0, 200)
+        strict.assert_called_once()
+
+    def test_preview_still_checks_live_free_space(self):
+        self.audit()
+        with patch('video_service.capacity.shutil.disk_usage') as usage:
+            usage.return_value.free = 50
+            with self.assertRaises(StorageLimitError):
+                reserve_preview_capacity(self.repo, 10000, 0, 100)
     def setUp(self):
         self.root = ROOT / "data/test-runs" / uuid4().hex
         self.root.mkdir(parents=True)

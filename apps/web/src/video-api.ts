@@ -9,6 +9,7 @@ export type VideoAsset = {
     width: number;
     height: number;
     has_audio: boolean;
+    frame_rate?: string;
   };
   provenance: {
     kind: string;
@@ -46,6 +47,7 @@ export type VideoDetail = {
   jobs: Job[];
 };
 export const templates: Record<string, string> = {
+  faceswap: '얼굴 합성',
   full: '전체 처리',
   extract_audio: '음성 추출',
   transcribe: '전사만',
@@ -54,6 +56,7 @@ export const templates: Record<string, string> = {
   encode: '인코딩만',
 };
 export const stageLabels: Record<string, string> = {
+  faceswap: '얼굴 합성',
   analyze: '영상 확인',
   extract_audio: '음성 추출',
   preprocess_audio: '음성 전처리',
@@ -64,6 +67,7 @@ export const stageLabels: Record<string, string> = {
   validate_video: '결과 검증',
 };
 export const statusLabels: Record<string, string> = {
+  FACE_SWAPPING: '얼굴 합성 중',
   UPLOADING: '업로드 중',
   READY: '실행 대기',
   QUEUED: '처리 대기',

@@ -1,0 +1,415 @@
+{
+  "fixture": true,
+  "externalCalls": false,
+  "width": 390,
+  "calls": [
+    {
+      "path": "/api/auth/session",
+      "method": "GET"
+    },
+    {
+      "path": "/api/auth/session",
+      "method": "GET"
+    },
+    {
+      "path": "/api/queue",
+      "method": "GET"
+    },
+    {
+      "path": "/api/videos",
+      "method": "GET"
+    },
+    {
+      "path": "/api/jobs",
+      "method": "GET"
+    },
+    {
+      "path": "/api/video-uploads",
+      "method": "GET"
+    },
+    {
+      "path": "/api/queue",
+      "method": "GET"
+    },
+    {
+      "path": "/api/videos",
+      "method": "GET"
+    },
+    {
+      "path": "/api/jobs",
+      "method": "GET"
+    },
+    {
+      "path": "/api/video-uploads",
+      "method": "GET"
+    },
+    {
+      "path": "/api/queue",
+      "method": "PATCH",
+      "body": {
+        "revision": 1,
+        "paused": true
+      }
+    },
+    {
+      "path": "/api/videos",
+      "method": "GET"
+    },
+    {
+      "path": "/api/jobs",
+      "method": "GET"
+    },
+    {
+      "path": "/api/video-uploads",
+      "method": "GET"
+    },
+    {
+      "path": "/api/queue",
+      "method": "GET"
+    },
+    {
+      "path": "/api/queue",
+      "method": "PATCH",
+      "body": {
+        "revision": 2,
+        "order": [
+          "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "dddddddddddddddddddddddddddddddd"
+        ]
+      }
+    },
+    {
+      "path": "/api/queue",
+      "method": "GET"
+    },
+    {
+      "path": "/api/queue",
+      "method": "PATCH",
+      "body": {
+        "revision": 3,
+        "order": [
+          "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "dddddddddddddddddddddddddddddddd"
+        ]
+      }
+    },
+    {
+      "path": "/api/videos",
+      "method": "GET"
+    },
+    {
+      "path": "/api/jobs",
+      "method": "GET"
+    },
+    {
+      "path": "/api/video-uploads",
+      "method": "GET"
+    },
+    {
+      "path": "/api/queue",
+      "method": "GET"
+    },
+    {
+      "path": "/api/settings/storage",
+      "method": "GET"
+    },
+    {
+      "path": "/api/settings/llm",
+      "method": "GET"
+    },
+    {
+      "path": "/api/settings/storage",
+      "method": "GET"
+    },
+    {
+      "path": "/api/settings/llm",
+      "method": "GET"
+    },
+    {
+      "path": "/api/settings/llm/stt-models",
+      "method": "GET"
+    },
+    {
+      "path": "/api/settings/llm/stt-models",
+      "method": "GET"
+    },
+    {
+      "path": "/api/settings/llm",
+      "method": "PUT",
+      "body": {
+        "revision": 1,
+        "transcription_provider": "openai",
+        "transcription_fallback_provider": "openai",
+        "transcription_model": "whisper-1",
+        "transcription_fallback_model": "",
+        "translation_provider": "gemini",
+        "translation_fallback_provider": "openai",
+        "translation_model": "fixture-translation",
+        "translation_fallback_model": "",
+        "fallback_on_error": false,
+        "fallback_on_block": false,
+        "credential_updates": {}
+      }
+    },
+    {
+      "path": "/api/settings/llm",
+      "method": "PUT",
+      "body": {
+        "revision": 1,
+        "transcription_provider": "openai",
+        "transcription_fallback_provider": "openai",
+        "transcription_model": "whisper-1",
+        "transcription_fallback_model": "",
+        "translation_provider": "gemini",
+        "translation_fallback_provider": "openai",
+        "translation_model": "fixture-translation",
+        "translation_fallback_model": "",
+        "fallback_on_error": false,
+        "fallback_on_block": false,
+        "credential_updates": {}
+      }
+    },
+    {
+      "path": "/api/videos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "method": "GET"
+    },
+    {
+      "path": "/api/videos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/subtitles",
+      "method": "GET"
+    },
+    {
+      "path": "/api/videos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/thumbnail",
+      "method": "GET"
+    },
+    {
+      "path": "/api/videos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/faceswap-sessions",
+      "method": "GET"
+    },
+    {
+      "path": "/api/faceswap/capabilities",
+      "method": "GET"
+    },
+    {
+      "path": "/api/videos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/faceswap-sessions",
+      "method": "GET"
+    },
+    {
+      "path": "/api/faceswap/capabilities",
+      "method": "GET"
+    },
+    {
+      "path": "/api/videos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/stream",
+      "method": "GET"
+    },
+    {
+      "path": "/api/faceswap/capabilities",
+      "method": "GET"
+    },
+    {
+      "path": "/api/faceswap/sessions/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/requests",
+      "method": "GET"
+    },
+    {
+      "path": "/api/faceswap/jobs/11111111111111111111111111111111/files/original.png",
+      "method": "GET"
+    },
+    {
+      "path": "/api/faceswap/jobs/11111111111111111111111111111111/files/face.png",
+      "method": "GET"
+    },
+    {
+      "path": "/api/faceswap/jobs/22222222222222222222222222222222/files/original.png",
+      "method": "GET"
+    },
+    {
+      "path": "/api/faceswap/jobs/22222222222222222222222222222222/files/face.png",
+      "method": "GET"
+    },
+    {
+      "path": "/api/faceswap/jobs/ffffffffffffffffffffffffffffffff/files/original.png",
+      "method": "GET"
+    },
+    {
+      "path": "/api/faceswap/jobs/ffffffffffffffffffffffffffffffff/files/preview.png",
+      "method": "GET"
+    },
+    {
+      "path": "/api/faceswap/capabilities",
+      "method": "GET"
+    },
+    {
+      "path": "/api/faceswap/sessions/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/requests",
+      "method": "GET"
+    },
+    {
+      "path": "/api/faceswap/capabilities",
+      "method": "GET"
+    },
+    {
+      "path": "/api/faceswap/sessions/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/requests",
+      "method": "GET"
+    },
+    {
+      "path": "/api/faceswap/sessions/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "method": "PUT",
+      "body": {
+        "revision": 1,
+        "settings": {
+          "reference_frame": 1,
+          "face_position": 0,
+          "source_position": 0,
+          "distance": 0.3,
+          "preset": "balanced",
+          "video_codec": "h264",
+          "mask_types": [
+            "box",
+            "occlusion"
+          ],
+          "mask_blur": 0.3,
+          "mask_padding": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "mask_areas": [
+            "mouth"
+          ],
+          "mask_regions": [
+            "skin"
+          ],
+          "detector_angles": [
+            0
+          ]
+        }
+      }
+    },
+    {
+      "path": "/api/faceswap/sessions/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/requests",
+      "method": "POST",
+      "body": {
+        "operation": "preview",
+        "revision": 2,
+        "preview_frame": 1,
+        "preview_resolution": 1024,
+        "analysis_frame": null,
+        "preview_job_id": null,
+        "request_id": "042547d3-bd3c-4bef-be75-d247816f82bf"
+      }
+    },
+    {
+      "path": "/api/faceswap/jobs/ffffffffffffffffffffffffffffffff/files/face.png",
+      "method": "GET"
+    },
+    {
+      "path": "/api/videos",
+      "method": "GET"
+    },
+    {
+      "path": "/api/jobs",
+      "method": "GET"
+    },
+    {
+      "path": "/api/video-uploads",
+      "method": "GET"
+    },
+    {
+      "path": "/api/faceswap/sessions/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/requests",
+      "method": "POST",
+      "body": {
+        "operation": "render",
+        "revision": 2,
+        "preview_frame": 1,
+        "preview_resolution": 1024,
+        "analysis_frame": null,
+        "preview_job_id": "ffffffffffffffffffffffffffffffff",
+        "request_id": "d42474fd-4bf4-4601-8fb9-2625df253c78"
+      }
+    },
+    {
+      "path": "/api/videos",
+      "method": "GET"
+    },
+    {
+      "path": "/api/jobs",
+      "method": "GET"
+    },
+    {
+      "path": "/api/video-uploads",
+      "method": "GET"
+    },
+    {
+      "path": "/api/jobs/cccccccccccccccccccccccccccccccc",
+      "method": "GET"
+    },
+    {
+      "path": "/api/jobs/cccccccccccccccccccccccccccccccc/preview",
+      "method": "GET"
+    },
+    {
+      "path": "/api/jobs/cccccccccccccccccccccccccccccccc",
+      "method": "GET"
+    },
+    {
+      "path": "/api/jobs/cccccccccccccccccccccccccccccccc/preview",
+      "method": "GET"
+    },
+    {
+      "path": "/api/videos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/stream",
+      "method": "GET"
+    },
+    {
+      "path": "/api/auth/session",
+      "method": "GET"
+    },
+    {
+      "path": "/api/auth/session",
+      "method": "GET"
+    },
+    {
+      "path": "/api/jobs/cccccccccccccccccccccccccccccccc",
+      "method": "GET"
+    },
+    {
+      "path": "/api/jobs/cccccccccccccccccccccccccccccccc/preview",
+      "method": "GET"
+    },
+    {
+      "path": "/api/videos",
+      "method": "GET"
+    },
+    {
+      "path": "/api/jobs",
+      "method": "GET"
+    },
+    {
+      "path": "/api/video-uploads",
+      "method": "GET"
+    },
+    {
+      "path": "/api/jobs/cccccccccccccccccccccccccccccccc",
+      "method": "GET"
+    },
+    {
+      "path": "/api/jobs/cccccccccccccccccccccccccccccccc/preview",
+      "method": "GET"
+    },
+    {
+      "path": "/api/videos",
+      "method": "GET"
+    },
+    {
+      "path": "/api/jobs",
+      "method": "GET"
+    },
+    {
+      "path": "/api/video-uploads",
+      "method": "GET"
+    },
+    {
+      "path": "/api/videos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/stream",
+      "method": "GET"
+    }
+  ],
+  "errors": []
+}

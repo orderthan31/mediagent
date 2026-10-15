@@ -20,6 +20,24 @@ PROVIDERS = {
 }
 
 
+STT_MODELS = {
+    'gemini': (),
+    'openai': ('whisper-1', 'gpt-4o-transcribe-diarize'),
+    'xai': ('grok-voice-transcribe-2.0', 'grok-voice-transcribe-1.0'),
+    'openrouter': ('microsoft/mai-transcribe-2', 'openai/whisper-large-v3'),
+}
+STT_URLS = {
+    'openai': 'https://api.openai.com/v1/audio/transcriptions',
+    'xai': 'https://api.x.ai/v1/stt',
+    'openrouter': 'https://openrouter.ai/api/v1/audio/transcriptions',
+}
+
+
+def valid_stt_model(provider, model):
+    return provider in STT_MODELS and valid_model(provider, model) and (
+        provider == 'gemini' or model in STT_MODELS[provider])
+
+
 def valid_model(provider, model):
     pattern = r'[A-Za-z0-9][A-Za-z0-9_.-]{0,99}'
     if provider == 'openrouter':
