@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 const asset = 'a'.repeat(32),
   sessionId = 'b'.repeat(32),
   rendered = 'c'.repeat(32);
-const evidence = 'docs/evidence/INT-03';
+const evidence = 'docs/evidence/INT-03/S2-R1';
 const filename = '안전_fixture_긴_영상명_얼굴합성_큐_저장공간_연결_검토.mp4';
 const video = {
   asset_id: asset,
@@ -38,7 +38,13 @@ const png = Buffer.from(
 
 const fixture = async (page: Page) => {
   const errors: string[] = [],
-    calls: { path: string; method: string; body?: unknown }[] = [];
+    calls: {
+      path: string;
+      method: string;
+      body?: unknown;
+      status?: number;
+      server_revision?: number;
+    }[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.addInitScript(() => {
     document.addEventListener('DOMContentLoaded', () => {
@@ -203,14 +209,25 @@ const fixture = async (page: Page) => {
       });
     }
     if (path === '/api/settings/llm') {
+      const entry = calls[calls.length - 1];
       if (method === 'PUT') {
         if (state.saveFail) {
           state.saveFail = false;
+          prefs = { ...prefs, revision: prefs.revision + 1 };
+          Object.assign(entry, { status: 409, server_revision: prefs.revision });
           return route.fulfill({ status: 409, json: { detail: 'fixture 설정 충돌' } });
+        }
+        if (body.revision !== prefs.revision) {
+          Object.assign(entry, { status: 409, server_revision: prefs.revision });
+          return route.fulfill({
+            status: 409,
+            json: { detail: 'fixture stale revision · 설정 새로 불러오기 필요' },
+          });
         }
         prefs = { ...prefs, ...body, revision: prefs.revision + 1 };
         delete (prefs as Record<string, unknown>).credential_updates;
       }
+      Object.assign(entry, { status: 200, server_revision: prefs.revision });
       return route.fulfill({ json: prefs });
     }
     if (path === '/api/settings/storage') {
@@ -335,7 +352,7 @@ for (const width of [1440, 390]) {
     await queue.getByRole('button', { name: '아래로 이동' }).first().click();
     await expect.poll(() => state.queue.jobs[0]).toBe('e'.repeat(32));
     await queue.scrollIntoViewIfNeeded();
-    await page.screenshot({ path: `${evidence}/queue-view-${width}.png` });
+
     await page.goto('/#/settings');
     await expect(page.getByLabel('전사 공급자', { exact: true })).toBeVisible();
     await page.getByLabel('전사 공급자', { exact: true }).selectOption('openai');
@@ -344,7 +361,33 @@ for (const width of [1440, 390]) {
     state.saveFail = true;
     await page.getByRole('button', { name: '설정 저장', exact: true }).click();
     await expect(page.getByRole('alert')).toContainText('fixture 설정 충돌');
+    await expect(page.getByLabel('전사 공급자', { exact: true })).toHaveValue('openai');
     await expect(page.getByLabel('전사 모델', { exact: true })).toHaveValue('whisper-1');
+    const initialGets = calls.filter(
+      (x) => x.path === '/api/settings/llm' && x.method === 'GET',
+    ).length;
+    await page.getByRole('button', { name: '설정 저장', exact: true }).click();
+    await expect(page.getByRole('alert')).toContainText('fixture stale revision', {
+      timeout: 3000,
+    });
+    await expect(
+      page.getByText('저장했습니다. 다음 작업·재시도부터 적용됩니다.', { exact: true }),
+    ).toHaveCount(0);
+    expect(calls.filter((x) => x.path === '/api/settings/llm' && x.method === 'GET')).toHaveLength(
+      initialGets,
+    );
+    await expect(page.getByLabel('전사 공급자', { exact: true })).toHaveValue('openai');
+    await expect(page.getByLabel('전사 모델', { exact: true })).toHaveValue('whisper-1');
+    await page.getByRole('alert').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: `${evidence}/stale-rejected-${width}.png` });
+    await page.getByRole('button', { name: '설정 새로 불러오기', exact: true }).click();
+    await expect(page.getByLabel('전사 공급자', { exact: true })).toHaveValue('gemini');
+    await expect(page.getByLabel('전사 모델', { exact: true })).toHaveValue('fixture-gemini');
+    await page.getByLabel('전사 공급자', { exact: true }).scrollIntoViewIfNeeded();
+    await page.screenshot({ path: `${evidence}/server-settings-reloaded-${width}.png` });
+    await page.getByLabel('전사 공급자', { exact: true }).selectOption('openai');
+    await expect(page.getByLabel('전사 모델', { exact: true })).toHaveValue('');
+    await page.getByLabel('전사 모델', { exact: true }).selectOption('whisper-1');
     await page.getByRole('button', { name: '설정 저장', exact: true }).click();
     await expect(
       page.getByText('저장했습니다. 다음 작업·재시도부터 적용됩니다.', { exact: true }),
@@ -354,11 +397,32 @@ for (const width of [1440, 390]) {
     await storage.getByRole('button', { name: '종료된 작업 선택' }).click();
     await storage.getByRole('button', { name: '중간 파일 비우기', exact: true }).click();
     await expect(storage.getByRole('group', { name: '파일 삭제 확인' })).toBeVisible();
-    await page.screenshot({ path: `${evidence}/storage-confirm-view-${width}.png` });
+
     await storage.getByRole('button', { name: '취소', exact: true }).click();
     expect(calls.filter((x) => x.path.endsWith('/cleanup'))).toHaveLength(0);
     await page.getByLabel('전사 공급자', { exact: true }).scrollIntoViewIfNeeded();
-    await page.screenshot({ path: `${evidence}/stt-view-${width}.png` });
+    const revisionCalls = calls.filter((x) => x.path === '/api/settings/llm');
+    expect(
+      revisionCalls
+        .slice(0, initialGets)
+        .every((x) => x.method === 'GET' && x.status === 200 && x.server_revision === 1),
+    ).toBe(true);
+    const recoveryCalls = revisionCalls.slice(initialGets);
+    expect(
+      recoveryCalls.map((x) => [x.method, (x.body as { revision?: number } | undefined)?.revision]),
+    ).toEqual([
+      ['PUT', 1],
+      ['PUT', 1],
+      ['GET', undefined],
+      ['PUT', 2],
+    ]);
+    expect(recoveryCalls.map((x) => [x.status, x.server_revision])).toEqual([
+      [409, 2],
+      [409, 2],
+      [200, 2],
+      [200, 3],
+    ]);
+    await page.screenshot({ path: `${evidence}/stt-reselected-saved-${width}.png` });
     await page.goto(`/#/videos/${asset}`);
     await page.getByRole('button', { name: '얼굴 합성', exact: true }).click();
     const dialog = page.getByRole('dialog');
@@ -377,9 +441,9 @@ for (const width of [1440, 390]) {
       el.prepend(note);
       el.scrollTop = 0;
     });
-    await page.screenshot({ path: `${evidence}/face-view-${width}.png` });
+
     await dialog.getByRole('heading', { name: '합성 설정', exact: true }).scrollIntoViewIfNeeded();
-    await page.screenshot({ path: `${evidence}/face-options-view-${width}.png` });
+
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
@@ -402,7 +466,7 @@ for (const width of [1440, 390]) {
     }
     await page.reload();
     await expect(page.getByRole('progressbar', { name: '얼굴 합성 진행률' })).toBeVisible();
-    await page.screenshot({ path: `${evidence}/ticket-view-${width}.png` });
+
     expect(errors).toEqual([]);
     await fs.writeFile(
       `${evidence}/journey-${width}.json`,

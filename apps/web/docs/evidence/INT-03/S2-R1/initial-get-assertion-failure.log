@@ -1,0 +1,82 @@
+
+Running 2 tests using 1 worker
+
+[1/2] tests\browser\integrated-operator.spec.ts:452:3 › safe integrated operator journey 1440px
+  1) tests\browser\integrated-operator.spec.ts:452:3 › safe integrated operator journey 1440px ─────
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 0
+    + Received  + 4
+
+    @@ -2,10 +2,14 @@
+        Array [
+          "GET",
+          undefined,
+        ],
+        Array [
+    +     "GET",
+    +     undefined,
+    +   ],
+    +   Array [
+          "PUT",
+          1,
+        ],
+        Array [
+          "PUT",
+
+      405 |     expect(
+      406 |       revisionCalls.map((x) => [x.method, (x.body as { revision?: number } | undefined)?.revision]),
+    > 407 |     ).toEqual([
+          |       ^
+      408 |       ['GET', undefined],
+      409 |       ['PUT', 1],
+      410 |       ['PUT', 1],
+        at <workspace>\apps\web\tests\browser\integrated-operator.spec.ts:407:7
+
+    Test timeout of 30000ms exceeded.
+
+    Error Context: ..\..\..\..\AppData\Local\hermes\cache\scratch\s2-audit\browser-results\integrated-operator-safe-integrated-operator-journey-1440px\error-context.md
+
+
+[2/2] tests\browser\integrated-operator.spec.ts:452:3 › safe integrated operator journey 390px
+  2) tests\browser\integrated-operator.spec.ts:452:3 › safe integrated operator journey 390px ──────
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 0
+    + Received  + 4
+
+    @@ -2,10 +2,14 @@
+        Array [
+          "GET",
+          undefined,
+        ],
+        Array [
+    +     "GET",
+    +     undefined,
+    +   ],
+    +   Array [
+          "PUT",
+          1,
+        ],
+        Array [
+          "PUT",
+
+      405 |     expect(
+      406 |       revisionCalls.map((x) => [x.method, (x.body as { revision?: number } | undefined)?.revision]),
+    > 407 |     ).toEqual([
+          |       ^
+      408 |       ['GET', undefined],
+      409 |       ['PUT', 1],
+      410 |       ['PUT', 1],
+        at <workspace>\apps\web\tests\browser\integrated-operator.spec.ts:407:7
+
+    Test timeout of 30000ms exceeded.
+
+    Error Context: ..\..\..\..\AppData\Local\hermes\cache\scratch\s2-audit\browser-results\integrated-operator-safe-integrated-operator-journey-390px\error-context.md
+
+
+  2 failed
+    tests\browser\integrated-operator.spec.ts:452:3 › safe integrated operator journey 1440px ──────
+    tests\browser\integrated-operator.spec.ts:452:3 › safe integrated operator journey 390px ───────

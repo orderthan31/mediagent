@@ -1,0 +1,64 @@
+
+Running 2 tests using 1 worker
+
+[1/2] tests\browser\integrated-operator.spec.ts:427:3 › safe integrated operator journey 1440px
+  1) tests\browser\integrated-operator.spec.ts:427:3 › safe integrated operator journey 1440px ─────
+
+    Error: expect(locator).toContainText(expected) failed
+
+    Locator: getByRole('alert')
+    Expected substring: "fixture stale revision"
+    Timeout: 3000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toContainText" with timeout 3000ms
+      - waiting for getByRole('alert')
+
+
+      349 |     const initialGets = calls.filter(x => x.path === '/api/settings/llm' && x.method === 'GET').length;
+      350 |     await page.getByRole('button', { name: '설정 저장', exact: true }).click();
+    > 351 |     await expect(page.getByRole('alert')).toContainText('fixture stale revision', { timeout: 3000 });
+          |                                           ^
+      352 |     await expect(page.getByText('저장했습니다. 다음 작업·재시도부터 적용됩니다.', { exact: true })).toHaveCount(0);
+      353 |     expect(calls.filter(x => x.path === '/api/settings/llm' && x.method === 'GET')).toHaveLength(initialGets);
+      354 |     await expect(page.getByLabel('전사 공급자', { exact: true })).toHaveValue('openai');
+        at <workspace>\apps\web\tests\browser\integrated-operator.spec.ts:351:43
+
+    Test timeout of 30000ms exceeded.
+
+    Error Context: ..\..\..\..\AppData\Local\hermes\cache\scratch\s2-audit\browser-results\integrated-operator-safe-integrated-operator-journey-1440px\error-context.md
+
+
+[2/2] tests\browser\integrated-operator.spec.ts:427:3 › safe integrated operator journey 390px
+  2) tests\browser\integrated-operator.spec.ts:427:3 › safe integrated operator journey 390px ──────
+
+    Error: expect(locator).toContainText(expected) failed
+
+    Locator: getByRole('alert')
+    Expected substring: "fixture stale revision"
+    Timeout: 3000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toContainText" with timeout 3000ms
+      - waiting for getByRole('alert')
+
+
+      349 |     const initialGets = calls.filter(x => x.path === '/api/settings/llm' && x.method === 'GET').length;
+      350 |     await page.getByRole('button', { name: '설정 저장', exact: true }).click();
+    > 351 |     await expect(page.getByRole('alert')).toContainText('fixture stale revision', { timeout: 3000 });
+          |                                           ^
+      352 |     await expect(page.getByText('저장했습니다. 다음 작업·재시도부터 적용됩니다.', { exact: true })).toHaveCount(0);
+      353 |     expect(calls.filter(x => x.path === '/api/settings/llm' && x.method === 'GET')).toHaveLength(initialGets);
+      354 |     await expect(page.getByLabel('전사 공급자', { exact: true })).toHaveValue('openai');
+        at <workspace>\apps\web\tests\browser\integrated-operator.spec.ts:351:43
+
+    Test timeout of 30000ms exceeded.
+
+    Error Context: ..\..\..\..\AppData\Local\hermes\cache\scratch\s2-audit\browser-results\integrated-operator-safe-integrated-operator-journey-390px\error-context.md
+
+
+  2 failed
+    tests\browser\integrated-operator.spec.ts:427:3 › safe integrated operator journey 1440px ──────
+    tests\browser\integrated-operator.spec.ts:427:3 › safe integrated operator journey 390px ───────
