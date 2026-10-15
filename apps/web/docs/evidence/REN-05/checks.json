@@ -1,0 +1,80 @@
+[
+  {
+    "name": "lint-fix",
+    "command": [
+      "node",
+      "node_modules/eslint/bin/eslint.js",
+      "src/WorkflowDialog.tsx",
+      "tests/browser/workflow-confirmation.spec.ts",
+      "--fix"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "format-final",
+    "command": [
+      "node",
+      "node_modules/prettier/bin/prettier.cjs",
+      "--write",
+      "src/WorkflowDialog.tsx",
+      "src/workflow.css",
+      "tests/browser/workflow-confirmation.spec.ts"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "lint",
+    "command": [
+      "npm",
+      "run",
+      "lint"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "format-check",
+    "command": [
+      "npm",
+      "run",
+      "format:check"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "build",
+    "command": [
+      "npm",
+      "run",
+      "build"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "browser-types",
+    "command": [
+      "node",
+      "node_modules/typescript/bin/tsc",
+      "-p",
+      "tests/browser/tsconfig.json"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "browser-final",
+    "command": [
+      "node",
+      "node_modules/@playwright/test/cli.js",
+      "test",
+      "tests/browser/workflow-confirmation.spec.ts"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "doctor",
+    "command": [
+      "./node_modules/.bin/hangyeol",
+      "doctor"
+    ],
+    "exit": 0
+  }
+]

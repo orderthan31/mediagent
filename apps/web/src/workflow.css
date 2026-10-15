@@ -1,0 +1,193 @@
+.workflow-modal.workflow-renewal {
+  width: min(880px, calc(100vw - 32px));
+  max-width: 880px;
+  max-height: calc(100dvh - 32px);
+  padding: 0;
+  overflow: auto;
+  border: 1px solid var(--g-line);
+  border-radius: 20px;
+  color: var(--g-ink);
+  background: var(--g-surface);
+  font-family: inherit;
+}
+.workflow-renewal form {
+  display: block;
+  padding: 28px;
+  min-width: 0;
+}
+.workflow-renewal .dialog-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.workflow-renewal h2 {
+  font-size: 24px;
+  margin: 0 0 8px;
+  letter-spacing: -0.04em;
+}
+.workflow-renewal h3,
+.workflow-renewal legend {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0 0 12px;
+}
+.workflow-renewal p {
+  margin: 8px 0;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.workflow-renewal .dialog-heading p,
+.workflow-renewal .workflow-source > span {
+  font-size: 13px;
+  color: var(--g-soft);
+}
+.workflow-renewal .workflow-source,
+.workflow-renewal .workflow-plan,
+.workflow-renewal .workflow-paid {
+  border: 1px solid var(--g-line);
+  border-radius: 14px;
+  padding: 20px;
+  margin-bottom: 24px;
+  background: var(--g-surface);
+}
+.workflow-renewal .workflow-source p {
+  font-weight: 650;
+}
+.workflow-renewal .workflow-selected-input,
+.workflow-renewal .workflow-input-hint {
+  font-size: 13px;
+  color: var(--g-soft);
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+  font-weight: 400;
+}
+.workflow-renewal fieldset {
+  display: grid;
+  gap: 20px;
+  padding: 0;
+  margin: 0 0 24px;
+  border: 0;
+  min-width: 0;
+}
+.workflow-renewal label {
+  display: grid;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  min-width: 0;
+}
+.workflow-renewal select {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--g-line);
+  border-radius: 9px;
+  color: var(--g-ink);
+  background: var(--g-surface);
+  font: inherit;
+}
+.workflow-renewal select:focus-visible,
+.workflow-renewal input:focus-visible {
+  outline: 3px solid var(--g-focus);
+  outline-offset: 2px;
+}
+.workflow-renewal select:disabled,
+.workflow-renewal fieldset:disabled {
+  opacity: 0.65;
+}
+.workflow-renewal .workflow-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+.workflow-renewal .check-field,
+.workflow-renewal .workflow-consent {
+  display: flex;
+  flex-direction: row;
+  align-items: start;
+  gap: 12px;
+  line-height: 1.6;
+}
+.workflow-renewal input[type='checkbox'] {
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  min-height: 20px;
+  margin: 2px 0 0;
+  accent-color: var(--g-action);
+}
+.workflow-renewal .workflow-plan ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  padding-left: 20px;
+  margin: 16px 0;
+  font-size: 14px;
+  line-height: 1.7;
+}
+.workflow-renewal .workflow-plan > button {
+  margin-top: 8px;
+}
+.workflow-renewal .workflow-paid {
+  border-color: var(--g-action);
+  background: var(--g-muted);
+}
+.workflow-renewal .workflow-paid ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0;
+  list-style: none;
+  margin: 16px 0;
+}
+.workflow-renewal .workflow-consent {
+  padding: 14px 0;
+}
+.workflow-renewal .workflow-paid p,
+.workflow-renewal .workflow-no-paid {
+  font-size: 13px;
+  color: var(--g-soft);
+  line-height: 1.7;
+}
+.workflow-renewal [role='alert'] {
+  padding: 14px;
+  border: 1px solid var(--g-danger);
+  border-radius: 10px;
+  color: var(--g-danger);
+  background: var(--g-surface);
+  overflow-wrap: anywhere;
+}
+.workflow-renewal .workflow-footer {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--g-line);
+}
+@media (max-width: 640px) {
+  .workflow-modal.workflow-renewal {
+    width: calc(100vw - 20px);
+    max-height: calc(100dvh - 20px);
+    border-radius: 14px;
+  }
+  .workflow-renewal form {
+    padding: 20px;
+  }
+  .workflow-renewal .workflow-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .workflow-renewal .workflow-source,
+  .workflow-renewal .workflow-plan,
+  .workflow-renewal .workflow-paid {
+    padding: 16px;
+  }
+  .workflow-renewal .workflow-footer > button {
+    flex: 1 1 auto;
+    white-space: nowrap;
+  }
+}

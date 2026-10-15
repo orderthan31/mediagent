@@ -1,0 +1,34 @@
+{
+  "task": "REN-05",
+  "createdAt": "2026-10-15T10:46:10.840937+09:00",
+  "branch": "renewal",
+  "head": "b82ed476a6f012a757c910673f297ccd1f384e69",
+  "candidate": "uncommitted",
+  "sourceCount": 3,
+  "sourceDigest": "af2144d93089d05e99eb5d09eed0e53581df8e89234db2f8f0686b56ee9d7584",
+  "sources": [
+    {
+      "path": "src/WorkflowDialog.tsx",
+      "bytes": 20773,
+      "sha256": "fc496f356bc1911265a15ffd433af6e069c2cad4db6469ee081f1613ad08e83c"
+    },
+    {
+      "path": "src/workflow.css",
+      "bytes": 4193,
+      "sha256": "5b70a0ca0c5e90f4e55ca68b98c6804f4b69239a2c7ce5d05e4a0b390ec5bc7e"
+    },
+    {
+      "path": "tests/browser/workflow-confirmation.spec.ts",
+      "bytes": 17403,
+      "sha256": "077ed12fd0e094625f2767403207b722116cb076057053c76208dd163bfcf79b"
+    }
+  ],
+  "checks": "checks.json",
+  "browserFlows": 4,
+  "fixtureOnly": true,
+  "serverPaidConfirmationEnforcement": "not implemented or verified; frontend UX only",
+  "realGpuPaidDeletion": false,
+  "realServerModelMediaPlaybackDownload": "unverified",
+  "indexEmpty": true,
+  "noCommitPush": true
+}

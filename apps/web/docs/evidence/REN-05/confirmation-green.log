@@ -1,0 +1,6 @@
+
+Running 1 test using 1 worker
+
+  ✓  1 tests/browser/workflow-confirmation.spec.ts:52:1 › 유료 단계는 별도 확인 전 form submit도 거부하고 같은 payload 재시도는 request_id를 보존한다 (1.8s)
+
+  1 passed (4.3s)
