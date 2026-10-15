@@ -1,0 +1,10 @@
+
+Running 5 tests using 1 worker
+
+  ✓  1 tests/browser/storage-upload.spec.ts:37:1 › 새 목록/업로드 빈 상태와 조회 실패의 미확정 개수·업로드 행동을 구분한다 (4.2s)
+  ✓  2 tests/browser/storage-upload.spec.ts:70:1 › PC 목록·원본/결과 출처·검색 없음·상세 정보 위계를 보존한다 (1.8s)
+  ✓  3 tests/browser/storage-upload.spec.ts:114:1 › 기존 직렬 queue의 대기·전송·중단·등록·완료·integrity/chunk 오류·재시도·제거를 보존한다 (1.3s)
+  ✓  4 tests/browser/storage-upload.spec.ts:221:1 › 불완전 세션·등록 재시도·삭제 확인을 명확한 업로드 카드로 보존한다 (1.2s)
+  ✓  5 tests/browser/storage-upload.spec.ts:277:1 › 모바일 원본의 명확한 열기·미확인 메타데이터에서 실제 상세와 삭제 취소로 연결한다 (1.4s)
+
+  5 passed (12.2s)

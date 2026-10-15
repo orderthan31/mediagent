@@ -1,0 +1,112 @@
+import { type ReactNode } from 'react';
+import { ArrowRight, Download, Trash2 } from 'lucide-react';
+import { base } from './api';
+import { durationLabel, sizeLabel, type VideoAsset } from './video-api';
+import { Badge } from './hangyeol/primitives/badge';
+import { Button } from './hangyeol/primitives/button';
+
+const videoDuration = (video: VideoAsset) => {
+  const duration = video.media?.duration;
+  return duration !== undefined && Number.isFinite(duration) && duration >= 0
+    ? durationLabel(duration)
+    : '재생시간 미확인';
+};
+
+export const StorageAssetRow = ({
+  video,
+  thumbnail,
+}: {
+  video: VideoAsset;
+  thumbnail: ReactNode;
+}) => (
+  <a className="asset-row storage-asset-row" href={`#/videos/${video.asset_id}`}>
+    {thumbnail}
+    <div className="storage-asset-copy">
+      <Badge tone={video.provenance.kind === 'result' ? 'info' : 'neutral'}>
+        {video.provenance.kind === 'result' ? '결과에서 등록' : '업로드 원본'}
+      </Badge>
+      <h2>{video.original_filename}</h2>
+      <ul className="storage-metadata" aria-label="영상 정보">
+        <li>{videoDuration(video)}</li>
+        <li>{sizeLabel(video.size_bytes)}</li>
+        <li>
+          <time dateTime={video.created_at}>
+            {new Date(video.created_at).toLocaleString('ko-KR')}
+          </time>
+        </li>
+      </ul>
+    </div>
+    <span className="storage-open">
+      영상 열기 <ArrowRight size={17} aria-hidden="true" />
+    </span>
+  </a>
+);
+
+export const StorageVideoInfo = ({
+  video,
+  assetId,
+  onDelete,
+}: {
+  video: VideoAsset;
+  assetId: string;
+  onDelete: () => void;
+}) => (
+  <section className="storage-video-info" aria-label="원본 영상 정보">
+    <div className="storage-preview">
+      <video
+        controls
+        playsInline
+        preload="none"
+        poster={`${base}/videos/${assetId}/thumbnail`}
+        src={`${base}/videos/${assetId}/stream`}
+      />
+      <p>원본 미리보기 · 재생은 영상에서 시작할 수 있어요.</p>
+    </div>
+    <div className="storage-info">
+      <h2>영상 정보</h2>
+      <dl>
+        <div>
+          <dt>재생시간</dt>
+          <dd>{videoDuration(video)}</dd>
+        </div>
+        <div>
+          <dt>용량</dt>
+          <dd>{sizeLabel(video.size_bytes)}</dd>
+        </div>
+        <div>
+          <dt>해상도</dt>
+          <dd>
+            {video.media && video.media.width > 0 && video.media.height > 0
+              ? `${video.media.width} × ${video.media.height}`
+              : '미확인'}
+          </dd>
+        </div>
+        <div>
+          <dt>등록일</dt>
+          <dd>
+            <time dateTime={video.created_at}>
+              {new Date(video.created_at).toLocaleString('ko-KR')}
+            </time>
+          </dd>
+        </div>
+        <div>
+          <dt>등록 경로</dt>
+          <dd>
+            {video.provenance.kind === 'result' ? '결과 영상에서 등록' : '파일 업로드'}
+            {video.provenance.parent_asset_id && (
+              <a href={`#/videos/${video.provenance.parent_asset_id}`}>이전 원본</a>
+            )}
+          </dd>
+        </div>
+      </dl>
+      <a className="storage-download" href={`${base}/videos/${assetId}/download`}>
+        <Download size={17} aria-hidden="true" />
+        원본 다운로드
+      </a>
+      <Button variant="quiet" className="storage-delete" onClick={onDelete}>
+        <Trash2 size={16} aria-hidden="true" />
+        원본 삭제
+      </Button>
+    </div>
+  </section>
+);

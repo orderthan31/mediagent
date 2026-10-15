@@ -70,6 +70,18 @@
     "src/hangyeol/components/gnb.tsx": {
       "version": "0.0.2-adapter.1",
       "hash": "1f2793edebe8739c5a4c77c5823e3e4b954a221f82cccac6b1fe40eb4c4b2982"
+    },
+    "src/hangyeol/primitives/badge.tsx": {
+      "version": "0.0.2-adapter.1",
+      "hash": "98cd6917e227c4aee36d21804206e30ef5d6ad7eb037b21e6dd32644fd1015f1"
+    },
+    "src/hangyeol/primitives/progress.tsx": {
+      "version": "0.0.2-adapter.1",
+      "hash": "a97f726daf23974bc0b3ee24bef2f80db5ae718b7169eb94d47e26aa62ac7d6b"
+    },
+    "src/hangyeol/components/empty-state.tsx": {
+      "version": "0.0.2-adapter.1",
+      "hash": "74aa0b3653d943f8897ceea8381abda65195d3340b517702959df580e781acc2"
     }
   },
   "version": "0.0.2-adapter.1",
@@ -88,5 +100,15 @@
     },
     "styleBody": ""
   },
-  "components": ["theme", "text-field", "input", "button", "form-field", "gnb"]
+  "components": [
+    "theme",
+    "text-field",
+    "input",
+    "button",
+    "form-field",
+    "gnb",
+    "badge",
+    "progress",
+    "empty-state"
+  ]
 }

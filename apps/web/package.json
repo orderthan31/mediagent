@@ -12,6 +12,7 @@
     "format:check": "prettier --check \"src/**/*.{ts,tsx}\" \"tests/*.mjs\" \"*.{ts,mjs,json,md}\""
   },
   "dependencies": {
+    "@radix-ui/react-progress": "1.1.17",
     "clsx": "2.1.1",
     "lucide-react": "^0.468.0",
     "react": "19.2.0",

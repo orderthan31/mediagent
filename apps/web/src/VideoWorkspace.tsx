@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   ArrowLeft,
-  Download,
   FileVideo,
   FolderOpen,
   ListVideo,
@@ -24,9 +23,7 @@ import { UploadItem, UploadQueue } from './upload-queue';
 import { isVideoFile } from './video-file';
 import { WorkflowDialog } from './WorkflowDialog';
 import {
-  durationLabel,
   jsonPost,
-  sizeLabel,
   statusLabels,
   SubtitleInput,
   templates,
@@ -38,9 +35,13 @@ import { Theme } from './hangyeol/foundation/theme';
 import { GNB } from './hangyeol/components/gnb';
 import { TextField } from './hangyeol/components/text-field';
 import { Button } from './hangyeol/primitives/button';
+import { EmptyState } from './hangyeol/components/empty-state';
+import { StorageAssetRow, StorageVideoInfo } from './StorageVideo';
+import { StorageUploads } from './StorageUploads';
 import './video-workspace.css';
 import './workspace-polish.css';
 import './workspace-shell.css';
+import './storage.css';
 const workspaceLinks = [
   { id: 'videos', label: '영상 보관함', href: '#/' },
   { id: 'jobs', label: '작업 목록', href: '#/jobs' },
@@ -484,75 +485,32 @@ export const VideoWorkspace = () => {
               <>
                 {detail ? (
                   <>
-                    <div className="library-heading">
-                      <a className="icon" title="원본 보관함으로" href="#/">
-                        <ArrowLeft size={21} />
+                    <div className="storage-detail-heading">
+                      <a className="storage-back" href="#/">
+                        <ArrowLeft size={18} aria-hidden="true" />
+                        영상 보관함으로
                       </a>
                       <div>
-                        <p className="eyebrow">원본 영상</p>
+                        <p className="workspace-eyebrow">원본 영상</p>
                         <h1>{detail.video.original_filename}</h1>
                       </div>
-                      <button className="primary" onClick={() => setWorkflow(true)}>
-                        <Play size={17} />새 작업
-                      </button>
+                      <Button onClick={() => setWorkflow(true)}>
+                        <Play size={17} aria-hidden="true" />새 작업
+                      </Button>
                     </div>
-                    <section className="asset-overview">
-                      <video
-                        controls
-                        playsInline
-                        preload="none"
-                        poster={`${base}/videos/${assetId}/thumbnail`}
-                        src={`${base}/videos/${assetId}/stream`}
-                      />
-                      <div>
-                        <h2>영상 정보</h2>
-                        <dl>
-                          <dt>길이</dt>
-                          <dd>{durationLabel(detail.video.media?.duration) || '미확인'}</dd>
-                          <dt>용량</dt>
-                          <dd>{sizeLabel(detail.video.size_bytes)}</dd>
-                          <dt>해상도</dt>
-                          <dd>
-                            {detail.video.media
-                              ? `${detail.video.media.width} × ${detail.video.media.height}`
-                              : '미확인'}
-                          </dd>
-                          <dt>등록일</dt>
-                          <dd>{new Date(detail.video.created_at).toLocaleString('ko-KR')}</dd>
-                          <dt>등록 경로</dt>
-                          <dd>
-                            {detail.video.provenance.kind === 'result'
-                              ? '결과 영상에서 등록'
-                              : '파일 업로드'}
-                            {detail.video.provenance.parent_asset_id && (
-                              <a href={`#/videos/${detail.video.provenance.parent_asset_id}`}>
-                                이전 원본
-                              </a>
-                            )}
-                          </dd>
-                        </dl>
-                        <a className="download" href={`${base}/videos/${assetId}/download`}>
-                          <Download size={16} />
-                          원본 다운로드
-                        </a>
-                        <button
-                          className="danger"
-                          onClick={() =>
-                            setConfirm({
-                              title:
-                                '원본 영상을 삭제할까요? 연결된 작업이 있으면 삭제할 수 없습니다.',
-                              action: async () => {
-                                await request(`/videos/${assetId}`, { method: 'DELETE' });
-                                location.hash = '/';
-                              },
-                            })
-                          }
-                        >
-                          <Trash2 size={15} />
-                          원본 삭제
-                        </button>
-                      </div>
-                    </section>
+                    <StorageVideoInfo
+                      video={detail.video}
+                      assetId={assetId}
+                      onDelete={() =>
+                        setConfirm({
+                          title: '원본 영상을 삭제할까요? 연결된 작업이 있으면 삭제할 수 없습니다.',
+                          action: async () => {
+                            await request(`/videos/${assetId}`, { method: 'DELETE' });
+                            location.hash = '/';
+                          },
+                        })
+                      }
+                    />
                     <section className="asset-subtitles">
                       <div className="section-heading">
                         <h2>
@@ -627,108 +585,32 @@ export const VideoWorkspace = () => {
                     </Button>
                   </div>
                 </div>
-                {!jobsView && (uploads.length > 0 || pendingSessions.length > 0) && (
-                  <section className="upload-shelf">
-                    <h2>
-                      업로드 <small>{uploads.length + pendingSessions.length}</small>
-                    </h2>
-                    {uploads.map((u) => (
-                      <div className="upload-line" key={u.key}>
-                        <div>
-                          <strong>{u.name}</strong>
-                          <small>
-                            {u.progress === u.size && u.state === 'uploading'
-                              ? '영상 확인 및 등록 중'
-                              : {
-                                  waiting: '대기',
-                                  uploading: '업로드 중',
-                                  paused: '일시정지',
-                                  error: '실패',
-                                  done: '완료',
-                                }[u.state]}{' '}
-                            · {Math.floor((u.progress / u.size) * 100)}% · {sizeLabel(u.size)}
-                          </small>
-                          {u.error && (
-                            <p role="alert" className="alert">
-                              {u.error}
-                            </p>
-                          )}
-                          <progress value={u.progress} max={u.size} />
-                        </div>
-                        <button
-                          className="icon"
-                          title={
-                            ['paused', 'error'].includes(u.state)
-                              ? '업로드 재개'
-                              : '업로드 일시정지'
-                          }
-                          onClick={() =>
-                            ['paused', 'error'].includes(u.state)
-                              ? queue.resume(u.key)
-                              : queue.pause(u.key)
-                          }
-                        >
-                          {['paused', 'error'].includes(u.state) ? (
-                            <Play size={17} />
-                          ) : (
-                            <Pause size={17} />
-                          )}
-                        </button>
-                        <button
-                          className="icon danger"
-                          title="업로드 제거"
-                          onClick={() => queue.remove(u.key)}
-                        >
-                          <X size={17} />
-                        </button>
-                      </div>
-                    ))}
-                    {pendingSessions.map((s) => (
-                      <div className="upload-line" key={s.upload_id}>
-                        <div>
-                          <strong>{s.filename}</strong>
-                          <small>
-                            {Math.floor((s.uploaded_bytes / s.expected_size) * 100)}% ·{' '}
-                            {s.status === 'READY' ? '등록 대기' : '업로드 미완료'}
-                          </small>
-                          <progress value={s.uploaded_bytes} max={s.expected_size} />
-                        </div>
-                        <button
-                          className="icon"
-                          title={
-                            s.status === 'READY' ? '영상 등록 재시도' : '파일 선택 후 업로드 재개'
-                          }
-                          onClick={() =>
-                            s.status === 'READY'
-                              ? void action(s.upload_id, () =>
-                                  request(`/video-uploads/${s.upload_id}/complete`, {
-                                    method: 'POST',
-                                  }),
-                                )
-                              : chooseResume(s.upload_id)
-                          }
-                        >
-                          <Play size={17} />
-                        </button>
-                        <button
-                          className="icon danger"
-                          title="업로드 삭제"
-                          onClick={() =>
-                            setConfirm({
-                              title: `${s.filename} 업로드를 삭제할까요?`,
-                              action: async () => {
-                                await request(`/video-uploads/${s.upload_id}`, {
-                                  method: 'DELETE',
-                                });
-                              },
-                            })
-                          }
-                        >
-                          <Trash2 size={17} />
-                        </button>
-                      </div>
-                    ))}
-                  </section>
+                {!jobsView && (
+                  <StorageUploads
+                    uploads={uploads}
+                    sessions={pendingSessions}
+                    online={online}
+                    busy={busy}
+                    onPause={(key) => queue.pause(key)}
+                    onResume={(key) => queue.resume(key)}
+                    onRemove={(key) => queue.remove(key)}
+                    onRegister={(id) =>
+                      void action(id, () =>
+                        request(`/video-uploads/${id}/complete`, { method: 'POST' }),
+                      )
+                    }
+                    onChooseResume={(id) => chooseResume(id)}
+                    onDeleteSession={(session) =>
+                      setConfirm({
+                        title: `${session.filename} 업로드를 삭제할까요?`,
+                        action: async () => {
+                          await request(`/video-uploads/${session.upload_id}`, {
+                            method: 'DELETE',
+                          });
+                        },
+                      })
+                    }
+                  />
                 )}
                 <div className="workspace-search">
                   <TextField
@@ -748,28 +630,25 @@ export const VideoWorkspace = () => {
                     ),
                   )
                 ) : (
-                  <div className="asset-list">
+                  <div className="asset-list storage-library">
                     {shownVideos.map((v) => (
-                      <a key={v.asset_id} className="asset-row" href={`#/videos/${v.asset_id}`}>
-                        <Thumbnail assetId={v.asset_id} />
-                        <div>
-                          <h2>{v.original_filename}</h2>
-                          <p>
-                            {durationLabel(v.media?.duration)} · {sizeLabel(v.size_bytes)}
-                          </p>
-                          <small>
-                            {new Date(v.created_at).toLocaleString('ko-KR')}
-                            {v.provenance.kind === 'result' ? ' · 결과에서 등록' : ''}
-                          </small>
-                        </div>
-                        <span className="asset-open">열기</span>
-                      </a>
+                      <StorageAssetRow
+                        key={v.asset_id}
+                        video={v}
+                        thumbnail={<Thumbnail assetId={v.asset_id} />}
+                      />
                     ))}
                     {!shownVideos.length && online && (
-                      <div className="library-empty">
-                        <FolderOpen size={38} />
-                        <p>{query ? '검색 결과가 없습니다.' : '등록된 원본 영상이 없습니다.'}</p>
-                      </div>
+                      <EmptyState
+                        className="storage-empty"
+                        illustration={<FolderOpen size={32} aria-hidden="true" />}
+                        heading={query ? '검색 결과가 없습니다.' : '등록된 원본 영상이 없습니다.'}
+                        description={
+                          query
+                            ? '다른 파일 이름으로 검색하거나 검색어를 지워주세요.'
+                            : '영상 업로드로 원본을 보관하고 작업을 시작하세요.'
+                        }
+                      />
                     )}
                   </div>
                 )}
@@ -848,7 +727,8 @@ const Confirm = ({
   }, []);
   return (
     <dialog
-      className="confirm-modal"
+      className="confirm-modal storage-confirm"
+      aria-labelledby="workspace-confirm-title"
       ref={ref}
       onCancel={(e) => {
         e.preventDefault();
@@ -857,19 +737,19 @@ const Confirm = ({
         }
       }}
     >
-      <h2>{title}</h2>
+      <h2 id="workspace-confirm-title">{title}</h2>
       {error && (
         <p role="alert" className="alert">
           {error}
         </p>
       )}
       <div>
-        <button autoFocus disabled={busy} onClick={onClose}>
+        <Button variant="secondary" autoFocus disabled={busy} onClick={onClose}>
           취소
-        </button>
-        <button className="destructive" disabled={busy} onClick={onConfirm}>
+        </Button>
+        <Button className="storage-confirm-delete" disabled={busy} onClick={onConfirm}>
           삭제
-        </button>
+        </Button>
       </div>
     </dialog>
   );

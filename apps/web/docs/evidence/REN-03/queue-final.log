@@ -1,0 +1,6 @@
+
+Running 1 test using 1 worker
+
+  ✓  1 tests/browser/storage-upload.spec.ts:115:1 › 기존 직렬 queue의 대기·전송·중단·등록·완료·integrity/chunk 오류·재시도·제거를 보존한다 (2.5s)
+
+  1 passed (4.1s)

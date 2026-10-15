@@ -1,0 +1,224 @@
+{
+  "task": "REN-03",
+  "baseHEAD": "82d4e778683a49c2b72031ccb72dd47c7054313b",
+  "branch": "renewal",
+  "revision": "uncommitted candidate",
+  "sourceCount": 11,
+  "files": [
+    {
+      "path": "hangyeol.json",
+      "sha256": "350d84d017c655284e0b5fea4bc79228680d18be0dfa568def23689abc1c39b3"
+    },
+    {
+      "path": "package-lock.json",
+      "sha256": "2fdc15136e273e5a16256445af766035820a757631a99d0003af0d48029c3ec9"
+    },
+    {
+      "path": "package.json",
+      "sha256": "598f236f8371efd1300e127dc5234e66fa3328ac04a9446a65e6bcf807c5cfd1"
+    },
+    {
+      "path": "src/StorageUploads.tsx",
+      "sha256": "5bf0e30c9639ec4fc08a09f4199ff18d68cdac35b926cfb7d76b27f0c09d15fe"
+    },
+    {
+      "path": "src/StorageVideo.tsx",
+      "sha256": "6b2ba382a77599f4f9b72221b42b31bac414aaadc01f21e9a8ed95a395538f80"
+    },
+    {
+      "path": "src/VideoWorkspace.tsx",
+      "sha256": "4f0afe28c8847843678ff4358358a60ea66fdfb4876299b52aa9abf871412734"
+    },
+    {
+      "path": "src/hangyeol/components/empty-state.tsx",
+      "sha256": "08c20e97b6fb5a5f6451e04ba17669a9aca35836b92300ce307f0f030f1a5803"
+    },
+    {
+      "path": "src/hangyeol/primitives/badge.tsx",
+      "sha256": "46003a0d6f98612a29a61271a4678c90442f5f41314c1be1d57dec36a798af4d"
+    },
+    {
+      "path": "src/hangyeol/primitives/progress.tsx",
+      "sha256": "122e0bc502d1f4dc29a9f490899f48c2831152938debf0590a4741495cb081ad"
+    },
+    {
+      "path": "src/storage.css",
+      "sha256": "81c50637b6723f3ebcbbffa8124115ddb14c8ae52765ed0f4d9356536786db82"
+    },
+    {
+      "path": "tests/browser/storage-upload.spec.ts",
+      "sha256": "eae101ba35704224fb9f7e757c2811fac6089027aca1d9d337372fff8a46f7e8"
+    }
+  ],
+  "candidateDigest": "cbb10421455387fed3070891b2223ae60ff59b3dea5b6762200b27f822252bc6",
+  "checks": [
+    {
+      "name": "format",
+      "command": [
+        "node",
+        "node_modules/prettier/bin/prettier.cjs",
+        "--write",
+        "src/VideoWorkspace.tsx",
+        "src/StorageVideo.tsx",
+        "src/StorageUploads.tsx",
+        "src/storage.css",
+        "tests/browser/storage-upload.spec.ts"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "lint",
+      "command": [
+        "npm",
+        "run",
+        "lint"
+      ],
+      "exit": 1
+    },
+    {
+      "name": "format-check",
+      "command": [
+        "npm",
+        "run",
+        "format:check"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "build",
+      "command": [
+        "npm",
+        "run",
+        "build"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "related-tests",
+      "command": [
+        "node",
+        "--test",
+        "tests/upload-queue.test.mjs",
+        "tests/upload-verification.test.mjs",
+        "tests/video-file.test.mjs"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "browser",
+      "command": [
+        "node",
+        "node_modules/@playwright/test/cli.js",
+        "test",
+        "tests/browser/storage-upload.spec.ts"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "doctor",
+      "command": [
+        "./node_modules/.bin/hangyeol",
+        "doctor"
+      ],
+      "exit": 0
+    }
+  ],
+  "syntaxFixChecks": [
+    {
+      "name": "test-lint-fix",
+      "command": [
+        "node",
+        "node_modules/eslint/bin/eslint.js",
+        "tests/browser/storage-upload.spec.ts",
+        "--fix"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "test-format",
+      "command": [
+        "node",
+        "node_modules/prettier/bin/prettier.cjs",
+        "--write",
+        "tests/browser/storage-upload.spec.ts"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "lint-final",
+      "command": [
+        "npm",
+        "run",
+        "lint"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "browser-types",
+      "command": [
+        "node",
+        "node_modules/typescript/bin/tsc",
+        "-p",
+        "tests/browser/tsconfig.json"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "browser-screens",
+      "command": [
+        "node",
+        "node_modules/@playwright/test/cli.js",
+        "test",
+        "tests/browser/storage-upload.spec.ts",
+        "--grep",
+        "기존 직렬 queue|불완전 세션"
+      ],
+      "exit": 0
+    }
+  ],
+  "latestQueueChecks": [
+    {
+      "name": "small-size-format",
+      "command": [
+        "node",
+        "node_modules/prettier/bin/prettier.cjs",
+        "--write",
+        "src/StorageUploads.tsx",
+        "tests/browser/storage-upload.spec.ts"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "small-size-lint",
+      "command": [
+        "node",
+        "node_modules/eslint/bin/eslint.js",
+        "src/StorageUploads.tsx",
+        "tests/browser/storage-upload.spec.ts"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "build-final",
+      "command": [
+        "npm",
+        "run",
+        "build"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "queue-final",
+      "command": [
+        "node",
+        "node_modules/@playwright/test/cli.js",
+        "test",
+        "tests/browser/storage-upload.spec.ts",
+        "--grep",
+        "기존 직렬 queue"
+      ],
+      "exit": 0
+    }
+  ],
+  "boundaries": "Explicit API fixtures; no real media transfer/deletion, authentication, playback, GPU/paid execution, deployment or commit/push."
+}

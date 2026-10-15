@@ -1,0 +1,70 @@
+TAP version 13
+# Subtest: uploads run serially with independent settings and release completed files
+ok 1 - uploads run serially with independent settings and release completed files
+  ---
+  duration_ms: 4.670917
+  type: 'test'
+  ...
+# Subtest: failed upload does not block the queue; retry keeps its identity and server job
+ok 2 - failed upload does not block the queue; retry keeps its identity and server job
+  ---
+  duration_ms: 0.604375
+  type: 'test'
+  ...
+# Subtest: hidden page stops admissions, then resumes without parallel transfers
+ok 3 - hidden page stops admissions, then resumes without parallel transfers
+  ---
+  duration_ms: 0.63125
+  type: 'test'
+  ...
+# Subtest: strict-mode setup cleanup setup does not disable queue and resume avoids duplicates
+ok 4 - strict-mode setup cleanup setup does not disable queue and resume avoids duplicates
+  ---
+  duration_ms: 0.436875
+  type: 'test'
+  ...
+# Subtest: hashes every stored byte in bounded blocks, including the partial tail
+ok 5 - hashes every stored byte in bounded blocks, including the partial tail
+  ---
+  duration_ms: 7.62
+  type: 'test'
+  ...
+# Subtest: same-size changed content stops verification without subsequent blocks
+ok 6 - same-size changed content stops verification without subsequent blocks
+  ---
+  duration_ms: 5.654792
+  type: 'test'
+  ...
+# Subtest: pause cancels before the next block
+ok 7 - pause cancels before the next block
+  ---
+  duration_ms: 3.266709
+  type: 'test'
+  ...
+# Subtest: new uploads need no verification and invalid sizes are rejected
+ok 8 - new uploads need no verification and invalid sizes are rejected
+  ---
+  duration_ms: 0.195125
+  type: 'test'
+  ...
+# Subtest: video selection accepts real filenames and video MIME types without renaming
+ok 9 - video selection accepts real filenames and video MIME types without renaming
+  ---
+  duration_ms: 3.425333
+  type: 'test'
+  ...
+# Subtest: generic file picker rejects non-video selections
+ok 10 - generic file picker rejects non-video selections
+  ---
+  duration_ms: 0.140875
+  type: 'test'
+  ...
+1..10
+# tests 10
+# suites 0
+# pass 10
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 90.600333
