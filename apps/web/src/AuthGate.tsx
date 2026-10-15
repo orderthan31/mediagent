@@ -26,16 +26,19 @@ export const AccountMenu = () => {
   }
   return (
     <div className="account-menu">
-      <span>{auth.session.user.username}</span>
-      <button
-        className="icon"
+      <span className="account-username" title={auth.session.user.username}>
+        {auth.session.user.username}
+      </span>
+      <Button
+        variant="quiet"
         title="로그아웃"
         aria-label="로그아웃"
         disabled={auth.busy}
         onClick={auth.logout}
       >
         <LogOut size={18} />
-      </button>
+        로그아웃
+      </Button>
     </div>
   );
 };

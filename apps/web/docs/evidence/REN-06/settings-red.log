@@ -1,0 +1,41 @@
+
+Running 1 test using 1 worker
+
+  ✘  1 tests/browser/settings-provider.spec.ts:21:1 › 키 출처·변경 대기·모델 조회와 저장 충돌/키 초기화·성공 적용을 구분한다 (5.7s)
+
+
+  1) tests/browser/settings-provider.spec.ts:21:1 › 키 출처·변경 대기·모델 조회와 저장 충돌/키 초기화·성공 적용을 구분한다 ──────
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByText('키 보유 상태와 모델 목록 조회는 연결·추론 성공을 뜻하지 않습니다.', { exact: true })
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for getByText('키 보유 상태와 모델 목록 조회는 연결·추론 성공을 뜻하지 않습니다.', { exact: true })[22m
+
+
+      29 |   });
+      30 |   await page.goto('/#/settings');
+    > 31 |   await expect(page.getByText('키 보유 상태와 모델 목록 조회는 연결·추론 성공을 뜻하지 않습니다.', { exact: true })).toBeVisible();
+         |                                                                                           ^
+      32 |   await page.screenshot({ path: `${evidence}/settings-desktop.png`, fullPage: true });
+      33 |   await page.getByRole('button', { name: 'Gemini 모델 목록 조회', exact: true }).click();
+      34 |   await expect.poll(() => queries.length).toBe(1);
+        at /Users/austinko/dev/mideagent/apps/web/tests/browser/settings-provider.spec.ts:31:91
+
+    Error Context: test-results/auth-ui/settings-provider-키-출처·변경-대기·모델-조회와-저장-충돌-키-초기화·성공-적용을-구분한다/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/auth-ui/settings-provider-키-출처·변경-대기·모델-조회와-저장-충돌-키-초기화·성공-적용을-구분한다/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/auth-ui/settings-provider-키-출처·변경-대기·모델-조회와-저장-충돌-키-초기화·성공-적용을-구분한다/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    tests/browser/settings-provider.spec.ts:21:1 › 키 출처·변경 대기·모델 조회와 저장 충돌/키 초기화·성공 적용을 구분한다 ───────

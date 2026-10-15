@@ -1,0 +1,178 @@
+.video-workspace .video-main.settings-page.settings-renewal {
+  width: 100%;
+  max-width: 1100px;
+  min-width: 0;
+  margin-inline: auto;
+}
+.settings-renewal .settings-heading {
+  gap: 20px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.settings-renewal h1 {
+  margin: 0;
+  font-size: 28px;
+  letter-spacing: -0.04em;
+}
+.settings-renewal .settings-intro {
+  color: var(--g-soft);
+  line-height: 1.7;
+  margin: 0 0 28px;
+}
+.settings-renewal fieldset {
+  border: 1px solid var(--g-line);
+  border-radius: 16px;
+  padding: 24px;
+  margin: 24px 0;
+  background: var(--g-surface);
+}
+.settings-renewal legend {
+  padding-inline: 8px;
+  color: var(--g-ink);
+  font-size: 18px;
+}
+.settings-renewal label {
+  font-size: 14px;
+  font-weight: 600;
+}
+.settings-renewal input:not([type='checkbox']),
+.settings-renewal select {
+  min-height: 44px;
+  border: 1px solid var(--g-line);
+  border-radius: 9px;
+  background: var(--g-surface);
+  color: var(--g-ink);
+}
+.settings-renewal select:focus-visible,
+.settings-renewal input:focus-visible {
+  outline: 3px solid var(--g-focus);
+  outline-offset: 2px;
+}
+.settings-renewal .settings-help,
+.settings-renewal .settings-model-id {
+  color: var(--g-soft);
+  font-size: 13px;
+  line-height: 1.8;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+.settings-renewal .settings-model-id {
+  min-width: 0;
+  display: block;
+}
+.settings-renewal .settings-help {
+  margin: 10px 0 16px;
+}
+.settings-renewal .settings-provider-status {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+  gap: 12px;
+  padding: 0;
+  list-style: none;
+  margin: 20px 0 24px;
+}
+.settings-renewal .settings-provider-status li {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: start;
+  gap: 8px;
+  padding: 14px;
+  min-width: 0;
+  border: 1px solid var(--g-line);
+  border-radius: 12px;
+}
+.settings-renewal .settings-provider-status strong {
+  width: 100%;
+  font-size: 14px;
+}
+.settings-renewal .settings-provider-status span {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.settings-renewal .key-status,
+.settings-renewal .settings-pending {
+  color: var(--g-action);
+  font-size: 14px;
+  line-height: 1.7;
+}
+.settings-renewal .settings-key-row {
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+.settings-renewal .settings-key-row label {
+  min-width: 180px;
+}
+.settings-renewal .settings-model-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+.settings-renewal .settings-toggle {
+  align-items: start;
+  line-height: 1.7;
+}
+.settings-renewal .settings-toggle input {
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  margin: 2px 0 0;
+  accent-color: var(--g-action);
+}
+.settings-renewal [role='alert'] {
+  color: var(--g-danger);
+  background: var(--g-surface);
+  padding: 16px;
+  border: 1px solid var(--g-danger);
+  border-radius: 12px;
+  overflow-wrap: anywhere;
+  line-height: 1.7;
+}
+.settings-renewal [role='status'] {
+  padding: 16px;
+  border: 1px solid var(--g-line);
+  border-radius: 12px;
+  color: var(--g-ink);
+  background: var(--g-surface);
+  line-height: 1.7;
+}
+.settings-renewal .settings-actions {
+  padding-block: 8px 24px;
+}
+.account-menu .account-username {
+  display: block;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 640px) {
+  .settings-renewal fieldset {
+    padding: 18px;
+  }
+  .settings-renewal .settings-model-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .settings-renewal .settings-provider-status {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .settings-renewal .settings-provider-status li {
+    padding: 10px;
+  }
+  .settings-renewal h1 {
+    font-size: 24px;
+  }
+  .settings-renewal .settings-heading > button {
+    width: 100%;
+  }
+  .settings-renewal .settings-actions > button {
+    width: 100%;
+  }
+  .account-menu .account-username {
+    max-width: 64px;
+  }
+  .account-menu > button {
+    padding-inline: 8px;
+    white-space: nowrap;
+  }
+}

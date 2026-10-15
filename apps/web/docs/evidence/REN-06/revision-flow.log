@@ -1,0 +1,6 @@
+
+Running 1 test using 1 worker
+
+  ✓  1 tests/browser/settings-provider.spec.ts:50:1 › 키 출처·변경 대기·모델 조회와 저장 충돌/키 초기화·성공 적용을 구분한다 (3.1s)
+
+  1 passed (5.1s)
