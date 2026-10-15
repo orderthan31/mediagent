@@ -1,0 +1,52 @@
+
+> video-subtitle-web@0.1.0 test
+> node --test --test-isolation=none tests/*.test.mjs
+
+✔ cancel releases a stalled operation even when it ignores abort (1.1606ms)
+✔ a stalled upload request times out with a retryable error (18.2871ms)
+✔ an already cancelled operation never starts (0.1378ms)
+✔ success removes parent listener and deadline (30.7133ms)
+✔ late failure after cancellation is consumed (15.4135ms)
+✔ authenticated requests include cookies and CSRF only for unsafe methods (10.4986ms)
+✔ unauthorized session expires once but login failures do not clear it (0.6136ms)
+✔ a delayed unauthorized response cannot expire a newer login (0.2758ms)
+✔ busy retries preserve the original request and reach success (375.679ms)
+✔ offset/revision conflicts and network errors are not blindly replayed (0.3268ms)
+✔ busy wait is cancellable and bounded (14.441ms)
+✔ only reads, resumable upload operations and keyed creations retry automatically (0.1917ms)
+✔ Docker copies local Hangyeol vendor dependency before npm ci (0.8923ms)
+✔ frontend conventions reject unbraced guards and declared functions (20.3762ms)
+✔ frontend conventions reject declarations after effect-only hooks (6.828ms)
+✔ frontend conventions accept values then handlers then effects and JSX (1.7252ms)
+✔ constructors and prototype methods retain their existing semantics (2.1221ms)
+✔ face stage fallback is not mislabeled as encoding (0.3418ms)
+✔ playhead maps to one-based frames, including the end of the video (0.0671ms)
+✔ automatic queue waits for running work and only requests the next stage (0.076ms)
+✔ settings comparison ignores JSON field order but includes masks and identity (4.5686ms)
+✔ new operator panels consume Hangyeol buttons, not legacy native actions (0.7804ms)
+✔ integrated settings retain secret guidance and expose bounded STT providers (0.2189ms)
+✔ workflow confirmation and feature queue hooks coexist in the renewal shell (0.3961ms)
+✔ content block identifies provider, stage and one-based position (0.1919ms)
+✔ ordinary failures retain their error message (0.0426ms)
+✔ external provider blocks are not mislabeled Gemini (0.057ms)
+✔ placeholder review explains that encoding was not run (0.0737ms)
+✔ priority moves preserve identity and clamp positions without mutating input (0.0706ms)
+✔ timing handles missing, invalid and future timestamps (0.0801ms)
+✔ uploads run serially with independent settings and release completed files (0.6783ms)
+✔ failed upload does not block the queue; retry keeps its identity and server job (0.2297ms)
+✔ hidden page stops admissions, then resumes without parallel transfers (0.262ms)
+✔ strict-mode setup cleanup setup does not disable queue and resume avoids duplicates (0.139ms)
+✔ hashes every stored byte in bounded blocks, including the partial tail (6.9678ms)
+✔ same-size changed content stops verification without subsequent blocks (6.0058ms)
+✔ pause cancels before the next block (4.0265ms)
+✔ new uploads need no verification and invalid sizes are rejected (0.1247ms)
+✔ video selection accepts real filenames and video MIME types without renaming (0.5504ms)
+✔ generic file picker rejects non-video selections (0.0641ms)
+ℹ tests 40
+ℹ suites 0
+ℹ pass 40
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 812.5756

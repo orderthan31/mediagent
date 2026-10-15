@@ -1,0 +1,630 @@
+import { useEffect, useRef, useState } from 'react';
+import { request } from './api';
+import { jsonPost, type VideoAsset } from './video-api';
+import { Button } from './hangyeol/primitives/button';
+import { Input } from './hangyeol/primitives/input';
+import { Badge } from './hangyeol/primitives/badge';
+import './serving.css';
+import './workflow-tickets.css';
+
+type Definition = {
+  id: string;
+  revision: number;
+  name: string;
+  catalog_version: number;
+  inputs: Record<string, string>;
+  nodes: unknown[];
+  edges: unknown[];
+};
+type Spec = { id: string; label: string };
+type Artifact = { type: string; path: string; bytes: number; sha256: string };
+type Step = {
+  id: string;
+  type: string;
+  status: string;
+  artifacts: Record<string, Artifact>;
+  partial_artifacts: Record<string, Artifact>;
+};
+type Ticket = {
+  id: string;
+  revision: number;
+  status: string;
+  asset: { asset_id: string; original_filename: string };
+  definition: Definition;
+  options: { source_language: string; target_language: string; video_description: string };
+  steps: Step[];
+  confirmation: { token: string } | null;
+  settings_snapshot: Record<string, string | boolean | number> | null;
+  error?: string;
+};
+type Plan = {
+  token: string;
+  settings: Record<string, string | number | boolean>;
+  paid_roles: string[];
+  steps: { id: string; type: string; options: Record<string, string> }[];
+  notice: string;
+};
+type Capability = {
+  supported: boolean;
+  reasons: { message: string; node_id: string | null }[];
+  notice: string;
+};
+type Runtime = { connected: boolean; mode: string; notice: string };
+const base = '/settings/workflow-tickets';
+const stateLabel: Record<string, string> = {
+  held: '생성 보류',
+  confirmed: '계획 확인 · 실행 대기',
+  running: '단계 처리 중',
+  failed: '첫 실패 중단',
+  completed: '선택 단계 완료',
+  pending: '대기',
+  succeeded: '성공',
+};
+const graphPayload = (d: Definition) => ({
+  catalog_version: d.catalog_version,
+  revision: d.revision,
+  name: d.name,
+  inputs: d.inputs,
+  nodes: d.nodes,
+  edges: d.edges,
+});
+
+export const WorkflowTickets = () => {
+  const [definitions, setDefinitions] = useState<{ id: string; name: string; revision: number }[]>(
+    [],
+  );
+  const [assets, setAssets] = useState<VideoAsset[]>([]);
+  const [catalog, setCatalog] = useState<Spec[]>([]);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [runtime, setRuntime] = useState<Runtime | null>(null);
+  const [definition, setDefinition] = useState<Definition | null>(null);
+  const [definitionId, setDefinitionId] = useState('');
+  const [assetId, setAssetId] = useState('');
+  const [sourceLanguage, setSourceLanguage] = useState('auto');
+  const [targetLanguage, setTargetLanguage] = useState('ko');
+  const [description, setDescription] = useState('');
+  const [requestId, setRequestId] = useState(() => crypto.randomUUID());
+  const [capability, setCapability] = useState<Capability | null>(null);
+  const [ticket, setTicket] = useState<Ticket | null>(null);
+  const [plan, setPlan] = useState<Plan | null>(null);
+  const [paid, setPaid] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [busy, setBusy] = useState('load');
+  const [error, setError] = useState('');
+  const [status, setStatus] = useState('');
+  const selection = useRef(0);
+  const label = (kind: string) => catalog.find((c) => c.id === kind)?.label || kind;
+  const applyTicket = (next: Ticket) =>
+    setTicket((previous) =>
+      previous?.id === next.id && previous.revision > next.revision ? previous : next,
+    );
+  const changed = () => {
+    selection.current++;
+    setTicket(null);
+    setPlan(null);
+    setPaid(false);
+    setRequestId(crypto.randomUUID());
+    setError('');
+    setStatus(
+      '입력/옵션을 변경했습니다. 새 티켓·새 계획 확인이 필요합니다. 기존 티켓에는 소급하지 않습니다.',
+    );
+  };
+  const loadList = async () => {
+    const r = await request<{ tickets: Ticket[] }>(base);
+    setTickets(r.tickets);
+  };
+  const load = async () => {
+    setBusy('load');
+    setError('');
+    setReady(false);
+    try {
+      const [d, v, r, c, t] = await Promise.all([
+        request<{ definitions: { id: string; name: string; revision: number }[] }>(
+          '/settings/workflow-definitions',
+        ),
+        request<{ videos: VideoAsset[] }>('/videos'),
+        request<Runtime>(base + '/runtime'),
+        request<{ nodes: Spec[] }>('/settings/node-catalog'),
+        request<{ tickets: Ticket[] }>(base),
+      ]);
+      setDefinitions(d.definitions);
+      setAssets(v.videos);
+      setRuntime(r);
+      setCatalog(c.nodes);
+      setTickets(t.tickets);
+      setReady(true);
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : '조회 실패. 현재 상태를 정상/빈 목록으로 판단하지 않습니다.',
+      );
+    } finally {
+      setBusy('');
+    }
+  };
+  const chooseDefinition = async (identity: string) => {
+    changed();
+    setDefinitionId(identity);
+    setDefinition(null);
+    setCapability(null);
+    if (!identity) {
+      return;
+    }
+    setBusy('definition');
+    try {
+      const d = await request<Definition>('/settings/workflow-definitions/' + identity);
+      const cap = await jsonPost<Capability>(base + '/capability', graphPayload(d));
+      setDefinition(d);
+      setCapability(cap);
+      setDefinitions((rows) =>
+        rows.map((row) =>
+          row.id === d.id ? { id: d.id, name: d.name, revision: d.revision } : row,
+        ),
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '정의/실행 범위 조회 실패');
+    } finally {
+      setBusy('');
+    }
+  };
+  const create = async () => {
+    if (!definition || !capability?.supported || !assetId) {
+      return;
+    }
+    setBusy('create');
+    setError('');
+    setStatus('');
+    try {
+      const next = await jsonPost<Ticket>(base, {
+        request_id: requestId,
+        definition_id: definition.id,
+        definition_revision: definition.revision,
+        asset_id: assetId,
+        options: {
+          source_language: sourceLanguage,
+          target_language: targetLanguage,
+          video_description: description,
+        },
+      });
+      selection.current++;
+      setTicket(next);
+      setPlan(null);
+      setPaid(false);
+      setStatus(
+        '티켓을 생성했거나 같은 요청의 기존 티켓을 불러왔습니다. 기존 큐 등록·자동 실행은 하지 않았습니다.',
+      );
+      await loadList();
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : '생성 실패. 같은 입력/요청 ID로 재전송할 수 있습니다.',
+      );
+    } finally {
+      setBusy('');
+    }
+  };
+  const open = async (identity: string) => {
+    setBusy('read');
+    setError('');
+    try {
+      selection.current++;
+      applyTicket(await request<Ticket>(base + '/' + identity));
+      setPlan(null);
+      setPaid(false);
+      setStatus(
+        '티켓 서버값을 다시 불러왔습니다. 정의/서빙 snapshot은 최신 편집으로 자동 교체하지 않습니다.',
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '티켓 조회 실패');
+    } finally {
+      setBusy('');
+    }
+  };
+  const getPlan = async () => {
+    if (!ticket) {
+      return;
+    }
+    setBusy('plan');
+    setError('');
+    setPaid(false);
+    setPlan(null);
+    try {
+      setPlan(await request<Plan>(base + '/' + ticket.id + '/plan'));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '계획 조회 실패');
+    } finally {
+      setBusy('');
+    }
+  };
+  const confirm = async () => {
+    if (!ticket || !plan) {
+      return;
+    }
+    setBusy('confirm');
+    setError('');
+    try {
+      applyTicket(
+        await jsonPost<Ticket>(base + '/' + ticket.id + '/confirm', {
+          revision: ticket.revision,
+          token: plan.token,
+          paid_confirmed: paid,
+        }),
+      );
+      setStatus('확인한 계획을 저장했습니다. 아직 실행하지 않았습니다.');
+      await loadList();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '확인 실패. 계획을 명시적으로 다시 불러오세요.');
+    } finally {
+      setBusy('');
+    }
+  };
+  const start = async () => {
+    if (!ticket || !plan) {
+      return;
+    }
+    setBusy('start');
+    setError('');
+    try {
+      applyTicket(
+        await jsonPost<Ticket>(base + '/' + ticket.id + '/start', {
+          revision: ticket.revision,
+          token: plan.token,
+        }),
+      );
+      await loadList();
+      setStatus('실행 응답을 저장했습니다. 실제 단계 상태와 산출물을 확인하세요.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '실행 요청 실패. 자동 재시도하지 않습니다.');
+    } finally {
+      setBusy('');
+    }
+  };
+  const artifactLink = (step: Step, port: string, meta: Artifact, partial: boolean) => (
+    <a
+      key={port}
+      className={partial ? 'partial-link' : 'artifact-link'}
+      href={`/api${base}/${ticket?.id}/artifacts/${encodeURIComponent(step.id)}/${encodeURIComponent(port)}${partial ? '?partial=true' : ''}`}
+    >
+      {partial ? '부분 결과' : '산출물'} {port} · {meta.bytes} bytes
+    </a>
+  );
+  useEffect(() => {
+    void load();
+  }, []);
+  useEffect(() => {
+    if (!ticket || (ticket.status !== 'running' && busy !== 'start')) {
+      return;
+    }
+    const generation = selection.current,
+      identity = ticket.id;
+    let stopped = false;
+    const timer = window.setInterval(() => {
+      void request<Ticket>(base + '/' + identity)
+        .then((next) => {
+          if (!stopped && selection.current === generation) {
+            applyTicket(next);
+          }
+        })
+        .catch(() => {
+          if (!stopped) {
+            setError(
+              '진행 조회 실패 · 이전 상태를 표시 중입니다. 실행을 재요청하지 말고 서버값을 다시 불러오세요.',
+            );
+          }
+        });
+    }, 1000);
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+    };
+  }, [ticket?.id, ticket?.status, busy]);
+
+  return (
+    <main className="serving-page workflow-tickets">
+      <div className="serving-heading">
+        <div>
+          <p className="workspace-eyebrow">정의 기반 순차 처리</p>
+          <h1>순차 워크플로우 티켓</h1>
+        </div>
+        <Button variant="secondary" disabled={!!busy} onClick={() => void load()}>
+          서버 목록 새로 불러오기
+        </Button>
+      </div>
+      <p>
+        영상과 저장 정의를 선택해 <strong>보류 티켓</strong>을 만듭니다. 생성/계획 확인은 실행이나
+        기존 큐 등록이 아닙니다.
+      </p>
+      <p className="serving-help">
+        정의는 생성 때 ID·revision·내용을 고정합니다. 계획 확인 때 서빙 설정을 결합하고 변경 시
+        재확인을 요구합니다. 비밀키는 복사하지 않습니다. 첫 실패에서 중단하며 자동 재시도·취소 후
+        재개는 제공하지 않습니다.
+      </p>
+      {runtime && (
+        <p>
+          <Badge tone="neutral">{runtime.connected ? runtime.mode : '새 순차 실행기 미연결'}</Badge>{' '}
+          {runtime.notice}
+        </p>
+      )}
+      {error && (
+        <p role="alert" className="alert">
+          {error}
+        </p>
+      )}
+      {status && <p role="status">{status}</p>}
+      {!ready && <p>서버 목록 미확인 · 조회 성공 전에는 새 티켓을 생성하지 않습니다.</p>}
+      <section className="ticket-panel">
+        <h2>새 티켓 생성</h2>
+        <fieldset disabled={!!busy || !ready}>
+          <div className="serving-grid">
+            <label>
+              입력 영상
+              <select
+                aria-label="입력 영상"
+                value={assetId}
+                onChange={(e) => {
+                  setAssetId(e.target.value);
+                  changed();
+                }}
+              >
+                <option value="">영상 선택</option>
+                {assets.map((a) => (
+                  <option key={a.asset_id} value={a.asset_id}>
+                    {a.original_filename}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              저장 워크플로우
+              <select
+                aria-label="저장 워크플로우"
+                value={definitionId}
+                onChange={(e) => void chooseDefinition(e.target.value)}
+              >
+                <option value="">저장 정의 선택</option>
+                {definitions.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name} · r{d.revision}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              입력 언어
+              <Input
+                aria-label="입력 언어"
+                value={sourceLanguage}
+                maxLength={40}
+                onChange={(e) => {
+                  setSourceLanguage(e.target.value);
+                  changed();
+                }}
+              />
+            </label>
+            <label>
+              대상 언어
+              <Input
+                aria-label="대상 언어"
+                value={targetLanguage}
+                maxLength={40}
+                onChange={(e) => {
+                  setTargetLanguage(e.target.value);
+                  changed();
+                }}
+              />
+            </label>
+            <label>
+              영상 설명
+              <Input
+                aria-label="영상 설명"
+                value={description}
+                maxLength={2000}
+                onChange={(e) => {
+                  setDescription(e.target.value);
+                  changed();
+                }}
+              />
+            </label>
+          </div>
+          <div className="ticket-actions">
+            <Button
+              variant="secondary"
+              disabled={!definitionId}
+              onClick={() => void chooseDefinition(definitionId)}
+            >
+              선택 정의 새로 읽기
+            </Button>
+            <Button
+              disabled={!definition || !capability?.supported || !assetId}
+              onClick={() => void create()}
+            >
+              보류 티켓 생성
+            </Button>
+          </div>
+        </fieldset>
+        {definition && (
+          <p>
+            선택 정의: {definition.name} · revision {definition.revision} ·{' '}
+            <a href="#/workflow-editor">편집기로 이동</a>
+          </p>
+        )}
+        {capability && (
+          <div className="execution-capability">
+            <Badge tone="neutral">
+              {capability.supported ? '순차 범위 지원' : '현재 순차 실행 미지원'}
+            </Badge>
+            <p className="serving-help">
+              {capability.notice} 타입 검증 통과와 실제 실행 가능성/성공은 다릅니다.
+            </p>
+            {!capability.supported && (
+              <div className="execution-reasons">
+                {capability.reasons.map((r, i) => (
+                  <p key={i}>
+                    {r.node_id ? `${r.node_id} · ` : ''}
+                    {r.message}
+                  </p>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+      <section className="ticket-panel">
+        <h2>저장된 순차 티켓</h2>
+        {ready && tickets.length === 0 && (
+          <p>저장된 새 순차 티켓 없음. 기존 고정 workflow/작업은 변경하지 않습니다.</p>
+        )}
+        <div className="ticket-list">
+          {tickets.map((t) => (
+            <Button
+              key={t.id}
+              variant="secondary"
+              disabled={!!busy}
+              onClick={() => void open(t.id)}
+            >
+              {t.definition.name} · {stateLabel[t.status] || t.status} · {t.id.slice(0, 6)}
+            </Button>
+          ))}
+        </div>
+      </section>
+      {ticket && (
+        <section className="ticket-panel ticket-detail">
+          <div className="serving-heading">
+            <h2>{ticket.definition.name}</h2>
+            <Badge tone="neutral">
+              <span className="ticket-state">{stateLabel[ticket.status] || ticket.status}</span>
+            </Badge>
+          </div>
+          <p>
+            {ticket.asset.original_filename} · 고정 정의 r{ticket.definition.revision} · 티켓
+            revision {ticket.revision}
+          </p>
+          <p className="serving-help">
+            티켓 {ticket.id} · 언어 {ticket.options.source_language} →{' '}
+            {ticket.options.target_language}. 위의 새 입력을 바꾸면 이전 확인을 재사용하지 않습니다.
+          </p>
+          <div className="ticket-actions">
+            <Button variant="secondary" disabled={!!busy} onClick={() => void open(ticket.id)}>
+              티켓 서버값 다시 불러오기
+            </Button>
+            <Button
+              variant="secondary"
+              disabled={!!busy || !['held', 'confirmed'].includes(ticket.status)}
+              onClick={() => void getPlan()}
+            >
+              실행 계획 불러오기
+            </Button>
+          </div>
+          {ticket.error && (
+            <p className="alert">
+              {ticket.error} 성공 단계·부분 파일은 아래에 보존됩니다. 이 티켓은 재개하지 않습니다.
+              다시 처리하려면 새 티켓을 별도로 검토하세요.
+            </p>
+          )}
+          {ticket.settings_snapshot && (
+            <p>
+              확인된 서빙 revision {String(ticket.settings_snapshot.revision)} · 저장/키 보유/모델
+              목록은 연결·추론 성공이 아닙니다.
+            </p>
+          )}
+          {plan && (
+            <section className="execution-plan">
+              <h3>명시 실행 계획 확인</h3>
+              <p>
+                고정 정의 r{ticket.definition.revision} · 서빙 revision{' '}
+                {String(plan.settings.revision)}
+              </p>
+              <p className="serving-help">
+                {plan.notice} 입력/옵션 변경은 새 티켓과 새 확인이 필요합니다.
+              </p>
+              <ol>
+                {plan.steps.map((s) => (
+                  <li key={s.id}>
+                    {label(s.type)} ·{' '}
+                    {Object.entries(s.options)
+                      .map(([k, v]) => `${k}=${v}`)
+                      .join(' / ') || '정의된 기본 옵션'}
+                  </li>
+                ))}
+              </ol>
+              <p>
+                전사 {String(plan.settings.transcription_provider)} /{' '}
+                {String(plan.settings.transcription_model)} · 번역{' '}
+                {String(plan.settings.translation_provider)} /{' '}
+                {String(plan.settings.translation_model)}
+              </p>
+              <p>
+                {plan.paid_roles.length
+                  ? `모델 호출 역할: ${plan.paid_roles.join(', ')} · 외부 공급자 비용이 발생할 수 있습니다.`
+                  : '이 선택 단계에는 모델 호출 역할이 없습니다.'}
+              </p>
+              <label className="serving-check">
+                <input
+                  type="checkbox"
+                  aria-label="유료 모델 호출 확인"
+                  checked={paid}
+                  disabled={!!busy || plan.paid_roles.length === 0}
+                  onChange={(e) => setPaid(e.target.checked)}
+                />
+                계획의 유료 모델 호출을 명시적으로 확인
+              </label>
+              <div className="ticket-actions">
+                <Button
+                  disabled={
+                    !!busy ||
+                    (plan.paid_roles.length > 0 && !paid) ||
+                    !['held', 'confirmed'].includes(ticket.status)
+                  }
+                  onClick={() => void confirm()}
+                >
+                  계획 확인 저장
+                </Button>
+                <Button
+                  disabled={
+                    !!busy ||
+                    !runtime?.connected ||
+                    ticket.status !== 'confirmed' ||
+                    ticket.confirmation?.token !== plan.token
+                  }
+                  onClick={() => void start()}
+                >
+                  확인한 계획 실행 요청
+                </Button>
+              </div>
+              {!runtime?.connected && (
+                <p className="serving-help">
+                  현재 순차 실행기가 미연결이라 실행 요청은 비활성입니다. 기존 큐/Worker를 자동
+                  시작하지 않습니다.
+                </p>
+              )}
+            </section>
+          )}
+          <ol className="ticket-steps">
+            {ticket.steps.map((step) => (
+              <li className="ticket-step" key={step.id}>
+                <h3>
+                  {label(step.type)} · {stateLabel[step.status] || step.status}
+                </h3>
+                <div className="ticket-artifacts">
+                  {Object.entries(step.artifacts).map(([p, m]) => artifactLink(step, p, m, false))}
+                  {Object.entries(step.partial_artifacts).map(([p, m]) =>
+                    artifactLink(step, p, m, true),
+                  )}
+                </div>
+                {Object.keys(step.artifacts).length === 0 &&
+                  Object.keys(step.partial_artifacts).length === 0 && (
+                    <p className="serving-help">아직 저장된 산출물 없음</p>
+                  )}
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
+      <p className="serving-help">
+        지원 범위는 단일 처리 사슬입니다. 얼굴 합성 세션/preview·GPU VAD·추가
+        검수/Decision·병렬/합류는 이번 순차 어댑터에서 미지원입니다. 단계 상태는 실행기가 기록한
+        결과이며 실모델 품질 검증을 뜻하지 않습니다.
+      </p>
+    </main>
+  );
+};

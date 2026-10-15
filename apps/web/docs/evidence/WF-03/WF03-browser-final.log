@@ -1,0 +1,66 @@
+
+Running 2 tests using 1 worker
+
+[1/2] tests\browser\workflow-tickets.spec.ts:7:3 › definition ticket real orchestration 1440
+  1) tests\browser\workflow-tickets.spec.ts:7:3 › definition ticket real orchestration 1440 ────────
+
+    Error: expect(locator).toContainText(expected) failed
+
+    Locator: getByRole('status')
+    Expected substring: "티켓 서버값을 다시 불러왔습니다."
+    Error: strict mode violation: getByRole('status') resolved to 2 elements:
+        1) <span role="status" class="workspace-connection online">서버 연결됨</span> aka getByText('서버 연결됨')
+        2) <p role="status">실행 응답을 저장했습니다. 실제 단계 상태와 산출물을 확인하세요.</p> aka getByText('실행 응답을 저장했습니다. 실제 단계 상태와 산출물을 확인하세요')
+
+    Call log:
+      - Expect "toContainText" with timeout 5000ms
+      - waiting for getByRole('status')
+
+
+      152 |     });
+      153 |     await page.getByRole('button', { name: '티켓 서버값 다시 불러오기', exact: true }).click();
+    > 154 |     await expect(page.getByRole('status')).toContainText('티켓 서버값을 다시 불러왔습니다.');
+          |                                            ^
+      155 |     await expect(page.locator('.execution-plan')).toHaveCount(0);
+      156 |     await expect(page.locator('.ticket-step')).toHaveCount(2);
+      157 |     await expect(page.locator('.artifact-link')).toHaveCount(3);
+        at <workspace>\apps\web\tests\browser\workflow-tickets.spec.ts:154:44
+
+    Test timeout of 30000ms exceeded.
+
+    Error Context: ..\..\..\..\AppData\Local\hermes\cache\scratch\s2-audit\browser-results\workflow-tickets-definition-ticket-real-orchestration-1440\error-context.md
+
+
+[2/2] tests\browser\workflow-tickets.spec.ts:7:3 › definition ticket real orchestration 390
+  2) tests\browser\workflow-tickets.spec.ts:7:3 › definition ticket real orchestration 390 ─────────
+
+    Error: expect(locator).toContainText(expected) failed
+
+    Locator: getByRole('status')
+    Expected substring: "티켓 서버값을 다시 불러왔습니다."
+    Error: strict mode violation: getByRole('status') resolved to 2 elements:
+        1) <span role="status" class="workspace-connection online">서버 연결됨</span> aka getByText('서버 연결됨')
+        2) <p role="status">실행 응답을 저장했습니다. 실제 단계 상태와 산출물을 확인하세요.</p> aka getByText('실행 응답을 저장했습니다. 실제 단계 상태와 산출물을 확인하세요')
+
+    Call log:
+      - Expect "toContainText" with timeout 5000ms
+      - waiting for getByRole('status')
+
+
+      152 |     });
+      153 |     await page.getByRole('button', { name: '티켓 서버값 다시 불러오기', exact: true }).click();
+    > 154 |     await expect(page.getByRole('status')).toContainText('티켓 서버값을 다시 불러왔습니다.');
+          |                                            ^
+      155 |     await expect(page.locator('.execution-plan')).toHaveCount(0);
+      156 |     await expect(page.locator('.ticket-step')).toHaveCount(2);
+      157 |     await expect(page.locator('.artifact-link')).toHaveCount(3);
+        at <workspace>\apps\web\tests\browser\workflow-tickets.spec.ts:154:44
+
+    Test timeout of 30000ms exceeded.
+
+    Error Context: ..\..\..\..\AppData\Local\hermes\cache\scratch\s2-audit\browser-results\workflow-tickets-definition-ticket-real-orchestration-390\error-context.md
+
+
+  2 failed
+    tests\browser\workflow-tickets.spec.ts:7:3 › definition ticket real orchestration 1440 ─────────
+    tests\browser\workflow-tickets.spec.ts:7:3 › definition ticket real orchestration 390 ──────────

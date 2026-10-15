@@ -1,0 +1,279 @@
+{
+  "transport": "actual ASGI + deterministic executor; injected external definition/settings writes and node failure",
+  "events": [
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-tickets/runtime",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/node-catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/node-catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-tickets/runtime",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions/cccccccccccccccccccccccccccccccc",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/workflow-tickets/capability",
+      "status": 200,
+      "request_revision": 1
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/workflow-tickets/capability",
+      "status": 200,
+      "request_revision": 1
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/workflow-tickets",
+      "status": 201
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-tickets/27fff8f30e3340cbb7674856478f8483/plan",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/workflow-tickets/27fff8f30e3340cbb7674856478f8483/confirm",
+      "status": 409,
+      "request_revision": 1
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-tickets/27fff8f30e3340cbb7674856478f8483/plan",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/workflow-tickets/27fff8f30e3340cbb7674856478f8483/confirm",
+      "status": 200,
+      "request_revision": 1
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-tickets",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/workflow-tickets/27fff8f30e3340cbb7674856478f8483/start",
+      "status": 200,
+      "request_revision": 2
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-tickets/27fff8f30e3340cbb7674856478f8483",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-tickets/27fff8f30e3340cbb7674856478f8483",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-tickets/27fff8f30e3340cbb7674856478f8483/artifacts/extract/audio",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-tickets/27fff8f30e3340cbb7674856478f8483",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/workflow-tickets/capability",
+      "status": 200,
+      "request_revision": 2
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/workflow-tickets",
+      "status": 201
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-tickets/226f77c43b0f41b7bff1eb3f996de6a1/plan",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/workflow-tickets/226f77c43b0f41b7bff1eb3f996de6a1/confirm",
+      "status": 200,
+      "request_revision": 1
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/workflow-tickets/226f77c43b0f41b7bff1eb3f996de6a1/start",
+      "status": 200,
+      "request_revision": 2
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-tickets/226f77c43b0f41b7bff1eb3f996de6a1",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-tickets/226f77c43b0f41b7bff1eb3f996de6a1",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-tickets/226f77c43b0f41b7bff1eb3f996de6a1",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-tickets/226f77c43b0f41b7bff1eb3f996de6a1",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    }
+  ],
+  "errors": []
+}

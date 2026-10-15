@@ -209,3 +209,7 @@ async def write_definition(identity: str, request: Request):
     from video_service.workflow_definitions import DefinitionStore
     payload = await serving_json(request, limit=131072)
     return definition_response(lambda: DefinitionStore(settings.storage_root, request.state.settings_owner).save(identity, payload))
+
+
+from app.api.workflow_ticket_routes import router as workflow_ticket_router
+router.include_router(workflow_ticket_router)

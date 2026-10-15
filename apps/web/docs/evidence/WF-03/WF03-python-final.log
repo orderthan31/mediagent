@@ -1,0 +1,15 @@
+/usr/local/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+.......................WARNING:video_service.thumbnails:No thumbnail candidate could be decoded for source.mp4
+.WARNING:video_service.thumbnails:No thumbnail candidate could be decoded for source.mp4
+.WARNING:video_service.thumbnails:No thumbnail candidate could be decoded for source.mp4
+.WARNING:video_service.thumbnails:No thumbnail candidate could be decoded for source.mp4
+.WARNING:video_service.thumbnails:No thumbnail candidate could be decoded for source.mp4
+.WARNING:video_service.thumbnails:No thumbnail candidate could be decoded for source.mp4
+.WARNING:video_service.thumbnails:No thumbnail candidate could be decoded for source.mp4
+.WARNING:video_service.thumbnails:No thumbnail candidate could be decoded for source.mp4
+.
+----------------------------------------------------------------------
+Ran 31 tests in 5.563s
+
+OK

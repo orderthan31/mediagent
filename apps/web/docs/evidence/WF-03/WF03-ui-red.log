@@ -1,0 +1,34 @@
+
+Running 1 test using 1 worker
+
+[1/1] tests\browser\workflow-tickets.spec.ts:7:3 › definition ticket real orchestration 390
+  1) tests\browser\workflow-tickets.spec.ts:7:3 › definition ticket real orchestration 390 ─────────
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('heading', { name: '순차 워크플로우 티켓', exact: true })
+    Expected: visible
+    Timeout: 15000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 15000ms
+      - waiting for getByRole('heading', { name: '순차 워크플로우 티켓', exact: true })
+
+
+      22 |       return route.fulfill({json:p.endsWith('session')?{enabled:false,user:null}:p.endsWith('video-uploads')?{uploads:[]}:{jobs:[]}});
+      23 |     });
+    > 24 |     await page.goto('/#/workflow-tickets');await expect(page.getByRole('heading',{name:'순차 워크플로우 티켓',exact:true})).toBeVisible({timeout:15000});
+         |                                                                                                                    ^
+      25 |     await page.getByLabel('입력 영상',{exact:true}).selectOption('b'.repeat(32));
+      26 |     await page.getByLabel('저장 워크플로우',{exact:true}).selectOption('c'.repeat(32));await expect(page.locator('.execution-reasons')).toContainText('S5');
+      27 |     await page.getByLabel('저장 워크플로우',{exact:true}).selectOption('a'.repeat(32));await expect(page.locator('.execution-capability')).toContainText('순차 범위 지원');
+        at <workspace>\apps\web\tests\browser\workflow-tickets.spec.ts:24:116
+
+    Test timeout of 30000ms exceeded.
+
+    Error Context: ..\..\..\..\AppData\Local\hermes\cache\scratch\s2-audit\browser-results\workflow-tickets-definition-ticket-real-orchestration-390\error-context.md
+
+
+  1 failed
+    tests\browser\workflow-tickets.spec.ts:7:3 › definition ticket real orchestration 390 ──────────
