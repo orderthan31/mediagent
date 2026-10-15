@@ -117,13 +117,13 @@ def stt_models():
     return {'providers': STT_MODELS}
 
 
-async def serving_json(request):
+async def serving_json(request, limit=8192):
     if request.headers.get('content-type', '').split(';')[0] != 'application/json':
         raise HTTPException(415, 'JSON 요청이 필요합니다.')
     raw = bytearray()
     async for chunk in request.stream():
         raw.extend(chunk)
-        if len(raw) > 8192:
+        if len(raw) > limit:
             raise HTTPException(413, '요청이 너무 큽니다.')
     try:
         return json.loads(raw)
@@ -168,3 +168,44 @@ async def update_serving(request: Request):
         raise HTTPException(422, '지원 공급자·모델·서로 다른 폴백을 확인하세요. 전사 Anthropic·임의 STT 모델·키 변경은 지원하지 않습니다.') from None
     except Exception:
         raise HTTPException(503, '서빙 설정을 저장하지 못했습니다. 입력은 유지됩니다.') from None
+
+
+def definition_response(action):
+    from video_service.workflow_definitions import DefinitionConflict
+    try:
+        return action()
+    except FileNotFoundError:
+        raise HTTPException(404, '이 계정의 저장된 편집 정의가 없습니다.') from None
+    except DefinitionConflict:
+        raise HTTPException(409, '다른 편집이 저장되었습니다. 현재 편집은 유지됩니다. 명시적으로 서버값을 다시 불러온 뒤 편집하세요.') from None
+    except json.JSONDecodeError:
+        raise HTTPException(503, '저장된 편집 정의를 읽지 못했습니다.') from None
+    except (ValueError, TypeError):
+        raise HTTPException(422, '이름·revision·노드/연결·필수입력·옵션/배치를 확인하고 서버 검증 문제를 해결하세요.') from None
+    except Exception:
+        raise HTTPException(503, '편집 정의 저장소에 접근하지 못했습니다. 현재 편집은 유지됩니다.') from None
+
+
+@router.get('/workflow-definitions')
+def list_definitions(request: Request):
+    from video_service.workflow_definitions import DefinitionStore
+    return definition_response(lambda: {'definitions': DefinitionStore(settings.storage_root, request.state.settings_owner).list()})
+
+
+@router.post('/workflow-definitions/validate')
+async def validate_definition(request: Request):
+    from video_service.workflow_graph import validate_graph
+    return validate_graph(await serving_json(request, limit=131072))
+
+
+@router.get('/workflow-definitions/{identity}')
+def read_definition(identity: str, request: Request):
+    from video_service.workflow_definitions import DefinitionStore
+    return definition_response(lambda: DefinitionStore(settings.storage_root, request.state.settings_owner).get(identity))
+
+
+@router.put('/workflow-definitions/{identity}')
+async def write_definition(identity: str, request: Request):
+    from video_service.workflow_definitions import DefinitionStore
+    payload = await serving_json(request, limit=131072)
+    return definition_response(lambda: DefinitionStore(settings.storage_root, request.state.settings_owner).save(identity, payload))

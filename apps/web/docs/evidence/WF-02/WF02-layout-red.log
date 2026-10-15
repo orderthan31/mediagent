@@ -1,0 +1,27 @@
+
+Running 1 test using 1 worker
+
+[1/1] tests\browser\editor-layout.spec.ts:3:1 › default placement remains within server coordinate bounds at the node limit
+  1) tests\browser\editor-layout.spec.ts:3:1 › default placement remains within server coordinate bounds at the node limit
+
+    Error: expect(received).toBeLessThanOrEqual(expected)
+
+    Expected: <= 3000
+    Received:    5420
+
+      11 |   const add = page.getByRole('button', { name: '영상 분석 추가', exact: true });
+      12 |   for (let n = 0; n < 100; n++) { await add.click(); }
+    > 13 |   expect(Number(await page.getByLabel('노드 Y', { exact: true }).inputValue())).toBeLessThanOrEqual(3000);
+         |                                                                               ^
+      14 |   expect(Number(await page.getByLabel('노드 X', { exact: true }).inputValue())).toBeLessThanOrEqual(4000);
+      15 |   await expect(add).toBeDisabled();
+      16 | });
+        at <workspace>\apps\web\tests\browser\editor-layout.spec.ts:13:79
+
+    Test timeout of 30000ms exceeded.
+
+    Error Context: ..\..\..\..\AppData\Local\hermes\cache\scratch\s2-audit\browser-results\editor-layout-default-plac-2f928-te-bounds-at-the-node-limit\error-context.md
+
+
+  1 failed
+    tests\browser\editor-layout.spec.ts:3:1 › default placement remains within server coordinate bounds at the node limit

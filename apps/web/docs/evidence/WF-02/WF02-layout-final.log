@@ -1,0 +1,5 @@
+
+Running 1 test using 1 worker
+
+[1/1] tests\browser\editor-layout.spec.ts:3:1 › default placement remains within server coordinate bounds at the node limit
+  1 passed (6.5s)

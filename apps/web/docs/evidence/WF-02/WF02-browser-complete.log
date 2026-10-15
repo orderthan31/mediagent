@@ -1,0 +1,7 @@
+
+Running 3 tests using 1 worker
+
+[1/3] tests\browser\editor-layout.spec.ts:3:1 › default placement remains within server coordinate bounds at the node limit
+[2/3] tests\browser\workflow-editor.spec.ts:7:3 › real ASGI canvas storage journey 1440
+[3/3] tests\browser\workflow-editor.spec.ts:7:3 › real ASGI canvas storage journey 390
+  3 passed (1.5m)

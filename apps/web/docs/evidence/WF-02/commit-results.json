@@ -1,0 +1,18 @@
+[
+  {
+    "target": "lint",
+    "exit": 0
+  },
+  {
+    "target": "format:check",
+    "exit": 0
+  },
+  {
+    "target": "test",
+    "exit": 0
+  },
+  {
+    "target": "build",
+    "exit": 0
+  }
+]

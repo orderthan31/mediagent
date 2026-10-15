@@ -17,6 +17,7 @@ import { AccountMenu } from './AuthGate';
 import { JobDetail } from './JobDetail';
 import { SettingsPage } from './SettingsPage';
 import { ServingPage } from './ServingPage';
+import { WorkflowEditor } from './WorkflowEditor';
 import { failureMessage, isContentBlocked } from './job-failure';
 import { StageProgress } from './StageProgress';
 import { QueuePanel } from './QueuePanel';
@@ -51,6 +52,7 @@ const workspaceLinks = [
   { id: 'videos', label: '영상 보관함', href: '#/' },
   { id: 'jobs', label: '작업 목록', href: '#/jobs' },
   { id: 'serving', label: '노드·서빙', href: '#/serving' },
+  { id: 'editor', label: '워크플로우', href: '#/workflow-editor' },
   { id: 'settings', label: '설정', href: '#/settings' },
 ];
 export const VideoWorkspace = () => {
@@ -113,24 +115,29 @@ export const VideoWorkspace = () => {
   const jobsView = route === '#/jobs';
   const settingsView = route === '#/settings';
   const servingView = route === '#/serving';
-  const currentHref = servingView
-    ? '#/serving'
-    : settingsView
-      ? '#/settings'
-      : jobsView || jobId
-        ? '#/jobs'
-        : '#/';
-  const locationLabel = servingView
-    ? '노드·서빙'
-    : settingsView
-      ? '설정'
-      : jobId
-        ? '작업 목록 / 작업 상세'
-        : jobsView
-          ? '작업 목록'
-          : assetId
-            ? '영상 보관함 / 영상 상세'
-            : '영상 보관함';
+  const editorView = route === '#/workflow-editor';
+  const currentHref = editorView
+    ? '#/workflow-editor'
+    : servingView
+      ? '#/serving'
+      : settingsView
+        ? '#/settings'
+        : jobsView || jobId
+          ? '#/jobs'
+          : '#/';
+  const locationLabel = editorView
+    ? '워크플로우 편집기'
+    : servingView
+      ? '노드·서빙'
+      : settingsView
+        ? '설정'
+        : jobId
+          ? '작업 목록 / 작업 상세'
+          : jobsView
+            ? '작업 목록'
+            : assetId
+              ? '영상 보관함 / 영상 상세'
+              : '영상 보관함';
   const shownVideos = videos.filter((v) =>
     v.original_filename.toLocaleLowerCase().includes(query.toLocaleLowerCase()),
   );
@@ -472,7 +479,9 @@ export const VideoWorkspace = () => {
           hidden
           onChange={(e) => void attachSrt(e.target.files?.[0])}
         />
-        {servingView ? (
+        {editorView ? (
+          <WorkflowEditor />
+        ) : servingView ? (
           <ServingPage />
         ) : settingsView ? (
           <SettingsPage />

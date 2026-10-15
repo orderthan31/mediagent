@@ -1,0 +1,6 @@
+
+> video-subtitle-web@0.1.0 format:check
+> prettier --check "src/**/*.{ts,tsx}" "tests/*.mjs" "*.{ts,mjs,json,md}"
+
+Checking formatting...
+All matched files use Prettier code style!

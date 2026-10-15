@@ -1,0 +1,13 @@
+F.
+======================================================================
+FAIL: test_catalog_graph_checks_and_invalid_document_is_not_written (test_workflow_definitions.DefinitionTests.test_catalog_graph_checks_and_invalid_document_is_not_written)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/src/tests/test_workflow_definitions.py", line 36, in test_catalog_graph_checks_and_invalid_document_is_not_written
+    self.assertTrue(hasattr(module,'validate_graph'), 'Server graph validation is not implemented')
+AssertionError: False is not true : Server graph validation is not implemented
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.100s
+
+FAILED (failures=1)
