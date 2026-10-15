@@ -47,6 +47,14 @@ def _validate(steps, max_workers):
         raise ValueError('실행 정의는 유한한 JSON 값이어야 합니다.') from exc
 
 
+class NodeWait(Exception):
+    """A bounded executor pass may durably yield without failure or sleeping."""
+    def __init__(self, payload):
+        json.dumps(payload, allow_nan=False)
+        self.payload = deepcopy(payload)
+        super().__init__('Explicit continuation required')
+
+
 class NodeFailure(Exception):
     """A failed executor may attach verified partial-output metadata, not diagnostics."""
     def __init__(self, partial, cause):
@@ -56,7 +64,7 @@ class NodeFailure(Exception):
         super().__init__(self.error_type)
 
 
-def run_ready(steps, execute, publish, *, max_workers=2, settle=False):
+def run_ready(steps, execute, publish, *, max_workers=2, settle=False, initial=None):
     """Run ready nodes once; an independent failure does not cancel siblings.
 
     ``execute`` runs on worker threads and returns JSON-safe result metadata.
@@ -67,7 +75,19 @@ def run_ready(steps, execute, publish, *, max_workers=2, settle=False):
     selected = deepcopy(steps)
     _validate(selected, max_workers)
     nodes: dict[str, dict] = {n['id']: ({'status': 'skipped', 'reason': 'manual_unselected'} if settle and not n.get('selected', True) else {'status': 'pending'}) for n in selected}
-    state = {'revision': 0, 'nodes': nodes, 'unresolved': list(nodes)}
+    revision = 0
+    if initial is not None:
+        if (not isinstance(initial, dict) or type(initial.get('revision')) is not int or initial['revision'] < 0
+                or not isinstance(initial.get('nodes'), dict) or set(initial['nodes']) != set(nodes)):
+            raise ValueError('명시 이어실행의 저장 상태/노드가 다릅니다.')
+        allowed = {'pending', 'waiting', 'succeeded', 'failed', 'blocked', 'skipped'}
+        restored = deepcopy(initial['nodes'])
+        if any(not isinstance(row, dict) or row.get('status') not in allowed for row in restored.values()):
+            raise ValueError('중단된 running 상태의 자동복구/재시도는 지원하지 않습니다.')
+        json.dumps(restored, allow_nan=False)
+        nodes = restored
+        revision = initial['revision']
+    state = {'revision': revision, 'nodes': nodes, 'unresolved': list(nodes)}
 
     def persist():
         state['revision'] += 1
@@ -110,6 +130,8 @@ def run_ready(steps, execute, publish, *, max_workers=2, settle=False):
                     result = future.result()
                     json.dumps(result, allow_nan=False)
                     nodes[identity] = {'status': 'succeeded', 'result': result}
+                except NodeWait as exc:
+                    nodes[identity] = {'status': 'waiting', 'wait': exc.payload}
                 except NodeFailure as exc:
                     nodes[identity] = {'status': 'failed', 'error_type': exc.error_type, 'partial': exc.partial}
                 except Exception as exc:

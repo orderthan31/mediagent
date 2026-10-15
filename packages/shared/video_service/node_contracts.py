@@ -28,6 +28,9 @@ NODES = [
 
 VALUE_TYPES = ['video', 'audio', 'transcript', 'subtitle', 'timeline_map', 'media_metadata', 'validation_report', 'artifact_manifest']
 NODES.extend([
+    {**node('review', '사람 검수', {'value': 'video'}, {'value': 'video'}, role='control', choices={'data_type': VALUE_TYPES}),
+     'execution': 'explicit_review_ticket', 'entrypoint': 'video_service.review_tickets:ReviewTicketStore.run',
+     'port_types_from_options': {'inputs': {'value': 'data_type'}, 'outputs': {'value': 'data_type'}}},
     {**node('select', '수동 선택 분기', {'value': 'video'}, {'a': 'video', 'b': 'video'}, role='control',
             choices={'data_type': VALUE_TYPES, 'selection': ['a', 'b', 'both']}),
      'execution': 'explicit_graph_ticket', 'entrypoint': 'video_service.graph_tickets:GraphTicketStore.run',

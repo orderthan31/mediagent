@@ -1,0 +1,36 @@
+
+Running 1 test using 1 worker
+
+[1/1] tests\browser\review-tickets.spec.ts:7:3 › actual durable review gates and explicit continuation 1440
+  1) tests\browser\review-tickets.spec.ts:7:3 › actual durable review gates and explicit continuation 1440
+
+    Error: expect(locator).toHaveCount(expected) failed
+
+    Locator:  locator('.canvas-node[data-node-type="review"]')
+    Expected: 3
+    Received: 0
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toHaveCount" with timeout 5000ms
+      - waiting for locator('.canvas-node[data-node-type="review"]')
+        9 × locator resolved to 0 elements
+          - unexpected value "0"
+
+
+      48 |     await page.goto('/#/workflow-editor');
+      49 |     await page.getByLabel('저장된 정의', { exact: true }).selectOption('a'.repeat(32));
+    > 50 |     await expect(page.locator('.canvas-node[data-node-type="review"]')).toHaveCount(3);
+         |                                                                         ^
+      51 |     await page.locator('.canvas-node[data-id="review_text"] .canvas-drag').click();
+      52 |     await page.getByLabel('노드 X', { exact: true }).fill('850');
+      53 |     await page.getByLabel('노드 Y', { exact: true }).fill('280');
+        at <workspace>\apps\web\tests\browser\review-tickets.spec.ts:50:73
+
+    Test timeout of 30000ms exceeded.
+
+    Error Context: ..\..\..\..\AppData\Local\hermes\cache\scratch\s2-audit\browser-results\review-tickets-actual-dura-7df6e--explicit-continuation-1440\error-context.md
+
+
+  1 failed
+    tests\browser\review-tickets.spec.ts:7:3 › actual durable review gates and explicit continuation 1440

@@ -4,6 +4,7 @@ import { jsonPost, type VideoAsset } from './video-api';
 import { Button } from './hangyeol/primitives/button';
 import { Input } from './hangyeol/primitives/input';
 import { Badge } from './hangyeol/primitives/badge';
+import { ReviewPanel, type ReviewDocument } from './ReviewPanel';
 import './serving.css';
 import './workflow-tickets.css';
 
@@ -50,11 +51,15 @@ type Ticket = {
   confirmation: { token: string } | null;
   settings_snapshot: Record<string, string | boolean | number> | null;
   error?: string;
+  phase?: number;
+  reviews?: Record<string, ReviewDocument>;
 };
 type Plan = {
   token: string;
   settings: Record<string, string | number | boolean>;
   paid_roles: string[];
+  ready?: boolean;
+  eligible_steps?: string[];
   steps: { id: string; type: string; options: Record<string, string>; selected?: boolean }[];
   choices?: Record<string, string>;
   notice: string;
@@ -85,10 +90,44 @@ const graphPayload = (d: Definition) => ({
   edges: d.edges,
 });
 
-export const WorkflowTickets = ({ graph = false }: { graph?: boolean }) => {
-  const base = graph ? '/settings/graph-tickets' : '/settings/workflow-tickets';
+export const WorkflowTickets = ({
+  graph = false,
+  review = false,
+}: {
+  graph?: boolean;
+  review?: boolean;
+}) => {
+  const base = review
+    ? '/settings/review-tickets'
+    : graph
+      ? '/settings/graph-tickets'
+      : '/settings/workflow-tickets';
+  const reviewUpdate = async () => {
+    setPlan(null);
+    setPaid(false);
+    if (ticket) {
+      applyTicket(await request<Ticket>(base + '/' + ticket.id));
+    }
+  };
+  const runRequest = useRef<{
+    key: string;
+    body: { request_id: string; revision: number; token: string };
+  } | null>(null);
+  const plannable = review
+    ? ['held', 'confirmed', 'awaiting_review', 'continuation_confirmed']
+    : ['held', 'confirmed'];
   const states: Record<string, string> = graph
-    ? { ...stateLabel, failed: '선택 가지 실패 · 독립 결과 보존' }
+    ? {
+        ...stateLabel,
+        failed: '선택 가지 실패 · 독립 결과 보존',
+        ...(review
+          ? {
+              awaiting_review: '사람 검수 대기',
+              waiting: '사람 검수 대기',
+              continuation_confirmed: '이어 실행 계획 확인 · 요청 대기',
+            }
+          : {}),
+      }
     : stateLabel;
   const [choices, setChoices] = useState<Record<string, string>>({});
   const [definitions, setDefinitions] = useState<{ id: string; name: string; revision: number }[]>(
@@ -294,6 +333,7 @@ export const WorkflowTickets = ({ graph = false }: { graph?: boolean }) => {
     setBusy('confirm');
     setError('');
     try {
+      runRequest.current = null;
       applyTicket(
         await jsonPost<Ticket>(base + '/' + ticket.id + '/confirm', {
           revision: ticket.revision,
@@ -316,12 +356,24 @@ export const WorkflowTickets = ({ graph = false }: { graph?: boolean }) => {
     setBusy('start');
     setError('');
     try {
+      const operation = review && (ticket.phase || 0) > 0 ? 'continue' : 'start';
+      const key = ticket.id + ':' + plan.token + ':' + operation;
+      if (runRequest.current?.key !== key) {
+        runRequest.current = {
+          key,
+          body: { request_id: crypto.randomUUID(), revision: ticket.revision, token: plan.token },
+        };
+      }
       applyTicket(
-        await jsonPost<Ticket>(base + '/' + ticket.id + '/start', {
-          revision: ticket.revision,
-          token: plan.token,
-        }),
+        await jsonPost<Ticket>(
+          base + '/' + ticket.id + '/' + operation,
+          review ? runRequest.current.body : { revision: ticket.revision, token: plan.token },
+        ),
       );
+      if (review) {
+        setPlan(null);
+        setPaid(false);
+      }
       await loadList();
       setStatus('실행 응답을 저장했습니다. 실제 단계 상태와 산출물을 확인하세요.');
     } catch (e) {
@@ -380,9 +432,19 @@ export const WorkflowTickets = ({ graph = false }: { graph?: boolean }) => {
       <div className="serving-heading">
         <div>
           <p className="workspace-eyebrow">
-            {graph ? '수동 선택 · 제어된 동시 진행 · 결과 참조 합류' : '정의 기반 순차 처리'}
+            {review
+              ? '원하는 지원 지점 · 영속 검수 대기 · 명시 승인·이어 실행'
+              : graph
+                ? '수동 선택 · 제어된 동시 진행 · 결과 참조 합류'
+                : '정의 기반 순차 처리'}
           </p>
-          <h1>{graph ? '분기·병렬 워크플로우 티켓' : '순차 워크플로우 티켓'}</h1>
+          <h1>
+            {review
+              ? '사람 검수 워크플로우 티켓'
+              : graph
+                ? '분기·병렬 워크플로우 티켓'
+                : '순차 워크플로우 티켓'}
+          </h1>
         </div>
         <Button variant="secondary" disabled={!!busy} onClick={() => void load()}>
           서버 목록 새로 불러오기
@@ -405,9 +467,11 @@ export const WorkflowTickets = ({ graph = false }: { graph?: boolean }) => {
           <Badge tone="neutral">
             {runtime.connected
               ? runtime.mode
-              : graph
-                ? '병렬 실행기 미연결'
-                : '새 순차 실행기 미연결'}
+              : review
+                ? '검수 실행기 미연결'
+                : graph
+                  ? '병렬 실행기 미연결'
+                  : '새 순차 실행기 미연결'}
           </Badge>{' '}
           {runtime.notice}
         </p>
@@ -536,9 +600,11 @@ export const WorkflowTickets = ({ graph = false }: { graph?: boolean }) => {
           <div className="execution-capability">
             <Badge tone="neutral">
               {capability.supported
-                ? graph
-                  ? '분기·병렬 범위 지원'
-                  : '순차 범위 지원'
+                ? review
+                  ? '검수 범위 지원'
+                  : graph
+                    ? '분기·병렬 범위 지원'
+                    : '순차 범위 지원'
                 : graph
                   ? '현재 병렬 실행 미지원'
                   : '현재 순차 실행 미지원'}
@@ -560,11 +626,17 @@ export const WorkflowTickets = ({ graph = false }: { graph?: boolean }) => {
         )}
       </section>
       <section className="ticket-panel">
-        <h2>{graph ? '저장된 분기·병렬 티켓' : '저장된 순차 티켓'}</h2>
+        <h2>
+          {review ? '저장된 검수 지원 티켓' : graph ? '저장된 분기·병렬 티켓' : '저장된 순차 티켓'}
+        </h2>
         {ready && tickets.length === 0 && (
           <p>
-            {graph ? '저장된 새 병렬 티켓 없음.' : '저장된 새 순차 티켓 없음.'} 기존 고정
-            workflow/작업은 변경하지 않습니다.
+            {review
+              ? '저장된 검수 지원 티켓 없음.'
+              : graph
+                ? '저장된 새 병렬 티켓 없음.'
+                : '저장된 새 순차 티켓 없음.'}{' '}
+            기존 고정 workflow/작업은 변경하지 않습니다.
           </p>
         )}
         <div className="ticket-list">
@@ -611,7 +683,7 @@ export const WorkflowTickets = ({ graph = false }: { graph?: boolean }) => {
             </Button>
             <Button
               variant="secondary"
-              disabled={!!busy || !['held', 'confirmed'].includes(ticket.status)}
+              disabled={!!busy || !plannable.includes(ticket.status)}
               onClick={() => void getPlan()}
             >
               실행 계획 불러오기
@@ -643,6 +715,9 @@ export const WorkflowTickets = ({ graph = false }: { graph?: boolean }) => {
                 {plan.steps.map((s) => (
                   <li key={s.id}>
                     {label(s.type)}
+                    {review && !plan.eligible_steps?.includes(s.id)
+                      ? ' · 이번 실행 제외(보존/검수 선행 대기)'
+                      : ''}
                     {s.selected === false ? ' · 미선택 건너뜀' : ''} ·{' '}
                     {Object.entries(s.options)
                       .map(([k, v]) => `${k}=${v}`)
@@ -675,8 +750,9 @@ export const WorkflowTickets = ({ graph = false }: { graph?: boolean }) => {
                 <Button
                   disabled={
                     !!busy ||
+                    (review && !plan.ready) ||
                     (plan.paid_roles.length > 0 && !paid) ||
-                    !['held', 'confirmed'].includes(ticket.status)
+                    !plannable.includes(ticket.status)
                   }
                   onClick={() => void confirm()}
                 >
@@ -686,12 +762,16 @@ export const WorkflowTickets = ({ graph = false }: { graph?: boolean }) => {
                   disabled={
                     !!busy ||
                     !runtime?.connected ||
-                    ticket.status !== 'confirmed' ||
+                    !(review ? ['confirmed', 'continuation_confirmed'] : ['confirmed']).includes(
+                      ticket.status,
+                    ) ||
                     ticket.confirmation?.token !== plan.token
                   }
                   onClick={() => void start()}
                 >
-                  확인한 계획 실행 요청
+                  {review && (ticket.phase || 0) > 0
+                    ? '확인한 계획 이어 실행 요청'
+                    : '확인한 계획 실행 요청'}
                 </Button>
               </div>
               {!runtime?.connected && (
@@ -722,6 +802,16 @@ export const WorkflowTickets = ({ graph = false }: { graph?: boolean }) => {
                       : `단계 실패: ${step.error_type}`}
                   </p>
                 )}
+                {review && ticket.reviews?.[step.id] && (
+                  <ReviewPanel
+                    key={ticket.id + ':' + step.id}
+                    ticketId={ticket.id}
+                    node={step.id}
+                    initial={ticket.reviews[step.id]}
+                    executed={step.status === 'succeeded'}
+                    changed={reviewUpdate}
+                  />
+                )}
                 <div className="ticket-artifacts">
                   {Object.entries(step.artifacts).map(([p, m]) => artifactLink(step, p, m, false))}
                   {Object.entries(step.partial_artifacts).map(([p, m]) =>
@@ -738,9 +828,11 @@ export const WorkflowTickets = ({ graph = false }: { graph?: boolean }) => {
         </section>
       )}
       <p className="serving-help">
-        {graph
-          ? '수동 선택·독립 병렬·선택 필수 합류를 지원합니다. 합류 출력은 노드ID.포트 결과 참조 manifest이며 미디어/clock 병합 또는 단일 미디어 입력이 아닙니다. 얼굴 합성 세션/preview·GPU VAD·새 사람검수/AI Decision은 미지원입니다.'
-          : '지원 범위는 단일 처리 사슬입니다. 얼굴 합성 세션/preview·GPU VAD·추가 검수/Decision·병렬/합류는 이번 순차 어댑터에서 미지원입니다.'}{' '}
+        {review
+          ? '검수 대기는 해당 후행만 멈춥니다. 승인 전 필수 join은 대기하고 독립 가지의 성공/부분 결과는 보존합니다. 최신 서빙은 미실행 부분의 새 계획 확인에만 사용하며 완료 단계는 재실행하지 않습니다. 실패 재시도·crash 복구·AI Decision은 미지원입니다.'
+          : graph
+            ? '수동 선택·독립 병렬·선택 필수 합류를 지원합니다. 합류 출력은 노드ID.포트 결과 참조 manifest이며 미디어/clock 병합 또는 단일 미디어 입력이 아닙니다. 얼굴 합성 세션/preview·GPU VAD·새 사람검수/AI Decision은 미지원입니다.'
+            : '지원 범위는 단일 처리 사슬입니다. 얼굴 합성 세션/preview·GPU VAD·추가 검수/Decision·병렬/합류는 이번 순차 어댑터에서 미지원입니다.'}{' '}
         단계 상태는 실행기가 기록한 결과이며 실모델 품질 검증을 뜻하지 않습니다.
       </p>
     </main>

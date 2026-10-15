@@ -37,7 +37,7 @@ def compile_sequence(definition):
         options={k:v[0] for k,v in specs[kind]['options'].items()};options.update(n['options'])
         def producer(port):
             source=b.get(port,{}).get('node');return nodes[source]['type'] if source in nodes else source
-        if kind in {'select','join'}:reject('수동 분기/결과 합류는 새 병렬 티켓으로 생성하세요. 기존 순차 티켓에는 적용하지 않습니다.',identity)
+        if kind in {'select','join','review'}:reject('수동 분기/결과 합류는 새 병렬 티켓으로 생성하세요. 기존 순차 티켓에는 적용하지 않습니다.',identity)
         if kind=='faceswap':reject('얼굴 합성의 세션/preview 실행 어댑터는 새 순차 경로에 아직 연결되지 않았습니다. 기존 얼굴 합성 흐름을 사용하세요.',identity)
         if kind=='analyze' and len(nodes)!=1:reject('분석은 단독 실행만 지원합니다. metadata를 무시하고 다른 사슬 앞에 삽입하지 않습니다.',identity)
         if kind=='preprocess_audio':

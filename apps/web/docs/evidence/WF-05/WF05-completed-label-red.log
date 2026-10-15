@@ -1,0 +1,36 @@
+
+Running 1 test using 1 worker
+
+[1/1] tests\browser\review-tickets.spec.ts:7:3 › actual durable review gates and explicit continuation 1440
+  1) tests\browser\review-tickets.spec.ts:7:3 › actual durable review gates and explicit continuation 1440
+
+    Error: expect(locator).toHaveCount(expected) failed
+
+    Locator:  locator('.review-panel').getByText('승인 gate 통과', { exact: true })
+    Expected: 3
+    Received: 0
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toHaveCount" with timeout 5000ms
+      - waiting for locator('.review-panel').getByText('승인 gate 통과', { exact: true })
+        9 × locator resolved to 0 elements
+          - unexpected value "0"
+
+
+      213 |       timeout: 20000,
+      214 |     });
+    > 215 |     await expect(page.locator('.review-panel').getByText('승인 gate 통과', { exact: true })).toHaveCount(3);
+          |                                                                                          ^
+      216 |     await page.screenshot({ path: `${E}/completed-${width}.png`, fullPage: true });
+      217 |     expect(errors).toEqual([]);
+      218 |     const trace = (await fs.readFile(path.join(root, 'actual-trace.jsonl'), 'utf8'))
+        at <workspace>\apps\web\tests\browser\review-tickets.spec.ts:215:90
+
+    Test timeout of 30000ms exceeded.
+
+    Error Context: ..\..\..\..\AppData\Local\hermes\cache\scratch\s2-audit\browser-results\review-tickets-actual-dura-7df6e--explicit-continuation-1440\error-context.md
+
+
+  1 failed
+    tests\browser\review-tickets.spec.ts:7:3 › actual durable review gates and explicit continuation 1440

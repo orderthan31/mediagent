@@ -54,7 +54,7 @@ def compile_parallel(definition):
     return result
 
 
-def compile_graph(definition, choices=None):
+def compile_graph(definition, choices=None, *, allow_review=False):
     """Approved manual routing plus typed manifest joins; no data/clock merge."""
     from .node_contracts import node_spec
     validation = validate_graph(definition)
@@ -65,6 +65,10 @@ def compile_graph(definition, choices=None):
     if not validation['valid']:
         return result
     nodes = {n['id']: n for n in definition['nodes']}
+    reviewers = {identity for identity, n in nodes.items() if n['type'] == 'review'}
+    if reviewers and not allow_review:
+        reject('사람 검수는 신규 검수 지원 티켓으로 생성하세요. 기존 순차/병렬 티켓에 소급하지 않습니다.')
+        return result
     selectors = {identity for identity, n in nodes.items() if n['type'] == 'select'}
     supplied = {} if choices is None else choices
     if not isinstance(supplied, dict) or set(supplied) - selectors or any(v not in ('a', 'b', 'both') for v in supplied.values()):
@@ -87,11 +91,11 @@ def compile_graph(definition, choices=None):
     for identity in nodes:
         visit(identity)
     def origin(binding):
-        if binding['node'] in selectors:
+        if binding['node'] in selectors | reviewers:
             return origin(bindings[binding['node']]['value'])
         return dict(binding)
     native = deepcopy(definition)
-    native['nodes'] = [n for n in native['nodes'] if n['type'] not in {'select', 'join'}]
+    native['nodes'] = [n for n in native['nodes'] if n['type'] not in {'select', 'join', 'review'}]
     native_ids = {n['id'] for n in native['nodes']}
     native['edges'] = [{**deepcopy(e), 'source': origin(e['source'])} for e in native['edges'] if e['target']['node'] in native_ids]
     if definition['inputs'] != {'video': 'video'}:

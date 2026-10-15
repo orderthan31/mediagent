@@ -1,0 +1,1500 @@
+{
+  "mode": "Actual isolated ASGI/store, explicit deterministic executor, no real model/video engine",
+  "events": [
+    {
+      "method": "GET",
+      "path": "/api/settings/node-catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/node-catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/review-tickets/runtime",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/review-tickets/runtime",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/node-catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/node-catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/review-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/review-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/workflow-definitions/validate",
+      "status": 200,
+      "payload": {
+        "catalog_version": 1,
+        "revision": 1,
+        "name": "격리 사람 검수·명시 이어실행",
+        "inputs": {
+          "video": "video"
+        },
+        "nodes": [
+          {
+            "id": "extract",
+            "type": "extract_audio",
+            "options": {},
+            "position": {
+              "x": 0,
+              "y": 0
+            }
+          },
+          {
+            "id": "prepare",
+            "type": "preprocess_audio",
+            "options": {
+              "audio_filter": "off",
+              "vad_mode": "off"
+            },
+            "position": {
+              "x": 250,
+              "y": 0
+            }
+          },
+          {
+            "id": "stt",
+            "type": "transcribe",
+            "options": {},
+            "position": {
+              "x": 500,
+              "y": 0
+            }
+          },
+          {
+            "id": "review_text",
+            "type": "review",
+            "options": {
+              "data_type": "transcript"
+            },
+            "position": {
+              "x": 850,
+              "y": 280
+            }
+          },
+          {
+            "id": "subtitle",
+            "type": "generate_subtitle",
+            "options": {},
+            "position": {
+              "x": 0,
+              "y": 180
+            }
+          },
+          {
+            "id": "review_srt",
+            "type": "review",
+            "options": {
+              "data_type": "subtitle"
+            },
+            "position": {
+              "x": 250,
+              "y": 180
+            }
+          },
+          {
+            "id": "encode",
+            "type": "encode",
+            "options": {
+              "subtitle_mode": "burn"
+            },
+            "position": {
+              "x": 500,
+              "y": 180
+            }
+          },
+          {
+            "id": "independent",
+            "type": "analyze",
+            "options": {},
+            "position": {
+              "x": 750,
+              "y": 180
+            }
+          },
+          {
+            "id": "review_metadata",
+            "type": "review",
+            "options": {
+              "data_type": "media_metadata"
+            },
+            "position": {
+              "x": 0,
+              "y": 360
+            }
+          },
+          {
+            "id": "joined",
+            "type": "join",
+            "options": {
+              "left_type": "video",
+              "right_type": "media_metadata"
+            },
+            "position": {
+              "x": 250,
+              "y": 360
+            }
+          }
+        ],
+        "edges": [
+          {
+            "id": "e0",
+            "source": {
+              "node": "$input",
+              "port": "video"
+            },
+            "target": {
+              "node": "extract",
+              "port": "video"
+            }
+          },
+          {
+            "id": "e1",
+            "source": {
+              "node": "extract",
+              "port": "audio"
+            },
+            "target": {
+              "node": "prepare",
+              "port": "audio"
+            }
+          },
+          {
+            "id": "e2",
+            "source": {
+              "node": "prepare",
+              "port": "audio"
+            },
+            "target": {
+              "node": "stt",
+              "port": "audio"
+            }
+          },
+          {
+            "id": "e3",
+            "source": {
+              "node": "prepare",
+              "port": "timeline"
+            },
+            "target": {
+              "node": "stt",
+              "port": "timeline"
+            }
+          },
+          {
+            "id": "e4",
+            "source": {
+              "node": "stt",
+              "port": "transcript"
+            },
+            "target": {
+              "node": "review_text",
+              "port": "value"
+            }
+          },
+          {
+            "id": "e5",
+            "source": {
+              "node": "review_text",
+              "port": "value"
+            },
+            "target": {
+              "node": "subtitle",
+              "port": "transcript"
+            }
+          },
+          {
+            "id": "e6",
+            "source": {
+              "node": "subtitle",
+              "port": "subtitles"
+            },
+            "target": {
+              "node": "review_srt",
+              "port": "value"
+            }
+          },
+          {
+            "id": "e7",
+            "source": {
+              "node": "$input",
+              "port": "video"
+            },
+            "target": {
+              "node": "encode",
+              "port": "video"
+            }
+          },
+          {
+            "id": "e8",
+            "source": {
+              "node": "review_srt",
+              "port": "value"
+            },
+            "target": {
+              "node": "encode",
+              "port": "subtitles"
+            }
+          },
+          {
+            "id": "e9",
+            "source": {
+              "node": "$input",
+              "port": "video"
+            },
+            "target": {
+              "node": "independent",
+              "port": "video"
+            }
+          },
+          {
+            "id": "e10",
+            "source": {
+              "node": "independent",
+              "port": "metadata"
+            },
+            "target": {
+              "node": "review_metadata",
+              "port": "value"
+            }
+          },
+          {
+            "id": "e11",
+            "source": {
+              "node": "encode",
+              "port": "video"
+            },
+            "target": {
+              "node": "joined",
+              "port": "left"
+            }
+          },
+          {
+            "id": "e12",
+            "source": {
+              "node": "review_metadata",
+              "port": "value"
+            },
+            "target": {
+              "node": "joined",
+              "port": "right"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "method": "PUT",
+      "path": "/api/settings/workflow-definitions/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "status": 200,
+      "payload": {
+        "catalog_version": 1,
+        "revision": 1,
+        "name": "격리 사람 검수·명시 이어실행",
+        "inputs": {
+          "video": "video"
+        },
+        "nodes": [
+          {
+            "id": "extract",
+            "type": "extract_audio",
+            "options": {},
+            "position": {
+              "x": 0,
+              "y": 0
+            }
+          },
+          {
+            "id": "prepare",
+            "type": "preprocess_audio",
+            "options": {
+              "audio_filter": "off",
+              "vad_mode": "off"
+            },
+            "position": {
+              "x": 250,
+              "y": 0
+            }
+          },
+          {
+            "id": "stt",
+            "type": "transcribe",
+            "options": {},
+            "position": {
+              "x": 500,
+              "y": 0
+            }
+          },
+          {
+            "id": "review_text",
+            "type": "review",
+            "options": {
+              "data_type": "transcript"
+            },
+            "position": {
+              "x": 850,
+              "y": 280
+            }
+          },
+          {
+            "id": "subtitle",
+            "type": "generate_subtitle",
+            "options": {},
+            "position": {
+              "x": 0,
+              "y": 180
+            }
+          },
+          {
+            "id": "review_srt",
+            "type": "review",
+            "options": {
+              "data_type": "subtitle"
+            },
+            "position": {
+              "x": 250,
+              "y": 180
+            }
+          },
+          {
+            "id": "encode",
+            "type": "encode",
+            "options": {
+              "subtitle_mode": "burn"
+            },
+            "position": {
+              "x": 500,
+              "y": 180
+            }
+          },
+          {
+            "id": "independent",
+            "type": "analyze",
+            "options": {},
+            "position": {
+              "x": 750,
+              "y": 180
+            }
+          },
+          {
+            "id": "review_metadata",
+            "type": "review",
+            "options": {
+              "data_type": "media_metadata"
+            },
+            "position": {
+              "x": 0,
+              "y": 360
+            }
+          },
+          {
+            "id": "joined",
+            "type": "join",
+            "options": {
+              "left_type": "video",
+              "right_type": "media_metadata"
+            },
+            "position": {
+              "x": 250,
+              "y": 360
+            }
+          }
+        ],
+        "edges": [
+          {
+            "id": "e0",
+            "source": {
+              "node": "$input",
+              "port": "video"
+            },
+            "target": {
+              "node": "extract",
+              "port": "video"
+            }
+          },
+          {
+            "id": "e1",
+            "source": {
+              "node": "extract",
+              "port": "audio"
+            },
+            "target": {
+              "node": "prepare",
+              "port": "audio"
+            }
+          },
+          {
+            "id": "e2",
+            "source": {
+              "node": "prepare",
+              "port": "audio"
+            },
+            "target": {
+              "node": "stt",
+              "port": "audio"
+            }
+          },
+          {
+            "id": "e3",
+            "source": {
+              "node": "prepare",
+              "port": "timeline"
+            },
+            "target": {
+              "node": "stt",
+              "port": "timeline"
+            }
+          },
+          {
+            "id": "e4",
+            "source": {
+              "node": "stt",
+              "port": "transcript"
+            },
+            "target": {
+              "node": "review_text",
+              "port": "value"
+            }
+          },
+          {
+            "id": "e5",
+            "source": {
+              "node": "review_text",
+              "port": "value"
+            },
+            "target": {
+              "node": "subtitle",
+              "port": "transcript"
+            }
+          },
+          {
+            "id": "e6",
+            "source": {
+              "node": "subtitle",
+              "port": "subtitles"
+            },
+            "target": {
+              "node": "review_srt",
+              "port": "value"
+            }
+          },
+          {
+            "id": "e7",
+            "source": {
+              "node": "$input",
+              "port": "video"
+            },
+            "target": {
+              "node": "encode",
+              "port": "video"
+            }
+          },
+          {
+            "id": "e8",
+            "source": {
+              "node": "review_srt",
+              "port": "value"
+            },
+            "target": {
+              "node": "encode",
+              "port": "subtitles"
+            }
+          },
+          {
+            "id": "e9",
+            "source": {
+              "node": "$input",
+              "port": "video"
+            },
+            "target": {
+              "node": "independent",
+              "port": "video"
+            }
+          },
+          {
+            "id": "e10",
+            "source": {
+              "node": "independent",
+              "port": "metadata"
+            },
+            "target": {
+              "node": "review_metadata",
+              "port": "value"
+            }
+          },
+          {
+            "id": "e11",
+            "source": {
+              "node": "encode",
+              "port": "video"
+            },
+            "target": {
+              "node": "joined",
+              "port": "left"
+            }
+          },
+          {
+            "id": "e12",
+            "source": {
+              "node": "review_metadata",
+              "port": "value"
+            },
+            "target": {
+              "node": "joined",
+              "port": "right"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/node-catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/node-catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/node-catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/review-tickets/runtime",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/node-catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/review-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/review-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/review-tickets/runtime",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/review-tickets/capability",
+      "status": 200,
+      "payload": {
+        "definition": {
+          "catalog_version": 1,
+          "revision": 2,
+          "name": "격리 사람 검수·명시 이어실행",
+          "inputs": {
+            "video": "video"
+          },
+          "nodes": [
+            {
+              "id": "extract",
+              "type": "extract_audio",
+              "options": {},
+              "position": {
+                "x": 0,
+                "y": 0
+              }
+            },
+            {
+              "id": "prepare",
+              "type": "preprocess_audio",
+              "options": {
+                "audio_filter": "off",
+                "vad_mode": "off"
+              },
+              "position": {
+                "x": 250,
+                "y": 0
+              }
+            },
+            {
+              "id": "stt",
+              "type": "transcribe",
+              "options": {},
+              "position": {
+                "x": 500,
+                "y": 0
+              }
+            },
+            {
+              "id": "review_text",
+              "type": "review",
+              "options": {
+                "data_type": "transcript"
+              },
+              "position": {
+                "x": 850,
+                "y": 280
+              }
+            },
+            {
+              "id": "subtitle",
+              "type": "generate_subtitle",
+              "options": {},
+              "position": {
+                "x": 0,
+                "y": 180
+              }
+            },
+            {
+              "id": "review_srt",
+              "type": "review",
+              "options": {
+                "data_type": "subtitle"
+              },
+              "position": {
+                "x": 250,
+                "y": 180
+              }
+            },
+            {
+              "id": "encode",
+              "type": "encode",
+              "options": {
+                "subtitle_mode": "burn"
+              },
+              "position": {
+                "x": 500,
+                "y": 180
+              }
+            },
+            {
+              "id": "independent",
+              "type": "analyze",
+              "options": {},
+              "position": {
+                "x": 750,
+                "y": 180
+              }
+            },
+            {
+              "id": "review_metadata",
+              "type": "review",
+              "options": {
+                "data_type": "media_metadata"
+              },
+              "position": {
+                "x": 0,
+                "y": 360
+              }
+            },
+            {
+              "id": "joined",
+              "type": "join",
+              "options": {
+                "left_type": "video",
+                "right_type": "media_metadata"
+              },
+              "position": {
+                "x": 250,
+                "y": 360
+              }
+            }
+          ],
+          "edges": [
+            {
+              "id": "e0",
+              "source": {
+                "node": "$input",
+                "port": "video"
+              },
+              "target": {
+                "node": "extract",
+                "port": "video"
+              }
+            },
+            {
+              "id": "e1",
+              "source": {
+                "node": "extract",
+                "port": "audio"
+              },
+              "target": {
+                "node": "prepare",
+                "port": "audio"
+              }
+            },
+            {
+              "id": "e2",
+              "source": {
+                "node": "prepare",
+                "port": "audio"
+              },
+              "target": {
+                "node": "stt",
+                "port": "audio"
+              }
+            },
+            {
+              "id": "e3",
+              "source": {
+                "node": "prepare",
+                "port": "timeline"
+              },
+              "target": {
+                "node": "stt",
+                "port": "timeline"
+              }
+            },
+            {
+              "id": "e4",
+              "source": {
+                "node": "stt",
+                "port": "transcript"
+              },
+              "target": {
+                "node": "review_text",
+                "port": "value"
+              }
+            },
+            {
+              "id": "e5",
+              "source": {
+                "node": "review_text",
+                "port": "value"
+              },
+              "target": {
+                "node": "subtitle",
+                "port": "transcript"
+              }
+            },
+            {
+              "id": "e6",
+              "source": {
+                "node": "subtitle",
+                "port": "subtitles"
+              },
+              "target": {
+                "node": "review_srt",
+                "port": "value"
+              }
+            },
+            {
+              "id": "e7",
+              "source": {
+                "node": "$input",
+                "port": "video"
+              },
+              "target": {
+                "node": "encode",
+                "port": "video"
+              }
+            },
+            {
+              "id": "e8",
+              "source": {
+                "node": "review_srt",
+                "port": "value"
+              },
+              "target": {
+                "node": "encode",
+                "port": "subtitles"
+              }
+            },
+            {
+              "id": "e9",
+              "source": {
+                "node": "$input",
+                "port": "video"
+              },
+              "target": {
+                "node": "independent",
+                "port": "video"
+              }
+            },
+            {
+              "id": "e10",
+              "source": {
+                "node": "independent",
+                "port": "metadata"
+              },
+              "target": {
+                "node": "review_metadata",
+                "port": "value"
+              }
+            },
+            {
+              "id": "e11",
+              "source": {
+                "node": "encode",
+                "port": "video"
+              },
+              "target": {
+                "node": "joined",
+                "port": "left"
+              }
+            },
+            {
+              "id": "e12",
+              "source": {
+                "node": "review_metadata",
+                "port": "value"
+              },
+              "target": {
+                "node": "joined",
+                "port": "right"
+              }
+            }
+          ]
+        },
+        "choices": {}
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/review-tickets",
+      "status": 201,
+      "payload": {
+        "request_id": "bc1e98ad-11c2-4a52-bb03-bfe0a7adb55b",
+        "definition_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "definition_revision": 2,
+        "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "options": {
+          "source_language": "auto",
+          "target_language": "ko",
+          "video_description": "",
+          "branch_choices": {}
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/review-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/review-tickets/215b710d9c8f44849fde7df6b92463a8/plan",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/review-tickets/215b710d9c8f44849fde7df6b92463a8/confirm",
+      "status": 200,
+      "payload": {
+        "revision": 1,
+        "token": "3aa9efcd9524937de0842373a93fdddf7c25587267dea2a513de17a68c2e7feb",
+        "paid_confirmed": true
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/review-tickets",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/review-tickets/215b710d9c8f44849fde7df6b92463a8/start",
+      "status": 200,
+      "payload": {
+        "request_id": "8e0b2981-fe7b-49d7-809a-18b5aaee0b4c",
+        "revision": 2,
+        "token": "3aa9efcd9524937de0842373a93fdddf7c25587267dea2a513de17a68c2e7feb"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/review-tickets/215b710d9c8f44849fde7df6b92463a8",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/review-tickets/215b710d9c8f44849fde7df6b92463a8",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/review-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/review-tickets/runtime",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/review-tickets/runtime",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/node-catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/node-catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/review-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/review-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/review-tickets/215b710d9c8f44849fde7df6b92463a8",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/review-tickets/215b710d9c8f44849fde7df6b92463a8/reviews/review_text/decision",
+      "status": 422,
+      "payload": {
+        "target": "1f5079f521aab3db8281798baff45349337b8db2e567322fea1207d6fb346945",
+        "state_revision": 1,
+        "revision": 1,
+        "sha256": "c149876ff23d74277c0c5c34c20efeea1ff7ddcad21ee53d5197bfa7596134b9",
+        "action": "approve",
+        "reason": "",
+        "request_id": "e7df3a14-9be0-4eb1-b763-78d047cb3350"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "PUT",
+      "path": "/api/settings/review-tickets/215b710d9c8f44849fde7df6b92463a8/reviews/review_text",
+      "status": 409,
+      "payload": {
+        "target": "1f5079f521aab3db8281798baff45349337b8db2e567322fea1207d6fb346945",
+        "state_revision": 1,
+        "revision": 1,
+        "sha256": "c149876ff23d74277c0c5c34c20efeea1ff7ddcad21ee53d5197bfa7596134b9",
+        "cues": [
+          {
+            "end": 0.2,
+            "start": 0,
+            "text": "사람이 확정한 실제 수정본"
+          }
+        ]
+      }
+    },
+    {
+      "method": "PUT",
+      "path": "/api/settings/review-tickets/215b710d9c8f44849fde7df6b92463a8/reviews/review_text",
+      "status": 409,
+      "payload": {
+        "target": "1f5079f521aab3db8281798baff45349337b8db2e567322fea1207d6fb346945",
+        "state_revision": 1,
+        "revision": 1,
+        "sha256": "c149876ff23d74277c0c5c34c20efeea1ff7ddcad21ee53d5197bfa7596134b9",
+        "cues": [
+          {
+            "end": 0.2,
+            "start": 0,
+            "text": "사람이 확정한 실제 수정본"
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/review-tickets/215b710d9c8f44849fde7df6b92463a8/reviews/review_text",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "PUT",
+      "path": "/api/settings/review-tickets/215b710d9c8f44849fde7df6b92463a8/reviews/review_text",
+      "status": 200,
+      "payload": {
+        "target": "1f5079f521aab3db8281798baff45349337b8db2e567322fea1207d6fb346945",
+        "state_revision": 2,
+        "revision": 2,
+        "sha256": "3fa5328fc6b4dd945f3054d64e82f2f2993a85558e51e940eb5be92249a898d0",
+        "cues": [
+          {
+            "end": 0.2,
+            "start": 0,
+            "text": "사람이 확정한 실제 수정본"
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/review-tickets/215b710d9c8f44849fde7df6b92463a8",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/review-tickets/215b710d9c8f44849fde7df6b92463a8/reviews/review_text/decision",
+      "status": 200,
+      "payload": {
+        "target": "1f5079f521aab3db8281798baff45349337b8db2e567322fea1207d6fb346945",
+        "state_revision": 3,
+        "revision": 3,
+        "sha256": "87b7e606a4239e3e561a14e9433393c88570e31f74c9ab06fffc64133f2cdb28",
+        "action": "approve",
+        "reason": "",
+        "request_id": "1c801cc6-9e87-412f-9d91-9cc7a7891974"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/review-tickets/215b710d9c8f44849fde7df6b92463a8",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/review-tickets/215b710d9c8f44849fde7df6b92463a8/reviews/review_metadata/decision",
+      "status": 200,
+      "payload": {
+        "target": "25954c40bc7bc10f80dc440369a97394334a2325ce74d4f6d3ad14fc043f1ec5",
+        "state_revision": 1,
+        "revision": 1,
+        "sha256": "3cab7fd5bb834629bd7c9f496e8caae5c7665975e8c7183f73f6bf5114a8c413",
+        "action": "approve",
+        "reason": "",
+        "request_id": "753d37dc-8a71-4eac-9615-f27fd2e246fe"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/review-tickets/215b710d9c8f44849fde7df6b92463a8/plan",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/review-tickets/215b710d9c8f44849fde7df6b92463a8",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/review-tickets/215b710d9c8f44849fde7df6b92463a8/confirm",
+      "status": 409,
+      "payload": {
+        "revision": 17,
+        "token": "c89ac827388015821290ab6af16d0d0164962806ac98bd6dafe0e9a873c0bdd1",
+        "paid_confirmed": false
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/review-tickets/215b710d9c8f44849fde7df6b92463a8/plan",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/review-tickets/215b710d9c8f44849fde7df6b92463a8/confirm",
+      "status": 200,
+      "payload": {
+        "revision": 17,
+        "token": "fddd40c0de547c0fb989e43f5531c359b401cbbf02e0d27b2cffa4001a9a979c",
+        "paid_confirmed": false
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/review-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/review-tickets/215b710d9c8f44849fde7df6b92463a8",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/review-tickets/215b710d9c8f44849fde7df6b92463a8/continue",
+      "status": 200,
+      "payload": {
+        "request_id": "557baa6d-2751-4e9a-bd00-0ccb23c3886c",
+        "revision": 18,
+        "token": "fddd40c0de547c0fb989e43f5531c359b401cbbf02e0d27b2cffa4001a9a979c"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/review-tickets/215b710d9c8f44849fde7df6b92463a8",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/review-tickets/215b710d9c8f44849fde7df6b92463a8",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/review-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/review-tickets/215b710d9c8f44849fde7df6b92463a8",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/review-tickets/215b710d9c8f44849fde7df6b92463a8/reviews/review_srt/decision",
+      "status": 200,
+      "payload": {
+        "target": "3313f8364fc018133990c06488c9f00bf7c4909c0d5d33f93cf9c21cd55b65d9",
+        "state_revision": 1,
+        "revision": 1,
+        "sha256": "36279044601cd2d4393b2e8a3454d1ed48209293c11ba68fa981f94a4bc7a645",
+        "action": "approve",
+        "reason": "",
+        "request_id": "69508bf4-cb37-4365-a5d3-e68282570575"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/review-tickets/215b710d9c8f44849fde7df6b92463a8/plan",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/review-tickets/215b710d9c8f44849fde7df6b92463a8",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/review-tickets/215b710d9c8f44849fde7df6b92463a8/confirm",
+      "status": 200,
+      "payload": {
+        "revision": 29,
+        "token": "d5f39492bacc71b545d7b3d5ed9f7043f38de42cc5a920257db9c8f9d166cb2c",
+        "paid_confirmed": false
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/review-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/review-tickets/215b710d9c8f44849fde7df6b92463a8",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/review-tickets/215b710d9c8f44849fde7df6b92463a8/continue",
+      "status": 200,
+      "payload": {
+        "request_id": "c87cccb4-2d9c-4957-8d04-e5ca303619c0",
+        "revision": 30,
+        "token": "d5f39492bacc71b545d7b3d5ed9f7043f38de42cc5a920257db9c8f9d166cb2c"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/review-tickets/215b710d9c8f44849fde7df6b92463a8",
+      "status": 200
+    }
+  ],
+  "trace": [
+    {
+      "node": "extract",
+      "phase_serving_revision": 0,
+      "mode": "explicit_deterministic_fixture"
+    },
+    {
+      "node": "independent",
+      "phase_serving_revision": 0,
+      "mode": "explicit_deterministic_fixture"
+    },
+    {
+      "node": "prepare",
+      "phase_serving_revision": 0,
+      "mode": "explicit_deterministic_fixture"
+    },
+    {
+      "node": "stt",
+      "phase_serving_revision": 0,
+      "mode": "explicit_deterministic_fixture"
+    },
+    {
+      "node": "subtitle",
+      "phase_serving_revision": 1,
+      "mode": "explicit_deterministic_fixture"
+    },
+    {
+      "received_by_subtitle": [
+        {
+          "end": 0.2,
+          "start": 0,
+          "text": "사람이 확정한 실제 수정본"
+        }
+      ],
+      "sha256": "87b7e606a4239e3e561a14e9433393c88570e31f74c9ab06fffc64133f2cdb28"
+    },
+    {
+      "node": "encode",
+      "phase_serving_revision": 1,
+      "mode": "explicit_deterministic_fixture"
+    }
+  ],
+  "errors": []
+}

@@ -1,6 +1,8 @@
 """Versioned subtitle drafts shared by the API and media worker."""
 import math
 
+BLOCKED_TEXT = "차단된 영역입니다"
+
 from .storage import read_json, write_json_atomic
 from .subtitles import segments_to_srt, segment_subtitles
 from .transcript import TranscriptSegment

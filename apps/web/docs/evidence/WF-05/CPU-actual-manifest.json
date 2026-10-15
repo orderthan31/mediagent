@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "kind": "artifact_manifest",
+  "members": {
+    "validate.report": {
+      "type": "validation_report",
+      "path": "work/validate/validation.json",
+      "sha256": "c41b641d7225a748e8c9e1934f8e44cd631668e1c8db20eb3788aba5c60c9875",
+      "bytes": 83,
+      "clock": {
+        "basis": "original",
+        "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+      }
+    },
+    "review_metadata.value": {
+      "type": "media_metadata",
+      "sha256": "7f1a801be711137f5e82a23b3f440da88b28182831166d2f618f0eac74dea751",
+      "bytes": 3360,
+      "clock": {
+        "basis": "original",
+        "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+      },
+      "reference": {
+        "node": "independent",
+        "port": "metadata"
+      },
+      "review_provenance": {
+        "revision": 1,
+        "sha256": "7f1a801be711137f5e82a23b3f440da88b28182831166d2f618f0eac74dea751",
+        "document_sha256": "1189daa723eadbf4ff39f1fb2072f9182a5003ef4d7bf2417bc08ab54a9a2914",
+        "input_sha256": "7f1a801be711137f5e82a23b3f440da88b28182831166d2f618f0eac74dea751",
+        "target": "04976f609abf4130834db2504d6d2efc30a8a5f5f38a0eb733532fc60dfdb839",
+        "request_id": "cpu-metadata",
+        "node": "review_metadata"
+      }
+    }
+  }
+}

@@ -1,0 +1,34 @@
+
+Running 1 test using 1 worker
+
+[1/1] tests\browser\review-tickets.spec.ts:7:3 › actual durable review gates and explicit continuation 1440
+  1) tests\browser\review-tickets.spec.ts:7:3 › actual durable review gates and explicit continuation 1440
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('heading', { name: '사람 검수 워크플로우 티켓', exact: true })
+    Expected: visible
+    Timeout: 15000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 15000ms
+      - waiting for getByRole('heading', { name: '사람 검수 워크플로우 티켓', exact: true })
+
+
+      45 |     });
+      46 |     await page.goto('/#/review-tickets');
+    > 47 |     await expect(page.getByRole('heading', { name: '사람 검수 워크플로우 티켓', exact: true })).toBeVisible({ timeout: 15000 });
+         |                                                                                      ^
+      48 |     await page.goto('/#/workflow-editor');
+      49 |     await page.getByLabel('저장된 정의', { exact: true }).selectOption('a'.repeat(32));
+      50 |     await expect(page.locator('.canvas-node[data-node-type="review"]')).toHaveCount(3);
+        at <workspace>\apps\web\tests\browser\review-tickets.spec.ts:47:86
+
+    Test timeout of 30000ms exceeded.
+
+    Error Context: ..\..\..\..\AppData\Local\hermes\cache\scratch\s2-audit\browser-results\review-tickets-actual-dura-7df6e--explicit-continuation-1440\error-context.md
+
+
+  1 failed
+    tests\browser\review-tickets.spec.ts:7:3 › actual durable review gates and explicit continuation 1440

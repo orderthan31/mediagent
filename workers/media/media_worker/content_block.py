@@ -1,6 +1,6 @@
 """Provider-reported policy blocks are not transient request failures."""
 
-BLOCKED_TEXT = "차단된 영역입니다"
+from video_service.review import BLOCKED_TEXT
 
 
 class ContentBlockedError(RuntimeError):

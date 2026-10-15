@@ -56,6 +56,7 @@ const workspaceLinks = [
   { id: 'editor', label: '워크플로우', href: '#/workflow-editor' },
   { id: 'workflow-tickets', label: '순차 티켓', href: '#/workflow-tickets' },
   { id: 'graph-tickets', label: '분기·병렬 티켓', href: '#/graph-tickets' },
+  { id: 'review-tickets', label: '사람 검수 티켓', href: '#/review-tickets' },
   { id: 'settings', label: '설정', href: '#/settings' },
 ];
 export const VideoWorkspace = () => {
@@ -120,37 +121,43 @@ export const VideoWorkspace = () => {
   const servingView = route === '#/serving';
   const editorView = route === '#/workflow-editor';
   const graphTicketsView = route === '#/graph-tickets';
-  const workflowTicketsView = route === '#/workflow-tickets' || graphTicketsView;
-  const currentHref = workflowTicketsView
-    ? graphTicketsView
-      ? '#/graph-tickets'
-      : '#/workflow-tickets'
-    : editorView
-      ? '#/workflow-editor'
-      : servingView
-        ? '#/serving'
-        : settingsView
-          ? '#/settings'
-          : jobsView || jobId
-            ? '#/jobs'
-            : '#/';
-  const locationLabel = workflowTicketsView
-    ? graphTicketsView
-      ? '분기·병렬 워크플로우 티켓'
-      : '순차 워크플로우 티켓'
-    : editorView
-      ? '워크플로우 편집기'
-      : servingView
-        ? '노드·서빙'
-        : settingsView
-          ? '설정'
-          : jobId
-            ? '작업 목록 / 작업 상세'
-            : jobsView
-              ? '작업 목록'
-              : assetId
-                ? '영상 보관함 / 영상 상세'
-                : '영상 보관함';
+  const reviewTicketsView = route === '#/review-tickets';
+  const workflowTicketsView =
+    route === '#/workflow-tickets' || graphTicketsView || reviewTicketsView;
+  const currentHref = reviewTicketsView
+    ? '#/review-tickets'
+    : workflowTicketsView
+      ? graphTicketsView
+        ? '#/graph-tickets'
+        : '#/workflow-tickets'
+      : editorView
+        ? '#/workflow-editor'
+        : servingView
+          ? '#/serving'
+          : settingsView
+            ? '#/settings'
+            : jobsView || jobId
+              ? '#/jobs'
+              : '#/';
+  const locationLabel = reviewTicketsView
+    ? '사람 검수 워크플로우 티켓'
+    : workflowTicketsView
+      ? graphTicketsView
+        ? '분기·병렬 워크플로우 티켓'
+        : '순차 워크플로우 티켓'
+      : editorView
+        ? '워크플로우 편집기'
+        : servingView
+          ? '노드·서빙'
+          : settingsView
+            ? '설정'
+            : jobId
+              ? '작업 목록 / 작업 상세'
+              : jobsView
+                ? '작업 목록'
+                : assetId
+                  ? '영상 보관함 / 영상 상세'
+                  : '영상 보관함';
   const shownVideos = videos.filter((v) =>
     v.original_filename.toLocaleLowerCase().includes(query.toLocaleLowerCase()),
   );
@@ -494,8 +501,9 @@ export const VideoWorkspace = () => {
         />
         {workflowTicketsView ? (
           <WorkflowTickets
-            key={graphTicketsView ? 'graph' : 'sequential'}
-            graph={graphTicketsView}
+            key={reviewTicketsView ? 'review' : graphTicketsView ? 'graph' : 'sequential'}
+            graph={graphTicketsView || reviewTicketsView}
+            review={reviewTicketsView}
           />
         ) : editorView ? (
           <WorkflowEditor />
