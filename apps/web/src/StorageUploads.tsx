@@ -1,32 +1,21 @@
-import { Pause, Play, Trash2, X } from 'lucide-react';
+import { useState } from 'react';
+import { ChevronLeft, ChevronRight, FileVideo, Pause, Play, Trash2, X } from 'lucide-react';
 import { type UploadItem } from './upload-queue';
 import { type VideoUpload, sizeLabel } from './video-api';
-import { Badge } from './hangyeol/primitives/badge';
 import { Progress } from './hangyeol/primitives/progress';
-import { Button } from './hangyeol/primitives/button';
-import { EmptyState } from './hangyeol/components/empty-state';
 
-const uploadLabel = (item: UploadItem) => {
-  if (item.state === 'uploading' && item.progress === item.size) {
-    return '영상 확인 및 등록 중';
-  }
-  return {
-    waiting: '전송 대기',
-    uploading: '전송 중',
-    paused: '일시정지',
-    error: '실패',
-    done: '완료',
-  }[item.state];
-};
+const uploadLabel = (item: UploadItem) =>
+  item.state === 'uploading' && item.progress === item.size
+    ? '등록 중'
+    : { waiting: '대기', uploading: '업로드 중', paused: '일시정지', error: '실패', done: '완료' }[
+        item.state
+      ];
 const uploadSize = (value: number) =>
   value < 1024
     ? `${value} B`
     : value < 1024 ** 2
       ? `${(value / 1024).toFixed(1)} KB`
       : sizeLabel(value);
-const percentage = (value: number, max: number) =>
-  max > 0 ? `${Math.floor((value / max) * 100)}%` : '진행률 미확인';
-
 type Props = {
   uploads: UploadItem[];
   sessions: VideoUpload[];
@@ -50,147 +39,122 @@ export const StorageUploads = ({
   onRegister,
   onChooseResume,
   onDeleteSession,
-}: Props) => (
-  <section className="storage-upload-shelf" aria-labelledby="storage-upload-title">
-    <div className="storage-section-heading">
-      <h2 id="storage-upload-title">업로드</h2>
-      <span>
-        {online || uploads.length + sessions.length > 0
-          ? `${uploads.length + sessions.length}개 표시`
-          : '저장된 업로드 확인 필요'}
-      </span>
-    </div>
-    {(uploads.length > 0 || sessions.length > 0) && (
-      <p className="storage-section-description">
-        파일은 순서대로 전송돼요. 중단된 업로드는 같은 원본 파일을 선택해 이어갈 수 있어요.
+}: Props) => {
+  const [selected, setSelected] = useState<string | null>(null);
+  const entries = [
+    ...uploads.filter((item) => item.state === 'uploading'),
+    ...uploads.filter((item) => item.state !== 'uploading' && item.state !== 'done'),
+    ...sessions,
+    ...uploads.filter((item) => item.state === 'done'),
+  ];
+  const keyOf = (entry: UploadItem | VideoUpload) => ('key' in entry ? entry.key : entry.upload_id);
+  const index = Math.max(
+    0,
+    entries.findIndex((entry) => keyOf(entry) === selected),
+  );
+  const entry = entries[index];
+  if (!entry)
+    return (
+      <p className="upload-strip-empty" role="status">
+        {online ? '진행 중인 업로드 없음' : '업로드 정보 확인 불가'}
       </p>
-    )}
-    {!online && (
-      <p className="storage-upload-notice">서버에 저장된 업로드 정보는 최신이 아닐 수 있어요.</p>
-    )}
-    {!uploads.length && !sessions.length && (
-      <EmptyState
-        className="storage-upload-empty"
-        heading={
-          online ? '진행 중인 업로드가 없습니다.' : '저장된 업로드 정보가 확인되지 않았어요.'
-        }
-        description={
-          online
-            ? '위의 영상 업로드에서 파일을 선택해 시작하세요.'
-            : '서버 연결을 확인해 주세요. 새 파일 선택은 계속 사용할 수 있어요.'
-        }
-      />
-    )}
-    <div className="storage-upload-list">
-      {uploads.map((item) => (
-        <article className="storage-upload" key={item.key} aria-label={item.name}>
-          <div className="storage-upload-heading">
-            <h3>{item.name}</h3>
-            <Badge
-              tone={
-                item.state === 'error'
-                  ? 'danger'
-                  : ['uploading', 'done'].includes(item.state)
-                    ? 'info'
-                    : 'neutral'
-              }
-            >
-              {uploadLabel(item)}
-            </Badge>
+    );
+  const item = 'key' in entry ? entry : null;
+  const session = 'upload_id' in entry ? entry : null;
+  const name = item ? item.name : session!.filename;
+  const value = item ? item.progress : session!.uploaded_bytes;
+  const max = item ? item.size : session!.expected_size;
+  const percent = max > 0 ? Math.min(100, Math.max(0, Math.floor((value / max) * 100))) : null;
+  const label = item ? uploadLabel(item) : session!.status === 'READY' ? '등록 대기' : '중단됨';
+  const resume = item ? ['paused', 'error'].includes(item.state) : true;
+  return (
+    <div className="upload-strip-shell">
+      <article className="upload-strip" aria-label={name}>
+        <span className="upload-strip-video">
+          <FileVideo size={25} aria-hidden="true" />
+        </span>
+        <div className="upload-strip-file">
+          <strong title={name}>{name}</strong>
+          <span>
+            {label}
+            {!online && ' · 최신 상태 미확인'}
+          </span>
+        </div>
+        <div className="upload-strip-progress">
+          <div>
+            <span>
+              {uploadSize(value)} / {uploadSize(max)}
+            </span>
+            <strong>{percent === null ? '—' : `${percent}%`}</strong>
           </div>
-          <p className="storage-upload-meta">
-            {percentage(item.progress, item.size)} · {uploadSize(item.progress)} /{' '}
-            {uploadSize(item.size)}
-          </p>
-          <Progress label={`전송 진행: ${item.name}`} value={item.progress} max={item.size} />
-          {item.state === 'waiting' && (
-            <p className="storage-upload-help">앞선 전송이 끝나면 순서대로 시작해요.</p>
-          )}
-          {item.error && (
-            <p role="alert" className="storage-upload-error">
-              {item.error}
-            </p>
-          )}
-          <div className="storage-upload-actions">
-            {item.state !== 'done' && (
-              <Button
-                variant="secondary"
-                size="small"
-                aria-label={`${item.state === 'error' ? '업로드 재시도' : item.state === 'paused' ? '업로드 재개' : '업로드 일시정지'}: ${item.name}`}
-                onClick={() =>
-                  ['paused', 'error'].includes(item.state) ? onResume(item.key) : onPause(item.key)
-                }
-              >
-                {['paused', 'error'].includes(item.state) ? (
-                  <Play size={16} aria-hidden="true" />
-                ) : (
-                  <Pause size={16} aria-hidden="true" />
-                )}
-                {item.state === 'error' ? '재시도' : item.state === 'paused' ? '재개' : '일시정지'}
-              </Button>
-            )}
-            <Button
-              variant="quiet"
-              size="small"
-              aria-label={`업로드 제거: ${item.name}`}
-              onClick={() => onRemove(item.key)}
-            >
-              <X size={16} aria-hidden="true" />
-              목록에서 제거
-            </Button>
-          </div>
-        </article>
-      ))}
-      {sessions.map((session) => (
-        <article className="storage-upload" key={session.upload_id} aria-label={session.filename}>
-          <div className="storage-upload-heading">
-            <h3>{session.filename}</h3>
-            <Badge tone={session.status === 'READY' ? 'info' : 'neutral'}>
-              {session.status === 'READY' ? '등록 대기' : '업로드 미완료'}
-            </Badge>
-          </div>
-          <p className="storage-upload-meta">
-            {percentage(session.uploaded_bytes, session.expected_size)} ·{' '}
-            {uploadSize(session.uploaded_bytes)} / {uploadSize(session.expected_size)}
-          </p>
           <Progress
-            label={`저장된 업로드 진행: ${session.filename}`}
-            value={session.uploaded_bytes}
-            max={session.expected_size}
+            label={`업로드 진행: ${name}`}
+            value={max > 0 ? Math.min(value, max) : null}
+            max={max}
           />
-          <p className="storage-upload-help">
-            {session.status === 'READY'
-              ? '전송된 파일의 영상 등록을 다시 시도할 수 있어요.'
-              : '같은 원본 파일을 선택하면 저장된 위치부터 이어서 전송해요.'}
-          </p>
-          <div className="storage-upload-actions">
-            <Button
-              variant="secondary"
-              size="small"
-              loading={busy === session.upload_id}
-              aria-label={`${session.status === 'READY' ? '영상 등록 재시도' : '파일 선택 후 업로드 재개'}: ${session.filename}`}
+        </div>
+        <div className="upload-strip-actions">
+          {(!item || item.state !== 'done') && (
+            <button
+              type="button"
+              className="ui02-icon"
+              disabled={session ? busy === session.upload_id : false}
+              aria-label={`${item ? (resume ? '업로드 재개' : '업로드 일시정지') : session!.status === 'READY' ? '영상 등록 재시도' : '파일 선택 후 재개'}: ${name}`}
+              title={resume ? '재개' : '일시정지'}
               onClick={() =>
-                session.status === 'READY'
-                  ? onRegister(session.upload_id)
-                  : onChooseResume(session.upload_id)
+                item
+                  ? resume
+                    ? onResume(item.key)
+                    : onPause(item.key)
+                  : session!.status === 'READY'
+                    ? onRegister(session!.upload_id)
+                    : onChooseResume(session!.upload_id)
               }
             >
-              <Play size={16} aria-hidden="true" />
-              {session.status === 'READY' ? '등록 재시도' : '파일 선택 후 재개'}
-            </Button>
-            <Button
-              variant="quiet"
-              size="small"
-              className="storage-delete"
-              aria-label={`업로드 삭제: ${session.filename}`}
-              onClick={() => onDeleteSession(session)}
-            >
-              <Trash2 size={16} aria-hidden="true" />
-              업로드 삭제
-            </Button>
-          </div>
-        </article>
-      ))}
+              {resume ? <Play size={16} /> : <Pause size={16} />}
+            </button>
+          )}
+          <button
+            type="button"
+            className="ui02-icon"
+            aria-label={`${item ? '업로드 목록에서 제거' : '업로드 삭제'}: ${name}`}
+            title={item ? '목록에서 제거' : '업로드 삭제'}
+            onClick={() => (item ? onRemove(item.key) : onDeleteSession(session!))}
+          >
+            {item ? <X size={16} /> : <Trash2 size={16} />}
+          </button>
+        </div>
+      </article>
+      {item?.error && (
+        <p role="alert" className="upload-strip-error">
+          {item.error}
+        </p>
+      )}
+      {entries.length > 1 && (
+        <nav className="upload-strip-pager" aria-label="다른 업로드">
+          <button
+            type="button"
+            className="ui02-icon"
+            aria-label="이전 업로드"
+            disabled={index === 0}
+            onClick={() => setSelected(keyOf(entries[index - 1]))}
+          >
+            <ChevronLeft size={15} />
+          </button>
+          <span>
+            {index + 1} / {entries.length}
+          </span>
+          <button
+            type="button"
+            className="ui02-icon"
+            aria-label="다음 업로드"
+            disabled={index === entries.length - 1}
+            onClick={() => setSelected(keyOf(entries[index + 1]))}
+          >
+            <ChevronRight size={15} />
+          </button>
+        </nav>
+      )}
     </div>
-  </section>
-);
+  );
+};
