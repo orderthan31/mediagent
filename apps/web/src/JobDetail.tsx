@@ -14,7 +14,8 @@ import {
   ArrowUpRight,
   ChevronDown,
 } from 'lucide-react';
-import { base, Job, request } from './api';
+import { mediaUrl, Job, request } from './api';
+import { frontendOnly } from './preview';
 import { VideoAsset } from './video-api';
 import { StageProgress } from './StageProgress';
 import { failureMessage, isContentBlocked } from './job-failure';
@@ -85,8 +86,8 @@ export const JobDetail = ({
   const track = preview?.tracks[tab];
   const videoAvailable = !!preview?.video_available || !!job?.metadata.asset_id;
   const videoUrl = preview?.video_available
-    ? `${base}/jobs/${id}/stream`
-    : `${base}/videos/${job?.metadata.asset_id}/stream`;
+    ? mediaUrl(`/jobs/${id}/stream`)
+    : mediaUrl(`/videos/${job?.metadata.asset_id}/stream`);
   const cues =
     track?.cues.filter((cue) => cue.text.toLocaleLowerCase().includes(query.toLocaleLowerCase())) ||
     [];
@@ -193,7 +194,7 @@ export const JobDetail = ({
             </summary>
             <div>
               {downloadFiles.map((file) => (
-                <a key={file} href={`${base}/jobs/${id}/results/${encodeURIComponent(file)}`}>
+                <a key={file} download={frontendOnly ? file : undefined} href={mediaUrl(`/jobs/${id}/results/${encodeURIComponent(file)}`)}>
                   <Download size={15} />
                   {resultLabel(file)}
                 </a>
@@ -447,7 +448,8 @@ export const JobDetail = ({
                 </Button>
                 <a
                   className="download"
-                  href={`${base}/jobs/${id}/results/${tab === 'original' ? 'original' : 'translated'}.srt`}
+                  download={frontendOnly ? `${tab}.srt` : undefined}
+                  href={mediaUrl(`/jobs/${id}/results/${tab === 'original' ? 'original' : 'translated'}.srt`)}
                 >
                   <Download size={16} />
                   {tab === 'original' ? '원문 SRT' : '번역 SRT'}

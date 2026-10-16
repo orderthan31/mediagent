@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { request } from './api';
+import { request, mediaUrl } from './api';
 import { ExecutionApproval, type ExecutionHeaders } from './ExecutionApproval';
 import { jsonPost, type VideoAsset } from './video-api';
 import { Button } from './hangyeol/primitives/button';
@@ -9,6 +9,7 @@ import { ReviewPanel, type ReviewDocument } from './ReviewPanel';
 import { DecisionPanel, type DecisionEvidence } from './DecisionPanel';
 import type { RegisteredVersion } from './registered-models';
 import { RecoveryActions, TicketSnapshotRestore } from './RecoveryActions';
+import { frontendOnly } from './preview';
 import './serving.css';
 import './workflow-tickets.css';
 
@@ -412,7 +413,7 @@ export const WorkflowTickets = ({
       <a
         key={port}
         className={partial ? 'partial-link' : 'artifact-link'}
-        href={`/api${base}/${ticket?.id}/artifacts/${encodeURIComponent(step.id)}/${encodeURIComponent(port)}${partial ? '?partial=true' : ''}`}
+        href={mediaUrl(`${base}/${ticket?.id}/artifacts/${encodeURIComponent(step.id)}/${encodeURIComponent(port)}${partial ? '?partial=true' : ''}`)}
       >
         {partial ? '부분 결과' : '산출물'} {port} · {meta.bytes} bytes
       </a>
@@ -529,7 +530,7 @@ export const WorkflowTickets = ({
       {runtime && (
         <p>
           <Badge tone="neutral">
-            {runtime.connected
+            {frontendOnly ? '목업' : runtime.connected
               ? runtime.mode
               : work
                 ? '작업 실행기 미연결'
@@ -895,13 +896,13 @@ export const WorkflowTickets = ({
                     path={`/api${base}/${ticket.id}/${review && (ticket.phase || 0) > 0 ? 'continue' : 'start'}`}
                     payload={{ revision: ticket.revision, token: plan.token, ...(review ? { request_id: executionNonce } : {}) }}
                     requestId={executionNonce}
-                    actionLabel={review && (ticket.phase || 0) > 0 ? '확인한 계획 이어 실행 요청' : '확인한 계획 실행 요청'}
-                    disabled={!!busy || !runtime?.connected || !(review ? ['confirmed', 'continuation_confirmed'] : ['confirmed']).includes(ticket.status)}
+                    actionLabel={frontendOnly ? '목업 실행' : review && (ticket.phase || 0) > 0 ? '확인한 계획 이어 실행 요청' : '확인한 계획 실행 요청'}
+                    disabled={!!busy || (!runtime?.connected && !frontendOnly) || !(review ? ['confirmed', 'continuation_confirmed'] : ['confirmed']).includes(ticket.status)}
                     onExecute={start}
                   />
                 )}
               </div>
-              {!runtime?.connected && (
+              {!runtime?.connected && !frontendOnly && (
                 <p className="serving-help">
                   현재 실행기가 미연결이라 실행 요청은 비활성입니다. 기존 큐/에이전트를 자동 시작하지
                   않습니다.

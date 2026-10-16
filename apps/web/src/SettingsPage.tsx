@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { KeyRound, RefreshCw, Save, Settings, Trash2 } from 'lucide-react';
 import { request } from './api';
+import { frontendOnly } from './preview';
 import './settings.css';
 import { Button } from './hangyeol/primitives/button';
 import { Input } from './hangyeol/primitives/input';
@@ -111,7 +112,7 @@ export const SettingsPage = () => {
       setKeys({});
       setRemovals({});
       setModels({});
-      setNotice('저장했습니다. 다음 작업·재시도부터 적용됩니다.');
+      setNotice(frontendOnly ? '목업 설정을 저장했습니다. 실제 설정·키는 변경하지 않습니다.' : '저장했습니다. 다음 작업·재시도부터 적용됩니다.');
     } catch (e) {
       setKeys({});
       setError(e instanceof Error ? e.message : '설정을 저장하지 못했습니다.');
@@ -276,10 +277,11 @@ export const SettingsPage = () => {
                 <Input
                   aria-label="새 API 키"
                   type="password"
+                  disabled={frontendOnly}
                   autoComplete="new-password"
                   value={keys[credentialProvider] || ''}
                   spellCheck={false}
-                  placeholder="변경할 때만 입력"
+                  placeholder={frontendOnly ? '목업에서는 키를 입력하지 않습니다' : '변경할 때만 입력'}
                   maxLength={512}
                   onChange={(event) => {
                     setKeys({ ...keys, [credentialProvider]: event.target.value });

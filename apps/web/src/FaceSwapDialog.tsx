@@ -3,9 +3,10 @@ import { Button } from './hangyeol/primitives/button';
 import { Badge } from './hangyeol/primitives/badge';
 import { useEffect, useRef, useState, type ImgHTMLAttributes } from 'react';
 import { X } from 'lucide-react';
-import { base, Job, request } from './api';
+import { mediaUrl, Job, request } from './api';
 import { jsonPost, VideoDetail } from './video-api';
 import './faceswap.css';
+import { frontendOnly } from './preview';
 import { frameAtTime, sameSettings, nextAutomaticOperation } from './faceswap-state';
 
 type Options = {
@@ -52,7 +53,7 @@ type Capability = {
   fingerprint?: string;
   presets: string[];
 };
-const imageUrl = (job: Job, file: string) => `${base}/faceswap/jobs/${job.job_id}/files/${file}`;
+const imageUrl = (job: Job, file: string) => mediaUrl(`/faceswap/jobs/${job.job_id}/files/${file}`);
 const ResultImage = ({ src, ...props }: ImgHTMLAttributes<HTMLImageElement>) => {
   const [attempt, setAttempt] = useState(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -534,10 +535,10 @@ export const FaceSwapDialog = ({
       )}
       <div className="faceswap-guide" role="status">
         <Badge tone={capability?.ready ? 'info' : 'neutral'}>
-          {capability?.ready ? '엔진 준비됨' : '엔진 확인 필요'}
+          {frontendOnly ? '목업' : capability?.ready ? '엔진 준비됨' : '엔진 확인 필요'}
         </Badge>
         <strong>
-          {capability?.ready
+          {frontendOnly ? '합성 화면 미리보기 · 실제 엔진 미연결' : capability?.ready
             ? `얼굴 합성 준비 완료 · FaceFusion ${capability.version || ''}`
             : '얼굴 합성 엔진 연결 대기'}
         </strong>
@@ -635,7 +636,7 @@ export const FaceSwapDialog = ({
                 }}
                 onSeeked={syncCursor}
                 onLoadedMetadata={syncCursor}
-                src={`${base}/videos/${detail.video.asset_id}/stream`}
+                src={mediaUrl(`/videos/${detail.video.asset_id}/stream`)}
               />
               <label>
                 현재 커서 · 프레임 번호

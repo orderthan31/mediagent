@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Boxes, BriefcaseBusiness, Folder, GitBranch, Layers, Settings, Menu, PanelLeft, Upload, X, Plus, Search, ChevronRight } from 'lucide-react';
 import { AccountMenu } from './AuthGate';
+import { frontendOnly } from './preview';
 import './ui02-shell.css';
 const sections = [
   { name: '작업', href: '#/jobs', icon: BriefcaseBusiness },
@@ -46,6 +47,7 @@ export const WorkspaceChrome = ({ route, query, onQuery, onUpload, uploadContent
         {group === 1 && list && <button className="ui02-primary" onClick={onUpload}><Plus size={17} /><span>업로드</span></button>}
         {action && !['편집', '추가'].includes(child) && <a className="ui02-primary" aria-label={action.label} title={action.label} href={action.href}><Plus size={17} /><span>{action.label}</span></a>}
         <button className="ui02-icon ui02-upload-trigger" aria-label="업로드 상태" aria-expanded={uploads} onClick={() => setUploads(value => !value)}><Upload size={19} />{uploadCount > 0 && <span>{uploadCount}</span>}</button>
+        {frontendOnly && <button type="button" className="ui02-mock-label" title="화면 확인용 샘플 · 실제 API·GPU·과금 없음 · 누르면 샘플 초기화" aria-label="목업 데이터 초기화" onClick={() => { if (window.confirm('목업 편집을 지우고 처음 샘플로 돌아갈까요?')) void import('./mock-api').then(module => module.resetMock()); }}>목업</button>}
         <AccountMenu />
       </div>
     </header>

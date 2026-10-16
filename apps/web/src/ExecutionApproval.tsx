@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { request } from './api';
+import { frontendOnly } from './preview';
 import { Button } from './hangyeol/primitives/button';
 import './execution-approval.css';
 
@@ -63,22 +64,22 @@ export const ExecutionApproval = ({ path, payload, requestId, actionLabel, disab
     finally { inFlight.current = false; setBusy(false); }
   };
   return <section className="execution-approval" aria-label="서버 실행 승인">
-    <h3>서버 실행 승인</h3>
-    <p>현재 입력 bytes SHA·남은 계획·옵션·고정 모델/서빙·선택 경로를 서버에서 다시 확인합니다.</p>
-    <Button variant="secondary" disabled={busy} onClick={() => void load()}>서버 실행 계획 조회</Button>
+    <h3>{frontendOnly ? '목업 실행 확인' : '서버 실행 승인'}</h3>
+    {!frontendOnly && <p>현재 입력 bytes SHA·남은 계획·옵션·고정 모델/서빙·선택 경로를 서버에서 다시 확인합니다.</p>}
+    <Button variant="secondary" disabled={busy} onClick={() => void load()}>{frontendOnly ? '샘플 계획 조회' : '서버 실행 계획 조회'}</Button>
     {current && <>
       <p className={current.cost.state === 'unknown' ? 'alert' : 'serving-help'}>
         {current.cost.state === 'unknown' ? '비용 분류 미확인/오류 · 실행 차단. 체크로 우회할 수 없습니다.' : current.cost.state === 'may_charge' ? '유료 발생 가능 · 금액 미산정(null). 무료/0원·비용 상한 보장이 아닙니다.' : '이 미실행 계획은 외부 provider 호출 없음. 무료 요금제나 금액 견적의 보장이 아닙니다.'}
       </p>
       {current.cost.state === 'unknown' && <p>{current.cost.notice}</p>}
-      <p className="execution-input-sha">실제 사용할 입력 SHA <code>{current.input_sha256}</code></p>
+      {!frontendOnly && <p className="execution-input-sha">실제 사용할 입력 SHA <code>{current.input_sha256}</code></p>}
       {current.cost.state === 'may_charge' && <label className="serving-check"><input type="checkbox" aria-label="유료가능·금액미산정 비용 확인" checked={paid} disabled={busy} onChange={event => setPaid(event.target.checked)} />금액 미산정 상태와 유료 비용 발생 가능성을 명시 확인합니다. 비용 상한·환불 보장은 아닙니다.</label>}
       {current.risk_required && <label className="serving-check"><input type="checkbox" aria-label="legacy 불명 중복호출 위험 별도확인" checked={risk} disabled={busy} onChange={event => setRisk(event.target.checked)} />이전 호출 결과 불명·중복 호출/과금 위험을 비용 확인과 별도로 확인합니다.</label>}
-      <Button disabled={busy || !known || (current.cost.state === 'may_charge' && !paid) || (!!current.risk_required && !risk)} onClick={() => void confirm()}>서버 실행 승인 저장</Button>
+      <Button disabled={busy || !known || (current.cost.state === 'may_charge' && !paid) || (!!current.risk_required && !risk)} onClick={() => void confirm()}>{frontendOnly ? '샘플 계획 확인' : '서버 실행 승인 저장'}</Button>
     </>}
-    {approved && <p role="status">{expired ? '미소비 승인 15분 만료 · 현재 계획 조회 후 명시 재확인 필요' : '서버 승인 저장됨 · 아직 실행하지 않음 · 미소비 승인만 15분 만료'}</p>}
+    {approved && <p role="status">{frontendOnly ? '샘플 계획 확인됨 · 실제 실행·과금 없음' : expired ? '미소비 승인 15분 만료 · 현재 계획 조회 후 명시 재확인 필요' : '서버 승인 저장됨 · 아직 실행하지 않음 · 미소비 승인만 15분 만료'}</p>}
     {error && <p role="alert" className="alert">{error}</p>}
-    <p className="serving-help">확인 저장 ≠ 실행/큐 등록. 실행 입장에서 한 번 소비하며, 새로고침/동일 확인으로 만료를 연장하지 않습니다. 이미 소비한 승인은 자동 충전·재호출하지 않습니다. 입력 고정 복사본의 저장 공간이 필요합니다.</p>
-    <Button disabled={busy || disabled || !approved || approved.state !== 'confirmed' || expired} onClick={() => void execute()}>{actionLabel}</Button>
+    {!frontendOnly && <p className="serving-help">확인 저장 ≠ 실행/큐 등록. 실행 입장에서 한 번 소비하며, 새로고침/동일 확인으로 만료를 연장하지 않습니다. 이미 소비한 승인은 자동 충전·재호출하지 않습니다. 입력 고정 복사본의 저장 공간이 필요합니다.</p>}
+    <Button disabled={busy || disabled || !approved || approved.state !== 'confirmed' || expired} onClick={() => void execute()}>{frontendOnly ? '목업 실행' : actionLabel}</Button>
   </section>;
 };

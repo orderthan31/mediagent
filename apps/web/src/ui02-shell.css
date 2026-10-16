@@ -3,6 +3,8 @@
 .ui02-gnb { position: fixed; inset: 0 0 auto; height: var(--m-header-height); z-index: 50; display: flex; align-items: center; justify-content: space-between; padding: 0 var(--m-space-24); gap: var(--m-space-24); background: white; border-bottom: 1px solid #e6e8ee; box-sizing: border-box; }
 .ui02-brand-group, .ui02-page-actions { display: flex; align-items: center; gap: var(--m-space-16); min-width: 0; }
 .ui02-page-actions { margin-left: auto; }
+.ui02-gnb .ui02-mock-label { flex: 0 0 auto; min-height: 28px; padding: 3px 8px; border: 1px solid var(--g-line, #e6e8ee); border-radius: 6px; background: var(--g-muted, #f8f9fb); color: var(--g-soft, #677086); font: inherit; font-size: var(--text-g-caption, 11px); white-space: nowrap; cursor: pointer; }
+.ui02-gnb .ui02-mock-label:focus-visible { outline: 2px solid var(--g-focus); outline-offset: 2px; }
 .ui02-brand { display: flex; align-items: center; gap: var(--m-space-10); font-size: var(--m-type-emphasis); text-decoration: none; color: #1d2535; letter-spacing: -.5px; }
 .ui02-brand > span { display: grid; place-items: center; width: 30px; height: 30px; background: #4f46e5; color: white; font-weight: 700; border-radius: 9px; font-size: var(--m-type-title); }
 .ui02-icon { display: inline-grid; place-items: center; flex: 0 0 36px; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: #677086; cursor: pointer; }

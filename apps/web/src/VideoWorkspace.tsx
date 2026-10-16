@@ -12,7 +12,7 @@ import {
   Upload,
   X,
 } from 'lucide-react';
-import { base, Job, request, resumeUpload, uploadRequest } from './api';
+import { mediaUrl, Job, request, resumeUpload, uploadRequest } from './api';
 import { JobDetail } from './JobDetail';
 import { SettingsPage } from './SettingsPage';
 import { ModelRegistryPage } from './ModelRegistryPage';
@@ -674,7 +674,7 @@ const Thumbnail = ({ assetId }: { assetId: string }) => {
         <FileVideo size={24} aria-label="미리보기 없음" />
       ) : (
         <img
-          src={`${base}/videos/${assetId}/thumbnail`}
+          src={mediaUrl(`/videos/${assetId}/thumbnail`)}
           width={480}
           height={270}
           alt=""

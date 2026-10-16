@@ -1,6 +1,7 @@
 import { type ReactNode } from 'react';
 import { ArrowRight, Download, Trash2 } from 'lucide-react';
-import { base } from './api';
+import { mediaUrl } from './api';
+import { frontendOnly } from './preview';
 import { durationLabel, sizeLabel, type VideoAsset } from './video-api';
 import { Badge } from './hangyeol/primitives/badge';
 import { Button } from './hangyeol/primitives/button';
@@ -57,8 +58,8 @@ export const StorageVideoInfo = ({
         controls
         playsInline
         preload="none"
-        poster={`${base}/videos/${assetId}/thumbnail`}
-        src={`${base}/videos/${assetId}/stream`}
+        poster={mediaUrl(`/videos/${assetId}/thumbnail`)}
+        src={mediaUrl(`/videos/${assetId}/stream`)}
       />
       <p>원본 미리보기 · 재생은 영상에서 시작할 수 있어요.</p>
     </div>
@@ -99,7 +100,7 @@ export const StorageVideoInfo = ({
           </dd>
         </div>
       </dl>
-      <a className="storage-download" href={`${base}/videos/${assetId}/download`}>
+      <a className="storage-download" download={frontendOnly ? video.original_filename : undefined} href={mediaUrl(`/videos/${assetId}/download`)}>
         <Download size={17} aria-hidden="true" />
         원본 다운로드
       </a>

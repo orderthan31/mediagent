@@ -4,10 +4,12 @@ import { AuthGate } from './AuthGate';
 import { VideoWorkspace } from './VideoWorkspace';
 import './legacy.css';
 import './hangyeol.css';
+// Frontend publishing must not depend on an API session or change production auth.
+import { frontendOnly } from './preview';
+const workspace = <VideoWorkspace />;
+
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <AuthGate>
-      <VideoWorkspace />
-    </AuthGate>
+    {frontendOnly ? workspace : <AuthGate>{workspace}</AuthGate>}
   </React.StrictMode>,
 );

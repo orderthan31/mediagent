@@ -1,5 +1,6 @@
 import { createRoot } from 'react-dom/client';
 import { request } from './api';
+import { frontendOnly } from './preview';
 import { ExecutionApproval } from './ExecutionApproval';
 import { Button } from './hangyeol/primitives/button';
 
@@ -24,7 +25,7 @@ export const executionRequest = <T,>(endpoint: string, payload: Record<string, u
     };
     dialog.addEventListener('cancel', event => { event.preventDefault(); cancel(); });
     root.render(<>
-      <p>새 명시 실행 입장입니다. 확인 저장과 실제 실행/큐 입장은 별도입니다. 에이전트를 자동 시작하지 않습니다.</p>
+      <p>{frontendOnly ? '목업 상태만 변경합니다. 서버·에이전트는 실행하지 않습니다.' : '새 명시 실행 입장입니다. 확인 저장과 실제 실행/큐 입장은 별도입니다. 에이전트를 자동 시작하지 않습니다.'}</p>
       <ExecutionApproval path={'/api' + endpoint} payload={payload} requestId={requestId} actionLabel="승인한 실행 큐 입장" onExecute={async headers => {
         executing = true;
         try {

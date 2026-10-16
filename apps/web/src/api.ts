@@ -2,6 +2,8 @@ import { blockSize, verifyUploadedPrefix } from './upload-verification';
 import { authenticatedFetch } from './auth-session';
 import { abortable } from './abortable';
 import { canRetryBusy, retryBusy } from './busy-retry';
+import { frontendOnly } from './preview';
+export { mediaUrl } from './preview';
 export const base = import.meta.env.VITE_API_BASE_URL || '/api';
 export type Job = {
   job_id: string;
@@ -85,6 +87,10 @@ export class ApiError extends Error {
   }
 }
 export const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
+  if (frontendOnly) {
+    const { mockRequest } = await import('./mock-api');
+    return mockRequest<T>(path, init);
+  }
   const send = () => authenticatedFetch(base + path, init, path === '/auth/login');
   const response = canRetryBusy(path, init) ? await retryBusy(send, init?.signal) : await send();
   if (!response.ok) {

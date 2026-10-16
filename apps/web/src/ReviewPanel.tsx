@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { request } from './api';
+import { request, mediaUrl } from './api';
 import { jsonPost } from './video-api';
 import { Button } from './hangyeol/primitives/button';
 import { Input } from './hangyeol/primitives/input';
@@ -155,11 +155,11 @@ export const ReviewPanel = ({
         재시도/전체 재개는 하지 않습니다.
       </p>
       {!shown.editable && <p>{shown.read_only_reason}</p>}
-      <a href={`/api${base}/input`} target="_blank" rel="noreferrer">
+      <a href={mediaUrl(`${base}/input`)} target="_blank" rel="noreferrer">
         검수 입력 원본 열기
       </a>
-      {shown.kind === 'video' && <video controls preload="none" src={`/api${base}/input`} />}
-      {shown.kind === 'audio' && <audio controls preload="none" src={`/api${base}/input`} />}
+      {shown.kind === 'video' && <video controls preload="none" src={mediaUrl(`${base}/input`)} />}
+      {shown.kind === 'audio' && <audio controls preload="none" src={mediaUrl(`${base}/input`)} />}
       <details>
         <summary>원본 참조 · clock · provenance</summary>
         <pre>{JSON.stringify(shown.source, null, 2)}</pre>

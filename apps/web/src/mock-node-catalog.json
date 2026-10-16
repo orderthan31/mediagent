@@ -1,0 +1,411 @@
+{
+  "version": 1,
+  "nodes": [
+    {
+      "id": "analyze",
+      "label": "영상 분석",
+      "inputs": {
+        "video": "video"
+      },
+      "outputs": {
+        "metadata": "media_metadata"
+      },
+      "optional_inputs": [],
+      "worker_role": "media",
+      "options": {},
+      "embedded_operations": [],
+      "execution": "existing_fixed_workflow",
+      "entrypoint": "media_worker.worker:Worker.process"
+    },
+    {
+      "id": "extract_audio",
+      "label": "오디오 추출",
+      "inputs": {
+        "video": "video"
+      },
+      "outputs": {
+        "audio": "audio"
+      },
+      "optional_inputs": [],
+      "worker_role": "media",
+      "options": {},
+      "embedded_operations": [],
+      "execution": "existing_fixed_workflow",
+      "entrypoint": "media_worker.worker:Worker.process"
+    },
+    {
+      "id": "preprocess_audio",
+      "label": "음성 전처리",
+      "inputs": {
+        "audio": "audio"
+      },
+      "outputs": {
+        "audio": "audio",
+        "timeline": "timeline_map"
+      },
+      "optional_inputs": [],
+      "worker_role": "media",
+      "options": {
+        "audio_filter": [
+          "off",
+          "conservative",
+          "strong",
+          "silence3"
+        ],
+        "vad_mode": [
+          "off",
+          "nvidia"
+        ]
+      },
+      "embedded_operations": [],
+      "execution": "existing_fixed_workflow",
+      "entrypoint": "media_worker.worker:Worker.process"
+    },
+    {
+      "id": "transcribe",
+      "label": "음성 전사",
+      "inputs": {
+        "audio": "audio",
+        "timeline": "timeline_map"
+      },
+      "outputs": {
+        "transcript": "transcript"
+      },
+      "optional_inputs": [],
+      "worker_role": "transcription",
+      "options": {},
+      "embedded_operations": [
+        "filter_transcript",
+        "restore_timeline"
+      ],
+      "execution": "existing_fixed_workflow",
+      "entrypoint": "media_worker.worker:Worker.process"
+    },
+    {
+      "id": "translate",
+      "label": "자막 번역",
+      "inputs": {
+        "transcript": "transcript"
+      },
+      "outputs": {
+        "transcript": "transcript"
+      },
+      "optional_inputs": [],
+      "worker_role": "translation",
+      "options": {},
+      "embedded_operations": [],
+      "execution": "existing_fixed_workflow",
+      "entrypoint": "media_worker.worker:Worker.process"
+    },
+    {
+      "id": "generate_subtitle",
+      "label": "자막 생성",
+      "inputs": {
+        "transcript": "transcript"
+      },
+      "outputs": {
+        "subtitles": "subtitle"
+      },
+      "optional_inputs": [],
+      "worker_role": "media",
+      "options": {},
+      "embedded_operations": [],
+      "execution": "existing_fixed_workflow",
+      "entrypoint": "media_worker.worker:Worker.process"
+    },
+    {
+      "id": "encode",
+      "label": "영상 인코딩·번인",
+      "inputs": {
+        "video": "video",
+        "subtitles": "subtitle"
+      },
+      "outputs": {
+        "video": "video"
+      },
+      "optional_inputs": [
+        "subtitles"
+      ],
+      "worker_role": "media",
+      "options": {
+        "subtitle_mode": [
+          "burn",
+          "soft",
+          "none"
+        ],
+        "video_codec": [
+          "h264",
+          "hevc"
+        ],
+        "resolution": [
+          "original",
+          "1080p",
+          "720p"
+        ],
+        "quality_profile": [
+          "balanced",
+          "high",
+          "compact"
+        ]
+      },
+      "embedded_operations": [
+        "burn_subtitles"
+      ],
+      "execution": "existing_fixed_workflow",
+      "entrypoint": "media_worker.worker:Worker.process"
+    },
+    {
+      "id": "validate_video",
+      "label": "출력 영상 검증",
+      "inputs": {
+        "video": "video"
+      },
+      "outputs": {
+        "report": "validation_report"
+      },
+      "optional_inputs": [],
+      "worker_role": "media",
+      "options": {},
+      "embedded_operations": [],
+      "execution": "existing_fixed_workflow",
+      "entrypoint": "media_worker.worker:Worker.process"
+    },
+    {
+      "id": "faceswap",
+      "label": "얼굴 합성",
+      "inputs": {
+        "video": "video",
+        "session": "faceswap_session",
+        "preview": "faceswap_preview"
+      },
+      "outputs": {
+        "video": "video"
+      },
+      "optional_inputs": [],
+      "worker_role": "faceswap",
+      "options": {
+        "preset": [
+          "fast",
+          "balanced",
+          "quality"
+        ],
+        "video_codec": [
+          "h264",
+          "hevc"
+        ]
+      },
+      "embedded_operations": [],
+      "execution": "existing_fixed_workflow",
+      "entrypoint": "media_worker.faceswap.runner:execute"
+    },
+    {
+      "id": "decision",
+      "label": "AI 판단 · 조건 경로",
+      "inputs": {
+        "value": "video"
+      },
+      "outputs": {
+        "a": "video",
+        "b": "video",
+        "result": "decision_result"
+      },
+      "optional_inputs": [],
+      "worker_role": "control",
+      "options": {
+        "data_type": [
+          "video",
+          "audio",
+          "transcript",
+          "subtitle",
+          "timeline_map",
+          "media_metadata",
+          "validation_report",
+          "artifact_manifest",
+          "decision_result"
+        ],
+        "a_field": [
+          "label",
+          "confidence"
+        ],
+        "a_op": [
+          "eq",
+          "gte",
+          "lte"
+        ],
+        "a_value": [
+          "pass",
+          "review",
+          "reject",
+          "0",
+          "0.5",
+          "0.7",
+          "0.9",
+          "1"
+        ],
+        "b_field": [
+          "label",
+          "confidence"
+        ],
+        "b_op": [
+          "eq",
+          "gte",
+          "lte"
+        ],
+        "b_value": [
+          "reject",
+          "pass",
+          "review",
+          "0",
+          "0.5",
+          "0.7",
+          "0.9",
+          "1"
+        ]
+      },
+      "embedded_operations": [],
+      "execution": "explicit_decision_ticket",
+      "entrypoint": "video_service.decision_tickets:DecisionTicketStore.run",
+      "port_types_from_options": {
+        "inputs": {
+          "value": "data_type"
+        },
+        "outputs": {
+          "a": "data_type",
+          "b": "data_type"
+        }
+      }
+    },
+    {
+      "id": "review",
+      "label": "사람 검수",
+      "inputs": {
+        "value": "video"
+      },
+      "outputs": {
+        "value": "video"
+      },
+      "optional_inputs": [],
+      "worker_role": "control",
+      "options": {
+        "data_type": [
+          "video",
+          "audio",
+          "transcript",
+          "subtitle",
+          "timeline_map",
+          "media_metadata",
+          "validation_report",
+          "artifact_manifest",
+          "decision_result"
+        ]
+      },
+      "embedded_operations": [],
+      "execution": "explicit_review_ticket",
+      "entrypoint": "video_service.review_tickets:ReviewTicketStore.run",
+      "port_types_from_options": {
+        "inputs": {
+          "value": "data_type"
+        },
+        "outputs": {
+          "value": "data_type"
+        }
+      }
+    },
+    {
+      "id": "select",
+      "label": "수동 선택 분기",
+      "inputs": {
+        "value": "video"
+      },
+      "outputs": {
+        "a": "video",
+        "b": "video"
+      },
+      "optional_inputs": [],
+      "worker_role": "control",
+      "options": {
+        "data_type": [
+          "video",
+          "audio",
+          "transcript",
+          "subtitle",
+          "timeline_map",
+          "media_metadata",
+          "validation_report",
+          "artifact_manifest",
+          "decision_result"
+        ],
+        "selection": [
+          "a",
+          "b",
+          "both"
+        ]
+      },
+      "embedded_operations": [],
+      "execution": "explicit_graph_ticket",
+      "entrypoint": "video_service.graph_tickets:GraphTicketStore.run",
+      "port_types_from_options": {
+        "inputs": {
+          "value": "data_type"
+        },
+        "outputs": {
+          "a": "data_type",
+          "b": "data_type"
+        }
+      }
+    },
+    {
+      "id": "join",
+      "label": "선택 결과 합류 목록",
+      "inputs": {
+        "left": "video",
+        "right": "video"
+      },
+      "outputs": {
+        "manifest": "artifact_manifest"
+      },
+      "optional_inputs": [],
+      "worker_role": "control",
+      "options": {
+        "left_type": [
+          "video",
+          "audio",
+          "transcript",
+          "subtitle",
+          "timeline_map",
+          "media_metadata",
+          "validation_report",
+          "artifact_manifest",
+          "decision_result"
+        ],
+        "right_type": [
+          "video",
+          "audio",
+          "transcript",
+          "subtitle",
+          "timeline_map",
+          "media_metadata",
+          "validation_report",
+          "artifact_manifest",
+          "decision_result"
+        ]
+      },
+      "embedded_operations": [],
+      "execution": "explicit_graph_ticket",
+      "entrypoint": "video_service.graph_tickets:GraphTicketStore.run",
+      "port_types_from_options": {
+        "inputs": {
+          "left": "left_type",
+          "right": "right_type"
+        }
+      }
+    }
+  ],
+  "standalone_execution": false,
+  "scope": "목업 · 기존 에이전트 입출력 설명을 위한 샘플",
+  "notes": [
+    "번인은 encode의 subtitle_mode=burn이며 독립 실행 단계가 아닙니다.",
+    "전처리의 NVIDIA VAD·얼굴 합성은 해당 엔진과 모델 환경이 별도로 필요합니다.",
+    "서빙 역할은 단일 media_worker의 논리 역할이며 분산 Worker 등록부가 아닙니다."
+  ]
+}
