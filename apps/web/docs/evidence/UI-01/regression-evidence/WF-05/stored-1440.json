@@ -1,0 +1,1264 @@
+{
+  "id": "d44120c59c7a4c6888606a5a44c057bb",
+  "revision": 39,
+  "request_id": "9961805d-c0fa-4ebe-92d3-9f909789737f",
+  "request": {
+    "definition_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "definition_revision": 2,
+    "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "options": {
+      "source_language": "auto",
+      "target_language": "ko",
+      "video_description": "",
+      "branch_choices": {}
+    }
+  },
+  "definition": {
+    "catalog_version": 1,
+    "revision": 2,
+    "name": "격리 사람 검수·명시 이어실행",
+    "inputs": {
+      "video": "video"
+    },
+    "nodes": [
+      {
+        "id": "extract",
+        "type": "extract_audio",
+        "options": {},
+        "position": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      {
+        "id": "prepare",
+        "type": "preprocess_audio",
+        "options": {
+          "audio_filter": "off",
+          "vad_mode": "off"
+        },
+        "position": {
+          "x": 250,
+          "y": 0
+        }
+      },
+      {
+        "id": "stt",
+        "type": "transcribe",
+        "options": {},
+        "position": {
+          "x": 500,
+          "y": 0
+        }
+      },
+      {
+        "id": "review_text",
+        "type": "review",
+        "options": {
+          "data_type": "transcript"
+        },
+        "position": {
+          "x": 850,
+          "y": 280
+        }
+      },
+      {
+        "id": "subtitle",
+        "type": "generate_subtitle",
+        "options": {},
+        "position": {
+          "x": 0,
+          "y": 180
+        }
+      },
+      {
+        "id": "review_srt",
+        "type": "review",
+        "options": {
+          "data_type": "subtitle"
+        },
+        "position": {
+          "x": 250,
+          "y": 180
+        }
+      },
+      {
+        "id": "encode",
+        "type": "encode",
+        "options": {
+          "subtitle_mode": "burn"
+        },
+        "position": {
+          "x": 500,
+          "y": 180
+        }
+      },
+      {
+        "id": "independent",
+        "type": "analyze",
+        "options": {},
+        "position": {
+          "x": 750,
+          "y": 180
+        }
+      },
+      {
+        "id": "review_metadata",
+        "type": "review",
+        "options": {
+          "data_type": "media_metadata"
+        },
+        "position": {
+          "x": 0,
+          "y": 360
+        }
+      },
+      {
+        "id": "joined",
+        "type": "join",
+        "options": {
+          "left_type": "video",
+          "right_type": "media_metadata"
+        },
+        "position": {
+          "x": 250,
+          "y": 360
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "e0",
+        "source": {
+          "node": "$input",
+          "port": "video"
+        },
+        "target": {
+          "node": "extract",
+          "port": "video"
+        }
+      },
+      {
+        "id": "e1",
+        "source": {
+          "node": "extract",
+          "port": "audio"
+        },
+        "target": {
+          "node": "prepare",
+          "port": "audio"
+        }
+      },
+      {
+        "id": "e2",
+        "source": {
+          "node": "prepare",
+          "port": "audio"
+        },
+        "target": {
+          "node": "stt",
+          "port": "audio"
+        }
+      },
+      {
+        "id": "e3",
+        "source": {
+          "node": "prepare",
+          "port": "timeline"
+        },
+        "target": {
+          "node": "stt",
+          "port": "timeline"
+        }
+      },
+      {
+        "id": "e4",
+        "source": {
+          "node": "stt",
+          "port": "transcript"
+        },
+        "target": {
+          "node": "review_text",
+          "port": "value"
+        }
+      },
+      {
+        "id": "e5",
+        "source": {
+          "node": "review_text",
+          "port": "value"
+        },
+        "target": {
+          "node": "subtitle",
+          "port": "transcript"
+        }
+      },
+      {
+        "id": "e6",
+        "source": {
+          "node": "subtitle",
+          "port": "subtitles"
+        },
+        "target": {
+          "node": "review_srt",
+          "port": "value"
+        }
+      },
+      {
+        "id": "e7",
+        "source": {
+          "node": "$input",
+          "port": "video"
+        },
+        "target": {
+          "node": "encode",
+          "port": "video"
+        }
+      },
+      {
+        "id": "e8",
+        "source": {
+          "node": "review_srt",
+          "port": "value"
+        },
+        "target": {
+          "node": "encode",
+          "port": "subtitles"
+        }
+      },
+      {
+        "id": "e9",
+        "source": {
+          "node": "$input",
+          "port": "video"
+        },
+        "target": {
+          "node": "independent",
+          "port": "video"
+        }
+      },
+      {
+        "id": "e10",
+        "source": {
+          "node": "independent",
+          "port": "metadata"
+        },
+        "target": {
+          "node": "review_metadata",
+          "port": "value"
+        }
+      },
+      {
+        "id": "e11",
+        "source": {
+          "node": "encode",
+          "port": "video"
+        },
+        "target": {
+          "node": "joined",
+          "port": "left"
+        }
+      },
+      {
+        "id": "e12",
+        "source": {
+          "node": "review_metadata",
+          "port": "value"
+        },
+        "target": {
+          "node": "joined",
+          "port": "right"
+        }
+      }
+    ],
+    "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "executable": false
+  },
+  "definition_sha256": "d030df451e733024facb0b3235d6d01ee2b2e2786354247827a3998cfe01b8fe",
+  "asset": {
+    "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "original_filename": "안전 합성 검수 입력.mp4",
+    "size_bytes": 6134,
+    "source_mtime_ns": 1792109666019377500
+  },
+  "options": {
+    "source_language": "auto",
+    "target_language": "ko",
+    "video_description": "",
+    "branch_choices": {}
+  },
+  "sequence": {
+    "supported": true,
+    "reasons": [],
+    "steps": [
+      {
+        "id": "extract",
+        "type": "extract_audio",
+        "options": {},
+        "bindings": {
+          "video": {
+            "node": "$input",
+            "port": "video"
+          }
+        },
+        "outputs": {
+          "audio": "audio"
+        },
+        "selected": true,
+        "active_bindings": {
+          "video": {
+            "node": "$input",
+            "port": "video"
+          }
+        },
+        "dependencies": [],
+        "native_bindings": {
+          "video": {
+            "node": "$input",
+            "port": "video"
+          }
+        }
+      },
+      {
+        "id": "prepare",
+        "type": "preprocess_audio",
+        "options": {
+          "audio_filter": "off",
+          "vad_mode": "off"
+        },
+        "bindings": {
+          "audio": {
+            "node": "extract",
+            "port": "audio"
+          }
+        },
+        "outputs": {
+          "audio": "audio",
+          "timeline": "timeline_map"
+        },
+        "selected": true,
+        "active_bindings": {
+          "audio": {
+            "node": "extract",
+            "port": "audio"
+          }
+        },
+        "dependencies": [
+          "extract"
+        ],
+        "native_bindings": {
+          "audio": {
+            "node": "extract",
+            "port": "audio"
+          }
+        }
+      },
+      {
+        "id": "stt",
+        "type": "transcribe",
+        "options": {},
+        "bindings": {
+          "audio": {
+            "node": "prepare",
+            "port": "audio"
+          },
+          "timeline": {
+            "node": "prepare",
+            "port": "timeline"
+          }
+        },
+        "outputs": {
+          "transcript": "transcript"
+        },
+        "selected": true,
+        "active_bindings": {
+          "audio": {
+            "node": "prepare",
+            "port": "audio"
+          },
+          "timeline": {
+            "node": "prepare",
+            "port": "timeline"
+          }
+        },
+        "dependencies": [
+          "prepare"
+        ],
+        "native_bindings": {
+          "audio": {
+            "node": "prepare",
+            "port": "audio"
+          },
+          "timeline": {
+            "node": "prepare",
+            "port": "timeline"
+          }
+        }
+      },
+      {
+        "id": "review_text",
+        "type": "review",
+        "options": {
+          "data_type": "transcript"
+        },
+        "bindings": {
+          "value": {
+            "node": "stt",
+            "port": "transcript"
+          }
+        },
+        "outputs": {
+          "value": "transcript"
+        },
+        "selected": true,
+        "active_bindings": {
+          "value": {
+            "node": "stt",
+            "port": "transcript"
+          }
+        },
+        "dependencies": [
+          "stt"
+        ]
+      },
+      {
+        "id": "subtitle",
+        "type": "generate_subtitle",
+        "options": {},
+        "bindings": {
+          "transcript": {
+            "node": "review_text",
+            "port": "value"
+          }
+        },
+        "outputs": {
+          "subtitles": "subtitle"
+        },
+        "selected": true,
+        "active_bindings": {
+          "transcript": {
+            "node": "review_text",
+            "port": "value"
+          }
+        },
+        "dependencies": [
+          "review_text"
+        ],
+        "native_bindings": {
+          "transcript": {
+            "node": "stt",
+            "port": "transcript"
+          }
+        }
+      },
+      {
+        "id": "review_srt",
+        "type": "review",
+        "options": {
+          "data_type": "subtitle"
+        },
+        "bindings": {
+          "value": {
+            "node": "subtitle",
+            "port": "subtitles"
+          }
+        },
+        "outputs": {
+          "value": "subtitle"
+        },
+        "selected": true,
+        "active_bindings": {
+          "value": {
+            "node": "subtitle",
+            "port": "subtitles"
+          }
+        },
+        "dependencies": [
+          "subtitle"
+        ]
+      },
+      {
+        "id": "encode",
+        "type": "encode",
+        "options": {
+          "subtitle_mode": "burn",
+          "video_codec": "h264",
+          "resolution": "original",
+          "quality_profile": "balanced"
+        },
+        "bindings": {
+          "video": {
+            "node": "$input",
+            "port": "video"
+          },
+          "subtitles": {
+            "node": "review_srt",
+            "port": "value"
+          }
+        },
+        "outputs": {
+          "video": "video"
+        },
+        "selected": true,
+        "active_bindings": {
+          "video": {
+            "node": "$input",
+            "port": "video"
+          },
+          "subtitles": {
+            "node": "review_srt",
+            "port": "value"
+          }
+        },
+        "dependencies": [
+          "review_srt"
+        ],
+        "native_bindings": {
+          "video": {
+            "node": "$input",
+            "port": "video"
+          },
+          "subtitles": {
+            "node": "subtitle",
+            "port": "subtitles"
+          }
+        }
+      },
+      {
+        "id": "independent",
+        "type": "analyze",
+        "options": {},
+        "bindings": {
+          "video": {
+            "node": "$input",
+            "port": "video"
+          }
+        },
+        "outputs": {
+          "metadata": "media_metadata"
+        },
+        "selected": true,
+        "active_bindings": {
+          "video": {
+            "node": "$input",
+            "port": "video"
+          }
+        },
+        "dependencies": [],
+        "native_bindings": {
+          "video": {
+            "node": "$input",
+            "port": "video"
+          }
+        }
+      },
+      {
+        "id": "review_metadata",
+        "type": "review",
+        "options": {
+          "data_type": "media_metadata"
+        },
+        "bindings": {
+          "value": {
+            "node": "independent",
+            "port": "metadata"
+          }
+        },
+        "outputs": {
+          "value": "media_metadata"
+        },
+        "selected": true,
+        "active_bindings": {
+          "value": {
+            "node": "independent",
+            "port": "metadata"
+          }
+        },
+        "dependencies": [
+          "independent"
+        ]
+      },
+      {
+        "id": "joined",
+        "type": "join",
+        "options": {
+          "left_type": "video",
+          "right_type": "media_metadata"
+        },
+        "bindings": {
+          "left": {
+            "node": "encode",
+            "port": "video"
+          },
+          "right": {
+            "node": "review_metadata",
+            "port": "value"
+          }
+        },
+        "outputs": {
+          "manifest": "artifact_manifest"
+        },
+        "selected": true,
+        "active_bindings": {
+          "left": {
+            "node": "encode",
+            "port": "video"
+          },
+          "right": {
+            "node": "review_metadata",
+            "port": "value"
+          }
+        },
+        "dependencies": [
+          "encode",
+          "review_metadata"
+        ]
+      }
+    ],
+    "paid_roles": [
+      "transcription"
+    ],
+    "choices": {},
+    "notice": "수동 선택을 생성 시 고정합니다. 합류는 선택된 결과 참조 목록이며 미디어/clock 병합이 아닙니다. 운영 실행기 연결/유료 확인은 별도입니다."
+  },
+  "status": "completed",
+  "confirmation": null,
+  "settings_snapshot": {
+    "transcription_model": "gemini-3.8-flash",
+    "translation_model": "gemini-isolated-review-next",
+    "transcription_fallback_model": "",
+    "translation_fallback_model": "",
+    "fallback_on_error": false,
+    "fallback_on_block": false,
+    "translation_provider": "gemini",
+    "translation_fallback_provider": "gemini",
+    "transcription_provider": "gemini",
+    "transcription_fallback_provider": "gemini",
+    "revision": 1
+  },
+  "steps": [
+    {
+      "id": "extract",
+      "type": "extract_audio",
+      "status": "succeeded",
+      "artifacts": {
+        "audio": {
+          "type": "audio",
+          "path": "work/extract/audio.fixture",
+          "sha256": "ca06584a797864418740a25ab4d7982d8a41ceb976c99ad69c66a3b4b2726ba7",
+          "bytes": 103,
+          "clock": {
+            "basis": "original",
+            "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+          }
+        }
+      },
+      "partial_artifacts": {},
+      "serving_snapshot": {
+        "transcription_model": "gemini-3.8-flash",
+        "translation_model": "gemini-3.8-flash",
+        "transcription_fallback_model": "",
+        "translation_fallback_model": "",
+        "fallback_on_error": false,
+        "fallback_on_block": false,
+        "translation_provider": "gemini",
+        "translation_fallback_provider": "gemini",
+        "transcription_provider": "gemini",
+        "transcription_fallback_provider": "gemini",
+        "revision": 0
+      }
+    },
+    {
+      "id": "prepare",
+      "type": "preprocess_audio",
+      "status": "succeeded",
+      "artifacts": {
+        "audio": {
+          "type": "audio",
+          "path": "work/prepare/audio.fixture",
+          "sha256": "e421c2b814778cbc3c6284b9423ff0989e27c6e231e89fda50a71686368b488b",
+          "bytes": 103,
+          "clock": {
+            "basis": "packed",
+            "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451",
+            "timeline": {
+              "node": "prepare",
+              "port": "timeline",
+              "sha256": "e421c2b814778cbc3c6284b9423ff0989e27c6e231e89fda50a71686368b488b"
+            }
+          }
+        },
+        "timeline": {
+          "type": "timeline_map",
+          "path": "work/prepare/timeline.fixture",
+          "sha256": "e421c2b814778cbc3c6284b9423ff0989e27c6e231e89fda50a71686368b488b",
+          "bytes": 103,
+          "clock": {
+            "basis": "packed_to_original",
+            "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+          }
+        }
+      },
+      "partial_artifacts": {},
+      "serving_snapshot": {
+        "transcription_model": "gemini-3.8-flash",
+        "translation_model": "gemini-3.8-flash",
+        "transcription_fallback_model": "",
+        "translation_fallback_model": "",
+        "fallback_on_error": false,
+        "fallback_on_block": false,
+        "translation_provider": "gemini",
+        "translation_fallback_provider": "gemini",
+        "transcription_provider": "gemini",
+        "transcription_fallback_provider": "gemini",
+        "revision": 0
+      }
+    },
+    {
+      "id": "stt",
+      "type": "transcribe",
+      "status": "succeeded",
+      "artifacts": {
+        "transcript": {
+          "type": "transcript",
+          "path": "work/stt/transcript.fixture",
+          "sha256": "c149876ff23d74277c0c5c34c20efeea1ff7ddcad21ee53d5197bfa7596134b9",
+          "bytes": 63,
+          "clock": {
+            "basis": "original",
+            "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+          }
+        }
+      },
+      "partial_artifacts": {},
+      "serving_snapshot": {
+        "transcription_model": "gemini-3.8-flash",
+        "translation_model": "gemini-3.8-flash",
+        "transcription_fallback_model": "",
+        "translation_fallback_model": "",
+        "fallback_on_error": false,
+        "fallback_on_block": false,
+        "translation_provider": "gemini",
+        "translation_fallback_provider": "gemini",
+        "transcription_provider": "gemini",
+        "transcription_fallback_provider": "gemini",
+        "revision": 0
+      }
+    },
+    {
+      "id": "review_text",
+      "type": "review",
+      "status": "succeeded",
+      "artifacts": {
+        "value": {
+          "type": "transcript",
+          "path": "work/review_text/review/versions/3-e3df3a87e5f7455f809f0fc1df1ec42f/output.json",
+          "sha256": "87b7e606a4239e3e561a14e9433393c88570e31f74c9ab06fffc64133f2cdb28",
+          "bytes": 75,
+          "clock": {
+            "basis": "original",
+            "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+          },
+          "review_provenance": {
+            "revision": 3,
+            "sha256": "87b7e606a4239e3e561a14e9433393c88570e31f74c9ab06fffc64133f2cdb28",
+            "document_sha256": "27557b78c9fe91798b0e09dd89163ab57d06dc5e9aa6c90513611b094f277f63",
+            "input_sha256": "c149876ff23d74277c0c5c34c20efeea1ff7ddcad21ee53d5197bfa7596134b9",
+            "target": "c0035781c4316389bb63b076b96f81a58117c7df6b4ddd22a2aa9487dc31944b",
+            "request_id": "60d19e9e-0c7c-4809-821b-6eb8a16323cc",
+            "node": "review_text"
+          }
+        }
+      },
+      "partial_artifacts": {},
+      "serving_snapshot": {
+        "transcription_model": "gemini-3.8-flash",
+        "translation_model": "gemini-isolated-review-next",
+        "transcription_fallback_model": "",
+        "translation_fallback_model": "",
+        "fallback_on_error": false,
+        "fallback_on_block": false,
+        "translation_provider": "gemini",
+        "translation_fallback_provider": "gemini",
+        "transcription_provider": "gemini",
+        "transcription_fallback_provider": "gemini",
+        "revision": 1
+      },
+      "wait": {
+        "target": "c0035781c4316389bb63b076b96f81a58117c7df6b4ddd22a2aa9487dc31944b",
+        "revision": 1,
+        "sha256": "c149876ff23d74277c0c5c34c20efeea1ff7ddcad21ee53d5197bfa7596134b9"
+      }
+    },
+    {
+      "id": "subtitle",
+      "type": "generate_subtitle",
+      "status": "succeeded",
+      "artifacts": {
+        "subtitles": {
+          "type": "subtitle",
+          "path": "work/subtitle/subtitles.srt",
+          "sha256": "36279044601cd2d4393b2e8a3454d1ed48209293c11ba68fa981f94a4bc7a645",
+          "bytes": 69,
+          "clock": {
+            "basis": "original",
+            "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+          }
+        }
+      },
+      "partial_artifacts": {},
+      "serving_snapshot": {
+        "transcription_model": "gemini-3.8-flash",
+        "translation_model": "gemini-isolated-review-next",
+        "transcription_fallback_model": "",
+        "translation_fallback_model": "",
+        "fallback_on_error": false,
+        "fallback_on_block": false,
+        "translation_provider": "gemini",
+        "translation_fallback_provider": "gemini",
+        "transcription_provider": "gemini",
+        "transcription_fallback_provider": "gemini",
+        "revision": 1
+      }
+    },
+    {
+      "id": "review_srt",
+      "type": "review",
+      "status": "succeeded",
+      "artifacts": {
+        "value": {
+          "type": "subtitle",
+          "path": "work/review_srt/review/versions/1-e34ec83ea368473a84c9212b86fdfa87/output.srt",
+          "sha256": "36279044601cd2d4393b2e8a3454d1ed48209293c11ba68fa981f94a4bc7a645",
+          "bytes": 69,
+          "clock": {
+            "basis": "original",
+            "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+          },
+          "review_provenance": {
+            "revision": 1,
+            "sha256": "36279044601cd2d4393b2e8a3454d1ed48209293c11ba68fa981f94a4bc7a645",
+            "document_sha256": "0fc23e1245490a42d367711d749be8b78229751402b6ee65e81b77d05bc22128",
+            "input_sha256": "36279044601cd2d4393b2e8a3454d1ed48209293c11ba68fa981f94a4bc7a645",
+            "target": "5d7fe318ac48dc31c3e7340162b6655ff776c0a70b5a665f722ac8a43bb2f1bf",
+            "request_id": "9e1b815a-afea-4820-8efa-a22296133bce",
+            "node": "review_srt"
+          }
+        }
+      },
+      "partial_artifacts": {},
+      "serving_snapshot": {
+        "transcription_model": "gemini-3.8-flash",
+        "translation_model": "gemini-isolated-review-next",
+        "transcription_fallback_model": "",
+        "translation_fallback_model": "",
+        "fallback_on_error": false,
+        "fallback_on_block": false,
+        "translation_provider": "gemini",
+        "translation_fallback_provider": "gemini",
+        "transcription_provider": "gemini",
+        "transcription_fallback_provider": "gemini",
+        "revision": 1
+      },
+      "wait": {
+        "target": "5d7fe318ac48dc31c3e7340162b6655ff776c0a70b5a665f722ac8a43bb2f1bf",
+        "revision": 1,
+        "sha256": "36279044601cd2d4393b2e8a3454d1ed48209293c11ba68fa981f94a4bc7a645"
+      }
+    },
+    {
+      "id": "encode",
+      "type": "encode",
+      "status": "succeeded",
+      "artifacts": {
+        "video": {
+          "type": "video",
+          "path": "work/encode/video.fixture",
+          "sha256": "83335d208211e460c32b68a8867d282ef900c9e7c582e2823148e050a033bb0e",
+          "bytes": 228,
+          "clock": {
+            "basis": "original",
+            "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+          }
+        }
+      },
+      "partial_artifacts": {},
+      "serving_snapshot": {
+        "transcription_model": "gemini-3.8-flash",
+        "translation_model": "gemini-isolated-review-next",
+        "transcription_fallback_model": "",
+        "translation_fallback_model": "",
+        "fallback_on_error": false,
+        "fallback_on_block": false,
+        "translation_provider": "gemini",
+        "translation_fallback_provider": "gemini",
+        "transcription_provider": "gemini",
+        "transcription_fallback_provider": "gemini",
+        "revision": 1
+      }
+    },
+    {
+      "id": "independent",
+      "type": "analyze",
+      "status": "succeeded",
+      "artifacts": {
+        "metadata": {
+          "type": "media_metadata",
+          "path": "work/independent/metadata.fixture",
+          "sha256": "3cab7fd5bb834629bd7c9f496e8caae5c7665975e8c7183f73f6bf5114a8c413",
+          "bytes": 107,
+          "clock": {
+            "basis": "original",
+            "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+          }
+        }
+      },
+      "partial_artifacts": {},
+      "serving_snapshot": {
+        "transcription_model": "gemini-3.8-flash",
+        "translation_model": "gemini-3.8-flash",
+        "transcription_fallback_model": "",
+        "translation_fallback_model": "",
+        "fallback_on_error": false,
+        "fallback_on_block": false,
+        "translation_provider": "gemini",
+        "translation_fallback_provider": "gemini",
+        "transcription_provider": "gemini",
+        "transcription_fallback_provider": "gemini",
+        "revision": 0
+      }
+    },
+    {
+      "id": "review_metadata",
+      "type": "review",
+      "status": "succeeded",
+      "artifacts": {
+        "value": {
+          "type": "media_metadata",
+          "sha256": "3cab7fd5bb834629bd7c9f496e8caae5c7665975e8c7183f73f6bf5114a8c413",
+          "bytes": 107,
+          "clock": {
+            "basis": "original",
+            "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+          },
+          "reference": {
+            "node": "independent",
+            "port": "metadata"
+          },
+          "review_provenance": {
+            "revision": 1,
+            "sha256": "3cab7fd5bb834629bd7c9f496e8caae5c7665975e8c7183f73f6bf5114a8c413",
+            "document_sha256": "8e7b4e5529a6ff87603e5ad48a63eb406928ab700fc14cdb9989ea8095a1dfb5",
+            "input_sha256": "3cab7fd5bb834629bd7c9f496e8caae5c7665975e8c7183f73f6bf5114a8c413",
+            "target": "3960680f01d35f6cd6138685667a2655ec2307a248dfb419e77f2c38bcaa374c",
+            "request_id": "b3cb0a01-a42a-488d-a4be-569a5e877f0d",
+            "node": "review_metadata"
+          }
+        }
+      },
+      "partial_artifacts": {},
+      "serving_snapshot": {
+        "transcription_model": "gemini-3.8-flash",
+        "translation_model": "gemini-isolated-review-next",
+        "transcription_fallback_model": "",
+        "translation_fallback_model": "",
+        "fallback_on_error": false,
+        "fallback_on_block": false,
+        "translation_provider": "gemini",
+        "translation_fallback_provider": "gemini",
+        "transcription_provider": "gemini",
+        "transcription_fallback_provider": "gemini",
+        "revision": 1
+      },
+      "wait": {
+        "target": "3960680f01d35f6cd6138685667a2655ec2307a248dfb419e77f2c38bcaa374c",
+        "revision": 1,
+        "sha256": "3cab7fd5bb834629bd7c9f496e8caae5c7665975e8c7183f73f6bf5114a8c413"
+      }
+    },
+    {
+      "id": "joined",
+      "type": "join",
+      "status": "succeeded",
+      "artifacts": {
+        "manifest": {
+          "type": "artifact_manifest",
+          "path": "work/joined/manifest.json",
+          "sha256": "9641cc45483edfc957d96d31f6ff26506da87fcbbeb467f16c0cf2ea5a6ab8c0",
+          "bytes": 1450
+        }
+      },
+      "partial_artifacts": {},
+      "serving_snapshot": {
+        "transcription_model": "gemini-3.8-flash",
+        "translation_model": "gemini-isolated-review-next",
+        "transcription_fallback_model": "",
+        "translation_fallback_model": "",
+        "fallback_on_error": false,
+        "fallback_on_block": false,
+        "translation_provider": "gemini",
+        "translation_fallback_provider": "gemini",
+        "transcription_provider": "gemini",
+        "transcription_fallback_provider": "gemini",
+        "revision": 1
+      }
+    }
+  ],
+  "execution_contract": "review-v1",
+  "phase": 3,
+  "run_requests": {
+    "04f62119-1926-4168-8a9b-169dd8ace7c8": {
+      "digest": "47355c62eee62984fe1315bef8ac831e9330e9b8dd6a411940d9fef7838334f9",
+      "phase": 0,
+      "status": "settled"
+    },
+    "45e82495-8941-4dfa-be4d-4419112323e5": {
+      "digest": "c9442c6c2462bea0b19ee145fa32c240c152011930726e34d392a308cbe7ca54",
+      "phase": 1,
+      "status": "settled"
+    },
+    "73419db9-689c-4d50-8745-59499cd943b1": {
+      "digest": "563809c6f50e1d34b399aa9d8969023e7d6ac6443a69fea8a8210e925635e88b",
+      "phase": 2,
+      "status": "settled"
+    }
+  },
+  "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451",
+  "scheduler": {
+    "revision": 29,
+    "nodes": {
+      "extract": {
+        "status": "succeeded",
+        "result": {
+          "artifacts": {
+            "audio": {
+              "type": "audio",
+              "path": "work/extract/audio.fixture",
+              "sha256": "ca06584a797864418740a25ab4d7982d8a41ceb976c99ad69c66a3b4b2726ba7",
+              "bytes": 103,
+              "clock": {
+                "basis": "original",
+                "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+              }
+            }
+          }
+        }
+      },
+      "prepare": {
+        "status": "succeeded",
+        "result": {
+          "artifacts": {
+            "audio": {
+              "type": "audio",
+              "path": "work/prepare/audio.fixture",
+              "sha256": "e421c2b814778cbc3c6284b9423ff0989e27c6e231e89fda50a71686368b488b",
+              "bytes": 103,
+              "clock": {
+                "basis": "packed",
+                "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451",
+                "timeline": {
+                  "node": "prepare",
+                  "port": "timeline",
+                  "sha256": "e421c2b814778cbc3c6284b9423ff0989e27c6e231e89fda50a71686368b488b"
+                }
+              }
+            },
+            "timeline": {
+              "type": "timeline_map",
+              "path": "work/prepare/timeline.fixture",
+              "sha256": "e421c2b814778cbc3c6284b9423ff0989e27c6e231e89fda50a71686368b488b",
+              "bytes": 103,
+              "clock": {
+                "basis": "packed_to_original",
+                "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+              }
+            }
+          }
+        }
+      },
+      "stt": {
+        "status": "succeeded",
+        "result": {
+          "artifacts": {
+            "transcript": {
+              "type": "transcript",
+              "path": "work/stt/transcript.fixture",
+              "sha256": "c149876ff23d74277c0c5c34c20efeea1ff7ddcad21ee53d5197bfa7596134b9",
+              "bytes": 63,
+              "clock": {
+                "basis": "original",
+                "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+              }
+            }
+          }
+        }
+      },
+      "review_text": {
+        "status": "succeeded",
+        "result": {
+          "artifacts": {
+            "value": {
+              "type": "transcript",
+              "path": "work/review_text/review/versions/3-e3df3a87e5f7455f809f0fc1df1ec42f/output.json",
+              "sha256": "87b7e606a4239e3e561a14e9433393c88570e31f74c9ab06fffc64133f2cdb28",
+              "bytes": 75,
+              "clock": {
+                "basis": "original",
+                "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+              },
+              "review_provenance": {
+                "revision": 3,
+                "sha256": "87b7e606a4239e3e561a14e9433393c88570e31f74c9ab06fffc64133f2cdb28",
+                "document_sha256": "27557b78c9fe91798b0e09dd89163ab57d06dc5e9aa6c90513611b094f277f63",
+                "input_sha256": "c149876ff23d74277c0c5c34c20efeea1ff7ddcad21ee53d5197bfa7596134b9",
+                "target": "c0035781c4316389bb63b076b96f81a58117c7df6b4ddd22a2aa9487dc31944b",
+                "request_id": "60d19e9e-0c7c-4809-821b-6eb8a16323cc",
+                "node": "review_text"
+              }
+            }
+          }
+        }
+      },
+      "subtitle": {
+        "status": "succeeded",
+        "result": {
+          "artifacts": {
+            "subtitles": {
+              "type": "subtitle",
+              "path": "work/subtitle/subtitles.srt",
+              "sha256": "36279044601cd2d4393b2e8a3454d1ed48209293c11ba68fa981f94a4bc7a645",
+              "bytes": 69,
+              "clock": {
+                "basis": "original",
+                "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+              }
+            }
+          }
+        }
+      },
+      "review_srt": {
+        "status": "succeeded",
+        "result": {
+          "artifacts": {
+            "value": {
+              "type": "subtitle",
+              "path": "work/review_srt/review/versions/1-e34ec83ea368473a84c9212b86fdfa87/output.srt",
+              "sha256": "36279044601cd2d4393b2e8a3454d1ed48209293c11ba68fa981f94a4bc7a645",
+              "bytes": 69,
+              "clock": {
+                "basis": "original",
+                "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+              },
+              "review_provenance": {
+                "revision": 1,
+                "sha256": "36279044601cd2d4393b2e8a3454d1ed48209293c11ba68fa981f94a4bc7a645",
+                "document_sha256": "0fc23e1245490a42d367711d749be8b78229751402b6ee65e81b77d05bc22128",
+                "input_sha256": "36279044601cd2d4393b2e8a3454d1ed48209293c11ba68fa981f94a4bc7a645",
+                "target": "5d7fe318ac48dc31c3e7340162b6655ff776c0a70b5a665f722ac8a43bb2f1bf",
+                "request_id": "9e1b815a-afea-4820-8efa-a22296133bce",
+                "node": "review_srt"
+              }
+            }
+          }
+        }
+      },
+      "encode": {
+        "status": "succeeded",
+        "result": {
+          "artifacts": {
+            "video": {
+              "type": "video",
+              "path": "work/encode/video.fixture",
+              "sha256": "83335d208211e460c32b68a8867d282ef900c9e7c582e2823148e050a033bb0e",
+              "bytes": 228,
+              "clock": {
+                "basis": "original",
+                "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+              }
+            }
+          }
+        }
+      },
+      "independent": {
+        "status": "succeeded",
+        "result": {
+          "artifacts": {
+            "metadata": {
+              "type": "media_metadata",
+              "path": "work/independent/metadata.fixture",
+              "sha256": "3cab7fd5bb834629bd7c9f496e8caae5c7665975e8c7183f73f6bf5114a8c413",
+              "bytes": 107,
+              "clock": {
+                "basis": "original",
+                "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+              }
+            }
+          }
+        }
+      },
+      "review_metadata": {
+        "status": "succeeded",
+        "result": {
+          "artifacts": {
+            "value": {
+              "type": "media_metadata",
+              "sha256": "3cab7fd5bb834629bd7c9f496e8caae5c7665975e8c7183f73f6bf5114a8c413",
+              "bytes": 107,
+              "clock": {
+                "basis": "original",
+                "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+              },
+              "reference": {
+                "node": "independent",
+                "port": "metadata"
+              },
+              "review_provenance": {
+                "revision": 1,
+                "sha256": "3cab7fd5bb834629bd7c9f496e8caae5c7665975e8c7183f73f6bf5114a8c413",
+                "document_sha256": "8e7b4e5529a6ff87603e5ad48a63eb406928ab700fc14cdb9989ea8095a1dfb5",
+                "input_sha256": "3cab7fd5bb834629bd7c9f496e8caae5c7665975e8c7183f73f6bf5114a8c413",
+                "target": "3960680f01d35f6cd6138685667a2655ec2307a248dfb419e77f2c38bcaa374c",
+                "request_id": "b3cb0a01-a42a-488d-a4be-569a5e877f0d",
+                "node": "review_metadata"
+              }
+            }
+          }
+        }
+      },
+      "joined": {
+        "status": "succeeded",
+        "result": {
+          "artifacts": {
+            "manifest": {
+              "type": "artifact_manifest",
+              "path": "work/joined/manifest.json",
+              "sha256": "9641cc45483edfc957d96d31f6ff26506da87fcbbeb467f16c0cf2ea5a6ab8c0",
+              "bytes": 1450
+            }
+          }
+        }
+      }
+    },
+    "unresolved": []
+  }
+}

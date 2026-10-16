@@ -1,0 +1,14 @@
+test_step_snapshot_records_effective_fixed_model_fallback_policy (test_work_tickets.BoundWorkTests.test_step_snapshot_records_effective_fixed_model_fallback_policy) ... FAIL
+
+======================================================================
+FAIL: test_step_snapshot_records_effective_fixed_model_fallback_policy (test_work_tickets.BoundWorkTests.test_step_snapshot_records_effective_fixed_model_fallback_policy)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/src/tests/test_work_tickets.py", line 198, in test_step_snapshot_records_effective_fixed_model_fallback_policy
+    self.assertFalse(step['serving_snapshot']['fallback_on_error'])
+AssertionError: True is not false
+
+----------------------------------------------------------------------
+Ran 1 test in 0.982s
+
+FAILED (failures=1)

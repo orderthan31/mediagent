@@ -1,0 +1,33 @@
+Running 1 test using 1 worker
+
+[1/1] tests\browser\work-entry.spec.ts:7:3 › registered models, node binding and workflow centered work 1440
+  1) tests\browser\work-entry.spec.ts:7:3 › registered models, node binding and workflow centered work 1440
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('heading', { name: '작업 시작', exact: true })
+    Expected: visible
+    Timeout: 15000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 15000ms
+      - waiting for getByRole('heading', { name: '작업 시작', exact: true })
+
+
+      115 |     });
+      116 |     await page.goto('/#/start');
+    > 117 |     await expect(page.getByRole('heading',{name:'작업 시작',exact:true})).toBeVisible({timeout:15000});
+          |                                                                       ^
+      118 |     await expect(page.getByRole('combobox',{name:'실행기 유형',exact:true})).toHaveCount(0);
+      119 |     await page.goto('/#/serving');
+      120 |     await page.getByLabel('등록 이름',{exact:true}).fill('검증용 판단 모델');
+        at PRIVATE_WORKSPACE\dev\mediagent-s2\apps\web\tests\browser\work-entry.spec.ts:117:71
+
+    Test timeout of 30000ms exceeded.
+
+    Error Context: ..\..\..\..\AppData\Local\hermes\cache\scratch\s2-audit\browser-results\work-entry-registered-mode-116f8-workflow-centered-work-1440\error-context.md
+
+
+  1 failed
+    tests\browser\work-entry.spec.ts:7:3 › registered models, node binding and workflow centered work 1440

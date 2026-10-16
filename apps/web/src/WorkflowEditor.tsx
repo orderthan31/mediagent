@@ -5,6 +5,8 @@ import { jsonPost } from './video-api';
 import { Button } from './hangyeol/primitives/button';
 import { Input } from './hangyeol/primitives/input';
 import { Badge } from './hangyeol/primitives/badge';
+import { NodeModelBinding } from './NodeModelBinding';
+import type { ModelReference } from './registered-models';
 import './workflow-editor.css';
 
 type Port = { node: string; port: string };
@@ -13,6 +15,7 @@ type Node = {
   type: string;
   position: { x: number; y: number };
   options: Record<string, string>;
+  model_ref?: ModelReference;
 };
 type Edge = { id: string; source: Port; target: Port };
 type Definition = {
@@ -558,6 +561,25 @@ export const WorkflowEditor = () => {
               {node && spec ? (
                 <fieldset disabled={!!busy}>
                   <h3>{spec.label}</h3>
+                  <NodeModelBinding
+                    key={node.id}
+                    type={node.type}
+                    value={node.model_ref}
+                    changed={(reference) =>
+                      change({
+                        ...doc,
+                        nodes: doc.nodes.map((n) =>
+                          n.id === node.id ? { ...n, model_ref: reference } : n,
+                        ),
+                      })
+                    }
+                  />
+                  {node.type === 'preprocess_audio' && (
+                    <p className="editor-help">
+                      전처리 옵션은 이 노드에 저장합니다. 현재 새 실행 경로의 GPU VAD/NVIDIA 무음
+                      제거는 미지원이며 서버가 거절합니다.
+                    </p>
+                  )}
                   <label>
                     배치 X
                     <Input
@@ -716,8 +738,8 @@ export const WorkflowEditor = () => {
         </>
       )}
       <p className="editor-help">
-        편집용 화면입니다. 모델 실행·키/기존 설정 변경·큐 소비 없음. 모바일 전체 편집/실행 정책과
-        병렬·합류/실행 버전은 이번 정의 저장으로 확정하지 않습니다.
+        노드 설정과 고정 모델 revision을 저장한 뒤 작업 시작에서 계획을 확인하세요. 저장은 모델
+        실행/키 변경/큐 소비가 아닙니다.
       </p>
     </main>
   );

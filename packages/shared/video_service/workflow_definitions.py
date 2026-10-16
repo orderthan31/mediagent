@@ -21,6 +21,7 @@ class DefinitionConflict(Exception):
 
 class DefinitionStore:
     def __init__(self, root, owner=None):
+        self.root, self.owner = Path(root), owner
         scope = 'local' if owner is None else 'owner-' + hashlib.sha256(str(owner).encode()).hexdigest()
         self.directory = Path(root) / '.workflow-definitions' / scope
 
@@ -52,6 +53,11 @@ class DefinitionStore:
         validation = validate_graph(payload)
         if not validation['valid']:
             raise DefinitionInvalid(validation['issues'])
+        from .model_registry import ModelRegistry
+        registry=ModelRegistry(self.root,self.owner)
+        for node in payload['nodes']:
+            if 'model_ref' in node:
+                registry.resolve(node['model_ref'],node['type'])
         self.directory.mkdir(parents=True, exist_ok=True, mode=0o700)
         try:
             with _file_lock(self.directory / (identity + '.lock')):

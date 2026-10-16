@@ -64,6 +64,9 @@ def compile_graph(definition, choices=None, *, allow_review=False, allow_decisio
         result['reasons'].append({'node_id': identity, 'edge_id': None, 'message': message})
     if not validation['valid']:
         return result
+    if any('model_ref' in n for n in definition['nodes']):
+        reject('등록 모델 참조가 있는 정의는 새 작업 시작 경로를 사용하세요. 기존 티켓에서 참조를 무시하지 않습니다.')
+        return result
     nodes = {n['id']: n for n in definition['nodes']}
     deciders = {identity for identity, n in nodes.items() if n['type'] == 'decision'}
     if deciders and not allow_decision:

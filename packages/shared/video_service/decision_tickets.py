@@ -109,6 +109,18 @@ class DecisionTicketStore(ReviewTicketStore):
     def _waiting_status(self, record):
         return 'awaiting_decision' if any(n['type'] == 'decision' and n['status'] == 'waiting' for n in record['steps']) else 'awaiting_review'
 
+    def _admit_decision(self, record, step):
+        return None
+
+    def _decision_profile(self, record, step, plan):
+        return self.adapter_profile
+
+    def _confirmed_decision_profile(self, plan, step):
+        return plan['decision_adapter']
+
+    def _decision_provider(self, execute, record, step):
+        return getattr(execute, 'decision_provider', None)
+
     def _execute_extension(self, step, incoming, work, resolve, execute, record, plan):
         if step['type'] != 'decision':
             return None
@@ -121,9 +133,11 @@ class DecisionTicketStore(ReviewTicketStore):
             alias = {k: deepcopy(v) for k, v in {**meta, 'reference': step['bindings']['value']}.items() if k != 'path'}
             alias['decision_provenance'] = {key: deepcopy(existing[key]) for key in ('sha256', 'report_sha256', 'input_sha256', 'selected_port', 'adapter')}
             return {'artifacts': {port: alias, 'result': self._artifact(self.directory_for(record['id']), work, work/'decision.json', 'decision_result')}}
+        self._admit_decision(record, step)
+        profile = self._decision_profile(record, step, plan)
         try:
-            provider = getattr(execute, 'decision_provider', None)
-            if provider is None or descriptor(provider) != self.adapter_profile or plan['decision_adapter'] != self.adapter_profile:
+            provider = self._decision_provider(execute, record, step)
+            if provider is None or descriptor(provider) != profile or self._confirmed_decision_profile(plan, step) != profile:
                 raise DecisionFormatError('확인한 adapter ID/revision이 아닙니다.')
             report = invoke_decision(provider, meta, resolve(meta), work)
             evaluation = evaluate(report['judgment'], step['options'])
@@ -133,7 +147,7 @@ class DecisionTicketStore(ReviewTicketStore):
             error = exc if isinstance(exc, (DecisionInputError, DecisionFormatError, DecisionConditionError)) else DecisionAdapterError()
             code = 'input_integrity_error' if isinstance(error, DecisionInputError) else 'format_error' if isinstance(error, DecisionFormatError) else 'condition_error' if isinstance(error, DecisionConditionError) else 'adapter_error'
             failure = {'version': 1, 'kind': 'decision_error', 'code': code, 'error_type': type(error).__name__,
-                       'input_sha256': meta['sha256'], 'conditions': conditions(step['options']), 'adapter': self.adapter_profile}
+                       'input_sha256': meta['sha256'], 'conditions': conditions(step['options']), 'adapter': profile}
             write_json_atomic(work/'decision-error.json', failure)
             artifacts = {'decision_error': self._artifact(self.directory_for(record['id']), work, work/'decision-error.json', 'decision_result')}
             if (work/'decision.json').is_file():

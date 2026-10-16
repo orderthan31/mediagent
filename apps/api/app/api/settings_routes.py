@@ -219,3 +219,9 @@ from app.api.review_ticket_routes import router as review_ticket_router
 router.include_router(review_ticket_router)
 from app.api.decision_ticket_routes import router as decision_ticket_router
 router.include_router(decision_ticket_router)
+from app.api.work_entry_routes import router as work_entry_router
+router.include_router(work_entry_router)
+from app.api.model_registry_routes import router as model_registry_router
+router.include_router(model_registry_router)
+from app.api.work_ticket_routes import router as work_ticket_router
+router.include_router(work_ticket_router)

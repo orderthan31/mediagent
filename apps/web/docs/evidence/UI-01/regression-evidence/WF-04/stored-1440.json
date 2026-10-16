@@ -1,0 +1,1163 @@
+[{
+  "id": "5b1f47673ad74ed6ad66364bfc1034b1",
+  "revision": 12,
+  "request_id": "6782e991-93f2-4f0c-b7b0-117b846be8b0",
+  "request": {
+    "definition_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "definition_revision": 1,
+    "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "options": {
+      "source_language": "auto",
+      "target_language": "ko",
+      "video_description": "",
+      "branch_choices": {
+        "choose": "both"
+      }
+    }
+  },
+  "definition": {
+    "catalog_version": 1,
+    "revision": 1,
+    "name": "격리 수동 병렬·목록 합류",
+    "inputs": {
+      "video": "video"
+    },
+    "nodes": [
+      {
+        "id": "choose",
+        "type": "select",
+        "position": {
+          "x": 340,
+          "y": 140
+        },
+        "options": {
+          "data_type": "video",
+          "selection": "both"
+        }
+      },
+      {
+        "id": "a",
+        "type": "encode",
+        "position": {
+          "x": 720,
+          "y": 40
+        },
+        "options": {
+          "subtitle_mode": "none"
+        }
+      },
+      {
+        "id": "b",
+        "type": "encode",
+        "position": {
+          "x": 720,
+          "y": 360
+        },
+        "options": {
+          "subtitle_mode": "none"
+        }
+      },
+      {
+        "id": "joined",
+        "type": "join",
+        "position": {
+          "x": 1100,
+          "y": 180
+        },
+        "options": {
+          "left_type": "video",
+          "right_type": "video"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "0",
+        "source": {
+          "node": "$input",
+          "port": "video"
+        },
+        "target": {
+          "node": "choose",
+          "port": "value"
+        }
+      },
+      {
+        "id": "1",
+        "source": {
+          "node": "choose",
+          "port": "a"
+        },
+        "target": {
+          "node": "a",
+          "port": "video"
+        }
+      },
+      {
+        "id": "2",
+        "source": {
+          "node": "choose",
+          "port": "b"
+        },
+        "target": {
+          "node": "b",
+          "port": "video"
+        }
+      },
+      {
+        "id": "3",
+        "source": {
+          "node": "a",
+          "port": "video"
+        },
+        "target": {
+          "node": "joined",
+          "port": "left"
+        }
+      },
+      {
+        "id": "4",
+        "source": {
+          "node": "b",
+          "port": "video"
+        },
+        "target": {
+          "node": "joined",
+          "port": "right"
+        }
+      }
+    ],
+    "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "executable": false
+  },
+  "definition_sha256": "31202936920ae67ca62ee80694d8372c11153e8c1ff3fcc9feb2886c09395814",
+  "asset": {
+    "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "original_filename": "안전 합성 입력.mp4",
+    "size_bytes": 6134,
+    "source_mtime_ns": 1792109477634740200
+  },
+  "options": {
+    "source_language": "auto",
+    "target_language": "ko",
+    "video_description": "",
+    "branch_choices": {
+      "choose": "both"
+    }
+  },
+  "sequence": {
+    "supported": true,
+    "reasons": [],
+    "steps": [
+      {
+        "id": "choose",
+        "type": "select",
+        "options": {
+          "data_type": "video",
+          "selection": "both"
+        },
+        "bindings": {
+          "value": {
+            "node": "$input",
+            "port": "video"
+          }
+        },
+        "outputs": {
+          "a": "video",
+          "b": "video"
+        },
+        "selected": true,
+        "active_bindings": {
+          "value": {
+            "node": "$input",
+            "port": "video"
+          }
+        },
+        "dependencies": []
+      },
+      {
+        "id": "a",
+        "type": "encode",
+        "options": {
+          "subtitle_mode": "none",
+          "video_codec": "h264",
+          "resolution": "original",
+          "quality_profile": "balanced"
+        },
+        "bindings": {
+          "video": {
+            "node": "choose",
+            "port": "a"
+          }
+        },
+        "outputs": {
+          "video": "video"
+        },
+        "selected": true,
+        "active_bindings": {
+          "video": {
+            "node": "choose",
+            "port": "a"
+          }
+        },
+        "dependencies": [
+          "choose"
+        ],
+        "native_bindings": {
+          "video": {
+            "node": "$input",
+            "port": "video"
+          }
+        }
+      },
+      {
+        "id": "b",
+        "type": "encode",
+        "options": {
+          "subtitle_mode": "none",
+          "video_codec": "h264",
+          "resolution": "original",
+          "quality_profile": "balanced"
+        },
+        "bindings": {
+          "video": {
+            "node": "choose",
+            "port": "b"
+          }
+        },
+        "outputs": {
+          "video": "video"
+        },
+        "selected": true,
+        "active_bindings": {
+          "video": {
+            "node": "choose",
+            "port": "b"
+          }
+        },
+        "dependencies": [
+          "choose"
+        ],
+        "native_bindings": {
+          "video": {
+            "node": "$input",
+            "port": "video"
+          }
+        }
+      },
+      {
+        "id": "joined",
+        "type": "join",
+        "options": {
+          "left_type": "video",
+          "right_type": "video"
+        },
+        "bindings": {
+          "left": {
+            "node": "a",
+            "port": "video"
+          },
+          "right": {
+            "node": "b",
+            "port": "video"
+          }
+        },
+        "outputs": {
+          "manifest": "artifact_manifest"
+        },
+        "selected": true,
+        "active_bindings": {
+          "left": {
+            "node": "a",
+            "port": "video"
+          },
+          "right": {
+            "node": "b",
+            "port": "video"
+          }
+        },
+        "dependencies": [
+          "a",
+          "b"
+        ]
+      }
+    ],
+    "paid_roles": [],
+    "choices": {
+      "choose": "both"
+    },
+    "notice": "수동 선택을 생성 시 고정합니다. 합류는 선택된 결과 참조 목록이며 미디어/clock 병합이 아닙니다. 운영 실행기 연결/유료 확인은 별도입니다."
+  },
+  "status": "failed",
+  "confirmation": {
+    "token": "fd3ec44101f6e6a929bb15b314ec6d52bdcac2ea268b8cb54ebe0f802a6d934e",
+    "paid_confirmed": false
+  },
+  "settings_snapshot": {
+    "transcription_model": "gemini-3.8-flash",
+    "translation_model": "gemini-fixture-next",
+    "transcription_fallback_model": "",
+    "translation_fallback_model": "",
+    "fallback_on_error": false,
+    "fallback_on_block": false,
+    "translation_provider": "gemini",
+    "translation_fallback_provider": "gemini",
+    "transcription_provider": "gemini",
+    "transcription_fallback_provider": "gemini",
+    "revision": 1
+  },
+  "steps": [
+    {
+      "id": "choose",
+      "type": "select",
+      "status": "succeeded",
+      "artifacts": {
+        "a": {
+          "type": "video",
+          "sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451",
+          "bytes": 6134,
+          "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "clock": {
+            "basis": "original",
+            "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+          },
+          "reference": {
+            "node": "$input",
+            "port": "video"
+          }
+        },
+        "b": {
+          "type": "video",
+          "sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451",
+          "bytes": 6134,
+          "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "clock": {
+            "basis": "original",
+            "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+          },
+          "reference": {
+            "node": "$input",
+            "port": "video"
+          }
+        }
+      },
+      "partial_artifacts": {}
+    },
+    {
+      "id": "a",
+      "type": "encode",
+      "status": "failed",
+      "artifacts": {},
+      "partial_artifacts": {
+        "partial-result.json": {
+          "type": "partial",
+          "path": "work/a/partial-result.json",
+          "sha256": "00ea073ba0331b633f158271553139c421a3998417a2d67847dfa5f5301f52d6",
+          "bytes": 49
+        }
+      },
+      "error_type": "RuntimeError"
+    },
+    {
+      "id": "b",
+      "type": "encode",
+      "status": "succeeded",
+      "artifacts": {
+        "video": {
+          "type": "video",
+          "path": "work/b/same.fixture",
+          "sha256": "9f853f8ed8fce3f8dcfc461c9c489600fd2220fb1a083e960f52aa586bed0b6c",
+          "bytes": 566,
+          "clock": {
+            "basis": "original",
+            "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+          }
+        }
+      },
+      "partial_artifacts": {}
+    },
+    {
+      "id": "joined",
+      "type": "join",
+      "status": "blocked",
+      "artifacts": {},
+      "partial_artifacts": {},
+      "blocked_by": [
+        "a"
+      ]
+    }
+  ],
+  "error": "선택 단계 실패/차단 · 독립 성공/부분 결과 보존 (자동 재시도/재개 없음)"
+}
+,
+{
+  "id": "a02b8f231ae149138482c8b135c1b2d4",
+  "revision": 11,
+  "request_id": "15c91a15-207d-46a0-a999-47b752ca9ea1",
+  "request": {
+    "definition_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "definition_revision": 2,
+    "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "options": {
+      "source_language": "auto",
+      "target_language": "ko",
+      "video_description": "",
+      "branch_choices": {
+        "choose": "a"
+      }
+    }
+  },
+  "definition": {
+    "catalog_version": 1,
+    "revision": 2,
+    "name": "외부 편집된 병렬 정의",
+    "inputs": {
+      "video": "video"
+    },
+    "nodes": [
+      {
+        "id": "choose",
+        "type": "select",
+        "position": {
+          "x": 340,
+          "y": 140
+        },
+        "options": {
+          "data_type": "video",
+          "selection": "both"
+        }
+      },
+      {
+        "id": "a",
+        "type": "encode",
+        "position": {
+          "x": 720,
+          "y": 40
+        },
+        "options": {
+          "subtitle_mode": "none",
+          "quality_profile": "high"
+        }
+      },
+      {
+        "id": "b",
+        "type": "encode",
+        "position": {
+          "x": 720,
+          "y": 360
+        },
+        "options": {
+          "subtitle_mode": "none"
+        }
+      },
+      {
+        "id": "joined",
+        "type": "join",
+        "position": {
+          "x": 1100,
+          "y": 180
+        },
+        "options": {
+          "left_type": "video",
+          "right_type": "video"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "0",
+        "source": {
+          "node": "$input",
+          "port": "video"
+        },
+        "target": {
+          "node": "choose",
+          "port": "value"
+        }
+      },
+      {
+        "id": "1",
+        "source": {
+          "node": "choose",
+          "port": "a"
+        },
+        "target": {
+          "node": "a",
+          "port": "video"
+        }
+      },
+      {
+        "id": "2",
+        "source": {
+          "node": "choose",
+          "port": "b"
+        },
+        "target": {
+          "node": "b",
+          "port": "video"
+        }
+      },
+      {
+        "id": "3",
+        "source": {
+          "node": "a",
+          "port": "video"
+        },
+        "target": {
+          "node": "joined",
+          "port": "left"
+        }
+      },
+      {
+        "id": "4",
+        "source": {
+          "node": "b",
+          "port": "video"
+        },
+        "target": {
+          "node": "joined",
+          "port": "right"
+        }
+      }
+    ],
+    "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "executable": false
+  },
+  "definition_sha256": "6fb3f648bb4af29652332ef7357534735c6762f7978d3430ec3215105b0592e4",
+  "asset": {
+    "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "original_filename": "안전 합성 입력.mp4",
+    "size_bytes": 6134,
+    "source_mtime_ns": 1792109477634740200
+  },
+  "options": {
+    "source_language": "auto",
+    "target_language": "ko",
+    "video_description": "",
+    "branch_choices": {
+      "choose": "a"
+    }
+  },
+  "sequence": {
+    "supported": true,
+    "reasons": [],
+    "steps": [
+      {
+        "id": "choose",
+        "type": "select",
+        "options": {
+          "data_type": "video",
+          "selection": "a"
+        },
+        "bindings": {
+          "value": {
+            "node": "$input",
+            "port": "video"
+          }
+        },
+        "outputs": {
+          "a": "video",
+          "b": "video"
+        },
+        "selected": true,
+        "active_bindings": {
+          "value": {
+            "node": "$input",
+            "port": "video"
+          }
+        },
+        "dependencies": []
+      },
+      {
+        "id": "a",
+        "type": "encode",
+        "options": {
+          "subtitle_mode": "none",
+          "video_codec": "h264",
+          "resolution": "original",
+          "quality_profile": "high"
+        },
+        "bindings": {
+          "video": {
+            "node": "choose",
+            "port": "a"
+          }
+        },
+        "outputs": {
+          "video": "video"
+        },
+        "selected": true,
+        "active_bindings": {
+          "video": {
+            "node": "choose",
+            "port": "a"
+          }
+        },
+        "dependencies": [
+          "choose"
+        ],
+        "native_bindings": {
+          "video": {
+            "node": "$input",
+            "port": "video"
+          }
+        }
+      },
+      {
+        "id": "b",
+        "type": "encode",
+        "options": {
+          "subtitle_mode": "none",
+          "video_codec": "h264",
+          "resolution": "original",
+          "quality_profile": "balanced"
+        },
+        "bindings": {
+          "video": {
+            "node": "choose",
+            "port": "b"
+          }
+        },
+        "outputs": {
+          "video": "video"
+        },
+        "selected": false,
+        "active_bindings": {},
+        "dependencies": [],
+        "native_bindings": {
+          "video": {
+            "node": "$input",
+            "port": "video"
+          }
+        }
+      },
+      {
+        "id": "joined",
+        "type": "join",
+        "options": {
+          "left_type": "video",
+          "right_type": "video"
+        },
+        "bindings": {
+          "left": {
+            "node": "a",
+            "port": "video"
+          },
+          "right": {
+            "node": "b",
+            "port": "video"
+          }
+        },
+        "outputs": {
+          "manifest": "artifact_manifest"
+        },
+        "selected": true,
+        "active_bindings": {
+          "left": {
+            "node": "a",
+            "port": "video"
+          }
+        },
+        "dependencies": [
+          "a"
+        ]
+      }
+    ],
+    "paid_roles": [],
+    "choices": {
+      "choose": "a"
+    },
+    "notice": "수동 선택을 생성 시 고정합니다. 합류는 선택된 결과 참조 목록이며 미디어/clock 병합이 아닙니다. 운영 실행기 연결/유료 확인은 별도입니다."
+  },
+  "status": "completed",
+  "confirmation": {
+    "token": "251c1b4e0dee493eea6f9bac23e9e1db7440cebd7ec2de768af9be1f1366b83e",
+    "paid_confirmed": false
+  },
+  "settings_snapshot": {
+    "transcription_model": "gemini-3.8-flash",
+    "translation_model": "gemini-fixture-next",
+    "transcription_fallback_model": "",
+    "translation_fallback_model": "",
+    "fallback_on_error": false,
+    "fallback_on_block": false,
+    "translation_provider": "gemini",
+    "translation_fallback_provider": "gemini",
+    "transcription_provider": "gemini",
+    "transcription_fallback_provider": "gemini",
+    "revision": 1
+  },
+  "steps": [
+    {
+      "id": "choose",
+      "type": "select",
+      "status": "succeeded",
+      "artifacts": {
+        "a": {
+          "type": "video",
+          "sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451",
+          "bytes": 6134,
+          "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "clock": {
+            "basis": "original",
+            "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+          },
+          "reference": {
+            "node": "$input",
+            "port": "video"
+          }
+        }
+      },
+      "partial_artifacts": {}
+    },
+    {
+      "id": "a",
+      "type": "encode",
+      "status": "succeeded",
+      "artifacts": {
+        "video": {
+          "type": "video",
+          "path": "work/a/same.fixture",
+          "sha256": "24d74745cecb69d516b1de3d396d9d66fb2292bc52940eca82bb25f5743ea32b",
+          "bytes": 562,
+          "clock": {
+            "basis": "original",
+            "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+          }
+        }
+      },
+      "partial_artifacts": {}
+    },
+    {
+      "id": "b",
+      "type": "encode",
+      "status": "skipped",
+      "artifacts": {},
+      "partial_artifacts": {},
+      "reason": "manual_unselected"
+    },
+    {
+      "id": "joined",
+      "type": "join",
+      "status": "succeeded",
+      "artifacts": {
+        "manifest": {
+          "type": "artifact_manifest",
+          "path": "work/joined/manifest.json",
+          "sha256": "9f380f51af38baac58f5988ba94bba79a39c7efa2dec6b13b649b61668b6773d",
+          "bytes": 552
+        }
+      },
+      "partial_artifacts": {}
+    }
+  ]
+}
+,
+{
+  "id": "d789b75a6bf9424890fb669ed6136933",
+  "revision": 13,
+  "request_id": "5c9556f6-a10b-4fd3-a9c9-1a67303f0490",
+  "request": {
+    "definition_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "definition_revision": 2,
+    "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "options": {
+      "source_language": "auto",
+      "target_language": "ko",
+      "video_description": "",
+      "branch_choices": {
+        "choose": "both"
+      }
+    }
+  },
+  "definition": {
+    "catalog_version": 1,
+    "revision": 2,
+    "name": "외부 편집된 병렬 정의",
+    "inputs": {
+      "video": "video"
+    },
+    "nodes": [
+      {
+        "id": "choose",
+        "type": "select",
+        "position": {
+          "x": 340,
+          "y": 140
+        },
+        "options": {
+          "data_type": "video",
+          "selection": "both"
+        }
+      },
+      {
+        "id": "a",
+        "type": "encode",
+        "position": {
+          "x": 720,
+          "y": 40
+        },
+        "options": {
+          "subtitle_mode": "none",
+          "quality_profile": "high"
+        }
+      },
+      {
+        "id": "b",
+        "type": "encode",
+        "position": {
+          "x": 720,
+          "y": 360
+        },
+        "options": {
+          "subtitle_mode": "none"
+        }
+      },
+      {
+        "id": "joined",
+        "type": "join",
+        "position": {
+          "x": 1100,
+          "y": 180
+        },
+        "options": {
+          "left_type": "video",
+          "right_type": "video"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "0",
+        "source": {
+          "node": "$input",
+          "port": "video"
+        },
+        "target": {
+          "node": "choose",
+          "port": "value"
+        }
+      },
+      {
+        "id": "1",
+        "source": {
+          "node": "choose",
+          "port": "a"
+        },
+        "target": {
+          "node": "a",
+          "port": "video"
+        }
+      },
+      {
+        "id": "2",
+        "source": {
+          "node": "choose",
+          "port": "b"
+        },
+        "target": {
+          "node": "b",
+          "port": "video"
+        }
+      },
+      {
+        "id": "3",
+        "source": {
+          "node": "a",
+          "port": "video"
+        },
+        "target": {
+          "node": "joined",
+          "port": "left"
+        }
+      },
+      {
+        "id": "4",
+        "source": {
+          "node": "b",
+          "port": "video"
+        },
+        "target": {
+          "node": "joined",
+          "port": "right"
+        }
+      }
+    ],
+    "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "executable": false
+  },
+  "definition_sha256": "6fb3f648bb4af29652332ef7357534735c6762f7978d3430ec3215105b0592e4",
+  "asset": {
+    "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "original_filename": "안전 합성 입력.mp4",
+    "size_bytes": 6134,
+    "source_mtime_ns": 1792109477634740200
+  },
+  "options": {
+    "source_language": "auto",
+    "target_language": "ko",
+    "video_description": "",
+    "branch_choices": {
+      "choose": "both"
+    }
+  },
+  "sequence": {
+    "supported": true,
+    "reasons": [],
+    "steps": [
+      {
+        "id": "choose",
+        "type": "select",
+        "options": {
+          "data_type": "video",
+          "selection": "both"
+        },
+        "bindings": {
+          "value": {
+            "node": "$input",
+            "port": "video"
+          }
+        },
+        "outputs": {
+          "a": "video",
+          "b": "video"
+        },
+        "selected": true,
+        "active_bindings": {
+          "value": {
+            "node": "$input",
+            "port": "video"
+          }
+        },
+        "dependencies": []
+      },
+      {
+        "id": "a",
+        "type": "encode",
+        "options": {
+          "subtitle_mode": "none",
+          "video_codec": "h264",
+          "resolution": "original",
+          "quality_profile": "high"
+        },
+        "bindings": {
+          "video": {
+            "node": "choose",
+            "port": "a"
+          }
+        },
+        "outputs": {
+          "video": "video"
+        },
+        "selected": true,
+        "active_bindings": {
+          "video": {
+            "node": "choose",
+            "port": "a"
+          }
+        },
+        "dependencies": [
+          "choose"
+        ],
+        "native_bindings": {
+          "video": {
+            "node": "$input",
+            "port": "video"
+          }
+        }
+      },
+      {
+        "id": "b",
+        "type": "encode",
+        "options": {
+          "subtitle_mode": "none",
+          "video_codec": "h264",
+          "resolution": "original",
+          "quality_profile": "balanced"
+        },
+        "bindings": {
+          "video": {
+            "node": "choose",
+            "port": "b"
+          }
+        },
+        "outputs": {
+          "video": "video"
+        },
+        "selected": true,
+        "active_bindings": {
+          "video": {
+            "node": "choose",
+            "port": "b"
+          }
+        },
+        "dependencies": [
+          "choose"
+        ],
+        "native_bindings": {
+          "video": {
+            "node": "$input",
+            "port": "video"
+          }
+        }
+      },
+      {
+        "id": "joined",
+        "type": "join",
+        "options": {
+          "left_type": "video",
+          "right_type": "video"
+        },
+        "bindings": {
+          "left": {
+            "node": "a",
+            "port": "video"
+          },
+          "right": {
+            "node": "b",
+            "port": "video"
+          }
+        },
+        "outputs": {
+          "manifest": "artifact_manifest"
+        },
+        "selected": true,
+        "active_bindings": {
+          "left": {
+            "node": "a",
+            "port": "video"
+          },
+          "right": {
+            "node": "b",
+            "port": "video"
+          }
+        },
+        "dependencies": [
+          "a",
+          "b"
+        ]
+      }
+    ],
+    "paid_roles": [],
+    "choices": {
+      "choose": "both"
+    },
+    "notice": "수동 선택을 생성 시 고정합니다. 합류는 선택된 결과 참조 목록이며 미디어/clock 병합이 아닙니다. 운영 실행기 연결/유료 확인은 별도입니다."
+  },
+  "status": "completed",
+  "confirmation": {
+    "token": "7b410821687913d1209f8074ef35e4b03b965992a3ca3ae2886955c0dc0826ee",
+    "paid_confirmed": false
+  },
+  "settings_snapshot": {
+    "transcription_model": "gemini-3.8-flash",
+    "translation_model": "gemini-fixture-next",
+    "transcription_fallback_model": "",
+    "translation_fallback_model": "",
+    "fallback_on_error": false,
+    "fallback_on_block": false,
+    "translation_provider": "gemini",
+    "translation_fallback_provider": "gemini",
+    "transcription_provider": "gemini",
+    "transcription_fallback_provider": "gemini",
+    "revision": 1
+  },
+  "steps": [
+    {
+      "id": "choose",
+      "type": "select",
+      "status": "succeeded",
+      "artifacts": {
+        "a": {
+          "type": "video",
+          "sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451",
+          "bytes": 6134,
+          "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "clock": {
+            "basis": "original",
+            "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+          },
+          "reference": {
+            "node": "$input",
+            "port": "video"
+          }
+        },
+        "b": {
+          "type": "video",
+          "sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451",
+          "bytes": 6134,
+          "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "clock": {
+            "basis": "original",
+            "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+          },
+          "reference": {
+            "node": "$input",
+            "port": "video"
+          }
+        }
+      },
+      "partial_artifacts": {}
+    },
+    {
+      "id": "a",
+      "type": "encode",
+      "status": "succeeded",
+      "artifacts": {
+        "video": {
+          "type": "video",
+          "path": "work/a/same.fixture",
+          "sha256": "24d74745cecb69d516b1de3d396d9d66fb2292bc52940eca82bb25f5743ea32b",
+          "bytes": 562,
+          "clock": {
+            "basis": "original",
+            "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+          }
+        }
+      },
+      "partial_artifacts": {}
+    },
+    {
+      "id": "b",
+      "type": "encode",
+      "status": "succeeded",
+      "artifacts": {
+        "video": {
+          "type": "video",
+          "path": "work/b/same.fixture",
+          "sha256": "9f853f8ed8fce3f8dcfc461c9c489600fd2220fb1a083e960f52aa586bed0b6c",
+          "bytes": 566,
+          "clock": {
+            "basis": "original",
+            "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+          }
+        }
+      },
+      "partial_artifacts": {}
+    },
+    {
+      "id": "joined",
+      "type": "join",
+      "status": "succeeded",
+      "artifacts": {
+        "manifest": {
+          "type": "artifact_manifest",
+          "path": "work/joined/manifest.json",
+          "sha256": "a258519a83e4970349e7922d56c93b61efe993d263f40a686d1406566f967610",
+          "bytes": 942
+        }
+      },
+      "partial_artifacts": {}
+    }
+  ]
+}
+]

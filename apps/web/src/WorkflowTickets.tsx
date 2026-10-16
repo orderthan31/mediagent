@@ -6,6 +6,7 @@ import { Input } from './hangyeol/primitives/input';
 import { Badge } from './hangyeol/primitives/badge';
 import { ReviewPanel, type ReviewDocument } from './ReviewPanel';
 import { DecisionPanel, type DecisionEvidence } from './DecisionPanel';
+import type { RegisteredVersion } from './registered-models';
 import './serving.css';
 import './workflow-tickets.css';
 
@@ -55,8 +56,12 @@ type Ticket = {
   phase?: number;
   reviews?: Record<string, ReviewDocument>;
   decisions?: Record<string, DecisionEvidence>;
+  model_bindings?: Record<string, RegisteredVersion>;
+  model_availability?: Record<string, { active: boolean; new_revision_available: boolean }>;
 };
 type Plan = {
+  model_bindings?: Record<string, RegisteredVersion>;
+  model_admission?: Record<string, { active: boolean; state_revision: number }>;
   token: string;
   settings: Record<string, string | number | boolean>;
   paid_roles: string[];
@@ -95,21 +100,28 @@ const graphPayload = (d: Definition) => ({
 export const WorkflowTickets = ({
   graph: graphMode = false,
   review: reviewMode = false,
-  decision = false,
+  decision: decisionMode = false,
+  work = false,
+  initialTicketId = '',
 }: {
   graph?: boolean;
   review?: boolean;
   decision?: boolean;
+  work?: boolean;
+  initialTicketId?: string;
 }) => {
+  const decision = decisionMode || work;
   const review = reviewMode || decision,
     graph = graphMode || decision;
-  const base = decision
-    ? '/settings/decision-tickets'
-    : review
-      ? '/settings/review-tickets'
-      : graph
-        ? '/settings/graph-tickets'
-        : '/settings/workflow-tickets';
+  const base = work
+    ? '/settings/work-tickets'
+    : decision
+      ? '/settings/decision-tickets'
+      : review
+        ? '/settings/review-tickets'
+        : graph
+          ? '/settings/graph-tickets'
+          : '/settings/workflow-tickets';
   const reviewUpdate = async () => {
     setPlan(null);
     setPaid(false);
@@ -406,7 +418,11 @@ export const WorkflowTickets = ({
       </a>
     );
   useEffect(() => {
-    void load();
+    void load().then(() => {
+      if (initialTicketId) {
+        void open(initialTicketId);
+      }
+    });
   }, []);
   useEffect(() => {
     if (!ticket || (ticket.status !== 'running' && busy !== 'start')) {
@@ -441,39 +457,50 @@ export const WorkflowTickets = ({
       <div className="serving-heading">
         <div>
           <p className="workspace-eyebrow">
-            {decision
-              ? '구조화 판단 · 서버 조건 평가 · 결과 고정 · 선택 후행 새 확인'
-              : review
-                ? '원하는 지원 지점 · 영속 검수 대기 · 명시 승인·이어 실행'
-                : graph
-                  ? '수동 선택 · 제어된 동시 진행 · 결과 참조 합류'
-                  : '정의 기반 순차 처리'}
+            {work
+              ? '작업 · 계획 확인과 실행은 별도'
+              : decision
+                ? '구조화 판단 · 서버 조건 평가 · 결과 고정 · 선택 후행 새 확인'
+                : review
+                  ? '원하는 지원 지점 · 영속 검수 대기 · 명시 승인·이어 실행'
+                  : graph
+                    ? '수동 선택 · 제어된 동시 진행 · 결과 참조 합류'
+                    : '정의 기반 순차 처리'}
           </p>
           <h1>
-            {decision
-              ? 'AI 판단 워크플로우 티켓'
-              : review
-                ? '사람 검수 워크플로우 티켓'
-                : graph
-                  ? '분기·병렬 워크플로우 티켓'
-                  : '순차 워크플로우 티켓'}
+            {work
+              ? '작업 티켓'
+              : decision
+                ? 'AI 판단 워크플로우 티켓'
+                : review
+                  ? '사람 검수 워크플로우 티켓'
+                  : graph
+                    ? '분기·병렬 워크플로우 티켓'
+                    : '순차 워크플로우 티켓'}
           </h1>
         </div>
         <Button variant="secondary" disabled={!!busy} onClick={() => void load()}>
           서버 목록 새로 불러오기
         </Button>
       </div>
-      {decision && (
+      {decision && !work && (
         <p className="serving-help">
           기본 작업 동선은 영상 + 저장 워크플로우 → 흐름/노드 설정 요약 → 명시 계획 확인 →
           티켓입니다. 이 화면은 신규 AI 판단 경로의 기능 검증 화면이며 내부 실행기를 다시 고르는
-          최종 제품 진입이 아닙니다. 처리 옵션은 워크플로우 편집기에서 노드를 클릭해 설정합니다.
-          노드별 등록 모델 연결은 아직 미지원이며 전역 역할 설정을 노드 연결로 간주하지 않습니다.
+          최종 제품 진입이 아닙니다. 처리 옵션은 워크플로우 편집기에서 노드를 클릭해 설정합니다. 이
+          이전 티켓 형식은 등록 모델 참조를 사용하지 않습니다. 새 등록 모델 연결은 작업 시작에서
+          사용하며 전역 역할 설정을 노드 연결로 간주하지 않습니다.
         </p>
       )}
       <p>
-        영상과 저장 정의를 선택해 <strong>보류 티켓</strong>을 만듭니다. 생성/계획 확인은 실행이나
-        기존 큐 등록이 아닙니다.
+        {work ? (
+          '고정된 흐름·모델·현재 미실행 계획을 확인한 뒤 명시 실행합니다. 새 작업은 작업 시작에서 만드세요.'
+        ) : (
+          <>
+            영상과 저장 정의를 선택해 <strong>보류 티켓</strong>을 만듭니다. 생성/계획 확인은
+            실행이나 기존 큐 등록이 아닙니다.
+          </>
+        )}
       </p>
       <p className="serving-help">
         정의는 생성 때 ID·revision·내용을 고정합니다. 계획 확인 때 서빙 설정을 결합하고 변경 시
@@ -488,13 +515,15 @@ export const WorkflowTickets = ({
           <Badge tone="neutral">
             {runtime.connected
               ? runtime.mode
-              : decision
-                ? 'AI 판단 실행기 미연결'
-                : review
-                  ? '검수 실행기 미연결'
-                  : graph
-                    ? '병렬 실행기 미연결'
-                    : '새 순차 실행기 미연결'}
+              : work
+                ? '작업 실행기 미연결'
+                : decision
+                  ? 'AI 판단 실행기 미연결'
+                  : review
+                    ? '검수 실행기 미연결'
+                    : graph
+                      ? '병렬 실행기 미연결'
+                      : '새 순차 실행기 미연결'}
           </Badge>{' '}
           {runtime.notice}
         </p>
@@ -506,159 +535,163 @@ export const WorkflowTickets = ({
       )}
       {status && <p role="status">{status}</p>}
       {!ready && <p>서버 목록 미확인 · 조회 성공 전에는 새 티켓을 생성하지 않습니다.</p>}
-      <section className="ticket-panel">
-        <h2>새 티켓 생성</h2>
-        <fieldset disabled={!!busy || !ready}>
-          <div className="serving-grid">
-            <label>
-              입력 영상
-              <select
-                aria-label="입력 영상"
-                value={assetId}
-                onChange={(e) => {
-                  setAssetId(e.target.value);
-                  changed();
-                }}
-              >
-                <option value="">영상 선택</option>
-                {assets.map((a) => (
-                  <option key={a.asset_id} value={a.asset_id}>
-                    {a.original_filename}
-                  </option>
+      {!work && (
+        <section className="ticket-panel">
+          <h2>새 티켓 생성</h2>
+          <fieldset disabled={!!busy || !ready}>
+            <div className="serving-grid">
+              <label>
+                입력 영상
+                <select
+                  aria-label="입력 영상"
+                  value={assetId}
+                  onChange={(e) => {
+                    setAssetId(e.target.value);
+                    changed();
+                  }}
+                >
+                  <option value="">영상 선택</option>
+                  {assets.map((a) => (
+                    <option key={a.asset_id} value={a.asset_id}>
+                      {a.original_filename}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                저장 워크플로우
+                <select
+                  aria-label="저장 워크플로우"
+                  value={definitionId}
+                  onChange={(e) => void chooseDefinition(e.target.value)}
+                >
+                  <option value="">저장 정의 선택</option>
+                  {definitions.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name} · r{d.revision}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                입력 언어
+                <Input
+                  aria-label="입력 언어"
+                  value={sourceLanguage}
+                  maxLength={40}
+                  onChange={(e) => {
+                    setSourceLanguage(e.target.value);
+                    changed();
+                  }}
+                />
+              </label>
+              <label>
+                대상 언어
+                <Input
+                  aria-label="대상 언어"
+                  value={targetLanguage}
+                  maxLength={40}
+                  onChange={(e) => {
+                    setTargetLanguage(e.target.value);
+                    changed();
+                  }}
+                />
+              </label>
+              <label>
+                영상 설명
+                <Input
+                  aria-label="영상 설명"
+                  value={description}
+                  maxLength={2000}
+                  onChange={(e) => {
+                    setDescription(e.target.value);
+                    changed();
+                  }}
+                />
+              </label>
+            </div>
+            {graph &&
+              definition?.nodes
+                .filter((n) => n.type === 'select')
+                .map((n) => (
+                  <label key={n.id}>
+                    수동 분기 {n.id}
+                    <select
+                      aria-label={`분기 ${n.id} 선택`}
+                      value={choices[n.id] || n.options.selection || 'a'}
+                      onChange={(e) => void chooseBranch(n.id, e.target.value)}
+                    >
+                      <option value="a">a 선택</option>
+                      <option value="b">b 선택</option>
+                      <option value="both">둘 다</option>
+                    </select>
+                  </label>
                 ))}
-              </select>
-            </label>
-            <label>
-              저장 워크플로우
-              <select
-                aria-label="저장 워크플로우"
-                value={definitionId}
-                onChange={(e) => void chooseDefinition(e.target.value)}
+            <div className="ticket-actions">
+              <Button
+                variant="secondary"
+                disabled={!definitionId}
+                onClick={() => void chooseDefinition(definitionId)}
               >
-                <option value="">저장 정의 선택</option>
-                {definitions.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name} · r{d.revision}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              입력 언어
-              <Input
-                aria-label="입력 언어"
-                value={sourceLanguage}
-                maxLength={40}
-                onChange={(e) => {
-                  setSourceLanguage(e.target.value);
-                  changed();
-                }}
-              />
-            </label>
-            <label>
-              대상 언어
-              <Input
-                aria-label="대상 언어"
-                value={targetLanguage}
-                maxLength={40}
-                onChange={(e) => {
-                  setTargetLanguage(e.target.value);
-                  changed();
-                }}
-              />
-            </label>
-            <label>
-              영상 설명
-              <Input
-                aria-label="영상 설명"
-                value={description}
-                maxLength={2000}
-                onChange={(e) => {
-                  setDescription(e.target.value);
-                  changed();
-                }}
-              />
-            </label>
-          </div>
-          {graph &&
-            definition?.nodes
-              .filter((n) => n.type === 'select')
-              .map((n) => (
-                <label key={n.id}>
-                  수동 분기 {n.id}
-                  <select
-                    aria-label={`분기 ${n.id} 선택`}
-                    value={choices[n.id] || n.options.selection || 'a'}
-                    onChange={(e) => void chooseBranch(n.id, e.target.value)}
-                  >
-                    <option value="a">a 선택</option>
-                    <option value="b">b 선택</option>
-                    <option value="both">둘 다</option>
-                  </select>
-                </label>
-              ))}
-          <div className="ticket-actions">
-            <Button
-              variant="secondary"
-              disabled={!definitionId}
-              onClick={() => void chooseDefinition(definitionId)}
-            >
-              선택 정의 새로 읽기
-            </Button>
-            <Button
-              disabled={!definition || !capability?.supported || !assetId}
-              onClick={() => void create()}
-            >
-              보류 티켓 생성
-            </Button>
-          </div>
-        </fieldset>
-        {definition && (
-          <p>
-            선택 정의: {definition.name} · revision {definition.revision} ·{' '}
-            <a href="#/workflow-editor">편집기로 이동</a>
-          </p>
-        )}
-        {capability && (
-          <div className="execution-capability">
-            <Badge tone="neutral">
-              {capability.supported
-                ? decision
-                  ? 'AI 판단 범위 지원'
-                  : review
-                    ? '검수 범위 지원'
-                    : graph
-                      ? '분기·병렬 범위 지원'
-                      : '순차 범위 지원'
-                : graph
-                  ? '현재 병렬 실행 미지원'
-                  : '현재 순차 실행 미지원'}
-            </Badge>
-            <p className="serving-help">
-              {capability.notice} 타입 검증 통과와 실제 실행 가능성/성공은 다릅니다.
+                선택 정의 새로 읽기
+              </Button>
+              <Button
+                disabled={!definition || !capability?.supported || !assetId}
+                onClick={() => void create()}
+              >
+                보류 티켓 생성
+              </Button>
+            </div>
+          </fieldset>
+          {definition && (
+            <p>
+              선택 정의: {definition.name} · revision {definition.revision} ·{' '}
+              <a href="#/workflow-editor">편집기로 이동</a>
             </p>
-            {!capability.supported && (
-              <div className="execution-reasons">
-                {capability.reasons.map((r, i) => (
-                  <p key={i}>
-                    {r.node_id ? `${r.node_id} · ` : ''}
-                    {r.message}
-                  </p>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </section>
+          )}
+          {capability && (
+            <div className="execution-capability">
+              <Badge tone="neutral">
+                {capability.supported
+                  ? decision
+                    ? 'AI 판단 범위 지원'
+                    : review
+                      ? '검수 범위 지원'
+                      : graph
+                        ? '분기·병렬 범위 지원'
+                        : '순차 범위 지원'
+                  : graph
+                    ? '현재 병렬 실행 미지원'
+                    : '현재 순차 실행 미지원'}
+              </Badge>
+              <p className="serving-help">
+                {capability.notice} 타입 검증 통과와 실제 실행 가능성/성공은 다릅니다.
+              </p>
+              {!capability.supported && (
+                <div className="execution-reasons">
+                  {capability.reasons.map((r, i) => (
+                    <p key={i}>
+                      {r.node_id ? `${r.node_id} · ` : ''}
+                      {r.message}
+                    </p>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+      )}
       <section className="ticket-panel">
         <h2>
-          {decision
-            ? '저장된 AI 판단 티켓'
-            : review
-              ? '저장된 검수 지원 티켓'
-              : graph
-                ? '저장된 분기·병렬 티켓'
-                : '저장된 순차 티켓'}
+          {work
+            ? '저장된 작업 티켓'
+            : decision
+              ? '저장된 AI 판단 티켓'
+              : review
+                ? '저장된 검수 지원 티켓'
+                : graph
+                  ? '저장된 분기·병렬 티켓'
+                  : '저장된 순차 티켓'}
         </h2>
         {ready && tickets.length === 0 && (
           <p>
@@ -685,6 +718,18 @@ export const WorkflowTickets = ({
           ))}
         </div>
       </section>
+      {work && (
+        <details className="ticket-panel">
+          <summary>이전 티켓 · 기능 검증 화면</summary>
+          <p>
+            <a href="#/workflow-tickets">이전 순차 티켓</a> ·{' '}
+            <a href="#/graph-tickets">이전 분기·병렬 티켓</a> ·{' '}
+            <a href="#/review-tickets">이전 검수 티켓</a> ·{' '}
+            <a href="#/decision-tickets">이전 판단 티켓</a>
+          </p>
+          <p>기존 티켓/저장소를 보존합니다. 등록 모델 참조로 소급 변환하지 않습니다.</p>
+        </details>
+      )}
       {ticket && (
         <section className="ticket-panel ticket-detail">
           <div className="serving-heading">
@@ -755,15 +800,27 @@ export const WorkflowTickets = ({
                     {Object.entries(s.options)
                       .map(([k, v]) => `${k}=${v}`)
                       .join(' / ') || '정의된 기본 옵션'}
+                    {work && plan.model_bindings?.[s.id] && (
+                      <p>
+                        고정 모델 {plan.model_bindings[s.id].name} · r
+                        {plan.model_bindings[s.id].revision} · {plan.model_bindings[s.id].provider}/
+                        {plan.model_bindings[s.id].model}
+                        {plan.model_admission?.[s.id]?.active === false
+                          ? ' · 사용 중지: 이 모델의 미실행 호출 차단. 독립 결과는 보존하며 새 정의·계획·티켓으로 교체하세요.'
+                          : ''}
+                      </p>
+                    )}
                   </li>
                 ))}
               </ol>
-              <p>
-                전사 {String(plan.settings.transcription_provider)} /{' '}
-                {String(plan.settings.transcription_model)} · 번역{' '}
-                {String(plan.settings.translation_provider)} /{' '}
-                {String(plan.settings.translation_model)}
-              </p>
+              {!work && (
+                <p>
+                  전사 {String(plan.settings.transcription_provider)} /{' '}
+                  {String(plan.settings.transcription_model)} · 번역{' '}
+                  {String(plan.settings.translation_provider)} /{' '}
+                  {String(plan.settings.translation_model)}
+                </p>
+              )}
               <p>
                 {plan.paid_roles.length
                   ? `모델 호출 역할: ${plan.paid_roles.join(', ')} · 외부 공급자 비용이 발생할 수 있습니다.`
@@ -832,6 +889,25 @@ export const WorkflowTickets = ({
                       : states[step.status] || step.status}
                 </h3>
                 {graph && <p className="serving-help">노드 {step.id}</p>}
+                {work && ticket.model_bindings?.[step.id] && (
+                  <div className="node-model-snapshot">
+                    <p>
+                      고정 모델 {ticket.model_bindings[step.id].name} · r
+                      {ticket.model_bindings[step.id].revision} ·{' '}
+                      {ticket.model_bindings[step.id].provider}/
+                      {ticket.model_bindings[step.id].model}
+                    </p>
+                    {ticket.model_availability?.[step.id]?.new_revision_available && (
+                      <p>새 revision 있음 · 기존 pin 유지</p>
+                    )}
+                    {ticket.model_availability?.[step.id]?.active === false && (
+                      <p>
+                        사용 중지 · 이 모델의 미실행 호출 차단, 완료/독립 결과 보존. 교체는 새
+                        정의·계획·티켓으로 진행하세요.
+                      </p>
+                    )}
+                  </div>
+                )}
                 {(step.blocked_by || step.error_type) && (
                   <p className="serving-help">
                     {step.blocked_by
@@ -840,7 +916,11 @@ export const WorkflowTickets = ({
                   </p>
                 )}
                 {decision && step.type === 'decision' && (
-                  <DecisionPanel evidence={ticket.decisions?.[step.id]} status={step.status} />
+                  <DecisionPanel
+                    compact={work}
+                    evidence={ticket.decisions?.[step.id]}
+                    status={step.status}
+                  />
                 )}
                 {review && ticket.reviews?.[step.id] && (
                   <ReviewPanel

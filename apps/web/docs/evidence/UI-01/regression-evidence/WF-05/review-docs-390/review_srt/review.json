@@ -1,0 +1,40 @@
+{
+  "context": {
+    "ticket": "48fdf072092349fcb299ae5b6a4c6b6f",
+    "node": "review_srt"
+  },
+  "source": {
+    "type": "subtitle",
+    "path": "work/subtitle/subtitles.srt",
+    "sha256": "36279044601cd2d4393b2e8a3454d1ed48209293c11ba68fa981f94a4bc7a645",
+    "bytes": 69,
+    "clock": {
+      "basis": "original",
+      "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+    }
+  },
+  "target": "6c721a1c283701ee3c6250ac359162e64b88791c3f3af6e8b13d01828ba306b5",
+  "revision": 1,
+  "state_revision": 2,
+  "versions": {
+    "1": {
+      "document_path": "versions/1-0e26e8adeca04ccb8fefc0bae270f823/document.json",
+      "document_sha256": "0fc23e1245490a42d367711d749be8b78229751402b6ee65e81b77d05bc22128",
+      "output_path": "versions/1-0e26e8adeca04ccb8fefc0bae270f823/output.srt",
+      "sha256": "36279044601cd2d4393b2e8a3454d1ed48209293c11ba68fa981f94a4bc7a645"
+    }
+  },
+  "approval": {
+    "revision": 1,
+    "sha256": "36279044601cd2d4393b2e8a3454d1ed48209293c11ba68fa981f94a4bc7a645",
+    "document_sha256": "0fc23e1245490a42d367711d749be8b78229751402b6ee65e81b77d05bc22128",
+    "input_sha256": "36279044601cd2d4393b2e8a3454d1ed48209293c11ba68fa981f94a4bc7a645",
+    "target": "6c721a1c283701ee3c6250ac359162e64b88791c3f3af6e8b13d01828ba306b5",
+    "request_id": "a688f4fa-a18c-4787-a0a6-59fee1db513d"
+  },
+  "status": "approved",
+  "actions": {
+    "a688f4fa-a18c-4787-a0a6-59fee1db513d": "27231208526eb6ad87455363dda45ccf191de418460d346a0245a32f3dc0f005"
+  }
+}

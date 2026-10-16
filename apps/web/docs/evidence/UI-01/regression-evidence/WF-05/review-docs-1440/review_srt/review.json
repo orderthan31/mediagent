@@ -1,0 +1,40 @@
+{
+  "context": {
+    "ticket": "d44120c59c7a4c6888606a5a44c057bb",
+    "node": "review_srt"
+  },
+  "source": {
+    "type": "subtitle",
+    "path": "work/subtitle/subtitles.srt",
+    "sha256": "36279044601cd2d4393b2e8a3454d1ed48209293c11ba68fa981f94a4bc7a645",
+    "bytes": 69,
+    "clock": {
+      "basis": "original",
+      "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "source_sha256": "b194633c80a409ed46f995f9725e387b4df5c9a5d6af7ed6ba31684992126451"
+    }
+  },
+  "target": "5d7fe318ac48dc31c3e7340162b6655ff776c0a70b5a665f722ac8a43bb2f1bf",
+  "revision": 1,
+  "state_revision": 2,
+  "versions": {
+    "1": {
+      "document_path": "versions/1-e34ec83ea368473a84c9212b86fdfa87/document.json",
+      "document_sha256": "0fc23e1245490a42d367711d749be8b78229751402b6ee65e81b77d05bc22128",
+      "output_path": "versions/1-e34ec83ea368473a84c9212b86fdfa87/output.srt",
+      "sha256": "36279044601cd2d4393b2e8a3454d1ed48209293c11ba68fa981f94a4bc7a645"
+    }
+  },
+  "approval": {
+    "revision": 1,
+    "sha256": "36279044601cd2d4393b2e8a3454d1ed48209293c11ba68fa981f94a4bc7a645",
+    "document_sha256": "0fc23e1245490a42d367711d749be8b78229751402b6ee65e81b77d05bc22128",
+    "input_sha256": "36279044601cd2d4393b2e8a3454d1ed48209293c11ba68fa981f94a4bc7a645",
+    "target": "5d7fe318ac48dc31c3e7340162b6655ff776c0a70b5a665f722ac8a43bb2f1bf",
+    "request_id": "9e1b815a-afea-4820-8efa-a22296133bce"
+  },
+  "status": "approved",
+  "actions": {
+    "9e1b815a-afea-4820-8efa-a22296133bce": "6936763577ba086289cbfed7c571ebc46cbfe3628f3649f6b0df17cec7a80ec6"
+  }
+}

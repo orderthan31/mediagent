@@ -30,13 +30,21 @@ def validate_graph(payload):
         issue('노드1~100개·연결300개 이하로 편집하세요.'); return result()
     indexed = {}
     for n in nodes:
-        if not isinstance(n,dict) or set(n) != {'id','type','position','options'} or not isinstance(n['id'],str) or not re.fullmatch('[A-Za-z0-9_-]{1,64}',n['id']):
+        if not isinstance(n,dict) or set(n) not in ({'id','type','position','options'},{'id','type','position','options','model_ref'}) or not isinstance(n['id'],str) or not re.fullmatch('[A-Za-z0-9_-]{1,64}',n['id']):
             issue('노드 ID/속성 형식이 올바르지 않습니다.'); continue
         identity = n['id']
         if identity in indexed:
             issue('노드 ID가 중복되었습니다.',identity); continue
         if not isinstance(n['type'],str) or n['type'] not in templates:
             issue('지원하는 실행 경로가 없는 노드입니다.',identity); continue
+        if 'model_ref' in n:
+            from .model_registry import valid_reference, MODEL_ROLES
+            try:
+                valid_reference(n['model_ref'])
+                if n['type'] not in MODEL_ROLES:
+                    raise ValueError('모델 없는 처리 노드에는 모델 참조를 연결하지 마세요.')
+            except (ValueError,TypeError) as exc:
+                issue(str(exc),identity)
         indexed[identity] = n
         position = n['position']
         if not isinstance(position,dict) or set(position) != {'x','y'} or any(type(position[k]) not in (int,float) or not math.isfinite(position[k]) or not 0 <= position[k] <= limit for k,limit in [('x',4000),('y',3000)]):

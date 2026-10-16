@@ -1,0 +1,82 @@
+Running 14 tests using 1 worker
+
+[1/14] tests\browser\decision-tickets.spec.ts:7:3 › actual structured judgment, fixed route and explicit continuation 1440
+[2/14] tests\browser\decision-tickets.spec.ts:7:3 › actual structured judgment, fixed route and explicit continuation 390
+[3/14] tests\browser\graph-tickets.spec.ts:7:3 › real graph orchestration and manual routing 1440
+[4/14] tests\browser\graph-tickets.spec.ts:7:3 › real graph orchestration and manual routing 390
+[5/14] tests\browser\review-tickets.spec.ts:7:3 › actual durable review gates and explicit continuation 1440
+[6/14] tests\browser\review-tickets.spec.ts:7:3 › actual durable review gates and explicit continuation 390
+[7/14] tests\browser\serving.spec.ts:5:3 › serving storage and typed-node journey 1440
+[8/14] tests\browser\serving.spec.ts:5:3 › serving storage and typed-node journey 390
+[9/14] tests\browser\work-entry.spec.ts:7:3 › registered models, node binding and workflow centered work 1440
+  1) tests\browser\work-entry.spec.ts:7:3 › registered models, node binding and workflow centered work 1440
+
+    Error: expect(locator).toContainText(expected) failed
+
+    Locator: locator('[data-node-id="independent"]')
+    Expected substring: "완료"
+    Received string:    "영상 분석 · 성공노드 independent산출물 metadata · 107 bytes"
+    Timeout: 5000ms
+
+    Call log:
+      - Expect "toContainText" with timeout 5000ms
+      - waiting for locator('[data-node-id="independent"]')
+        9 × locator resolved to <li class="ticket-step" data-status="succeeded" data-node-id="independent">…</li>
+          - unexpected value "영상 분석 · 성공노드 independent산출물 metadata · 107 bytes"
+
+
+      259 |     await run();
+      260 |     await expect(page.locator('[data-node-id="judge"]')).toContainText('ModelUnavailable');
+    > 261 |     await expect(page.locator('[data-node-id="independent"]')).toContainText('완료');
+          |                                                                ^
+      262 |     await page.locator('[data-node-id="judge"]').scrollIntoViewIfNeeded();
+      263 |     await page.screenshot({ path: `${E}/disabled-old-ticket-${width}.png` });
+      264 |     const trace = (await fs.readFile(path.join(root, 'actual-trace.jsonl'), 'utf8'))
+        at PRIVATE_WORKSPACE\dev\mediagent-s2\apps\web\tests\browser\work-entry.spec.ts:261:64
+
+    Test timeout of 30000ms exceeded.
+
+    Error Context: ..\..\..\..\AppData\Local\hermes\cache\scratch\s2-audit\browser-results\work-entry-registered-mode-116f8-workflow-centered-work-1440\error-context.md
+
+
+[10/14] tests\browser\work-entry.spec.ts:7:3 › registered models, node binding and workflow centered work 390
+  2) tests\browser\work-entry.spec.ts:7:3 › registered models, node binding and workflow centered work 390
+
+    Error: expect(locator).toContainText(expected) failed
+
+    Locator: locator('[data-node-id="independent"]')
+    Expected substring: "완료"
+    Received string:    "영상 분석 · 성공노드 independent산출물 metadata · 107 bytes"
+    Timeout: 5000ms
+
+    Call log:
+      - Expect "toContainText" with timeout 5000ms
+      - waiting for locator('[data-node-id="independent"]')
+        9 × locator resolved to <li class="ticket-step" data-status="succeeded" data-node-id="independent">…</li>
+          - unexpected value "영상 분석 · 성공노드 independent산출물 metadata · 107 bytes"
+
+
+      259 |     await run();
+      260 |     await expect(page.locator('[data-node-id="judge"]')).toContainText('ModelUnavailable');
+    > 261 |     await expect(page.locator('[data-node-id="independent"]')).toContainText('완료');
+          |                                                                ^
+      262 |     await page.locator('[data-node-id="judge"]').scrollIntoViewIfNeeded();
+      263 |     await page.screenshot({ path: `${E}/disabled-old-ticket-${width}.png` });
+      264 |     const trace = (await fs.readFile(path.join(root, 'actual-trace.jsonl'), 'utf8'))
+        at PRIVATE_WORKSPACE\dev\mediagent-s2\apps\web\tests\browser\work-entry.spec.ts:261:64
+
+    Test timeout of 30000ms exceeded.
+
+    Error Context: ..\..\..\..\AppData\Local\hermes\cache\scratch\s2-audit\browser-results\work-entry-registered-mode-d546c--workflow-centered-work-390\error-context.md
+
+
+[11/14] tests\browser\workflow-editor.spec.ts:7:3 › real ASGI canvas storage journey 1440
+[12/14] tests\browser\workflow-editor.spec.ts:7:3 › real ASGI canvas storage journey 390
+[13/14] tests\browser\workflow-tickets.spec.ts:7:3 › definition ticket real orchestration 1440
+[14/14] tests\browser\workflow-tickets.spec.ts:7:3 › definition ticket real orchestration 390
+  Slow test file: tests\browser\decision-tickets.spec.ts (5.5m)
+  Consider running tests from slow files in parallel. See: https://playwright.dev/docs/test-parallel
+  2 failed
+    tests\browser\work-entry.spec.ts:7:3 › registered models, node binding and workflow centered work 1440
+    tests\browser\work-entry.spec.ts:7:3 › registered models, node binding and workflow centered work 390
+  12 passed (20.9m)

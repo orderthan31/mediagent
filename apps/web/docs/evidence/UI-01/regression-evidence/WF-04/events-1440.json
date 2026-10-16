@@ -1,0 +1,549 @@
+{
+  "transport": "actual isolated ASGI + synchronized deterministic executor",
+  "events": [
+    {
+      "method": "GET",
+      "path": "/api/settings/graph-tickets/runtime",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/graph-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/node-catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/node-catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/graph-tickets/runtime",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/graph-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions/cccccccccccccccccccccccccccccccc",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/graph-tickets/capability",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/graph-tickets/capability",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/graph-tickets/capability",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/graph-tickets",
+      "status": 201
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/graph-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/graph-tickets/5b1f47673ad74ed6ad66364bfc1034b1/plan",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/graph-tickets/5b1f47673ad74ed6ad66364bfc1034b1/confirm",
+      "status": 409,
+      "request_revision": 1
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/graph-tickets/5b1f47673ad74ed6ad66364bfc1034b1/plan",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/graph-tickets/5b1f47673ad74ed6ad66364bfc1034b1/confirm",
+      "status": 200,
+      "request_revision": 1
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/graph-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/graph-tickets/5b1f47673ad74ed6ad66364bfc1034b1",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/graph-tickets/5b1f47673ad74ed6ad66364bfc1034b1",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/graph-fixture/release",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/graph-tickets/5b1f47673ad74ed6ad66364bfc1034b1/start",
+      "status": 200,
+      "request_revision": 2
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/graph-tickets/5b1f47673ad74ed6ad66364bfc1034b1",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/graph-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/graph-tickets/5b1f47673ad74ed6ad66364bfc1034b1",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/graph-tickets/5b1f47673ad74ed6ad66364bfc1034b1",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/graph-tickets/capability",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/graph-tickets/capability",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/graph-tickets",
+      "status": 201
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/graph-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/graph-tickets/a02b8f231ae149138482c8b135c1b2d4/plan",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/graph-tickets/a02b8f231ae149138482c8b135c1b2d4/confirm",
+      "status": 200,
+      "request_revision": 1
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/graph-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/graph-tickets/a02b8f231ae149138482c8b135c1b2d4/start",
+      "status": 200,
+      "request_revision": 2
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/graph-tickets/a02b8f231ae149138482c8b135c1b2d4",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/graph-tickets/a02b8f231ae149138482c8b135c1b2d4",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/graph-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/graph-tickets/a02b8f231ae149138482c8b135c1b2d4/artifacts/joined/manifest",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/graph-tickets/a02b8f231ae149138482c8b135c1b2d4",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/graph-tickets/a02b8f231ae149138482c8b135c1b2d4",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/graph-tickets/capability",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/graph-tickets",
+      "status": 201
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/graph-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/graph-tickets/d789b75a6bf9424890fb669ed6136933/plan",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/graph-tickets/d789b75a6bf9424890fb669ed6136933/confirm",
+      "status": 200,
+      "request_revision": 1
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/graph-tickets",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/graph-tickets/d789b75a6bf9424890fb669ed6136933/start",
+      "status": 200,
+      "request_revision": 2
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/graph-tickets/d789b75a6bf9424890fb669ed6136933",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/graph-tickets/d789b75a6bf9424890fb669ed6136933",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/graph-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/node-catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/node-catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/workflow-definitions/validate",
+      "status": 200,
+      "request_revision": 2
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/workflow-definitions/validate",
+      "status": 200,
+      "request_revision": 2
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "PUT",
+      "path": "/api/settings/workflow-definitions/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "status": 200,
+      "request_revision": 2
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/node-catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/node-catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    }
+  ],
+  "traces": [
+    [
+      {
+        "node": "a",
+        "event": "start",
+        "time_ns": 49951671485929,
+        "thread": 123697653659328
+      },
+      {
+        "node": "b",
+        "event": "start",
+        "time_ns": 49951674524323,
+        "thread": 123697645250240
+      },
+      {
+        "node": "a",
+        "event": "failed",
+        "time_ns": 49954566129652,
+        "thread": 123697653659328
+      },
+      {
+        "node": "b",
+        "event": "succeeded",
+        "time_ns": 49954568804712,
+        "thread": 123697645250240
+      }
+    ],
+    [
+      {
+        "node": "a",
+        "event": "start",
+        "time_ns": 49976632317530,
+        "thread": 138762987550400
+      },
+      {
+        "node": "a",
+        "event": "succeeded",
+        "time_ns": 49976636100691,
+        "thread": 138762987550400
+      }
+    ],
+    [
+      {
+        "node": "a",
+        "event": "start",
+        "time_ns": 49996081646909,
+        "thread": 131350888298176
+      },
+      {
+        "node": "b",
+        "event": "start",
+        "time_ns": 49996084927137,
+        "thread": 131350879889088
+      },
+      {
+        "node": "b",
+        "event": "succeeded",
+        "time_ns": 49996088568163,
+        "thread": 131350879889088
+      },
+      {
+        "node": "a",
+        "event": "succeeded",
+        "time_ns": 49996089044706,
+        "thread": 131350888298176
+      }
+    ]
+  ],
+  "errors": []
+}

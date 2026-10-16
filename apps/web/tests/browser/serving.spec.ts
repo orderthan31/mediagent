@@ -40,6 +40,9 @@ for (const width of [1440, 390]) {
       if (path === '/api/video-uploads') {
         return route.fulfill({ json: { uploads: [] } });
       }
+      if(path==='/api/settings/registered-models'){
+        return route.fulfill({json:{models:[],providers:{gemini:'Gemini',openai:'OpenAI',xai:'Grok',anthropic:'Claude',openrouter:'OpenRouter'},connection:'unverified'}});
+      }
       if (path === '/api/settings/node-catalog') {
         return route.fulfill({ json: contracts.catalog });
       }
@@ -104,6 +107,7 @@ for (const width of [1440, 390]) {
       return route.fulfill({ status: 404, json: { detail: '안전 fixture 미지원 경로' } });
     });
     await page.goto('/#/serving');
+    await page.getByText('기존 공유 역할 설정 · 이전 티켓 호환',{exact:true}).click();
     await expect(page.locator('.serving-heading').first()).toHaveCSS('position', 'static', {
       timeout: 1500,
     });

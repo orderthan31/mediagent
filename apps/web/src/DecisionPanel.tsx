@@ -16,9 +16,11 @@ export type DecisionEvidence = {
 export const DecisionPanel = ({
   evidence,
   status,
+  compact = false,
 }: {
   evidence?: DecisionEvidence;
   status: string;
+  compact?: boolean;
 }) => (
   <section className="decision-evidence" aria-label="서버 고정 AI 판단 근거">
     <h4>서버 고정 AI 판단 근거</h4>
@@ -35,19 +37,15 @@ export const DecisionPanel = ({
           confidence {evidence.judgment?.confidence}
         </p>
         <p>{evidence.judgment?.reason}</p>
-        <p>
-          adapter {evidence.adapter?.id} / revision {evidence.adapter?.revision} · schema{' '}
-          {evidence.adapter?.schema_version}
-        </p>
-        <p>입력 SHA {evidence.input_sha256}</p>
-        <p>판단 결과 SHA {evidence.report_sha256}</p>
-        <p>조건/선택 고정 SHA {evidence.sha256}</p>
-        <p>
-          성공 판단은 재열기·검수 뒤에도 재호출하지 않습니다. 라벨은 실행 명령이 아닙니다. 경로는
-          재선택하지 않고 새 계획/비용 확인 후 별도 이어실행합니다.
-        </p>
-        <details>
-          <summary>적용 조건 · 일치 결과 · 입력 참조</summary>
+        <details open={!compact}>
+          <summary>입력/SHA·adapter·조건 상세</summary>
+          <p>
+            adapter {evidence.adapter?.id} / revision {evidence.adapter?.revision} · schema{' '}
+            {evidence.adapter?.schema_version}
+          </p>
+          <p>입력 SHA {evidence.input_sha256}</p>
+          <p>판단 결과 SHA {evidence.report_sha256}</p>
+          <p>조건/선택 고정 SHA {evidence.sha256}</p>
           <pre>
             {JSON.stringify(
               { conditions: evidence.conditions, matches: evidence.matches, input: evidence.input },
@@ -56,6 +54,10 @@ export const DecisionPanel = ({
             )}
           </pre>
         </details>
+        <p>
+          성공 판단은 재열기·검수 뒤에도 재호출하지 않습니다. 라벨은 실행 명령이 아닙니다. 경로는
+          재선택하지 않고 새 계획/비용 확인 후 별도 이어실행합니다.
+        </p>
       </>
     ) : (
       <p role="alert">

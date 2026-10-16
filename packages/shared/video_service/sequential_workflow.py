@@ -12,6 +12,8 @@ def compile_sequence(definition):
     if not validation['valid']:
         return {'supported': False, 'reasons': reasons, 'steps': [], 'paid_roles': []}
     nodes = {n['id']: n for n in definition['nodes']}
+    if any('model_ref' in n for n in definition['nodes']):
+        reject('등록 모델 참조가 있는 정의는 새 작업 시작 경로를 사용하세요. 기존 순차 티켓에는 소급하지 않습니다.')
     specs = {n['id']: n for n in NODES}
     if definition['inputs'] != {'video': 'video'}:
         reject('이번 순차 실행은 외부 video 입력 하나만 지원합니다. 외부 음성/자막/세션 반입은 기존 고정 workflow를 사용하세요.')

@@ -30,7 +30,7 @@ for (const width of [1440, 390]) {
         p = new URL(req.url()).pathname;
       if (
         p.startsWith('/api/settings/workflow-definitions') ||
-        p === '/api/settings/node-catalog'
+        p === '/api/settings/node-catalog' || p.startsWith('/api/settings/registered-models')
       ) {
         const method = req.method();
         const payload = method === 'GET' ? undefined : req.postDataJSON();
