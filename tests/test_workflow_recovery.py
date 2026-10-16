@@ -184,6 +184,15 @@ class RecoveryTicketTests(unittest.TestCase):
                 final=running.result(timeout=5)
             self.assertEqual(final['status'],'cancelled');self.assertEqual(calls,['first'])
             self.assertTrue(s.artifact_path(ticket['id'],'first','video').is_file())
+            self.assertEqual(final['steps'][0]['status'],'quarantined')
+            self.assertEqual(final['scheduler']['nodes']['first']['status'],'quarantined')
+            self.assertNotIn('result',final['scheduler']['nodes']['first'])
+            self.assertNotIn('first',final['receipts'])
+            self.assertEqual(final['recovery_unknown_nodes'],['first'])
+            with self.assertRaises(TicketConflict):s.fork(ticket['id'],'retry-without-risk',final['revision'],source)
+            child=s.fork(ticket['id'],'retry-after-quarantine',final['revision'],source,risk_confirmed=True)
+            self.assertEqual(child['steps'][0]['status'],'pending')
+            self.assertNotIn('first',child['reuse_origins'])
             self.assertEqual(final['steps'][1]['artifacts'],{})
 
     @staticmethod

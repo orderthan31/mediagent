@@ -5,15 +5,19 @@
       "case": "WF07 full recovery/cancel/unknown/history 1440",
       "viewport": 1440,
       "result": "pass",
-      "source": "WF07-browser-final2.log",
-      "backend": "actual isolated ASGI/store; synthetic CPU encode/ffprobe; controlled interruption; NOT external inference"
+      "source": "WF07-late-browser-final.log",
+      "backend": "actual isolated ASGI/store; synthetic CPU encode/ffprobe; controlled interruption; NOT external inference",
+      "previous_source": "WF07-browser-final2.log",
+      "late_after_cancel": "actual store/barrier; quarantine in steps and scheduler, files preserved, no normal receipt"
     },
     {
       "case": "WF07 full recovery/cancel/unknown/history 390",
       "viewport": 390,
       "result": "pass",
-      "source": "WF07-browser-final2.log",
-      "backend": "actual isolated ASGI/store; synthetic CPU encode/ffprobe; controlled interruption; NOT external inference"
+      "source": "WF07-late-browser-final.log",
+      "backend": "actual isolated ASGI/store; synthetic CPU encode/ffprobe; controlled interruption; NOT external inference",
+      "previous_source": "WF07-browser-final2.log",
+      "late_after_cancel": "actual store/barrier; quarantine in steps and scheduler, files preserved, no normal receipt"
     },
     {
       "case": "existing product entry 1440",
@@ -199,5 +203,14 @@
       "origin": "apps/web/docs/evidence/WF-02/stored-390.json",
       "sha256": "495c7e3acc9c90d1705c37e46deae3711bf2162c3d49c8af31e4ba8aad409464"
     }
-  ]
+  ],
+  "late_patch_scope": {
+    "backend_new_contract_tests": 14,
+    "included_in_original_75_not_additional_unique_tests": true,
+    "node_tests": 42,
+    "new_browser_journeys": 2,
+    "old_regression_unique_cases_reused": 4,
+    "all_unique_final_browser_cases": 6,
+    "one_batch_claim": false
+  }
 }

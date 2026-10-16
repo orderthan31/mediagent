@@ -1,0 +1,5 @@
+Running 2 tests using 1 worker
+
+[1/2] tests\browser\workflow-recovery.spec.ts:10:3 › opt-in recovery, reuse and history 1440
+[2/2] tests\browser\workflow-recovery.spec.ts:10:3 › opt-in recovery, reuse and history 390
+  2 passed (3.3m)

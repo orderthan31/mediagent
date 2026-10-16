@@ -1,31 +1,32 @@
 {
   "revision": 11,
-  "generation": "fbffee9b36b644a6aead67c9339adfda",
+  "generation": "632c7a40417a4deab3d3791bc64691ca",
   "cancel_requested": false,
   "retired": true,
   "claims": {
     "a": {
-      "generation": "fbffee9b36b644a6aead67c9339adfda",
+      "generation": "632c7a40417a4deab3d3791bc64691ca",
       "status": "succeeded",
       "type": "encode"
     },
     "b": {
-      "generation": "fbffee9b36b644a6aead67c9339adfda",
+      "generation": "632c7a40417a4deab3d3791bc64691ca",
       "status": "succeeded",
       "type": "encode"
     },
     "failure": {
-      "generation": "fbffee9b36b644a6aead67c9339adfda",
+      "generation": "632c7a40417a4deab3d3791bc64691ca",
       "status": "failed",
       "type": "analyze"
     },
     "joined": {
-      "generation": "fbffee9b36b644a6aead67c9339adfda",
+      "generation": "632c7a40417a4deab3d3791bc64691ca",
       "status": "succeeded",
       "type": "join"
     }
   },
   "requests": {},
   "closed": true,
-  "recovery_child": "61ee40d2ac0c40c79cb549148c95b005"
+  "quarantined_nodes": {},
+  "recovery_child": "751617d1a80a4ef4b7098442b43df4b3"
 }

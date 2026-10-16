@@ -138,9 +138,24 @@ class RecoveryTicketStore(WorkTicketStore):
             if expected and (control['generation']!=expected or control['retired']):
                 write_json_atomic(self.directory_for(identity)/'late-results'/(uuid4().hex+'.json'),{'generation':expected,'steps':record['steps']})
                 raise TicketConflict('이전 세대 결과는 현재 티켓 상태를 갱신하지 않습니다.')
+            quarantined=control.setdefault('quarantined_nodes',{})
+            changed=False
             for state in record['steps']:
-                if state['id'] in control['claims'] and state['status'] in {'succeeded','failed','waiting'}:
+                if (control['cancel_requested'] and state['id'] in control['claims'] and state['id'] not in record.get('receipts',{})
+                        and state['status'] in {'succeeded','waiting'} and state['id'] not in quarantined):
+                    quarantined[state['id']]={'generation':control['generation'],'reason':'취소 접수 뒤 도착한 결과: 보존/다운로드만 허용, 정상 receipt 재사용 불가'}
+                    changed=True
+                if state['id'] in quarantined:
+                    state.update(status='quarantined',quarantine=quarantined[state['id']])
+                    scheduler=record.get('scheduler',{})
+                    outcome=scheduler.get('nodes',{}).get(state['id'])
+                    if outcome is not None:
+                        outcome['status']='quarantined'
+                        if 'result' in outcome:outcome['quarantined_result']=outcome.pop('result')
+                        if state['id'] not in scheduler.setdefault('unresolved',[]):scheduler['unresolved'].append(state['id'])
+                if state['id'] in control['claims'] and state['status'] in {'succeeded','failed','waiting','quarantined'}:
                     control['claims'][state['id']]['status']=state['status']
+            if changed:self._write_control(identity,control)
             if expected and record['status']!='running':
                 control['closed']=True
                 if control['cancel_requested']:
@@ -170,6 +185,9 @@ class RecoveryTicketStore(WorkTicketStore):
         result['active_generation']=control['generation'] if not control['closed'] and not control['retired'] else None
         result['recovery_unknown_nodes']=self._unknown_nodes(result,control)
         result['cancel_requested']=control['cancel_requested']
+        for node in control.get('quarantined_nodes',{}):
+            if node in result.get('decisions',{}):result['decisions'][node]['status']='quarantined'
+            if node in result.get('model_availability',{}):result['model_availability'][node]['complete']=False
         if control['cancel_requested'] and result['status'] not in {'completed','failed','cancelled'}:
             result['status']='cancelling' if not control['closed'] and control['generation'] else 'cancelled'
         return result
@@ -177,7 +195,7 @@ class RecoveryTicketStore(WorkTicketStore):
     def _unknown_nodes(self, record, control):
         states={s['id']:s for s in record['steps']}
         return sorted(node for node in control['claims'] if not self._is_complete(record,states[node]) and (
-            states[node]['status']=='running' or (states[node]['status']=='failed' and states[node]['type'] in {'transcribe','translate','decision'}
+            states[node]['status'] in {'running','quarantined'} or (states[node]['status']=='failed' and states[node]['type'] in {'transcribe','translate','decision'}
             and states[node].get('error_type')!='ModelUnavailable')))
 
     def _plan_extension(self, record):
@@ -278,7 +296,7 @@ class RecoveryTicketStore(WorkTicketStore):
                     seed[node]={'status':'skipped','reason':state.get('reason','unselected')}
                 else:
                     state.update(status='pending',artifacts={},partial_artifacts={})
-                    for key in ('wait','error_type','blocked_by','reason','serving_snapshot'):state.pop(key,None)
+                    for key in ('wait','error_type','blocked_by','reason','serving_snapshot','quarantine'):state.pop(key,None)
                     seed[node]={'status':'pending'}
             child['scheduler']={'revision':0,'nodes':seed,'unresolved':[n for n,s in seed.items() if s['status']=='pending']}
             self._save(child)

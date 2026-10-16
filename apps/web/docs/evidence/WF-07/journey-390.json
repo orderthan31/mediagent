@@ -1,6 +1,6 @@
 {
   "mode": "actual isolated ASGI/store, synthetic CPU media and controlled failure; NOT inference",
-  "parentId": "3aff3e7a21a54891b579460c8341030e",
+  "parentId": "879f90b3fd0c4d999168f06c100b3ee5",
   "trace": [
     {
       "node": "a",
@@ -106,8 +106,8 @@
           "video_description": "",
           "branch_choices": {}
         },
-        "request_id": "ecd65f64-daf6-4a61-865e-1eb431746564",
-        "token": "455048e3d39c91a4c05c95c43a15052695a462ad10dfb446c66520b15c24590b",
+        "request_id": "ceb0db38-9f11-4eb2-88ca-0ef83646131e",
+        "token": "59b22adc1cbcd972f8802224d5aa500a3929a1758acec9564da700248a058ce8",
         "paid_confirmed": false
       }
     },
@@ -128,12 +128,12 @@
     },
     {
       "method": "GET",
-      "path": "/api/settings/recovery-tickets/runtime",
+      "path": "/api/settings/workflow-definitions",
       "status": 200
     },
     {
       "method": "GET",
-      "path": "/api/videos",
+      "path": "/api/settings/recovery-tickets/runtime",
       "status": 200
     },
     {
@@ -153,12 +153,7 @@
     },
     {
       "method": "GET",
-      "path": "/api/settings/workflow-definitions",
-      "status": 200
-    },
-    {
-      "method": "GET",
-      "path": "/api/settings/recovery-tickets/runtime",
+      "path": "/api/videos",
       "status": 200
     },
     {
@@ -168,17 +163,22 @@
     },
     {
       "method": "GET",
-      "path": "/api/settings/recovery-tickets/3aff3e7a21a54891b579460c8341030e",
+      "path": "/api/settings/recovery-tickets/runtime",
       "status": 200
     },
     {
       "method": "GET",
-      "path": "/api/settings/recovery-tickets/3aff3e7a21a54891b579460c8341030e",
+      "path": "/api/settings/recovery-tickets/879f90b3fd0c4d999168f06c100b3ee5",
       "status": 200
     },
     {
       "method": "GET",
-      "path": "/api/settings/recovery-tickets/3aff3e7a21a54891b579460c8341030e/plan",
+      "path": "/api/settings/recovery-tickets/879f90b3fd0c4d999168f06c100b3ee5",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets/879f90b3fd0c4d999168f06c100b3ee5/plan",
       "status": 200
     },
     {
@@ -188,11 +188,11 @@
     },
     {
       "method": "POST",
-      "path": "/api/settings/recovery-tickets/3aff3e7a21a54891b579460c8341030e/confirm",
+      "path": "/api/settings/recovery-tickets/879f90b3fd0c4d999168f06c100b3ee5/confirm",
       "status": 200,
       "payload": {
         "revision": 3,
-        "token": "cf47f9fa7a8939ead4709e888923e32b600aaaccaed47f4d6423b39acb592a48",
+        "token": "ed94582145ba7e335678749fcd1693d5f53a4613ac2e01b3c67551c80e2c594a",
         "paid_confirmed": false
       }
     },
@@ -208,22 +208,22 @@
     },
     {
       "method": "POST",
-      "path": "/api/settings/recovery-tickets/3aff3e7a21a54891b579460c8341030e/start",
+      "path": "/api/settings/recovery-tickets/879f90b3fd0c4d999168f06c100b3ee5/start",
       "status": 200,
       "payload": {
-        "request_id": "9df8c754-5a78-4112-b331-40e0e6f9f756",
+        "request_id": "de81b890-9297-4b71-98c7-0bb3b0226062",
         "revision": 4,
-        "token": "cf47f9fa7a8939ead4709e888923e32b600aaaccaed47f4d6423b39acb592a48"
+        "token": "ed94582145ba7e335678749fcd1693d5f53a4613ac2e01b3c67551c80e2c594a"
       }
     },
     {
       "method": "GET",
-      "path": "/api/settings/recovery-tickets/3aff3e7a21a54891b579460c8341030e",
+      "path": "/api/settings/recovery-tickets/879f90b3fd0c4d999168f06c100b3ee5",
       "status": 200
     },
     {
       "method": "GET",
-      "path": "/api/settings/recovery-tickets/3aff3e7a21a54891b579460c8341030e",
+      "path": "/api/settings/recovery-tickets/879f90b3fd0c4d999168f06c100b3ee5",
       "status": 200
     },
     {
@@ -238,22 +238,22 @@
     },
     {
       "method": "POST",
-      "path": "/api/settings/recovery-tickets/3aff3e7a21a54891b579460c8341030e/recover",
+      "path": "/api/settings/recovery-tickets/879f90b3fd0c4d999168f06c100b3ee5/recover",
       "status": 201,
       "payload": {
-        "request_id": "43cdd721-8aaa-4c65-abaf-c48c78a188a1",
+        "request_id": "6940cfa8-f02f-4073-bdc3-d9d8fe48c1a4",
         "revision": 15,
         "risk_confirmed": false
       }
     },
     {
       "method": "GET",
-      "path": "/api/settings/recovery-tickets/3aff3e7a21a54891b579460c8341030e",
+      "path": "/api/settings/recovery-tickets/879f90b3fd0c4d999168f06c100b3ee5",
       "status": 200
     },
     {
       "method": "GET",
-      "path": "/api/settings/recovery-tickets/dd05842b114643bdb531108a5223adf6",
+      "path": "/api/settings/recovery-tickets/e15ad59fa4ad4435a40cbbcc5a26d151",
       "status": 200
     },
     {
@@ -263,16 +263,16 @@
     },
     {
       "method": "GET",
-      "path": "/api/settings/recovery-tickets/dd05842b114643bdb531108a5223adf6/plan",
+      "path": "/api/settings/recovery-tickets/e15ad59fa4ad4435a40cbbcc5a26d151/plan",
       "status": 200
     },
     {
       "method": "POST",
-      "path": "/api/settings/recovery-tickets/dd05842b114643bdb531108a5223adf6/confirm",
+      "path": "/api/settings/recovery-tickets/e15ad59fa4ad4435a40cbbcc5a26d151/confirm",
       "status": 200,
       "payload": {
         "revision": 1,
-        "token": "74bdd444083688521a4d4ea87437063773b096a3fde2a10e0c99d5a9f0485557",
+        "token": "a3b7514d108600b162a95a97e2aa9052e4e18123afbfac0b5c4af65c4d24b2ee",
         "paid_confirmed": false
       }
     },
@@ -288,17 +288,17 @@
     },
     {
       "method": "POST",
-      "path": "/api/settings/recovery-tickets/dd05842b114643bdb531108a5223adf6/start",
+      "path": "/api/settings/recovery-tickets/e15ad59fa4ad4435a40cbbcc5a26d151/start",
       "status": 200,
       "payload": {
-        "request_id": "1e81647b-fe85-4ae8-a3fd-6df6cc37e251",
+        "request_id": "a996128c-9ff9-4f47-b789-296dac946f35",
         "revision": 2,
-        "token": "74bdd444083688521a4d4ea87437063773b096a3fde2a10e0c99d5a9f0485557"
+        "token": "a3b7514d108600b162a95a97e2aa9052e4e18123afbfac0b5c4af65c4d24b2ee"
       }
     },
     {
       "method": "GET",
-      "path": "/api/settings/recovery-tickets/dd05842b114643bdb531108a5223adf6",
+      "path": "/api/settings/recovery-tickets/e15ad59fa4ad4435a40cbbcc5a26d151",
       "status": 200
     },
     {
@@ -308,17 +308,7 @@
     },
     {
       "method": "GET",
-      "path": "/api/settings/recovery-tickets/dd05842b114643bdb531108a5223adf6",
-      "status": 200
-    },
-    {
-      "method": "GET",
-      "path": "/api/videos",
-      "status": 200
-    },
-    {
-      "method": "GET",
-      "path": "/api/settings/workflow-definitions",
+      "path": "/api/settings/recovery-tickets/e15ad59fa4ad4435a40cbbcc5a26d151",
       "status": 200
     },
     {
@@ -328,22 +318,32 @@
     },
     {
       "method": "GET",
-      "path": "/api/videos",
-      "status": 200
-    },
-    {
-      "method": "GET",
-      "path": "/api/videos",
-      "status": 200
-    },
-    {
-      "method": "GET",
-      "path": "/api/videos",
+      "path": "/api/settings/workflow-definitions",
       "status": 200
     },
     {
       "method": "GET",
       "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
       "status": 200
     },
     {
@@ -392,24 +392,19 @@
           "video_description": "",
           "branch_choices": {}
         },
-        "request_id": "a64e8352-9616-4fc7-b770-5f9083ee3526",
-        "token": "455048e3d39c91a4c05c95c43a15052695a462ad10dfb446c66520b15c24590b",
+        "request_id": "1673d5d3-e453-4ff6-8041-455b1da88d04",
+        "token": "59b22adc1cbcd972f8802224d5aa500a3929a1758acec9564da700248a058ce8",
         "paid_confirmed": false
       }
     },
     {
       "method": "GET",
-      "path": "/api/videos",
-      "status": 200
-    },
-    {
-      "method": "GET",
       "path": "/api/settings/node-catalog",
       "status": 200
     },
     {
       "method": "GET",
-      "path": "/api/settings/workflow-definitions",
+      "path": "/api/settings/node-catalog",
       "status": 200
     },
     {
@@ -424,12 +419,27 @@
     },
     {
       "method": "GET",
-      "path": "/api/settings/node-catalog",
+      "path": "/api/videos",
       "status": 200
     },
     {
       "method": "GET",
       "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets",
       "status": 200
     },
     {
@@ -439,71 +449,56 @@
     },
     {
       "method": "GET",
-      "path": "/api/videos",
-      "status": 200
-    },
-    {
-      "method": "GET",
       "path": "/api/settings/recovery-tickets",
       "status": 200
     },
     {
       "method": "GET",
-      "path": "/api/settings/recovery-tickets",
+      "path": "/api/settings/recovery-tickets/eb4fe1996a3a4e9094380a1f0bad3640",
       "status": 200
     },
     {
       "method": "GET",
-      "path": "/api/settings/recovery-tickets/47cafee9279d407da3fdb33358a93447",
-      "status": 200
-    },
-    {
-      "method": "GET",
-      "path": "/api/settings/recovery-tickets/47cafee9279d407da3fdb33358a93447",
-      "status": 200
-    },
-    {
-      "method": "GET",
-      "path": "/api/videos",
+      "path": "/api/settings/recovery-tickets/eb4fe1996a3a4e9094380a1f0bad3640",
       "status": 200
     },
     {
       "method": "POST",
-      "path": "/api/settings/recovery-tickets/47cafee9279d407da3fdb33358a93447/cancel",
+      "path": "/api/settings/recovery-tickets/eb4fe1996a3a4e9094380a1f0bad3640/cancel",
       "status": 200,
       "payload": {
-        "request_id": "7a06d193-944b-4018-b9ed-5fc6c0989b47",
+        "request_id": "bb6bb963-29bc-4148-9735-ad0844ee003d",
         "control_revision": 0
       }
     },
     {
       "method": "GET",
-      "path": "/api/settings/recovery-tickets/47cafee9279d407da3fdb33358a93447",
-      "status": 200
-    },
-    {
-      "method": "GET",
       "path": "/api/videos",
       "status": 200
     },
     {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets/eb4fe1996a3a4e9094380a1f0bad3640",
+      "status": 200
+    },
+    {
       "method": "POST",
-      "path": "/api/settings/recovery-tickets/47cafee9279d407da3fdb33358a93447/recover",
+      "path": "/api/settings/recovery-tickets/eb4fe1996a3a4e9094380a1f0bad3640/recover",
       "status": 201,
       "payload": {
-        "request_id": "3a9cdc95-e600-40e3-bcac-aea3a5aa458a",
+        "request_id": "6438678c-f077-4688-ba9e-fa2888667d0e",
         "revision": 3,
         "risk_confirmed": false
       }
     },
     {
       "method": "GET",
-      "path": "/api/settings/recovery-tickets/d0bcd25752c04c0e81dc92cd849b1de5",
+      "path": "/api/videos",
       "status": 200
     },
     {
       "method": "GET",
-      "path": "/api/settings/node-catalog",
+      "path": "/api/settings/recovery-tickets/4070942254d14d62adbcc83b32f87038",
       "status": 200
     },
     {
@@ -518,32 +513,37 @@
     },
     {
       "method": "GET",
-      "path": "/api/settings/recovery-tickets/runtime",
-      "status": 200
-    },
-    {
-      "method": "GET",
-      "path": "/api/settings/recovery-tickets",
-      "status": 200
-    },
-    {
-      "method": "GET",
-      "path": "/api/videos",
-      "status": 200
-    },
-    {
-      "method": "GET",
-      "path": "/api/videos",
-      "status": 200
-    },
-    {
-      "method": "GET",
       "path": "/api/settings/workflow-definitions",
       "status": 200
     },
     {
       "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/node-catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
       "path": "/api/settings/recovery-tickets/runtime",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets/runtime",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets",
       "status": 200
     },
     {
@@ -558,15 +558,15 @@
     },
     {
       "method": "GET",
-      "path": "/api/settings/recovery-tickets/df01945edec8443f9c127499dbc73b34",
+      "path": "/api/settings/recovery-tickets/9cafbeeed2aa4c74aff1a796d1f6637c",
       "status": 200
     },
     {
       "method": "POST",
-      "path": "/api/settings/recovery-tickets/df01945edec8443f9c127499dbc73b34/recover",
+      "path": "/api/settings/recovery-tickets/9cafbeeed2aa4c74aff1a796d1f6637c/recover",
       "status": 409,
       "payload": {
-        "request_id": "4eb1c8ac-47d7-4e69-8c50-dc776a957db5",
+        "request_id": "bef75dd2-08ee-4889-92ea-ba516e960159",
         "revision": 6,
         "risk_confirmed": false
       }
@@ -578,32 +578,32 @@
     },
     {
       "method": "GET",
-      "path": "/api/settings/recovery-tickets/df01945edec8443f9c127499dbc73b34",
+      "path": "/api/settings/recovery-tickets/9cafbeeed2aa4c74aff1a796d1f6637c",
       "status": 200
     },
     {
       "method": "GET",
-      "path": "/api/settings/recovery-tickets/df01945edec8443f9c127499dbc73b34",
+      "path": "/api/settings/recovery-tickets/9cafbeeed2aa4c74aff1a796d1f6637c",
       "status": 200
     },
     {
       "method": "GET",
-      "path": "/api/settings/recovery-tickets/df01945edec8443f9c127499dbc73b34",
+      "path": "/api/settings/recovery-tickets/9cafbeeed2aa4c74aff1a796d1f6637c",
       "status": 200
     },
     {
       "method": "POST",
-      "path": "/api/settings/recovery-tickets/df01945edec8443f9c127499dbc73b34/recover",
+      "path": "/api/settings/recovery-tickets/9cafbeeed2aa4c74aff1a796d1f6637c/recover",
       "status": 201,
       "payload": {
-        "request_id": "23f78623-1724-40f5-acc0-70c4c74b8e94",
+        "request_id": "c0dd1874-86d7-46f7-a8cc-2d40e29b95ac",
         "revision": 6,
         "risk_confirmed": true
       }
     },
     {
       "method": "GET",
-      "path": "/api/settings/recovery-tickets/df01945edec8443f9c127499dbc73b34",
+      "path": "/api/settings/recovery-tickets/9cafbeeed2aa4c74aff1a796d1f6637c",
       "status": 200
     },
     {
@@ -613,17 +613,87 @@
     },
     {
       "method": "GET",
-      "path": "/api/settings/recovery-tickets/df01945edec8443f9c127499dbc73b34",
+      "path": "/api/settings/recovery-tickets/9cafbeeed2aa4c74aff1a796d1f6637c",
       "status": 200
     },
     {
       "method": "GET",
-      "path": "/api/settings/recovery-tickets/0e5bf45633d44901bb998549fa91a8e2",
+      "path": "/api/settings/recovery-tickets/43d0d2fbbdb84b21aeaaf02dcef8b84e",
       "status": 200
     },
     {
       "method": "GET",
-      "path": "/api/settings/recovery-tickets/df01945edec8443f9c127499dbc73b34",
+      "path": "/api/settings/recovery-tickets/9cafbeeed2aa4c74aff1a796d1f6637c",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/node-catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/node-catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets/runtime",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets/runtime",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets/e6f210b05fa1489db28a777204e45d1c",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
       "status": 200
     },
     {
@@ -685,22 +755,12 @@
     },
     {
       "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
       "path": "/api/videos",
-      "status": 200
-    },
-    {
-      "method": "GET",
-      "path": "/api/settings/workflow-definitions",
-      "status": 200
-    },
-    {
-      "method": "GET",
-      "path": "/api/settings/workflow-definitions",
-      "status": 200
-    },
-    {
-      "method": "GET",
-      "path": "/api/settings/node-catalog",
       "status": 200
     },
     {
@@ -715,7 +775,7 @@
     },
     {
       "method": "GET",
-      "path": "/api/settings/recovery-tickets/runtime",
+      "path": "/api/settings/node-catalog",
       "status": 200
     },
     {
@@ -725,7 +785,22 @@
     },
     {
       "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
       "path": "/api/settings/recovery-tickets/runtime",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets/runtime",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets",
       "status": 200
     },
     {
@@ -740,27 +815,17 @@
     },
     {
       "method": "GET",
-      "path": "/api/settings/recovery-tickets",
-      "status": 200
-    },
-    {
-      "method": "GET",
       "path": "/api/videos",
       "status": 200
     },
     {
       "method": "GET",
-      "path": "/api/settings/recovery-tickets/dd05842b114643bdb531108a5223adf6",
+      "path": "/api/settings/recovery-tickets/e15ad59fa4ad4435a40cbbcc5a26d151",
       "status": 200
     },
     {
       "method": "GET",
       "path": "/api/settings/workflow-definitions/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "status": 200
-    },
-    {
-      "method": "GET",
-      "path": "/api/videos",
       "status": 200
     },
     {
@@ -772,9 +837,14 @@
         "source": {
           "kind": "ticket_snapshot",
           "namespace": "recovery",
-          "ticket_id": "dd05842b114643bdb531108a5223adf6"
+          "ticket_id": "e15ad59fa4ad4435a40cbbcc5a26d151"
         }
       }
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
     }
   ],
   "errors": []

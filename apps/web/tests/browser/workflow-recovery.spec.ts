@@ -18,6 +18,7 @@ for (const width of [1440, 390]) {
     let drift = false,
       externalEdit = false;
     let seedInterrupted = false;
+    let seedQuarantine = false;
     page.on('pageerror', (e) => errors.push(e.message));
     await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 });
     await page.addInitScript(() =>
@@ -102,6 +103,7 @@ for (const width of [1440, 390]) {
             drift: driftNow,
             external_edit: editNow,
             seed_interrupted: seedInterrupted,
+            seed_quarantine: seedQuarantine,
           }),
         );
       });
@@ -210,6 +212,18 @@ for (const width of [1440, 390]) {
     await expect(page.locator('.recovery-actions')).toContainText('위험 별도확인 기록됨');
     await expect(page.locator('.recovery-actions')).toContainText('생성 보류');
     await page.screenshot({ path: `${E}/unknown-child-held-${width}.png` });
+    seedQuarantine = true;
+    await page.goto('/#/recovery-tickets');
+    await page.reload();
+    const lateButton = page.getByRole('button', { name: /늦은 결과 격리 확인.*취소됨/ });
+    await expect(lateButton).toBeVisible();
+    seedQuarantine = false;
+    await lateButton.click();
+    const lateRow = page.locator('[data-node-id="late_call"]');
+    await expect(lateRow).toHaveAttribute('data-status', 'quarantined');
+    await expect(lateRow).toContainText('늦은 결과 격리');
+    await lateRow.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: `${E}/late-quarantined-${width}.png`, fullPage: true });
     await page.goto('/#/workflow-editor');
     await page.getByLabel('저장된 정의', { exact: true }).selectOption('a'.repeat(32));
     await page.getByRole('button', { name: '선택 정의 서버값 열기', exact: true }).click();
@@ -236,6 +250,29 @@ for (const width of [1440, 390]) {
     await snapshotStatus.scrollIntoViewIfNeeded();
     await page.screenshot({ path: `${E}/ticket-snapshot-restored-${width}.png` });
     expect(errors).toEqual([]);
+    const lateIdentity = JSON.parse(
+      await fs.readFile(path.join(root, 'quarantined-ticket.json'), 'utf8'),
+    ).id;
+    await fs.copyFile(
+      path.join(root, '.workflow-recovery-tickets/local', lateIdentity, 'ticket.json'),
+      `${E}/late-ticket-${width}.json`,
+    );
+    await fs.copyFile(
+      path.join(root, '.workflow-recovery-tickets/local', lateIdentity, 'control.json'),
+      `${E}/late-control-${width}.json`,
+    );
+    const lateSaved = JSON.parse(
+      await fs.readFile(
+        path.join(root, '.workflow-recovery-tickets/local', lateIdentity, 'ticket.json'),
+        'utf8',
+      ),
+    );
+    expect(lateSaved.status).toBe('cancelled');
+    expect(lateSaved.steps[0].status).toBe('quarantined');
+    expect(lateSaved.scheduler.nodes.late_call.status).toBe('quarantined');
+    expect(lateSaved.scheduler.nodes.late_call.result).toBeUndefined();
+    expect(lateSaved.receipts.late_call).toBeUndefined();
+
     await fs.copyFile(
       path.join(root, '.workflow-definitions/local', 'a'.repeat(32) + '.json'),
       `${E}/restored-definition-${width}.json`,

@@ -1,7 +1,7 @@
 {
-  "id": "4851f801c5bd4e66a1a2eb82213e4c55",
+  "id": "c135a0c954a9418a8e39267da07b3396",
   "revision": 15,
-  "request_id": "472ba65c-0a00-432a-acab-4b92995d22c1",
+  "request_id": "312fa9f4-73ac-4c56-a348-5898ab6fec31",
   "request": {
     "definition_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     "definition_revision": 2,
@@ -130,7 +130,7 @@
     "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
     "original_filename": "WF07 안전 합성 영상.mp4",
     "size_bytes": 1684,
-    "source_mtime_ns": 1792119952261108400
+    "source_mtime_ns": 1792121857689214000
   },
   "options": {
     "source_language": "auto",
@@ -427,7 +427,7 @@
       "source_sha256": "5a3ee8ecc8ec64e3d6c23ccd4c638ca29f5eda1a4dea0eb2f324e17f27f28c06",
       "node": "a",
       "step_sha256": "a9ce2bdadc36ffbe349a1a3e085ce2f6227bf2364670922bb2c8b7dac3870c63",
-      "inputs_sha256": "5edfde70dc1f40993b15cc21a430e237bc1a5cf33b725b42ad0ec1b3dd7526b3",
+      "inputs_sha256": "f61a7b0d2126143a04171c9b7655f31be21c9be7acc138849092250393887c6c",
       "model_pin": null,
       "outputs": {
         "video": {
@@ -453,7 +453,7 @@
       "source_sha256": "5a3ee8ecc8ec64e3d6c23ccd4c638ca29f5eda1a4dea0eb2f324e17f27f28c06",
       "node": "b",
       "step_sha256": "093795460efcf70c0f1ac20aa97ddd0f47e2f302d8ac5da9fd6fd10f7d5355fb",
-      "inputs_sha256": "5edfde70dc1f40993b15cc21a430e237bc1a5cf33b725b42ad0ec1b3dd7526b3",
+      "inputs_sha256": "f61a7b0d2126143a04171c9b7655f31be21c9be7acc138849092250393887c6c",
       "model_pin": null,
       "outputs": {
         "video": {
@@ -497,8 +497,8 @@
   "execution_contract": "recovery-v1",
   "phase": 1,
   "run_requests": {
-    "a3cc8df5-7ac2-4464-9200-d5f855109b8d": {
-      "digest": "f99f5d307621822c3bb58be28c9330ef7b6b76db1614f68f28585754f15085b9",
+    "e3d7f912-7304-4998-8896-cd66fd28b41b": {
+      "digest": "026141f9b04ec34ca67dea2bdab5f217c64100bee9c63805332c4a01922fd29e",
       "phase": 0,
       "status": "settled"
     }
@@ -509,7 +509,7 @@
   "recovery_unknown_nodes": [],
   "cancel_requested": false,
   "entry_confirmation": {
-    "token": "cfb7a95b3177a38f051e76310effefa3174ddcde91cc0685dff6db4439345fb7",
+    "token": "d5f48367d4e14ba4f98b66fd2d2b029b9bc0bd27cd56ad916681b06c27bc27d5",
     "paid_confirmed": false
   },
   "source_sha256": "5a3ee8ecc8ec64e3d6c23ccd4c638ca29f5eda1a4dea0eb2f324e17f27f28c06",

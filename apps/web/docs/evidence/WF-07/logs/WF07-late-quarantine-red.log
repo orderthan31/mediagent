@@ -1,0 +1,17 @@
+test_cancel_persists_and_prevents_followup_dispatch (test_workflow_recovery.RecoveryTicketTests.test_cancel_persists_and_prevents_followup_dispatch) ... FAIL
+
+======================================================================
+FAIL: test_cancel_persists_and_prevents_followup_dispatch (test_workflow_recovery.RecoveryTicketTests.test_cancel_persists_and_prevents_followup_dispatch)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/source/test_workflow_recovery.py", line 187, in test_cancel_persists_and_prevents_followup_dispatch
+    self.assertEqual(final['steps'][0]['status'],'quarantined')
+AssertionError: 'succeeded' != 'quarantined'
+- succeeded
++ quarantined
+
+
+----------------------------------------------------------------------
+Ran 1 test in 0.236s
+
+FAILED (failures=1)

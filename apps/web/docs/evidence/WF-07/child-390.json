@@ -1,7 +1,7 @@
 {
-  "id": "dd05842b114643bdb531108a5223adf6",
+  "id": "e15ad59fa4ad4435a40cbbcc5a26d151",
   "revision": 7,
-  "request_id": "recovery:43cdd721-8aaa-4c65-abaf-c48c78a188a1",
+  "request_id": "recovery:6940cfa8-f02f-4073-bdc3-d9d8fe48c1a4",
   "request": {
     "definition_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     "definition_revision": 2,
@@ -130,7 +130,7 @@
     "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
     "original_filename": "WF07 안전 합성 영상.mp4",
     "size_bytes": 1684,
-    "source_mtime_ns": 1792120043625565500
+    "source_mtime_ns": 1792121954338506600
   },
   "options": {
     "source_language": "auto",
@@ -431,7 +431,7 @@
       "source_sha256": "5a3ee8ecc8ec64e3d6c23ccd4c638ca29f5eda1a4dea0eb2f324e17f27f28c06",
       "node": "a",
       "step_sha256": "a9ce2bdadc36ffbe349a1a3e085ce2f6227bf2364670922bb2c8b7dac3870c63",
-      "inputs_sha256": "6f95a4222408bd5734436025be0029eef310b973181bc5b38e6405b08e583d57",
+      "inputs_sha256": "6c534a06aa12ae7b746d2a38ca0e0a3f077eaa4fe267949ad89fe058fff7e2fd",
       "model_pin": null,
       "outputs": {
         "video": {
@@ -457,7 +457,7 @@
       "source_sha256": "5a3ee8ecc8ec64e3d6c23ccd4c638ca29f5eda1a4dea0eb2f324e17f27f28c06",
       "node": "b",
       "step_sha256": "093795460efcf70c0f1ac20aa97ddd0f47e2f302d8ac5da9fd6fd10f7d5355fb",
-      "inputs_sha256": "6f95a4222408bd5734436025be0029eef310b973181bc5b38e6405b08e583d57",
+      "inputs_sha256": "6c534a06aa12ae7b746d2a38ca0e0a3f077eaa4fe267949ad89fe058fff7e2fd",
       "model_pin": null,
       "outputs": {
         "video": {
@@ -504,7 +504,7 @@
       "source_sha256": "5a3ee8ecc8ec64e3d6c23ccd4c638ca29f5eda1a4dea0eb2f324e17f27f28c06",
       "node": "failure",
       "step_sha256": "609f22f84f44b1f1ee26dfb9b444c15cd76736c1be0f63aedf0fc8538dc6ec3d",
-      "inputs_sha256": "6f95a4222408bd5734436025be0029eef310b973181bc5b38e6405b08e583d57",
+      "inputs_sha256": "6c534a06aa12ae7b746d2a38ca0e0a3f077eaa4fe267949ad89fe058fff7e2fd",
       "model_pin": null,
       "outputs": {
         "metadata": {
@@ -527,8 +527,8 @@
   "execution_contract": "recovery-v1",
   "phase": 1,
   "run_requests": {
-    "1e81647b-fe85-4ae8-a3fd-6df6cc37e251": {
-      "digest": "242cf44e28b4b828bb6995c8dd3f2755b5a0a5474cb7e40d04966693e49be0a0",
+    "a996128c-9ff9-4f47-b789-296dac946f35": {
+      "digest": "68a0024c56b7002b6602cacbfa9ee6cd472feb4b0435d288e5c627cbe8ed3468",
       "phase": 0,
       "status": "settled"
     }
@@ -613,29 +613,29 @@
   },
   "reuse_origins": {
     "a": {
-      "ticket_id": "3aff3e7a21a54891b579460c8341030e",
-      "receipt_sha256": "0569d042a5cd5c5256ec8b590fa7b30a3542ccbf0fb44d3582596b67bf1a4f8b"
+      "ticket_id": "879f90b3fd0c4d999168f06c100b3ee5",
+      "receipt_sha256": "8fe9a1d61f26f3d09638e9015a24c46df603e0d13d3011df9db26212effeeda6"
     },
     "b": {
-      "ticket_id": "3aff3e7a21a54891b579460c8341030e",
-      "receipt_sha256": "651f1d6096f2aeea56ee438bcd40965dec9cdc20566655cf2accfd5262641578"
+      "ticket_id": "879f90b3fd0c4d999168f06c100b3ee5",
+      "receipt_sha256": "b5b17310810d2114e5af59222d055a91f8f1b32f2122f89228e68733e7bbb28f"
     },
     "joined": {
-      "ticket_id": "3aff3e7a21a54891b579460c8341030e",
+      "ticket_id": "879f90b3fd0c4d999168f06c100b3ee5",
       "receipt_sha256": "86a930bf4d1d01c5212499ae6197b7ac779ce15039afe53179694f1ef6062506"
     }
   },
-  "recovery_request_id": "43cdd721-8aaa-4c65-abaf-c48c78a188a1",
-  "recovery_fingerprint": "f80d8040b2b0ee8186cd3fb4adf03566a8f62f44e177fbb5f1d28fee2264f4cc",
+  "recovery_request_id": "6940cfa8-f02f-4073-bdc3-d9d8fe48c1a4",
+  "recovery_fingerprint": "e44bc9d7afc3fd7a77f06b6f33c282809656edc773a643fe4ceb0236ecc18b9f",
   "recovery_risk": {
     "acknowledged": false,
     "unknown_nodes": [],
     "notice": "결과 불명 호출의 중복 호출/과금 가능성을 확인했습니다. 실행/비용 계획 확인은 별도입니다."
   },
   "recovery_parent": {
-    "ticket_id": "3aff3e7a21a54891b579460c8341030e",
+    "ticket_id": "879f90b3fd0c4d999168f06c100b3ee5",
     "revision": 15,
-    "attempt_id": "e323e6c4069b4f69a4bb53c7d078039e"
+    "attempt_id": "f554748febb149259469c14f0b7b69a7"
   },
   "control_revision": 0
 }

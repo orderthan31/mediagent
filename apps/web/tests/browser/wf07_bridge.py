@@ -72,6 +72,49 @@ if r.get('seed_interrupted'):
                 store.run(ticket['id'],prefs,source,interrupted_factory,request_id='controlled-crash',revision=confirmed['revision'],token=plan['token'],operation='start')
             except SystemExit:pass
             (root/'interrupted-ticket.json').write_text(json.dumps({'id':ticket['id']}))
+if r.get('seed_quarantine'):
+    from video_service.recovery_tickets import RecoveryTicketStore
+    from video_service.llm_settings import LLMSettingsStore
+    from video_service.locking import JobBusyError
+    from video_service.workflow_tickets import TicketConflict
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+    import shutil,time
+    with (root/'.quarantine-seed.lock').open('a+') as lock:
+        fcntl.flock(lock,fcntl.LOCK_EX)
+        if not (root/'quarantined-ticket.json').exists():
+            graph={'catalog_version':1,'revision':0,'name':'늦은 결과 격리 확인','inputs':{'video':'video'},
+                   'nodes':[{'id':'late_call','type':'encode','options':{'subtitle_mode':'none'},'position':{'x':0,'y':0}}, {'id':'after','type':'review','options':{'data_type':'video'},'position':{'x':200,'y':0}}],
+                   'edges':[{'id':'e0','source':{'node':'$input','port':'video'},'target':{'node':'late_call','port':'video'}},{'id':'e1','source':{'node':'late_call','port':'video'},'target':{'node':'after','port':'value'}}]}
+            definition=DefinitionStore(root).save('e'*32,graph)
+            source=root/'.assets'/('b'*32)/'source.mp4';raw=json.loads((source.parent/'asset.json').read_text())
+            asset={k:raw[k] for k in ('asset_id','original_filename','size_bytes')};asset['source_mtime_ns']=source.stat().st_mtime_ns
+            store=RecoveryTicketStore(root);prefs=LLMSettingsStore(root).resolve(None)
+            ticket=store.create('controlled-late-output',{'definition_id':definition['id'],'definition_revision':1,'asset_id':asset['asset_id'],'options':{}},lambda:definition,lambda:asset)
+            plan=store.plan(ticket['id'],prefs);confirmed=store.confirm(ticket['id'],ticket['revision'],plan['token'],False,prefs)
+            entered,release=Event(),Event()
+            def late_factory(*args):
+                def late(step,inputs,work,check):
+                    entered.set()
+                    if not release.wait(10):raise RuntimeError('fixture cancel barrier failed')
+                    event({'quarantine_node':step['id'],'mode':'controlled late result using copied synthetic bytes; NOT inference'})
+                    output=work/'late.mp4';shutil.copyfile(inputs['video'],output);return {'video':output}
+                return late
+            with ThreadPoolExecutor() as pool:
+                future=pool.submit(store.run,ticket['id'],prefs,source,late_factory,request_id='controlled-late',revision=confirmed['revision'],token=plan['token'],operation='start')
+                try:
+                    assert entered.wait(5)
+                    for attempt in range(100):
+                        try:
+                            current=RecoveryTicketStore(root).get(ticket['id'])
+                            RecoveryTicketStore(root).cancel(ticket['id'],current['control_revision'],'controlled-cancel');break
+                        except (JobBusyError,TicketConflict):
+                            if attempt==99:raise
+                            time.sleep(.01)
+                finally:release.set()
+                final=future.result(timeout=10)
+            assert final['status']=='cancelled' and final['steps'][0]['status']=='quarantined' and 'late_call' not in final['receipts']
+            (root/'quarantined-ticket.json').write_text(json.dumps({'id':ticket['id']}))
 with TestClient(app) as client:
     response=client.request(r['method'],r['path'],json=r.get('payload'))
     if '/artifacts/' in r['path'] or r['path'].endswith('/input'):

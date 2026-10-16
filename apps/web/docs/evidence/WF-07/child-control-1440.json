@@ -1,15 +1,16 @@
 {
   "revision": 4,
-  "generation": "67e1070614a44bf3867593aef5e4e6aa",
+  "generation": "0d5070c860c3496c901b0f11bfa7f929",
   "cancel_requested": false,
   "retired": false,
   "claims": {
     "failure": {
-      "generation": "67e1070614a44bf3867593aef5e4e6aa",
+      "generation": "0d5070c860c3496c901b0f11bfa7f929",
       "status": "succeeded",
       "type": "analyze"
     }
   },
   "requests": {},
-  "closed": true
+  "closed": true,
+  "quarantined_nodes": {}
 }

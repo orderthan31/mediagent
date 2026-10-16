@@ -84,6 +84,7 @@ const stateLabel: Record<string, string> = {
   running: '단계 처리 중',
   cancelling: '취소 접수 · 진행 호출 정리 중',
   cancelled: '취소됨 · 결과 보존',
+  quarantined: '늦은 결과 격리 · 자동 재사용 없음',
   failed: '첫 실패 중단',
   completed: '선택 단계 완료',
   pending: '대기',
