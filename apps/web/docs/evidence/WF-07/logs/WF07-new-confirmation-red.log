@@ -1,0 +1,14 @@
+test_cancel_before_start_can_fork_without_claiming_prior_execution (test_workflow_recovery.RecoveryTicketTests.test_cancel_before_start_can_fork_without_claiming_prior_execution) ... FAIL
+
+======================================================================
+FAIL: test_cancel_before_start_can_fork_without_claiming_prior_execution (test_workflow_recovery.RecoveryTicketTests.test_cancel_before_start_can_fork_without_claiming_prior_execution)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/source/test_workflow_recovery.py", line 23, in test_cancel_before_start_can_fork_without_claiming_prior_execution
+    self.assertNotEqual(s.plan(grandchild['id'],prefs)['token'],child_token)
+AssertionError: '7d04663da8fff3c9692541199e09e7554d5bbd13b5d38c4966071d60066155ac' == '7d04663da8fff3c9692541199e09e7554d5bbd13b5d38c4966071d60066155ac'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.226s
+
+FAILED (failures=1)

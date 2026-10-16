@@ -1,0 +1,17 @@
+test_interrupted_finalization_reuses_all_receipts_without_new_calls (test_workflow_recovery.RecoveryTicketTests.test_interrupted_finalization_reuses_all_receipts_without_new_calls) ... ERROR
+
+======================================================================
+ERROR: test_interrupted_finalization_reuses_all_receipts_without_new_calls (test_workflow_recovery.RecoveryTicketTests.test_interrupted_finalization_reuses_all_receipts_without_new_calls)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/source/test_workflow_recovery.py", line 60, in test_interrupted_finalization_reuses_all_receipts_without_new_calls
+    old=s.get(ticket['id']);child=s.fork(ticket['id'],'finalize',old['revision'],source)
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/src/packages/shared/video_service/recovery_tickets.py", line 204, in fork
+    raise TicketConflict('결과 불명 호출이 있습니다. 중복 호출/과금 위험을 별도로 확인해야 합니다.')
+video_service.workflow_tickets.TicketConflict: 결과 불명 호출이 있습니다. 중복 호출/과금 위험을 별도로 확인해야 합니다.
+
+----------------------------------------------------------------------
+Ran 1 test in 0.402s
+
+FAILED (errors=1)

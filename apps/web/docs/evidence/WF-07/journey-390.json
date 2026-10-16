@@ -1,0 +1,781 @@
+{
+  "mode": "actual isolated ASGI/store, synthetic CPU media and controlled failure; NOT inference",
+  "parentId": "3aff3e7a21a54891b579460c8341030e",
+  "trace": [
+    {
+      "node": "a",
+      "mode": "synthetic CPU or controlled failure; NO external inference"
+    },
+    {
+      "node": "b",
+      "mode": "synthetic CPU or controlled failure; NO external inference"
+    },
+    {
+      "encoded": "a",
+      "duration": "0.400000",
+      "sha256": "5a3ee8ecc8ec64e3d6c23ccd4c638ca29f5eda1a4dea0eb2f324e17f27f28c06"
+    },
+    {
+      "encoded": "b",
+      "duration": "0.400000",
+      "sha256": "5a3ee8ecc8ec64e3d6c23ccd4c638ca29f5eda1a4dea0eb2f324e17f27f28c06"
+    },
+    {
+      "node": "failure",
+      "mode": "synthetic CPU or controlled failure; NO external inference"
+    },
+    {
+      "node": "failure",
+      "mode": "synthetic CPU or controlled failure; NO external inference"
+    }
+  ],
+  "events": [
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/work-entry/inspect",
+      "status": 200,
+      "payload": {
+        "definition_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "definition_revision": 2
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/work-entry/preview",
+      "status": 200,
+      "payload": {
+        "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "recovery_enabled": true,
+        "definition_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "definition_revision": 2,
+        "options": {
+          "source_language": "auto",
+          "target_language": "ko",
+          "video_description": "",
+          "branch_choices": {}
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/work-entry/create",
+      "status": 201,
+      "payload": {
+        "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "recovery_enabled": true,
+        "definition_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "definition_revision": 2,
+        "options": {
+          "source_language": "auto",
+          "target_language": "ko",
+          "video_description": "",
+          "branch_choices": {}
+        },
+        "request_id": "ecd65f64-daf6-4a61-865e-1eb431746564",
+        "token": "455048e3d39c91a4c05c95c43a15052695a462ad10dfb446c66520b15c24590b",
+        "paid_confirmed": false
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/node-catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets/runtime",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/node-catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets/runtime",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets/3aff3e7a21a54891b579460c8341030e",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets/3aff3e7a21a54891b579460c8341030e",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets/3aff3e7a21a54891b579460c8341030e/plan",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/recovery-tickets/3aff3e7a21a54891b579460c8341030e/confirm",
+      "status": 200,
+      "payload": {
+        "revision": 3,
+        "token": "cf47f9fa7a8939ead4709e888923e32b600aaaccaed47f4d6423b39acb592a48",
+        "paid_confirmed": false
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/recovery-tickets/3aff3e7a21a54891b579460c8341030e/start",
+      "status": 200,
+      "payload": {
+        "request_id": "9df8c754-5a78-4112-b331-40e0e6f9f756",
+        "revision": 4,
+        "token": "cf47f9fa7a8939ead4709e888923e32b600aaaccaed47f4d6423b39acb592a48"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets/3aff3e7a21a54891b579460c8341030e",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets/3aff3e7a21a54891b579460c8341030e",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/recovery-tickets/3aff3e7a21a54891b579460c8341030e/recover",
+      "status": 201,
+      "payload": {
+        "request_id": "43cdd721-8aaa-4c65-abaf-c48c78a188a1",
+        "revision": 15,
+        "risk_confirmed": false
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets/3aff3e7a21a54891b579460c8341030e",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets/dd05842b114643bdb531108a5223adf6",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets/dd05842b114643bdb531108a5223adf6/plan",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/recovery-tickets/dd05842b114643bdb531108a5223adf6/confirm",
+      "status": 200,
+      "payload": {
+        "revision": 1,
+        "token": "74bdd444083688521a4d4ea87437063773b096a3fde2a10e0c99d5a9f0485557",
+        "paid_confirmed": false
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/recovery-tickets/dd05842b114643bdb531108a5223adf6/start",
+      "status": 200,
+      "payload": {
+        "request_id": "1e81647b-fe85-4ae8-a3fd-6df6cc37e251",
+        "revision": 2,
+        "token": "74bdd444083688521a4d4ea87437063773b096a3fde2a10e0c99d5a9f0485557"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets/dd05842b114643bdb531108a5223adf6",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets/dd05842b114643bdb531108a5223adf6",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/work-entry/inspect",
+      "status": 200,
+      "payload": {
+        "definition_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "definition_revision": 2
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/work-entry/preview",
+      "status": 200,
+      "payload": {
+        "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "recovery_enabled": true,
+        "definition_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "definition_revision": 2,
+        "options": {
+          "source_language": "auto",
+          "target_language": "ko",
+          "video_description": "",
+          "branch_choices": {}
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/work-entry/create",
+      "status": 201,
+      "payload": {
+        "asset_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "recovery_enabled": true,
+        "definition_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "definition_revision": 2,
+        "options": {
+          "source_language": "auto",
+          "target_language": "ko",
+          "video_description": "",
+          "branch_choices": {}
+        },
+        "request_id": "a64e8352-9616-4fc7-b770-5f9083ee3526",
+        "token": "455048e3d39c91a4c05c95c43a15052695a462ad10dfb446c66520b15c24590b",
+        "paid_confirmed": false
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/node-catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets/runtime",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/node-catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets/runtime",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets/47cafee9279d407da3fdb33358a93447",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets/47cafee9279d407da3fdb33358a93447",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/recovery-tickets/47cafee9279d407da3fdb33358a93447/cancel",
+      "status": 200,
+      "payload": {
+        "request_id": "7a06d193-944b-4018-b9ed-5fc6c0989b47",
+        "control_revision": 0
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets/47cafee9279d407da3fdb33358a93447",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/recovery-tickets/47cafee9279d407da3fdb33358a93447/recover",
+      "status": 201,
+      "payload": {
+        "request_id": "3a9cdc95-e600-40e3-bcac-aea3a5aa458a",
+        "revision": 3,
+        "risk_confirmed": false
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets/d0bcd25752c04c0e81dc92cd849b1de5",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/node-catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/node-catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets/runtime",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets/runtime",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets/df01945edec8443f9c127499dbc73b34",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/recovery-tickets/df01945edec8443f9c127499dbc73b34/recover",
+      "status": 409,
+      "payload": {
+        "request_id": "4eb1c8ac-47d7-4e69-8c50-dc776a957db5",
+        "revision": 6,
+        "risk_confirmed": false
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets/df01945edec8443f9c127499dbc73b34",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets/df01945edec8443f9c127499dbc73b34",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets/df01945edec8443f9c127499dbc73b34",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/recovery-tickets/df01945edec8443f9c127499dbc73b34/recover",
+      "status": 201,
+      "payload": {
+        "request_id": "23f78623-1724-40f5-acc0-70c4c74b8e94",
+        "revision": 6,
+        "risk_confirmed": true
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets/df01945edec8443f9c127499dbc73b34",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets/df01945edec8443f9c127499dbc73b34",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets/0e5bf45633d44901bb998549fa91a8e2",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets/df01945edec8443f9c127499dbc73b34",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/node-catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/node-catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/versions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/workflow-definitions/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/restore",
+      "status": 200,
+      "payload": {
+        "revision": 2,
+        "source": {
+          "kind": "definition_revision",
+          "revision": 1
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/node-catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/node-catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets/runtime",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets/runtime",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/recovery-tickets/dd05842b114643bdb531108a5223adf6",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/workflow-definitions/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/restore",
+      "status": 200,
+      "payload": {
+        "revision": 3,
+        "source": {
+          "kind": "ticket_snapshot",
+          "namespace": "recovery",
+          "ticket_id": "dd05842b114643bdb531108a5223adf6"
+        }
+      }
+    }
+  ],
+  "errors": []
+}

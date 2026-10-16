@@ -37,6 +37,13 @@ class ReviewTicketStore(GraphTicketStore):
     def _execute_extension(self, step, incoming, work, resolve, execute, record, plan):
         return None
 
+    def _admit_dispatch(self, record, step) -> bool:
+        return True
+
+    def _before_node(self, record, step):
+        """Default no-op; opt-in recovery can gate dispatch without retrofitting v1."""
+        return None
+
     def _waiting_status(self, record):
         return 'awaiting_review'
 
@@ -223,6 +230,7 @@ class ReviewTicketStore(GraphTicketStore):
                     resolve(meta)
                 execute = self._make_executor(record, bound, executor_factory, execution)
                 def node_execute(step):
+                    self._before_node(record, step)
                     check()
                     work = ticket_dir / 'work' / step['id']
                     work.mkdir(parents=True, exist_ok=True)
@@ -296,7 +304,7 @@ class ReviewTicketStore(GraphTicketStore):
                                 values.update({(step['id'], p): deepcopy(m) for p, m in step['artifacts'].items()})
                         record['scheduler'] = deepcopy(snapshot)
                         self._save(record)
-                settled = run_ready(execution['steps'], node_execute, publish, max_workers=2, settle=True, initial=seed)
+                settled = run_ready(execution['steps'], node_execute, publish, max_workers=2, settle=True, initial=seed, admit=lambda step:self._admit_dispatch(record,step))
                 check()
                 if file_sha(source) != source_sha:
                     raise TicketConflict('원본 내용 무결성이 변경되었습니다.')

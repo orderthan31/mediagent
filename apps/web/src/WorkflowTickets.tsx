@@ -7,6 +7,7 @@ import { Badge } from './hangyeol/primitives/badge';
 import { ReviewPanel, type ReviewDocument } from './ReviewPanel';
 import { DecisionPanel, type DecisionEvidence } from './DecisionPanel';
 import type { RegisteredVersion } from './registered-models';
+import { RecoveryActions, TicketSnapshotRestore } from './RecoveryActions';
 import './serving.css';
 import './workflow-tickets.css';
 
@@ -81,6 +82,8 @@ const stateLabel: Record<string, string> = {
   held: '생성 보류',
   confirmed: '계획 확인 · 실행 대기',
   running: '단계 처리 중',
+  cancelling: '취소 접수 · 진행 호출 정리 중',
+  cancelled: '취소됨 · 결과 보존',
   failed: '첫 실패 중단',
   completed: '선택 단계 완료',
   pending: '대기',
@@ -101,27 +104,32 @@ export const WorkflowTickets = ({
   graph: graphMode = false,
   review: reviewMode = false,
   decision: decisionMode = false,
-  work = false,
+  work: workMode = false,
+  recovery = false,
   initialTicketId = '',
 }: {
   graph?: boolean;
   review?: boolean;
   decision?: boolean;
   work?: boolean;
+  recovery?: boolean;
   initialTicketId?: string;
 }) => {
+  const work = workMode || recovery;
   const decision = decisionMode || work;
   const review = reviewMode || decision,
     graph = graphMode || decision;
-  const base = work
-    ? '/settings/work-tickets'
-    : decision
-      ? '/settings/decision-tickets'
-      : review
-        ? '/settings/review-tickets'
-        : graph
-          ? '/settings/graph-tickets'
-          : '/settings/workflow-tickets';
+  const base = recovery
+    ? '/settings/recovery-tickets'
+    : work
+      ? '/settings/work-tickets'
+      : decision
+        ? '/settings/decision-tickets'
+        : review
+          ? '/settings/review-tickets'
+          : graph
+            ? '/settings/graph-tickets'
+            : '/settings/workflow-tickets';
   const reviewUpdate = async () => {
     setPlan(null);
     setPaid(false);
@@ -425,7 +433,7 @@ export const WorkflowTickets = ({
     });
   }, []);
   useEffect(() => {
-    if (!ticket || (ticket.status !== 'running' && busy !== 'start')) {
+    if (!ticket || (!['running', 'cancelling'].includes(ticket.status) && busy !== 'start')) {
       return;
     }
     const generation = selection.current,
@@ -468,21 +476,35 @@ export const WorkflowTickets = ({
                     : '정의 기반 순차 처리'}
           </p>
           <h1>
-            {work
-              ? '작업 티켓'
-              : decision
-                ? 'AI 판단 워크플로우 티켓'
-                : review
-                  ? '사람 검수 워크플로우 티켓'
-                  : graph
-                    ? '분기·병렬 워크플로우 티켓'
-                    : '순차 워크플로우 티켓'}
+            {recovery
+              ? '복구 계약 작업 티켓'
+              : work
+                ? '작업 티켓'
+                : decision
+                  ? 'AI 판단 워크플로우 티켓'
+                  : review
+                    ? '사람 검수 워크플로우 티켓'
+                    : graph
+                      ? '분기·병렬 워크플로우 티켓'
+                      : '순차 워크플로우 티켓'}
           </h1>
         </div>
         <Button variant="secondary" disabled={!!busy} onClick={() => void load()}>
           서버 목록 새로 불러오기
         </Button>
       </div>
+      {decision && !work && (
+        <p className="serving-help">
+          이전 티켓은 기존 계약을 유지합니다. <a href="#/recovery-tickets">새 복구 계약 티켓</a>으로
+          자동 변환하지 않습니다.
+        </p>
+      )}
+      {work && (
+        <nav aria-label="작업 티켓 계약">
+          <a href="#/work-tickets">기존 등록 모델 티켓</a> ·{' '}
+          <a href="#/recovery-tickets">새 복구 계약 티켓</a>
+        </nav>
+      )}
       {decision && !work && (
         <p className="serving-help">
           기본 작업 동선은 영상 + 저장 워크플로우 → 흐름/노드 설정 요약 → 명시 계획 확인 →
@@ -508,7 +530,9 @@ export const WorkflowTickets = ({
         {graph
           ? '독립 가지는 실패를 전파하지 않고 결과를 보존합니다. join은 목록이며 미디어/clock 병합이 아닙니다.'
           : '첫 실패에서 중단합니다.'}{' '}
-        자동 재시도·취소 후 재개는 제공하지 않습니다.
+        {recovery
+          ? '자동 재실행은 없습니다. 취소/실패는 원 티켓 보존과 새 복구 티켓·새 계획 확인으로 분리합니다.'
+          : '자동 재시도·취소 후 재개는 제공하지 않습니다.'}
       </p>
       {runtime && (
         <p>
@@ -722,6 +746,7 @@ export const WorkflowTickets = ({
         <details className="ticket-panel">
           <summary>이전 티켓 · 기능 검증 화면</summary>
           <p>
+            <a href="#/recovery-tickets">새 복구 계약 티켓</a> ·{' '}
             <a href="#/workflow-tickets">이전 순차 티켓</a> ·{' '}
             <a href="#/graph-tickets">이전 분기·병렬 티켓</a> ·{' '}
             <a href="#/review-tickets">이전 검수 티켓</a> ·{' '}
@@ -729,6 +754,27 @@ export const WorkflowTickets = ({
           </p>
           <p>기존 티켓/저장소를 보존합니다. 등록 모델 참조로 소급 변환하지 않습니다.</p>
         </details>
+      )}
+      {ticket && recovery && <RecoveryActions key={ticket.id} ticket={ticket} onOpen={open} />}
+      {ticket && (
+        <TicketSnapshotRestore
+          key={'snapshot-' + ticket.id}
+          definitionId={ticket.definition.id}
+          ticketId={ticket.id}
+          namespace={
+            recovery
+              ? 'recovery'
+              : work
+                ? 'work'
+                : decision
+                  ? 'decision'
+                  : review
+                    ? 'review'
+                    : graph
+                      ? 'graph'
+                      : 'workflow'
+          }
+        />
       )}
       {ticket && (
         <section className="ticket-panel ticket-detail">
@@ -949,13 +995,15 @@ export const WorkflowTickets = ({
         </section>
       )}
       <p className="serving-help">
-        {decision
-          ? '판단 adapter의 구조화 결과와 서버 조건으로 정확히 한 경로만 선택합니다. review/reject는 라벨이며 자동 검수 생성/가지 종료 명령이 아닙니다. 판단 결과는 고정하고, 결과·미실행 경로·서빙 새 계획 확인 뒤 별도 이어실행합니다. 오류/형식/조건 실패는 차단하며 기본경로·자동 재판정·일반 복구는 없습니다. 영상/음성 판단은 현재 metadata-only 계약이고 실미디어 모델 추론을 뜻하지 않습니다.'
-          : review
-            ? '검수 대기는 해당 후행만 멈춥니다. 승인 전 필수 join은 대기하고 독립 가지의 성공/부분 결과는 보존합니다. 최신 서빙은 미실행 부분의 새 계획 확인에만 사용하며 완료 단계는 재실행하지 않습니다. 실패 재시도·crash 복구·AI Decision은 미지원입니다.'
-            : graph
-              ? '수동 선택·독립 병렬·선택 필수 합류를 지원합니다. 합류 출력은 노드ID.포트 결과 참조 manifest이며 미디어/clock 병합 또는 단일 미디어 입력이 아닙니다. 얼굴 합성 세션/preview·GPU VAD·새 사람검수/AI Decision은 미지원입니다.'
-              : '지원 범위는 단일 처리 사슬입니다. 얼굴 합성 세션/preview·GPU VAD·추가 검수/Decision·병렬/합류는 이번 순차 어댑터에서 미지원입니다.'}{' '}
+        {recovery
+          ? '복구는 owner·입출력 SHA·고정 정의/옵션/모델·선택 입력과 완료 receipt를 대조합니다. 결과 불명은 자동 재호출하지 않고 별도 위험 확인과 새 계획을 요구합니다. 외부 호출 exactly-once나 즉시 취소/환불 보장은 없습니다.'
+          : decision
+            ? '판단 adapter의 구조화 결과와 서버 조건으로 정확히 한 경로만 선택합니다. review/reject는 라벨이며 자동 검수 생성/가지 종료 명령이 아닙니다. 판단 결과는 고정하고, 결과·미실행 경로·서빙 새 계획 확인 뒤 별도 이어실행합니다. 오류/형식/조건 실패는 차단하며 기본경로·자동 재판정·일반 복구는 없습니다. 영상/음성 판단은 현재 metadata-only 계약이고 실미디어 모델 추론을 뜻하지 않습니다.'
+            : review
+              ? '검수 대기는 해당 후행만 멈춥니다. 승인 전 필수 join은 대기하고 독립 가지의 성공/부분 결과는 보존합니다. 최신 서빙은 미실행 부분의 새 계획 확인에만 사용하며 완료 단계는 재실행하지 않습니다. 실패 재시도·crash 복구·AI Decision은 미지원입니다.'
+              : graph
+                ? '수동 선택·독립 병렬·선택 필수 합류를 지원합니다. 합류 출력은 노드ID.포트 결과 참조 manifest이며 미디어/clock 병합 또는 단일 미디어 입력이 아닙니다. 얼굴 합성 세션/preview·GPU VAD·새 사람검수/AI Decision은 미지원입니다.'
+                : '지원 범위는 단일 처리 사슬입니다. 얼굴 합성 세션/preview·GPU VAD·추가 검수/Decision·병렬/합류는 이번 순차 어댑터에서 미지원입니다.'}{' '}
         단계 상태는 실행기가 기록한 결과이며 실모델 품질 검증을 뜻하지 않습니다.
       </p>
     </main>

@@ -7,6 +7,7 @@ import { Input } from './hangyeol/primitives/input';
 import { Badge } from './hangyeol/primitives/badge';
 import { NodeModelBinding } from './NodeModelBinding';
 import type { ModelReference } from './registered-models';
+import { DefinitionHistory } from './DefinitionHistory';
 import './workflow-editor.css';
 
 type Port = { node: string; port: string };
@@ -358,6 +359,16 @@ export const WorkflowEditor = () => {
             ))}
           </select>
         </label>
+        <DefinitionHistory
+          key={doc.id}
+          identity={doc.id}
+          revision={doc.revision}
+          dirty={dirty}
+          onRestored={async () => {
+            await load(doc.id);
+            await list();
+          }}
+        />
         <Button variant="secondary" disabled={!openId} onClick={() => void load(openId)}>
           선택 정의 서버값 열기
         </Button>

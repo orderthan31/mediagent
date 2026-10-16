@@ -64,7 +64,7 @@ class NodeFailure(Exception):
         super().__init__(self.error_type)
 
 
-def run_ready(steps, execute, publish, *, max_workers=2, settle=False, initial=None):
+def run_ready(steps, execute, publish, *, max_workers=2, settle=False, initial=None, admit=None):
     """Run ready nodes once; an independent failure does not cancel siblings.
 
     ``execute`` runs on worker threads and returns JSON-safe result metadata.
@@ -115,6 +115,8 @@ def run_ready(steps, execute, publish, *, max_workers=2, settle=False, initial=N
                 if nodes[identity]['status'] != 'pending':
                     continue
                 if not all(nodes[parent]['status'] == 'succeeded' for parent in step['dependencies']):
+                    continue
+                if admit is not None and not admit(deepcopy(step)):
                     continue
                 nodes[identity]['status'] = 'running'
                 persist()

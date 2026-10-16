@@ -1,0 +1,15 @@
+test_crash_requires_separate_risk_ack_and_retires_old_generation (test_workflow_recovery.RecoveryTicketTests.test_crash_requires_separate_risk_ack_and_retires_old_generation) ... FAIL
+
+======================================================================
+FAIL: test_crash_requires_separate_risk_ack_and_retires_old_generation (test_workflow_recovery.RecoveryTicketTests.test_crash_requires_separate_risk_ack_and_retires_old_generation)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/source/test_workflow_recovery.py", line 22, in test_crash_requires_separate_risk_ack_and_retires_old_generation
+    with self.assertRaises(TicketConflict):s.fork(old['id'],'retry',old['revision'],source)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: TicketConflict not raised
+
+----------------------------------------------------------------------
+Ran 1 test in 0.225s
+
+FAILED (failures=1)

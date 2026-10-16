@@ -1,0 +1,14 @@
+test_interrupted_child_copy_reuses_the_same_admitted_identity (test_workflow_recovery.RecoveryTicketTests.test_interrupted_child_copy_reuses_the_same_admitted_identity) ... ERROR
+
+======================================================================
+ERROR: test_interrupted_child_copy_reuses_the_same_admitted_identity (test_workflow_recovery.RecoveryTicketTests.test_interrupted_child_copy_reuses_the_same_admitted_identity)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/source/test_workflow_recovery.py", line 53, in test_interrupted_child_copy_reuses_the_same_admitted_identity
+    s.fork(ticket['id'],'recover-once',cancelled['revision'],source,capacity_check=no_space)
+TypeError: RecoveryTicketStore.fork() got an unexpected keyword argument 'capacity_check'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.353s
+
+FAILED (errors=1)

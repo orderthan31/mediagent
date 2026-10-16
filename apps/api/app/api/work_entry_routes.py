@@ -61,6 +61,7 @@ class PreviewRequest(BaseModel):
     definition_revision:int=Field(strict=True,ge=1)
     asset_id:str=Field(pattern=r'^[0-9a-f]{32}$')
     options:GraphOptions=Field(default_factory=GraphOptions)
+    recovery_enabled:bool=Field(default=False,strict=True)
 
 
 class EntryCreate(PreviewRequest):
@@ -80,7 +81,12 @@ def preview_inputs(request,payload):
     asset=asset_input(request,payload.asset_id)[0]
     pref=preferences(request)
     options=payload.options.model_dump()
-    return definition,asset,pref,options,preview_work(definition,asset,pref,registry(request),options)
+    quote=preview_work(definition,asset,pref,registry(request),options)
+    if payload.recovery_enabled:
+        from video_service.workflow_tickets import digest
+        quote['token']=digest({'base':quote['token'],'recovery_contract':'recovery-v1'})
+    quote['recovery_enabled']=payload.recovery_enabled
+    return definition,asset,pref,options,quote
 
 
 def entry_respond(operation):
@@ -107,8 +113,9 @@ async def create(request:Request):
         models=registry(request)
         models.directory.mkdir(parents=True,exist_ok=True,mode=0o700)
         with _file_lock(models.directory/'registry.lock'):
-            tickets=WorkTicketStore(root,owner)
-            identity=payload.model_dump(exclude={'request_id','token','paid_confirmed'})
+            from video_service.recovery_tickets import RecoveryTicketStore
+            tickets=(RecoveryTicketStore if payload.recovery_enabled else WorkTicketStore)(root,owner)
+            identity=payload.model_dump(exclude={'request_id','token','paid_confirmed','recovery_enabled'})
             for existing in tickets.list():
                 if existing['request_id']==payload.request_id:
                     if existing['request']!=identity or existing.get('entry_confirmation')!={'token':payload.token,'paid_confirmed':payload.paid_confirmed}:

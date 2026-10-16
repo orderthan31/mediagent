@@ -225,3 +225,39 @@ from app.api.model_registry_routes import router as model_registry_router
 router.include_router(model_registry_router)
 from app.api.work_ticket_routes import router as work_ticket_router
 router.include_router(work_ticket_router)
+from app.api.recovery_ticket_routes import router as recovery_ticket_router
+router.include_router(recovery_ticket_router)
+
+
+@router.get('/workflow-definitions/{identity}/versions')
+def definition_versions(identity: str, request: Request):
+    from video_service.workflow_definitions import DefinitionStore
+    return definition_response(lambda: {'versions':DefinitionStore(settings.storage_root,request.state.settings_owner).versions(identity)})
+
+
+@router.post('/workflow-definitions/{identity}/restore')
+async def restore_definition(identity: str, request: Request):
+    from video_service.workflow_definitions import DefinitionStore
+    from video_service.workflow_tickets import digest
+    from video_service.recovery_tickets import RecoveryTicketStore
+    from video_service.work_tickets import WorkTicketStore
+    from video_service.workflow_tickets import TicketStore
+    from video_service.graph_tickets import GraphTicketStore
+    from video_service.review_tickets import ReviewTicketStore
+    from video_service.decision_tickets import DecisionTicketStore
+    from starlette.concurrency import run_in_threadpool
+    payload=await serving_json(request,limit=8192)
+    def restore():
+        if not isinstance(payload,dict) or set(payload)!={'revision','source'} or type(payload['revision']) is not int or payload['revision']<0:
+            raise ValueError('현재 revision과 복원 출처를 명시하세요.')
+        source=payload['source'];snapshot=None
+        if not isinstance(source,dict):raise ValueError('복원 출처 형식이 다릅니다.')
+        if source.get('kind')=='ticket_snapshot':
+            if set(source)!={'kind','namespace','ticket_id'}:raise ValueError('티켓 출처 필드를 확인하세요.')
+            stores={'workflow':TicketStore,'graph':GraphTicketStore,'review':ReviewTicketStore,'decision':DecisionTicketStore,'work':WorkTicketStore,'recovery':RecoveryTicketStore}
+            if source['namespace'] not in stores:raise ValueError('지원하지 않는 티켓 출처입니다.')
+            record=stores[source['namespace']](settings.storage_root,request.state.settings_owner).get(source['ticket_id'])
+            snapshot=record['definition']
+            if digest(snapshot)!=record['definition_sha256']:raise ValueError('티켓 snapshot 무결성이 다릅니다.')
+        return DefinitionStore(settings.storage_root,request.state.settings_owner).restore(identity,payload['revision'],source,snapshot=snapshot)
+    return await run_in_threadpool(lambda:definition_response(restore))

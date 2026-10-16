@@ -44,6 +44,7 @@ export const WorkflowStart = () => {
   const [choices, setChoices] = useState<Record<string, string>>({});
   const [plan, setPlan] = useState<StartPlan | null>(null);
   const [paid, setPaid] = useState(false);
+  const [recovery, setRecovery] = useState(false);
   const [ticketId, setTicketId] = useState('');
   const [requestId, setRequestId] = useState(() => crypto.randomUUID());
   const [loading, setLoading] = useState(true);
@@ -123,6 +124,7 @@ export const WorkflowStart = () => {
   };
   const selection = () => ({
     asset_id: assetId,
+    recovery_enabled: recovery,
     definition_id: definitionId,
     definition_revision: inspection?.definition_revision,
     options: {
@@ -176,7 +178,7 @@ export const WorkflowStart = () => {
     void load();
   }, []);
   if (ticketId) {
-    return <WorkflowTickets key={ticketId} work initialTicketId={ticketId} />;
+    return <WorkflowTickets key={ticketId} work recovery={recovery} initialTicketId={ticketId} />;
   }
   return (
     <main className="serving-page workflow-tickets workflow-start">
@@ -213,6 +215,23 @@ export const WorkflowStart = () => {
       ) : (
         <section className="ticket-panel">
           <h2>작업 대상</h2>
+          <label className="serving-check">
+            <input
+              type="checkbox"
+              aria-label="복구 계약 사용"
+              checked={recovery}
+              disabled={busy}
+              onChange={(e) => {
+                setRecovery(e.target.checked);
+                invalidate();
+              }}
+            />
+            새 복구 계약 사용 · 검증된 완료 결과 보존/명시 재시도 지원
+          </label>
+          <p>
+            기존 티켓은 자동 전환하지 않습니다. 취소 접수는 외부 호출 즉시 중단이 아니며, 복구 생성
+            뒤에도 새 계획 확인과 별도 실행이 필요합니다.
+          </p>
           <div className="serving-grid">
             <label>
               입력 영상

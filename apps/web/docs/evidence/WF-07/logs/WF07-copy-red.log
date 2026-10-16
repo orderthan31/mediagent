@@ -1,0 +1,14 @@
+test_interrupted_child_copy_reuses_the_same_admitted_identity (test_workflow_recovery.RecoveryTicketTests.test_interrupted_child_copy_reuses_the_same_admitted_identity) ... FAIL
+
+======================================================================
+FAIL: test_interrupted_child_copy_reuses_the_same_admitted_identity (test_workflow_recovery.RecoveryTicketTests.test_interrupted_child_copy_reuses_the_same_admitted_identity)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/source/test_workflow_recovery.py", line 51, in test_interrupted_child_copy_reuses_the_same_admitted_identity
+    self.assertEqual(len(directories),2,'retry must resume one admitted child, not allocate orphan child identities')
+AssertionError: 3 != 2 : retry must resume one admitted child, not allocate orphan child identities
+
+----------------------------------------------------------------------
+Ran 1 test in 0.392s
+
+FAILED (failures=1)

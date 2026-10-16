@@ -120,7 +120,7 @@ export const VideoWorkspace = () => {
   const jobsView = route === '#/jobs';
   const settingsView = route === '#/settings';
   const startView = route === '#/start';
-  const productTicketsView = route === '#/work-tickets';
+  const productTicketsView = route === '#/work-tickets' || route === '#/recovery-tickets';
   const servingView = route === '#/serving';
   const editorView = route === '#/workflow-editor';
   const graphTicketsView = route === '#/graph-tickets';
@@ -524,9 +524,12 @@ export const VideoWorkspace = () => {
         ) : workflowTicketsView ? (
           <WorkflowTickets
             work={productTicketsView}
+            recovery={route === '#/recovery-tickets'}
             key={
               productTicketsView
-                ? 'work'
+                ? route === '#/recovery-tickets'
+                  ? 'recovery'
+                  : 'work'
                 : decisionTicketsView
                   ? 'decision'
                   : reviewTicketsView

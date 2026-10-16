@@ -1,0 +1,15 @@
+{
+  "revision": 4,
+  "generation": "67e1070614a44bf3867593aef5e4e6aa",
+  "cancel_requested": false,
+  "retired": false,
+  "claims": {
+    "failure": {
+      "generation": "67e1070614a44bf3867593aef5e4e6aa",
+      "status": "succeeded",
+      "type": "analyze"
+    }
+  },
+  "requests": {},
+  "closed": true
+}

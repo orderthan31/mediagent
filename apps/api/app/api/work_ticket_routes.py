@@ -59,6 +59,9 @@ def respond(operation):
 
 
 def store(request):
+    if request.url.path.startswith('/api/settings/recovery-tickets'):
+        from video_service.recovery_tickets import RecoveryTicketStore
+        return RecoveryTicketStore(settings_module().settings.storage_root, request.state.settings_owner)
     return WorkTicketStore(settings_module().settings.storage_root, request.state.settings_owner)
 
 

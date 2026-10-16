@@ -1,0 +1,35 @@
+Running 1 test using 1 worker
+
+[1/1] tests\browser\workflow-recovery.spec.ts:10:3 › opt-in recovery, reuse and history 1440
+  1) tests\browser\workflow-recovery.spec.ts:10:3 › opt-in recovery, reuse and history 1440 ────────
+
+    Error: expect(locator).toContainText(expected) failed
+
+    Locator: getByLabel('저장된 정의', { exact: true }).locator('option:checked')
+    Expected substring: "r3"
+    Received string:    "복구 검사 흐름 최신 · r2"
+    Timeout: 30000ms
+
+    Call log:
+      - Expect "toContainText" with timeout 30000ms
+      - waiting for getByLabel('저장된 정의', { exact: true }).locator('option:checked')
+        33 × locator resolved to <option value="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">복구 검사 흐름 최신 · r2</option>
+           - unexpected value "복구 검사 흐름 최신 · r2"
+
+
+      178 |       .click();
+      179 |     await expect(page.locator('.definition-history')).toContainText('새 revision 3');
+    > 180 |     await expect(page.getByLabel('저장된 정의', { exact: true }).locator('option:checked')).toContainText('r3');
+          |                                                                                        ^
+      181 |     await page.screenshot({ path: `${E}/history-restored-${width}.png` });
+      182 |     expect(errors).toEqual([]);
+      183 |     await fs.writeFile(
+        at <local-workspace>
+
+    Test timeout of 30000ms exceeded.
+
+    Error Context: ..\..\..\..\AppData\Local\hermes\cache\scratch\s2-audit\browser-results\workflow-recovery-opt-in-recovery-reuse-and-history-1440\error-context.md
+
+
+  1 failed
+    tests\browser\workflow-recovery.spec.ts:10:3 › opt-in recovery, reuse and history 1440 ─────────

@@ -1,0 +1,31 @@
+{
+  "revision": 11,
+  "generation": "1fc31ae2d5a54aee8d865ec843a4f082",
+  "cancel_requested": false,
+  "retired": true,
+  "claims": {
+    "a": {
+      "generation": "1fc31ae2d5a54aee8d865ec843a4f082",
+      "status": "succeeded",
+      "type": "encode"
+    },
+    "b": {
+      "generation": "1fc31ae2d5a54aee8d865ec843a4f082",
+      "status": "succeeded",
+      "type": "encode"
+    },
+    "failure": {
+      "generation": "1fc31ae2d5a54aee8d865ec843a4f082",
+      "status": "failed",
+      "type": "analyze"
+    },
+    "joined": {
+      "generation": "1fc31ae2d5a54aee8d865ec843a4f082",
+      "status": "succeeded",
+      "type": "join"
+    }
+  },
+  "requests": {},
+  "closed": true,
+  "recovery_child": "dd05842b114643bdb531108a5223adf6"
+}

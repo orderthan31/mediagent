@@ -1,0 +1,14 @@
+test_new_history_restores_as_new_revision_without_rewinding (test_workflow_recovery.DefinitionHistoryTests.test_new_history_restores_as_new_revision_without_rewinding) ... FAIL
+
+======================================================================
+FAIL: test_new_history_restores_as_new_revision_without_rewinding (test_workflow_recovery.DefinitionHistoryTests.test_new_history_restores_as_new_revision_without_rewinding)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/source/test_workflow_recovery.py", line 11, in test_new_history_restores_as_new_revision_without_rewinding
+    self.assertTrue(hasattr(DefinitionStore, 'versions'), 'Immutable definition history is missing')
+AssertionError: False is not true : Immutable definition history is missing
+
+----------------------------------------------------------------------
+Ran 1 test in 0.000s
+
+FAILED (failures=1)
