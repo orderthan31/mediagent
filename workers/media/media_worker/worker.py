@@ -5,6 +5,7 @@ import os
 import shutil
 import hashlib
 from pathlib import Path
+from contextlib import ExitStack
 import time
 from threading import Event
 from concurrent.futures import ThreadPoolExecutor
@@ -80,7 +81,7 @@ class Worker:
 
     def process(self, job_id):
         repo = self.repository
-        with job_lock(repo, job_id, "execution"), job_resources(repo, job_id), capture_calls(repo.storage_root,
+        with ExitStack() as authorization_context, job_lock(repo, job_id, "execution"), job_resources(repo, job_id), capture_calls(repo.storage_root,
                 repo.job_dir(job_id) / "work" / "llm" if repo.preserve_artifacts else None):
             with job_lock(repo, QUEUE_LOCK_ID), job_lock(repo, job_id):
                 if self.stop.is_set():
@@ -89,6 +90,12 @@ class Worker:
                 if record.status != JobStatus.QUEUED:
                     return
                 if QueueControl(repo.storage_root).read(record.metadata.get('owner_id'))['paused']:
+                    return
+                from video_service.execution_worker import legacy_execution
+                from video_service.execution_authorization import AuthorizationConflict
+                try:frozen_inputs=authorization_context.enter_context(legacy_execution(repo,record))
+                except (AuthorizationConflict,FileNotFoundError,KeyError):
+                    repo.update_status(job_id,JobStatus.FAILED,error="서버 실행 승인/고정 입력이 바뀌었거나 이미 입장한 실행입니다. 자동 재시도하지 않습니다.",metadata={"recovery_required":True,"execution_approval_required":True})
                     return
                 repo.update_status(job_id, JobStatus.ANALYZING, metadata={"failure": None,
                     'recovery_policy_version': 1, 'recovery_required': False, 'wait_reason': None})
@@ -166,17 +173,17 @@ class Worker:
                 selected = None
                 selected_audio = None
                 if record.metadata.get('audio_input'):
-                    selected_audio = repo.job_dir(job_id) / 'input/audio.wav'
+                    selected_audio = frozen_inputs.get('audio',repo.job_dir(job_id) / 'input/audio.wav')
                     with selected_audio.open('rb') as stream:
                         digest = hashlib.file_digest(stream, 'sha256').hexdigest()
                     if digest != record.metadata['audio_input']['sha256']:
                         raise ValueError('Audio snapshot integrity check failed')
                 if record.metadata.get('subtitle_input'):
-                    snapshot = read_json(repo.job_dir(job_id) / 'input/subtitle.json')
+                    snapshot = read_json(frozen_inputs.get('subtitle',repo.job_dir(job_id) / 'input/subtitle.json'))
                     if cue_digest(snapshot['cues']) != record.metadata['subtitle_input']['sha256']:
                         raise ValueError('Subtitle snapshot integrity check failed')
                     selected = [TranscriptSegment.from_dict(c) for c in snapshot['cues']]
-                source = repo.source_path(record).resolve()
+                source = frozen_inputs.get('source',repo.source_path(record)).resolve()
                 checkpoints = Checkpoints(work, {"version": 1, "source_size": source.stat().st_size,
                     "source_mtime": source.stat().st_mtime_ns, "options": {key: value for key, value in record.options.to_dict().items()
                         if (key != "video_description" or value) and (key != "vad_mode" or value != "off")},
@@ -204,7 +211,8 @@ class Worker:
                 if 'translate' not in stages and not ('encode' in stages and selected is not None):
                     languages = []
                 if record.metadata.get("review_ready"):
-                    draft = read_draft(repo, record)
+                    from video_service.execution_worker import approved_review
+                    draft = approved_review(repo, record)
                     subtitle_sets = {name: [TranscriptSegment.from_dict(cue) for cue in cues]
                         for name, cues in draft["tracks"].items()}
                 elif plan['template'] == 'encode':
@@ -214,7 +222,8 @@ class Worker:
                             write_json_atomic(work / (name + '.json'), [s.to_dict() for s in selected])
                 else:
                     completed_identity = transcript_identity(source, record)
-                    completed = load_completed_transcript(work, completed_identity) if 'transcribe' in stages else None
+                    from video_service.execution_authorization import active_authorization
+                    completed = load_completed_transcript(work, completed_identity) if 'transcribe' in stages and active_authorization() is None else None
                     if completed is not None:
                         segments = [TranscriptSegment.from_dict(item) for item in completed]
                         write_json_atomic(work / "transcript.json", completed)
@@ -422,7 +431,9 @@ class Worker:
                 record = self.repository.read(job_id)
                 record.metadata['paid_operation_in_flight'] = True
                 self.repository.save(record)
-            result = operation()
+            from video_service.execution_authorization import node_scope
+            with node_scope(record.status.value,record.metadata.get('execution_authorization',{}).get('execution_id','legacy')):
+                result = operation()
             # Cleared at the next stage transition, after checkpoint publication.
             return result
 

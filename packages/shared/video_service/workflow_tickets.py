@@ -114,7 +114,8 @@ class TicketStore:
                 if record['status']!='confirmed' or record['confirmation']['token']!=plan['token'] or record['settings_snapshot']!=plan['settings']:
                     raise TicketConflict('확인한 계획/서빙과 다릅니다. 실행하지 않고 재확인을 요구합니다.')
                 source=Path(source).resolve();stat=source.stat()
-                if (stat.st_size,stat.st_mtime_ns)!=(record['asset']['size_bytes'],record['asset']['source_mtime_ns']):
+                from .execution_authorization import approved_input
+                if (stat.st_size,stat.st_mtime_ns)!=(record['asset']['size_bytes'],record['asset']['source_mtime_ns']) and not approved_input(source,record):
                     raise TicketConflict('선택한 원본 snapshot 정보가 바뀌었습니다.')
                 record['status']='running';self._save(record)
             def check():
@@ -138,7 +139,8 @@ class TicketStore:
                         with path.open('rb') as stream:
                             if hashlib.file_digest(stream,'sha256').hexdigest()!=value['sha256']:raise TicketConflict('입력 산출물 무결성이 바뀌었습니다.')
                         inputs[port]=path
-                    outputs=execute(selected,inputs,work,check)
+                    from .execution_authorization import node_scope
+                    with node_scope(selected['id'],str(record.get('phase',0))):outputs=execute(selected,inputs,work,check)
                     if set(outputs)!=set(selected['outputs']):raise ValueError('정의와 다른 출력 포트입니다.')
                     artifacts={port:self._artifact(ticket_dir,work,path,selected['outputs'][port]) for port,path in outputs.items()}
                     check();current_step.update(status='succeeded',artifacts=artifacts);self._save(record)

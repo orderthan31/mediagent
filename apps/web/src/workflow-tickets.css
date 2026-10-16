@@ -1,21 +1,21 @@
-[data-hangyeol] .workflow-tickets .ticket-panel { border: 1px solid var(--g-line); padding: 22px; border-radius: 18px; margin: 24px 0; background: var(--g-surface); }
-[data-hangyeol] .workflow-tickets .ticket-actions, [data-hangyeol] .workflow-tickets .ticket-list { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin: 14px 0; }
-[data-hangyeol] .workflow-tickets .ticket-steps { padding-left: 24px; }
-[data-hangyeol] .workflow-tickets .ticket-step { padding: 16px; margin: 14px 0; border: 1px solid var(--g-line); border-radius: 12px; overflow-wrap: anywhere; }
-[data-hangyeol] .workflow-tickets .ticket-artifacts { display: flex; gap: 12px; flex-wrap: wrap; }
+[data-hangyeol] .workflow-tickets .ticket-panel { border: 1px solid var(--g-line); padding: 22px; border-radius: 18px; margin: var(--m-space-24) 0; background: var(--g-surface); }
+[data-hangyeol] .workflow-tickets .ticket-actions, [data-hangyeol] .workflow-tickets .ticket-list { display: flex; gap: var(--m-space-12); flex-wrap: wrap; align-items: center; margin: var(--m-space-14) 0; }
+[data-hangyeol] .workflow-tickets .ticket-steps { padding-left: var(--m-space-24); }
+[data-hangyeol] .workflow-tickets .ticket-step { padding: var(--m-space-16); margin: var(--m-space-14) 0; border: 1px solid var(--g-line); border-radius: 12px; overflow-wrap: anywhere; }
+[data-hangyeol] .workflow-tickets .ticket-artifacts { display: flex; gap: var(--m-space-12); flex-wrap: wrap; }
 [data-hangyeol] .workflow-tickets .ticket-artifacts a { color: #4338ca; overflow-wrap: anywhere; font-weight: 600; }
-[data-hangyeol] .workflow-tickets .partial-link { border-left: 3px solid #b45309; padding-left: 8px; }
-[data-hangyeol] .workflow-tickets .execution-plan { background: #eef2ff; padding: 20px; border-radius: 14px; border: 1px solid #c7d2fe; }
+[data-hangyeol] .workflow-tickets .partial-link { border-left: 3px solid #b45309; padding-left: var(--m-space-8); }
+[data-hangyeol] .workflow-tickets .execution-plan { background: #eef2ff; padding: var(--m-space-20); border-radius: 14px; border: 1px solid #c7d2fe; }
 [data-hangyeol] .workflow-tickets .execution-plan p, [data-hangyeol] .workflow-tickets .execution-plan li { overflow-wrap: anywhere; }
-[data-hangyeol] .workflow-tickets .execution-reasons { border-left: 3px solid #b91c1c; padding-left: 14px; }
-[data-hangyeol] .workflow-tickets .decision-evidence { border-left: 3px solid #6366f1; padding: 12px; margin: 12px 0; background: #eef2ff; min-width: 0; overflow-wrap: anywhere; }
+[data-hangyeol] .workflow-tickets .execution-reasons { border-left: 3px solid #b91c1c; padding-left: var(--m-space-14); }
+[data-hangyeol] .workflow-tickets .decision-evidence { border-left: 3px solid #6366f1; padding: var(--m-space-12); margin: var(--m-space-12) 0; background: #eef2ff; min-width: 0; overflow-wrap: anywhere; }
 [data-hangyeol] .workflow-tickets .decision-evidence pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 300px; overflow: auto; }
-[data-hangyeol] .workflow-tickets .review-panel { border: 1px solid #a5b4fc; background: #f8faff; padding: 16px; margin: 14px 0; border-radius: 12px; min-width: 0; }
-[data-hangyeol] .workflow-tickets .review-panel fieldset { min-width: 0; border: 1px solid var(--g-line); margin: 14px 0; padding: 12px; }
+[data-hangyeol] .workflow-tickets .review-panel { border: 1px solid #a5b4fc; background: #f8faff; padding: var(--m-space-16); margin: var(--m-space-14) 0; border-radius: 12px; min-width: 0; }
+[data-hangyeol] .workflow-tickets .review-panel fieldset { min-width: 0; border: 1px solid var(--g-line); margin: var(--m-space-14) 0; padding: var(--m-space-12); }
 [data-hangyeol] .workflow-tickets .review-panel pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 300px; overflow: auto; }
-[data-hangyeol] .workflow-tickets .review-panel textarea { display: block; width: 100%; min-height: 100px; resize: vertical; border: 1px solid var(--g-line); padding: 12px; border-radius: 8px; font: inherit; box-sizing: border-box; }
-[data-hangyeol] .workflow-tickets .review-panel video, [data-hangyeol] .workflow-tickets .review-panel audio { display: block; width: 100%; max-width: 560px; margin: 12px 0; }
-[data-hangyeol] .workflow-tickets .review-times { display: grid; grid-template-columns: repeat(auto-fit,minmax(120px,1fr)); gap: 12px; }
+[data-hangyeol] .workflow-tickets .review-panel textarea { display: block; width: 100%; min-height: 100px; resize: vertical; border: 1px solid var(--g-line); padding: var(--m-space-12); border-radius: 8px; font: inherit; box-sizing: border-box; }
+[data-hangyeol] .workflow-tickets .review-panel video, [data-hangyeol] .workflow-tickets .review-panel audio { display: block; width: 100%; max-width: 560px; margin: var(--m-space-12) 0; }
+[data-hangyeol] .workflow-tickets .review-times { display: grid; grid-template-columns: repeat(auto-fit,minmax(120px,1fr)); gap: var(--m-space-12); }
 [data-hangyeol] .workflow-tickets .review-sha { font-family: monospace; overflow-wrap: anywhere; }
 [data-hangyeol] .workflow-tickets .recovery-actions pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 260px; overflow: auto; }
-@media(max-width:700px) { [data-hangyeol] .workflow-tickets .ticket-panel { padding: 16px; } [data-hangyeol] .workflow-tickets .execution-plan { padding: 14px; } }
+@media(max-width:700px) { [data-hangyeol] .workflow-tickets .ticket-panel { padding: var(--m-space-16); } [data-hangyeol] .workflow-tickets .execution-plan { padding: var(--m-space-14); } }

@@ -47,7 +47,8 @@ class GraphTicketStore(TicketStore):
                     raise TicketConflict('확인한 계획/서빙/수동 선택과 다릅니다. 새 확인이 필요합니다.')
                 source = Path(source).resolve()
                 initial = source.stat()
-                if (initial.st_size, initial.st_mtime_ns) != (record['asset']['size_bytes'], record['asset']['source_mtime_ns']):
+                from .execution_authorization import approved_input
+                if (initial.st_size, initial.st_mtime_ns) != (record['asset']['size_bytes'], record['asset']['source_mtime_ns']) and not approved_input(source,record):
                     raise TicketConflict('선택한 원본 snapshot 정보가 변경되었습니다.')
                 expected = [(n['id'], n['type']) for n in record['sequence']['steps']]
                 if ([(n['id'], n['type']) for n in record['steps']] != expected
@@ -80,6 +81,10 @@ class GraphTicketStore(TicketStore):
                         raise TicketConflict('입력 산출물 무결성이 바뀌었습니다.')
                     return path
                 def node_execute(step):
+                    from .execution_authorization import node_scope
+                    generation=getattr(self,'_sessions',{}).get(identity,str(record.get('phase',0)))
+                    with node_scope(step['id'],generation):return node_execute_unscoped(step)
+                def node_execute_unscoped(step):
                     check()
                     work = ticket_dir / 'work' / step['id']
                     work.mkdir(parents=True, exist_ok=True)

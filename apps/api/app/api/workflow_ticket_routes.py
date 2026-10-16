@@ -13,7 +13,8 @@ from video_service.assets import VideoAssetRepository, AssetNotFoundError
 from video_service.capacity import assert_capacity
 from video_service.locking import JobBusyError
 
-router=APIRouter(prefix='/workflow-tickets')
+from .execution_approval_routes import GuardedRoute
+router=APIRouter(prefix='/workflow-tickets', route_class=GuardedRoute)
 ID=r'^[0-9a-f]{32}$'
 
 
@@ -66,12 +67,29 @@ def asset_input(request,asset_id):
     assets=VideoAssetRepository(SimpleNamespace(storage_root=settings_module().settings.storage_root))
     asset=assets.read(asset_id,owner_id=request.state.settings_owner);source=assets.source_path(asset);stat=source.stat()
     if stat.st_size!=asset['size_bytes']:raise TicketConflict('원본 영상 상태가 등록 정보와 다릅니다.')
-    return {'asset_id':asset['asset_id'],'original_filename':asset['original_filename'],'size_bytes':stat.st_size,'source_mtime_ns':stat.st_mtime_ns},source
+    from video_service.graph_tickets import file_sha
+    sha=file_sha(source)
+    after=source.stat()
+    if (after.st_size,after.st_mtime_ns)!=(stat.st_size,stat.st_mtime_ns):raise TicketConflict('입력 hash 검사 중 파일이 바뀌었습니다.')
+    return {'asset_id':asset['asset_id'],'original_filename':asset['original_filename'],'size_bytes':stat.st_size,'source_mtime_ns':stat.st_mtime_ns,'source_sha256':sha},source
 
 
 def verify_input(request,ticket):
+    frozen=getattr(request.state,'execution_frozen_files',{}).get('source')
+    if frozen is not None:
+        from video_service.graph_tickets import file_sha
+        from video_service.execution_authorization import active_authorization
+        active=active_authorization()
+        if active is None:raise TicketConflict('고정 입력의 실행 승인이 없습니다.')
+        execution=active['store'].execution(active['execution_id'])
+        sha=execution['context']['inputs']['source']['sha256']
+        expected=ticket.get('source_sha256') or ticket['asset'].get('source_sha256')
+        if file_sha(frozen)!=sha or (expected and expected!=sha):raise TicketConflict('실제 사용할 입력 bytes가 승인/티켓 pin과 다릅니다.')
+        return frozen
     current,source=asset_input(request,ticket['asset']['asset_id'])
-    if current!=ticket['asset']:raise TicketConflict('티켓 생성 때 선택한 영상 정보가 변경되었습니다.')
+    # Do not fabricate an initial SHA for historical tickets or silently change a review target.
+    if any(current.get(k)!=v for k,v in ticket['asset'].items()) or (ticket.get('source_sha256') and current['source_sha256']!=ticket['source_sha256']):
+        raise TicketConflict('티켓 생성/이전 실행 때 고정한 입력 bytes가 다릅니다. 추정 재사용하지 않습니다.')
     return source
 
 
@@ -104,7 +122,7 @@ async def create_ticket(request:Request):
             assert_capacity(settings_module().settings.storage_root,settings_module().settings.service_quota_bytes,settings_module().settings.min_free_space_bytes,additional=262144)
             return asset_input(request,payload.asset_id)[0]
         return store(request).create(payload.request_id,identity,lambda:DefinitionStore(settings_module().settings.storage_root,request.state.settings_owner).get(payload.definition_id),source)
-    return respond(create)
+    return await run_in_threadpool(lambda: respond(create))
 
 
 @router.get('/{identity}')
@@ -123,7 +141,7 @@ async def confirm_ticket(identity:str,request:Request):
     payload=await body(request,ConfirmRequest)
     def confirm():
         s=store(request);verify_input(request,s.get(identity));return s.confirm(identity,payload.revision,payload.token,payload.paid_confirmed,preferences(request))
-    return respond(confirm)
+    return await run_in_threadpool(lambda: respond(confirm))
 
 
 @router.post('/{identity}/start')

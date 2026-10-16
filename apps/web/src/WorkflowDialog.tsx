@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Play, X } from 'lucide-react';
 import { Job, request } from './api';
+import { executionRequest } from './execution-request';
 import {
   AudioInput,
   jsonPost,
@@ -165,7 +166,7 @@ export const WorkflowDialog = ({
     }
     inFlight.current = true;
     setBusy(true);
-    setBusyAction('티켓 생성 중');
+    setBusyAction('서버 실행 확인 대기');
     setError('');
     const serialized = JSON.stringify(payload);
     if (lastPayload.current && lastPayload.current !== serialized) {
@@ -173,7 +174,7 @@ export const WorkflowDialog = ({
     }
     lastPayload.current = serialized;
     try {
-      onCreated(await jsonPost<Job>(base + '/jobs', { ...payload, request_id: key.current }));
+      onCreated(await executionRequest<Job>(base + '/jobs', { ...payload, request_id: key.current }));
     } catch (e) {
       setError(e instanceof Error ? e.message : '작업 생성 실패');
     } finally {

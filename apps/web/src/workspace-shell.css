@@ -10,17 +10,17 @@
   border: 0;
   border-bottom: 1px solid var(--g-line);
   min-height: 76px;
-  padding: 16px 32px;
+  padding: var(--m-space-16) var(--m-space-32);
   position: sticky;
   top: 0;
   z-index: 10;
-  gap: 28px;
+  gap: var(--m-space-28);
 }
 .workspace-brand {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
-  font-size: 20px;
+  gap: var(--m-space-12);
+  font-size: var(--m-type-section-title);
   text-decoration: none;
 }
 .workspace-brand-symbol {
@@ -40,7 +40,7 @@
 .workspace-session {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: var(--m-space-16);
   min-width: 0;
 }
 .workspace-connection {
@@ -63,11 +63,11 @@
 .workspace-route-context {
   max-width: 1240px;
   margin: 0 auto;
-  padding: 24px 32px 0;
+  padding: var(--m-space-24) var(--m-space-32) 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: var(--m-space-16);
   font-size: var(--text-g-small);
   color: var(--g-soft);
 }
@@ -76,15 +76,15 @@
   width: 100%;
   max-width: 1240px;
   margin: 0 auto;
-  padding: 32px 32px 72px;
+  padding: var(--m-space-32) var(--m-space-32) var(--m-space-72);
   min-height: 0;
 }
 .renewed-workspace > .settings-page {
   max-width: 880px;
 }
 .workspace-connection-notice {
-  padding: 16px 20px;
-  margin-bottom: 24px;
+  padding: var(--m-space-16) var(--m-space-20);
+  margin-bottom: var(--m-space-24);
   border: 1px solid var(--g-line);
   border-radius: var(--radius-g-panel);
   color: var(--g-soft);
@@ -94,8 +94,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
-  margin-bottom: 32px;
+  gap: var(--m-space-24);
+  margin-bottom: var(--m-space-32);
 }
 .workspace-page-heading > div {
   min-width: 0;
@@ -104,7 +104,7 @@
   font-size: var(--text-g-title);
   line-height: var(--leading-g-title);
   font-weight: 600;
-  margin: 8px 0 12px;
+  margin: var(--m-space-8) 0 var(--m-space-12);
 }
 .workspace-eyebrow {
   font-size: var(--text-g-small);
@@ -118,7 +118,7 @@
 .workspace-page-actions {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: var(--m-space-16);
   flex-shrink: 0;
 }
 .workspace-page-actions > button {
@@ -132,8 +132,8 @@
 }
 .workspace-search {
   max-width: 560px;
-  padding: 24px;
-  margin-bottom: 24px;
+  padding: var(--m-space-24);
+  margin-bottom: var(--m-space-24);
   border: 1px solid var(--g-line);
   background: var(--g-surface);
   border-radius: var(--radius-g-panel);
@@ -144,36 +144,36 @@
 }
 @media (max-width: 639px) {
   .renewed-workspace .workspace-header {
-    padding: 16px 20px;
-    gap: 12px;
+    padding: var(--m-space-16) var(--m-space-20);
+    gap: var(--m-space-12);
   }
   .workspace-brand {
-    font-size: 18px;
+    font-size: var(--m-type-emphasis);
   }
   .workspace-session {
     margin-left: auto;
-    gap: 8px;
+    gap: var(--m-space-8);
   }
   .workspace-route-context {
-    padding: 20px 20px 0;
+    padding: var(--m-space-20) var(--m-space-20) 0;
   }
   .workspace-route-context > span {
     display: none;
   }
   .renewed-workspace > .video-main,
   .renewed-workspace > .job-detail {
-    padding: 24px 20px 48px;
+    padding: var(--m-space-24) var(--m-space-20) var(--m-space-48);
   }
   .workspace-page-heading {
     align-items: stretch;
     flex-direction: column;
-    gap: 20px;
+    gap: var(--m-space-20);
   }
   .workspace-page-actions {
     justify-content: space-between;
   }
   .workspace-search {
     max-width: none;
-    padding: 20px;
+    padding: var(--m-space-20);
   }
 }

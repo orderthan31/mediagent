@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { executionRequest } from './execution-request';
 import { ChevronLeft, ChevronRight, Plus, Save, Trash2, X, Play } from 'lucide-react';
 import { Job, request } from './api';
 import { Button } from './hangyeol/primitives/button';
@@ -121,11 +122,10 @@ export const SubtitleEditor = ({
           previous = draft.allow_imported_layout ? cue.start : cue.end;
         }
       }
-      const next = await request<Draft>(`/jobs/${job.job_id}/subtitles`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ revision: draft.revision, tracks: draft.tracks, action }),
-      });
+      const payload = { revision: draft.revision, tracks: draft.tracks, action };
+      const next = action === 'render'
+        ? await executionRequest<Draft>(`/jobs/${job.job_id}/subtitles`, payload, 'PUT')
+        : await request<Draft>(`/jobs/${job.job_id}/subtitles`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       setDraft(next);
       setDirty(false);
       setDiscard(false);

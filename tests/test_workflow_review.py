@@ -288,7 +288,8 @@ class ReviewWaitTests(unittest.TestCase):
                     start = confirm()
                     self.assertEqual(client.post(url + '/start', json=start).status_code, 409)
                     app.state.review_executor_factory = factory
-                    first = client.post(url + '/start', json=start)
+                    from approval_fixtures import approved_post
+                    first = approved_post(client,url + '/start', json=start)
                     self.assertEqual(first.status_code, 200, first.text)
                     self.assertEqual(first.json()['status'], 'awaiting_review')
                     self.assertEqual(calls, [])
@@ -341,10 +342,10 @@ class ReviewWaitTests(unittest.TestCase):
                     self.assertEqual(client.get(url).json()['status'], 'awaiting_review')
                     self.assertEqual(calls, [])
                     continuation = confirm()
-                    final = client.post(url + '/continue', json=continuation)
+                    final = approved_post(client,url + '/continue', json=continuation)
                     self.assertEqual(final.status_code, 200, final.text)
                     self.assertEqual(final.json()['status'], 'completed', final.text)
-                    self.assertEqual(client.post(url + '/continue', json=continuation).json(), final.json())
+                    self.assertEqual(approved_post(client,url + '/continue', json=continuation).json(), final.json())
                     self.assertEqual(calls, ['encode'])
                     download = client.get(url + '/artifacts/encode/video')
                     self.assertEqual(download.content, b'actual deterministic fixture output')

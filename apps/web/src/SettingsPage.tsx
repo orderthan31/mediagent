@@ -185,7 +185,7 @@ export const SettingsPage = () => {
       <div className="settings-heading">
         <h1>
           <Settings size={24} />
-          설정
+          시스템
         </h1>
         <Button
           variant="secondary"
@@ -198,10 +198,6 @@ export const SettingsPage = () => {
           {busy === 'load' ? '불러오는 중' : '설정 다시 불러오기'}
         </Button>
       </div>
-      <p className="settings-intro">
-        이 작업 공간의 전사·번역 공급자와 모델을 설정합니다. 저장한 설정은 다음 작업·재시도부터
-        적용됩니다.
-      </p>
       <StorageSettings />
       <h2>AI 공급자 설정</h2>
       {error && (

@@ -47,7 +47,7 @@ def read_draft(repository, record):
     return draft
 
 
-def write_draft(repository, record, tracks, duration, revision, *, capacity_check=None):
+def prepare_draft(record, tracks, duration, revision):
     validate_tracks(tracks, record.options, duration)
     languages = track_languages(record.options)
     normalized = {}
@@ -57,5 +57,10 @@ def write_draft(repository, record, tracks, duration, revision, *, capacity_chec
             [TranscriptSegment.from_dict(cue) for cue in tracks[name]], line_width=width)]
     validate_tracks(normalized, record.options, duration)
     draft = {"revision": revision, "duration": duration, "languages": languages, "tracks": normalized}
-    write_json_atomic(draft_path(repository, record.job_id), draft, before_write=capacity_check)
+    return draft
+
+
+def write_draft(repository, record, tracks, duration, revision, *, capacity_check=None):
+    draft=prepare_draft(record,tracks,duration,revision)
+    write_json_atomic(draft_path(repository,record.job_id),draft,before_write=capacity_check)
     return draft

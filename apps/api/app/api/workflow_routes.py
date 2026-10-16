@@ -12,6 +12,7 @@ from app.api.asset_routes import asset_errors
 from app.core.config import settings
 from app.services.request_locks import admission_lock
 from app.services.admission_capacity import check_admission_capacity
+from .execution_approval_routes import GuardedRoute
 from video_service.artifacts import SubtitleArtifactRepository
 from video_service.assets import VideoAssetRepository
 from video_service.capacity import assert_capacity, remaining_reservations
@@ -20,7 +21,7 @@ from video_service.models import JobOptions, JobRecord, JobStatus, utc_now_iso
 from video_service.workflows import WorkflowTemplate, workflow_plan
 
 
-router = APIRouter(prefix='/api/videos', dependencies=[Depends(routes.authorize_job_request)])
+router = APIRouter(prefix='/api/videos', dependencies=[Depends(routes.authorize_job_request)], route_class=GuardedRoute)
 
 
 class WorkflowOptions(BaseModel):
@@ -90,6 +91,8 @@ def create_workflow(asset_id: str, payload: WorkflowCreate, request: Request):
         metadata = {'owner_id': owner, 'asset_id': asset_id, 'source_asset_id': asset_id,
                     'workflow': plan, 'workflow_request_id': str(payload.request_id),
                     'workflow_request': identity, 'reserved_bytes': reservation, 'queued_at': utc_now_iso()}
+        authorization=getattr(request.state,'execution_authorization',None)
+        if authorization is not None:metadata['execution_authorization']=authorization
         if payload.subtitle_artifact_id:
             metadata['subtitle_input'] = artifacts.snapshot(asset_id, payload.subtitle_artifact_id,
                 directory / 'input/subtitle.json', owner_id=owner,

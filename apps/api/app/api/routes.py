@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse
 
 from app.core.config import settings
 from app.api.auth_routes import require_session
+from .execution_approval_routes import GuardedRoute
 from app.schemas.jobs import (
     ChunkUploadResponse,
     JobListResponse,
@@ -43,7 +44,7 @@ def authorize_job_request(request: Request):
             raise HTTPException(status_code=404, detail="Job을 찾을 수 없습니다.")
 
 
-router = APIRouter(prefix="/api", dependencies=[Depends(authorize_job_request)])
+router = APIRouter(prefix="/api", dependencies=[Depends(authorize_job_request)], route_class=GuardedRoute)
 repository = FilesystemJobRepository(settings.storage_root)
 upload_service = UploadService(repository, partial(assert_free_space, settings.storage_root,
     settings.min_free_space_bytes))
@@ -199,7 +200,7 @@ def complete_upload(job_id: str) -> dict[str, str]:
 
 
 @router.post("/jobs/{job_id}/start")
-def start_job(job_id: str) -> dict[str, str]:
+def start_job(job_id: str, request: Request) -> dict[str, str]:
     with admission_lock(repository), job_lock(repository, job_id):
         record = _read_job_or_404(job_id)
         if record.status == JobStatus.QUEUED:
@@ -214,7 +215,7 @@ def start_job(job_id: str) -> dict[str, str]:
                 remaining_reservations(repository))
         except StorageLimitError as exc:
             raise HTTPException(status_code=507, detail=str(exc)) from exc
-        repository.update_status(job_id, JobStatus.QUEUED, message="실행 순서 대기 중")
+        repository.update_status(job_id, JobStatus.QUEUED, message="실행 순서 대기 중", metadata={"execution_authorization":request.state.execution_authorization})
         return {"status": "queued"}
 
 
@@ -259,7 +260,7 @@ def stream_job_video(job_id: str):
 
 
 @router.put("/jobs/{job_id}/subtitles")
-def update_subtitle_draft(job_id: str, payload: SubtitleUpdate):
+def update_subtitle_draft(job_id: str, payload: SubtitleUpdate, request: Request):
     with job_lock(repository, job_id, "execution"), job_lock(repository, job_id):
         record = _read_job_or_404(job_id)
         if record.status == JobStatus.COMPLETED:
@@ -307,7 +308,7 @@ def update_subtitle_draft(job_id: str, payload: SubtitleUpdate):
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         if payload.action == "render":
-            repository.update_status(job_id, JobStatus.QUEUED, metadata={"review_ready": True})
+            repository.update_status(job_id, JobStatus.QUEUED, metadata={"review_ready": True,"execution_authorization":request.state.execution_authorization})
         return {**draft, "status": "QUEUED" if payload.action == "render" else "AWAITING_REVIEW"}
 
 
@@ -335,7 +336,7 @@ def delete_job(job_id: str) -> None:
 
 
 @router.post("/jobs/{job_id}/retry")
-def retry_job(job_id: str) -> dict[str, str]:
+def retry_job(job_id: str, request: Request) -> dict[str, str]:
     with job_lock(repository, job_id, "execution"), job_lock(repository, "0" * 32), job_lock(repository, job_id):
         record = _read_job_or_404(job_id)
         if record.status not in {JobStatus.FAILED, JobStatus.CANCELLED}:
@@ -346,6 +347,7 @@ def retry_job(job_id: str) -> dict[str, str]:
         reserved = record.metadata.get("reserved_bytes", record.expected_size * 4)
         assert_capacity(repository.storage_root, settings.service_quota_bytes, settings.min_free_space_bytes,
             remaining_reservations(repository) + max(0, reserved - used_bytes(repository.job_dir(job_id))))
+        record.metadata["execution_authorization"]=request.state.execution_authorization
         record.metadata.update(cancel_requested=False, interrupted=False, cleanup_pending=False,
             cleanup_error=None, stage_progress=None, recovery_required=False, recovery_reason=None,
             paid_operation_in_flight=False, wait_reason=None,

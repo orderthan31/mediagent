@@ -4,7 +4,7 @@
   overflow: auto;
   border: 1px solid #d6dce5;
   border-radius: 18px;
-  padding: 24px;
+  padding: var(--m-space-24);
   color: #202b3b;
   background: #f8fafc;
 }
@@ -16,13 +16,13 @@
 .faceswap-request {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--m-space-12);
   justify-content: space-between;
-  margin-bottom: 16px;
+  margin-bottom: var(--m-space-16);
 }
 .faceswap-dialog h2,
 .faceswap-dialog h3 {
-  margin: 0 0 12px;
+  margin: 0 0 var(--m-space-12);
 }
 .faceswap-dialog header p {
   overflow-wrap: anywhere;
@@ -30,7 +30,7 @@
 .faceswap-dialog > header {
   position: static;
   height: auto;
-  padding: 0 0 12px;
+  padding: 0 0 var(--m-space-12);
   background: transparent;
 }
 .faceswap-grid {
@@ -38,8 +38,8 @@
   padding: 0;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 20px;
-  margin-bottom: 20px;
+  gap: var(--m-space-20);
+  margin-bottom: var(--m-space-20);
   min-width: 0;
 }
 .faceswap-grid section {
@@ -47,12 +47,12 @@
   background: white;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
-  padding: 16px;
+  padding: var(--m-space-16);
 }
 .faceswap-dialog label {
   display: grid;
   gap: 7px;
-  margin: 12px 0;
+  margin: var(--m-space-12) 0;
 }
 .faceswap-dialog video,
 .faceswap-frame img,
@@ -62,7 +62,7 @@
 }
 .faceswap-frame {
   position: relative;
-  margin-top: 14px;
+  margin-top: var(--m-space-14);
 }
 .faceswap-frame button {
   position: absolute;
@@ -79,9 +79,9 @@
 .faceswap-faces,
 .faceswap-history {
   display: flex;
-  gap: 8px;
+  gap: var(--m-space-8);
   overflow: auto;
-  padding: 10px 0;
+  padding: var(--m-space-10) 0;
 }
 .faceswap-faces button {
   flex: 0 0 76px;
@@ -99,7 +99,7 @@
 }
 .faceswap-compare {
   position: relative;
-  margin-top: 14px;
+  margin-top: var(--m-space-14);
 }
 .faceswap-compare img + img {
   position: absolute;
@@ -107,7 +107,7 @@
 }
 .faceswap-request {
   flex-wrap: wrap;
-  padding: 10px 0;
+  padding: var(--m-space-10) 0;
   border-bottom: 1px solid #e2e8f0;
 }
 .faceswap-request span {
@@ -130,7 +130,7 @@
     grid-template-columns: 1fr;
   }
   .faceswap-dialog {
-    padding: 14px;
+    padding: var(--m-space-14);
   }
   .faceswap-session {
     flex-wrap: wrap;
@@ -140,17 +140,17 @@
   background: #f2f6fc;
   border: 1px solid #d8e5f5;
   border-radius: 10px;
-  padding: 14px 18px;
-  margin-bottom: 16px;
+  padding: var(--m-space-14) var(--m-space-18);
+  margin-bottom: var(--m-space-16);
   line-height: 1.6;
 }
 .faceswap-guide p {
-  margin: 6px 0 0;
+  margin: var(--m-space-6) 0 0;
 }
 .faceswap-checks {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 16px;
+  gap: var(--m-space-8) var(--m-space-16);
 }
 .faceswap-checks label {
   display: flex;
@@ -159,10 +159,10 @@
 .faceswap-padding {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: var(--m-space-10);
 }
 .faceswap-padding input { width: 100%; min-width: 0; }
-.faceswap-dialog details { margin: 16px 0; }
+.faceswap-dialog details { margin: var(--m-space-16) 0; }
 .faceswap-source { grid-column: 1 / -1; order: 0; }
 .faceswap-source .faceswap-frame { display: none; }
 .faceswap-source .faceswap-faces { padding-bottom: 0; }

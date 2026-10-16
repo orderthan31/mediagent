@@ -13,17 +13,16 @@ import {
   X,
 } from 'lucide-react';
 import { base, Job, request, resumeUpload, uploadRequest } from './api';
-import { AccountMenu } from './AuthGate';
 import { JobDetail } from './JobDetail';
 import { SettingsPage } from './SettingsPage';
 import { ModelRegistryPage } from './ModelRegistryPage';
+import { ServingPage } from './ServingPage';
 import { WorkflowStart } from './WorkflowStart';
 import { WorkflowEditor } from './WorkflowEditor';
 import { WorkflowTickets } from './WorkflowTickets';
 import { failureMessage, isContentBlocked } from './job-failure';
 import { StageProgress } from './StageProgress';
-import { QueuePanel } from './QueuePanel';
-import { JobTiming } from './JobTiming';
+import { ExecutionPopover } from './ExecutionPopover';
 import { SubtitleEditor } from './SubtitleEditor';
 import { UploadItem, UploadQueue } from './upload-queue';
 import { isVideoFile } from './video-file';
@@ -39,29 +38,23 @@ import {
   VideoUpload,
 } from './video-api';
 import { Theme } from './hangyeol/foundation/theme';
-import { GNB } from './hangyeol/components/gnb';
-import { TextField } from './hangyeol/components/text-field';
+import { WorkspaceChrome } from './WorkspaceChrome';
+import { WorkflowCatalog } from './WorkflowCatalog';
+import { AgentCatalog } from './AgentCatalog';
 import { Button } from './hangyeol/primitives/button';
 import { EmptyState } from './hangyeol/components/empty-state';
 import { StorageAssetRow, StorageVideoInfo } from './StorageVideo';
 import { StorageUploads } from './StorageUploads';
+import { executionRequest } from './execution-request';
 import './video-workspace.css';
 import './workspace-polish.css';
 import './workspace-shell.css';
 import './storage.css';
 import './feature-renewal.css';
-const workspaceLinks = [
-  { id: 'start', label: '작업 시작', href: '#/start' },
-  { id: 'work-tickets', label: '작업 티켓', href: '#/work-tickets' },
-  { id: 'videos', label: '영상 보관함', href: '#/' },
-  { id: 'jobs', label: '작업 목록', href: '#/jobs' },
-  { id: 'serving', label: '서빙 관리', href: '#/serving' },
-  { id: 'editor', label: '워크플로우 구성', href: '#/workflow-editor' },
-
-  { id: 'settings', label: '설정', href: '#/settings' },
-];
 export const VideoWorkspace = () => {
-  const [route, setRoute] = useState(location.hash || '#/start'),
+  const [agentLabel, setAgentLabel] = useState('');
+  const agentIdentity = location.hash.startsWith('#/agents/') ? decodeURIComponent(location.hash.slice('#/agents/'.length)) : undefined;
+  const [route, setRoute] = useState(location.hash || '#/jobs'),
     [videos, setVideos] = useState<VideoAsset[]>([]),
     [jobs, setJobs] = useState<Job[]>([]),
     [sessions, setSessions] = useState<VideoUpload[]>([]);
@@ -121,8 +114,11 @@ export const VideoWorkspace = () => {
   const settingsView = route === '#/settings';
   const startView = route === '#/start';
   const productTicketsView = route === '#/work-tickets' || route === '#/recovery-tickets';
-  const servingView = route === '#/serving';
-  const editorView = route === '#/workflow-editor';
+  const servingView = route === '#/serving' || route.startsWith('#/serving/');
+  const modelIdentity = route.match(/^#\/serving\/([a-f0-9]{32})/)?.[1];
+  const workflowIdentity = route.match(/^#\/workflows\/([a-f0-9]{32})/)?.[1];
+  const editorView = route === '#/workflows/new' || /^#\/workflows\/[a-f0-9]{32}\/edit$/.test(route);
+  const catalogView = route === '#/workflows' || route === '#/workflow-editor' || (!!workflowIdentity && !editorView);
   const graphTicketsView = route === '#/graph-tickets';
   const decisionTicketsView = route === '#/decision-tickets';
   const reviewTicketsView = route === '#/review-tickets';
@@ -132,52 +128,6 @@ export const VideoWorkspace = () => {
     graphTicketsView ||
     reviewTicketsView ||
     decisionTicketsView;
-  const currentHref = startView
-    ? '#/start'
-    : productTicketsView
-      ? '#/work-tickets'
-      : decisionTicketsView
-        ? '#/decision-tickets'
-        : reviewTicketsView
-          ? '#/review-tickets'
-          : workflowTicketsView
-            ? graphTicketsView
-              ? '#/graph-tickets'
-              : '#/workflow-tickets'
-            : editorView
-              ? '#/workflow-editor'
-              : servingView
-                ? '#/serving'
-                : settingsView
-                  ? '#/settings'
-                  : jobsView || jobId
-                    ? '#/jobs'
-                    : '#/';
-  const locationLabel = startView
-    ? '작업 시작'
-    : productTicketsView
-      ? '작업 티켓'
-      : decisionTicketsView
-        ? 'AI 판단 워크플로우 티켓'
-        : reviewTicketsView
-          ? '사람 검수 워크플로우 티켓'
-          : workflowTicketsView
-            ? graphTicketsView
-              ? '분기·병렬 워크플로우 티켓'
-              : '순차 워크플로우 티켓'
-            : editorView
-              ? '워크플로우 편집기'
-              : servingView
-                ? '노드·서빙'
-                : settingsView
-                  ? '설정'
-                  : jobId
-                    ? '작업 목록 / 작업 상세'
-                    : jobsView
-                      ? '작업 목록'
-                      : assetId
-                        ? '영상 보관함 / 영상 상세'
-                        : '영상 보관함';
   const shownVideos = videos.filter((v) =>
     v.original_filename.toLocaleLowerCase().includes(query.toLocaleLowerCase()),
   );
@@ -281,14 +231,14 @@ export const VideoWorkspace = () => {
   const terminal = (j: Job) => ['COMPLETED', 'FAILED', 'CANCELLED'].includes(j.status);
   const jobRows = (items: Job[]) => {
     return (
-      <div className="video-job-list">
+      <div className="ui02-list">
         {items.map((job) => (
-          <article key={job.job_id} className="video-job-row">
-            <div>
-              <a className="job-title" href={`#/jobs/${job.job_id}`}>
+          <article key={job.job_id} className="ui02-list-item">
+            <div className="ui02-list-copy">
+              <a className="ui02-list-title" href={`#/jobs/${job.job_id}`}>
                 {job.original_filename}
               </a>
-              <p>
+              <p className="ui02-list-meta">
                 {templates[job.metadata.workflow?.template || 'full']} ·{' '}
                 {new Date(job.created_at).toLocaleString('ko-KR')}
               </p>
@@ -305,7 +255,7 @@ export const VideoWorkspace = () => {
                 </p>
               )}
             </div>
-            <div className="row-actions">
+            <div className="row-actions ui02-list-actions">
               {job.status === 'UPLOADING' && (
                 <button
                   className="icon"
@@ -322,9 +272,7 @@ export const VideoWorkspace = () => {
                   disabled={!!busy}
                   onClick={() =>
                     void action(job.job_id, () =>
-                      request(`/jobs/${job.job_id}/${job.status === 'READY' ? 'start' : 'retry'}`, {
-                        method: 'POST',
-                      }),
+                      executionRequest(`/jobs/${job.job_id}/${job.status === 'READY' ? 'start' : 'retry'}`),
                     )
                   }
                 >
@@ -364,25 +312,9 @@ export const VideoWorkspace = () => {
                   원본 등록
                 </button>
               )}
-              {terminal(job) && (
-                <button
-                  className="icon danger"
-                  title="작업 삭제"
-                  onClick={() =>
-                    setConfirm({
-                      title: `${job.original_filename} 작업과 결과 파일을 삭제할까요?`,
-                      action: async () => {
-                        await request(`/jobs/${job.job_id}`, { method: 'DELETE' });
-                      },
-                    })
-                  }
-                >
-                  <Trash2 size={17} />
-                </button>
-              )}
+
             </div>
-            <StageProgress job={job} />
-            <JobTiming job={job} />
+            <div className="ui02-list-extra"><StageProgress job={job} /></div>
           </article>
         ))}
         {!items.length && (
@@ -478,33 +410,35 @@ export const VideoWorkspace = () => {
   }, [assetId]);
   return (
     <Theme mode="light" palette="Indigo" className="workspace-theme">
-      <div className="video-workspace renewed-workspace">
-        <GNB
-          className="workspace-header"
-          items={workspaceLinks}
-          currentHref={currentHref}
-          label="작업 공간 탐색"
-          logo={
-            <a className="workspace-brand" href="#/" aria-label="mideagent 영상 보관함">
-              <span className="workspace-brand-symbol" aria-hidden="true">
-                <FileVideo size={22} />
-              </span>
-              <strong>mideagent</strong>
-            </a>
-          }
-          actions={
-            <div className="workspace-session">
-              <span className={'workspace-connection ' + (online ? 'online' : '')} role="status">
-                {online ? '서버 연결됨' : '서버 연결 확인 필요'}
-              </span>
-              <AccountMenu />
-            </div>
-          }
-        />
-        <div className="workspace-route-context">
-          <p aria-label="현재 위치">{locationLabel}</p>
-          <span>영상·자막 작업 공간</span>
-        </div>
+      <div className="video-workspace renewed-workspace ui02-workspace">
+        <WorkspaceChrome route={route} agentLabel={agentLabel} query={query} onQuery={setQuery}
+          onUpload={() => { resume.current = null; input.current?.click(); }}
+          uploadCount={uploads.length + pendingSessions.length}
+          uploadContent={<StorageUploads
+                    uploads={uploads}
+                    sessions={pendingSessions}
+                    online={online}
+                    busy={busy}
+                    onPause={(key) => queue.pause(key)}
+                    onResume={(key) => queue.resume(key)}
+                    onRemove={(key) => queue.remove(key)}
+                    onRegister={(id) =>
+                      void action(id, () =>
+                        request(`/video-uploads/${id}/complete`, { method: 'POST' }),
+                      )
+                    }
+                    onChooseResume={(id) => chooseResume(id)}
+                    onDeleteSession={(session) =>
+                      setConfirm({
+                        title: `${session.filename} 업로드를 삭제할까요?`,
+                        action: async () => {
+                          await request(`/video-uploads/${session.upload_id}`, {
+                            method: 'DELETE',
+                          });
+                        },
+                      })
+                    }
+                  />} />
         <input
           ref={input}
           type="file"
@@ -542,10 +476,14 @@ export const VideoWorkspace = () => {
             graph={graphTicketsView || reviewTicketsView}
             review={reviewTicketsView}
           />
+        ) : (route === '#/agents' || route.startsWith('#/agents/')) ? (
+          <AgentCatalog key={route} query={query} identity={agentIdentity} onLabel={setAgentLabel} />
+        ) : catalogView ? (
+          <WorkflowCatalog query={query} identity={workflowIdentity} />
         ) : editorView ? (
-          <WorkflowEditor />
+          <WorkflowEditor key={route} initialId={workflowIdentity} />
         ) : servingView ? (
-          <ModelRegistryPage />
+          route === '#/serving/roles' ? <ServingPage /> : <ModelRegistryPage key={route} form={route === '#/serving/new' || route.endsWith('/edit')} identity={modelIdentity} query={query} />
         ) : settingsView ? (
           <SettingsPage />
         ) : jobId ? (
@@ -651,74 +589,12 @@ export const VideoWorkspace = () => {
               <>
                 <div className="workspace-page-heading">
                   <div>
-                    <p className="workspace-eyebrow">{jobsView ? '실행과 검수' : '원본 영상'}</p>
-                    <h1>{jobsView ? '작업 목록' : '영상 보관함'}</h1>
-                    <p className="workspace-page-description">
-                      {jobsView
-                        ? '생성한 작업의 진행 상태와 결과를 확인하세요.'
-                        : '보관된 영상을 찾고, 필요한 작업을 이어가세요.'}
-                    </p>
+                    <h1>{jobsView ? '작업' : '원본'}</h1>
                   </div>
-                  <div className="workspace-page-actions">
-                    <span>
-                      {online
-                        ? `${jobsView ? jobs.length : videos.length}개`
-                        : hasConfirmedList
-                          ? `마지막 확인 ${jobsView ? jobs.length : videos.length}개 · 최신이 아닐 수 있음`
-                          : listFailed
-                            ? '개수 확인 불가'
-                            : '개수 확인 중'}
-                    </span>
-                    <Button
-                      onClick={() => {
-                        resume.current = null;
-                        input.current?.click();
-                      }}
-                    >
-                      <Upload size={17} aria-hidden="true" />
-                      영상 업로드
-                    </Button>
-                  </div>
+
                 </div>
-                {jobsView && <QueuePanel jobs={jobs} onChanged={refresh} />}
-                {!jobsView && (
-                  <StorageUploads
-                    uploads={uploads}
-                    sessions={pendingSessions}
-                    online={online}
-                    busy={busy}
-                    onPause={(key) => queue.pause(key)}
-                    onResume={(key) => queue.resume(key)}
-                    onRemove={(key) => queue.remove(key)}
-                    onRegister={(id) =>
-                      void action(id, () =>
-                        request(`/video-uploads/${id}/complete`, { method: 'POST' }),
-                      )
-                    }
-                    onChooseResume={(id) => chooseResume(id)}
-                    onDeleteSession={(session) =>
-                      setConfirm({
-                        title: `${session.filename} 업로드를 삭제할까요?`,
-                        action: async () => {
-                          await request(`/video-uploads/${session.upload_id}`, {
-                            method: 'DELETE',
-                          });
-                        },
-                      })
-                    }
-                  />
-                )}
-                <div className="workspace-search">
-                  <TextField
-                    label={jobsView ? '작업 검색' : '영상 검색'}
-                    type="search"
-                    placeholder="파일 이름으로 검색"
-                    prefix={<Search size={18} aria-hidden="true" />}
-                    value={query}
-                    onValueChange={setQuery}
-                    clearable
-                  />
-                </div>
+                {jobsView && <ExecutionPopover jobs={jobs} onChanged={refresh} />}
+
                 {jobsView ? (
                   jobRows(
                     jobs.filter((j) =>
@@ -739,11 +615,7 @@ export const VideoWorkspace = () => {
                         className="storage-empty"
                         illustration={<FolderOpen size={32} aria-hidden="true" />}
                         heading={query ? '검색 결과가 없습니다.' : '등록된 원본 영상이 없습니다.'}
-                        description={
-                          query
-                            ? '다른 파일 이름으로 검색하거나 검색어를 지워주세요.'
-                            : '영상 업로드로 원본을 보관하고 작업을 시작하세요.'
-                        }
+                        
                       />
                     )}
                   </div>

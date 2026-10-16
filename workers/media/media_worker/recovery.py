@@ -6,6 +6,9 @@ from video_service.models import JobStatus, utc_now_iso
 def recover_interrupted(repo, record):
     if os.getenv('AUTO_RESUME_INTERRUPTED', 'false').lower() != 'true':
         return False
+    if record.metadata.get('execution_authorization'):
+        repo.update_status(record.job_id,JobStatus.FAILED,error='서버 승인을 소비한 중단 실행입니다. 자동 재큐잉하지 않으며 결과/위험과 새 남은 계획 확인이 필요합니다.',metadata={'interrupted':True,'recovery_required':True,'wait_reason':None,'stage_progress':None})
+        return True
     # Do not unexpectedly rerun historical failures when this feature is deployed.
     if record.metadata.get('recovery_policy_version') != 1:
         return False

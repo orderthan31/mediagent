@@ -12,7 +12,8 @@ from video_service.capacity import assert_capacity
 from .workflow_ticket_routes import (TicketOptions, TicketCreate, PlanRequest, ConfirmRequest,
                                      body, respond, settings_module, preferences, asset_input, verify_input)
 
-router = APIRouter(prefix='/graph-tickets')
+from .execution_approval_routes import GuardedRoute
+router = APIRouter(prefix='/graph-tickets', route_class=GuardedRoute)
 
 
 class GraphOptions(TicketOptions):
@@ -58,7 +59,7 @@ async def create_ticket(request: Request):
             return asset_input(request, payload.asset_id)[0]
         return store(request).create(payload.request_id, identity,
             lambda: DefinitionStore(settings_module().settings.storage_root, request.state.settings_owner).get(payload.definition_id), source)
-    return respond(create)
+    return await run_in_threadpool(lambda: respond(create))
 
 
 @router.get('/{identity}')
@@ -82,7 +83,7 @@ async def confirm_ticket(identity: str, request: Request):
         s = store(request)
         verify_input(request, s.get(identity))
         return s.confirm(identity, payload.revision, payload.token, payload.paid_confirmed, preferences(request))
-    return respond(confirm)
+    return await run_in_threadpool(lambda: respond(confirm))
 
 
 @router.post('/{identity}/start')

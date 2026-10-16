@@ -36,11 +36,11 @@ export const NodeModelBinding = ({
     }
   }, [role]);
   if (!role) {
-    return <p className="editor-help">이 처리 노드는 모델 없이 아래 처리 옵션을 사용합니다.</p>;
+    return <p className="editor-help">이 처리 에이전트는 모델 없이 아래 처리 옵션을 사용합니다.</p>;
   }
   return (
     <section className="node-model-binding">
-      <h4>노드 모델</h4>
+      <h4>에이전트 모델</h4>
       {error && <p role="alert">{error} 현재 참조는 유지합니다.</p>}
       <label>
         호환 등록 모델

@@ -9,6 +9,7 @@ from uuid import uuid4
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT / 'packages/shared'), str(ROOT / 'apps/api'), str(ROOT / 'workers/media')]
 from fastapi.testclient import TestClient
+from approval_fixtures import approved_post
 from app.api import routes, asset_routes, workflow_routes
 from app.main import app
 from media_worker.worker import Worker
@@ -53,7 +54,7 @@ class WorkflowExecutionTests(unittest.TestCase):
             response = self.client.post(self.base + '/subtitles', json={'filename': 'input.srt',
                 'language': 'en', 'content': '1\n00:00:01,250 --> 00:00:02,750\nSelected input.\n'})
             payload['subtitle_artifact_id'] = response.json()['artifact_id']
-        response = self.client.post(self.base + '/jobs', json=payload)
+        response = approved_post(self.client, self.base + '/jobs', json=payload)
         self.assertEqual(response.status_code, 201, response.text)
         return response.json()['job_id'], payload
 
@@ -104,7 +105,7 @@ class WorkflowExecutionTests(unittest.TestCase):
 
     def test_creation_idempotency_and_snapshot_survives_attachment_change(self):
         job_id, payload = self.create('translate', subtitle=True)
-        self.assertEqual(self.client.post(self.base + '/jobs', json=payload).json()['job_id'], job_id)
+        self.assertEqual(approved_post(self.client, self.base + '/jobs', json=payload).json()['job_id'], job_id)
         self.assertEqual(self.client.post(self.base + '/jobs', json={**payload, 'template': 'full'}).status_code, 409)
         artifact = self.root / '.assets' / self.asset['asset_id'] / 'subtitles' / (payload['subtitle_artifact_id'] + '.json')
         artifact.unlink()
@@ -117,7 +118,8 @@ class WorkflowExecutionTests(unittest.TestCase):
         self.provider.translate.side_effect = RuntimeError('mock failure')
         self.assertEqual(self.execute(job_id)[0].status, JobStatus.FAILED)
         self.provider.translate.side_effect = lambda segments, *a, **k: segments
-        self.repo.update_status(job_id, JobStatus.QUEUED)
+        retry=approved_post(self.client,'/api/jobs/'+job_id+'/retry',json={})
+        self.assertEqual(retry.status_code,200,retry.text)
         self.assertEqual(self.execute(job_id)[0].status, JobStatus.COMPLETED)
         self.assertEqual(self.provider.transcribe.call_count, 1)
 
@@ -152,7 +154,7 @@ class WorkflowExecutionTests(unittest.TestCase):
         payload = {'request_id': str(uuid4()), 'template': 'transcribe', 'audio_job_id': source_id}
         plan = self.client.post(self.base + '/workflow-plan', json={'template': 'transcribe', 'audio_job_id': source_id})
         self.assertNotIn('extract_audio', plan.json()['stages'])
-        response = self.client.post(self.base + '/jobs', json=payload)
+        response = approved_post(self.client, self.base + '/jobs', json=payload)
         self.assertEqual(response.status_code, 201, response.text)
         target_id = response.json()['job_id']
         self.repo.delete_job_dir(source_id)
@@ -166,20 +168,23 @@ class WorkflowExecutionTests(unittest.TestCase):
     def test_audio_snapshot_tampering_fails_before_provider(self):
         source_id, _ = self.create('extract_audio')
         self.execute(source_id)
-        response = self.client.post(self.base + '/jobs', json={
+        response = approved_post(self.client, self.base + '/jobs', json={
             'request_id': str(uuid4()), 'template': 'transcribe', 'audio_job_id': source_id})
         target_id = response.json()['job_id']
-        (self.repo.job_dir(target_id) / 'input/audio.wav').write_bytes(b'changed')
+        from video_service.execution_authorization import AuthorizationStore
+        store=AuthorizationStore(self.root)
+        execution=store.execution(self.repo.read(target_id).metadata['execution_authorization']['execution_id'])
+        (self.root/execution['sealed_inputs']['audio']).write_bytes(b'changed')
         record = self.execute(target_id)[0]
         self.assertEqual(record.status, JobStatus.FAILED)
-        self.assertIn('integrity', record.error)
+        self.assertIn('고정 입력', record.error)
         self.provider.transcribe.assert_not_called()
 
     def test_imported_multiline_overlapping_srt_stays_editable(self):
         content = '1\n00:00:00,000 --> 00:00:02,000\nOne\nTwo\nThree\n\n2\n00:00:01,000 --> 00:00:03,000\nOverlap\n'
         artifact = self.client.post(self.base + '/subtitles', json={
             'filename': 'input.srt', 'language': 'en', 'content': content}).json()
-        response = self.client.post(self.base + '/jobs', json={'request_id': str(uuid4()),
+        response = approved_post(self.client, self.base + '/jobs', json={'request_id': str(uuid4()),
             'template': 'encode', 'subtitle_artifact_id': artifact['artifact_id']})
         job_id = response.json()['job_id']
         record = self.execute(job_id)[0]

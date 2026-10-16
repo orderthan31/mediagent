@@ -53,6 +53,11 @@ class RegisteredDecisionProvider:
         self.paid_allowed=paid_allowed;self.transport=transport;self.check=check
 
     def decide(self,context):
+        from video_service.execution_authorization import external_call
+        if self.paid_allowed is not True:raise PermissionError('명시 확인한 판단 모델 호출 허용이 없습니다.')
+        return external_call(self.provider,self.model,context,lambda:self._decide(context))
+
+    def _decide(self,context):
         if self.paid_allowed is not True:
             raise PermissionError('명시 확인한 판단 모델 호출 허용이 없습니다.')
         self.check()

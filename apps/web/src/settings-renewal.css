@@ -5,35 +5,35 @@
   margin-inline: auto;
 }
 .settings-renewal .settings-heading {
-  gap: 20px;
+  gap: var(--m-space-20);
   flex-wrap: wrap;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: var(--m-space-12);
 }
 .settings-renewal h1 {
   margin: 0;
-  font-size: 28px;
+  font-size: var(--text-g-title);
   letter-spacing: -0.04em;
 }
 .settings-renewal .settings-intro {
   color: var(--g-soft);
   line-height: 1.7;
-  margin: 0 0 28px;
+  margin: 0 0 var(--m-space-28);
 }
 .settings-renewal fieldset {
   border: 1px solid var(--g-line);
   border-radius: 16px;
-  padding: 24px;
-  margin: 24px 0;
+  padding: var(--m-space-24);
+  margin: var(--m-space-24) 0;
   background: var(--g-surface);
 }
 .settings-renewal legend {
-  padding-inline: 8px;
+  padding-inline: var(--m-space-8);
   color: var(--g-ink);
-  font-size: 18px;
+  font-size: var(--m-type-emphasis);
 }
 .settings-renewal label {
-  font-size: 14px;
+  font-size: var(--text-g-small);
   font-weight: 600;
 }
 .settings-renewal input:not([type='checkbox']),
@@ -52,7 +52,7 @@
 .settings-renewal .settings-help,
 .settings-renewal .settings-model-id {
   color: var(--g-soft);
-  font-size: 13px;
+  font-size: var(--m-type-note);
   line-height: 1.8;
   font-weight: 400;
   overflow-wrap: anywhere;
@@ -62,29 +62,29 @@
   display: block;
 }
 .settings-renewal .settings-help {
-  margin: 10px 0 16px;
+  margin: var(--m-space-10) 0 var(--m-space-16);
 }
 .settings-renewal .settings-provider-status {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
-  gap: 12px;
+  gap: var(--m-space-12);
   padding: 0;
   list-style: none;
-  margin: 20px 0 24px;
+  margin: var(--m-space-20) 0 var(--m-space-24);
 }
 .settings-renewal .settings-provider-status li {
   display: flex;
   flex-wrap: wrap;
   align-content: start;
-  gap: 8px;
-  padding: 14px;
+  gap: var(--m-space-8);
+  padding: var(--m-space-14);
   min-width: 0;
   border: 1px solid var(--g-line);
   border-radius: 12px;
 }
 .settings-renewal .settings-provider-status strong {
   width: 100%;
-  font-size: 14px;
+  font-size: var(--text-g-small);
 }
 .settings-renewal .settings-provider-status span {
   white-space: normal;
@@ -93,20 +93,20 @@
 .settings-renewal .key-status,
 .settings-renewal .settings-pending {
   color: var(--g-action);
-  font-size: 14px;
+  font-size: var(--text-g-small);
   line-height: 1.7;
 }
 .settings-renewal .settings-key-row {
-  gap: 16px;
+  gap: var(--m-space-16);
   flex-wrap: wrap;
-  margin-top: 16px;
+  margin-top: var(--m-space-16);
 }
 .settings-renewal .settings-key-row label {
   min-width: 180px;
 }
 .settings-renewal .settings-model-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 24px;
+  gap: var(--m-space-24);
 }
 .settings-renewal .settings-toggle {
   align-items: start;
@@ -122,14 +122,14 @@
 .settings-renewal [role='alert'] {
   color: var(--g-danger);
   background: var(--g-surface);
-  padding: 16px;
+  padding: var(--m-space-16);
   border: 1px solid var(--g-danger);
   border-radius: 12px;
   overflow-wrap: anywhere;
   line-height: 1.7;
 }
 .settings-renewal [role='status'] {
-  padding: 16px;
+  padding: var(--m-space-16);
   border: 1px solid var(--g-line);
   border-radius: 12px;
   color: var(--g-ink);
@@ -137,7 +137,7 @@
   line-height: 1.7;
 }
 .settings-renewal .settings-actions {
-  padding-block: 8px 24px;
+  padding-block: var(--m-space-8) var(--m-space-24);
 }
 .account-menu .account-username {
   display: block;
@@ -148,7 +148,7 @@
 }
 @media (max-width: 640px) {
   .settings-renewal fieldset {
-    padding: 18px;
+    padding: var(--m-space-18);
   }
   .settings-renewal .settings-model-grid {
     grid-template-columns: minmax(0, 1fr);
@@ -157,10 +157,10 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .settings-renewal .settings-provider-status li {
-    padding: 10px;
+    padding: var(--m-space-10);
   }
   .settings-renewal h1 {
-    font-size: 24px;
+    font-size: var(--m-type-page-small);
   }
   .settings-renewal .settings-heading > button {
     width: 100%;
@@ -172,7 +172,7 @@
     max-width: 64px;
   }
   .account-menu > button {
-    padding-inline: 8px;
+    padding-inline: var(--m-space-8);
     white-space: nowrap;
   }
 }

@@ -19,6 +19,9 @@ const pause = (ms: number, signal?: AbortSignal | null) =>
 
 export const canRetryBusy = (path: string, init?: RequestInit) => {
   const method = (init?.method || 'GET').toUpperCase();
+  if (method !== 'GET' && (new Headers(init?.headers).has('X-Execution-Approval') || /^\/(?:settings\/[^/]+-tickets\/[^/]+\/(?:start|continue)|videos\/[^/]+\/jobs|jobs\/[^/]+\/(?:start|retry))$/.test(path))) {
+    return false;
+  }
   if (method === 'GET' || method === 'HEAD') {
     return true;
   }

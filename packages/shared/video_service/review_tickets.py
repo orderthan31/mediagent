@@ -183,7 +183,8 @@ class ReviewTicketStore(GraphTicketStore):
                     raise TicketConflict('정확한 승인 수정본/미실행 계획/서빙을 새로 확인하세요. 재시도/복구는 제공하지 않습니다.')
                 source = Path(source).resolve()
                 stat = source.stat()
-                if (stat.st_size, stat.st_mtime_ns) != (record['asset']['size_bytes'], record['asset']['source_mtime_ns']):
+                from .execution_authorization import approved_input
+                if (stat.st_size, stat.st_mtime_ns) != (record['asset']['size_bytes'], record['asset']['source_mtime_ns']) and not approved_input(source,record):
                     raise TicketConflict('고정한 원본 정보가 변경되었습니다.')
                 source_sha = file_sha(source)
                 if record.get('source_sha256', source_sha) != source_sha:
@@ -230,6 +231,10 @@ class ReviewTicketStore(GraphTicketStore):
                     resolve(meta)
                 execute = self._make_executor(record, bound, executor_factory, execution)
                 def node_execute(step):
+                    from .execution_authorization import node_scope
+                    generation=getattr(self,'_sessions',{}).get(identity,str(record.get('phase',0)))
+                    with node_scope(step['id'],generation):return node_execute_unscoped(step)
+                def node_execute_unscoped(step):
                     self._before_node(record, step)
                     check()
                     work = ticket_dir / 'work' / step['id']

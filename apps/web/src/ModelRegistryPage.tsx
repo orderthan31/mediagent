@@ -4,12 +4,11 @@ import { jsonPost } from './video-api';
 import { Button } from './hangyeol/primitives/button';
 import { Input } from './hangyeol/primitives/input';
 import { type RegisteredModel, modelUseLabels } from './registered-models';
-import { ServingPage } from './ServingPage';
 import './serving.css';
 import './workflow-tickets.css';
 
 const endpoint = '/settings/registered-models';
-export const ModelRegistryPage = () => {
+export const ModelRegistryPage = ({ form = false, identity, query = '' }: { form?: boolean; identity?: string; query?: string }) => {
   const [models, setModels] = useState<RegisteredModel[]>([]);
   const [providers, setProviders] = useState<Record<string, string>>({});
   const [editing, setEditing] = useState<RegisteredModel | null>(null);
@@ -77,7 +76,7 @@ export const ModelRegistryPage = () => {
     setModel(version.model);
     setUses(version.uses);
     setCompatible([]);
-    setStatus('기존 노드 pin은 유지합니다. 수정 저장은 새 revision입니다.');
+    setStatus('기존 에이전트 pin은 유지합니다. 수정 저장은 새 revision입니다.');
     setBusy(true);
     try {
       const data = await jsonPost<{ uses: string[] }>(endpoint + '/compatibility', {
@@ -137,21 +136,20 @@ export const ModelRegistryPage = () => {
   useEffect(() => {
     void load();
   }, []);
+  useEffect(() => {
+    const row = models.find(item => item.id === identity);
+    if (form && row && editing?.id !== row.id) void edit(row);
+  }, [form, identity, models, editing?.id]);
   return (
     <main className="serving-page workflow-tickets model-registry">
       <div className="serving-heading">
         <div>
-          <p className="workspace-eyebrow">서빙</p>
-          <h1>모델 관리</h1>
+          <h1>{form ? identity ? '모델 편집' : '모델 추가' : '서빙'}</h1>
         </div>
         <Button variant="secondary" disabled={busy || loading} onClick={() => void load()}>
           등록 목록 새로 읽기
         </Button>
       </div>
-      <p>
-        모델을 등록한 뒤 워크플로우의 해당 노드에 정확한 revision을 연결하세요. 등록·키 보유·adapter
-        호환은 실제 연결/추론 성공이 아닙니다.
-      </p>
       {listError && (
         <p role="alert" className="alert list-query-error">
           목록 조회 실패 · {listError}
@@ -168,6 +166,7 @@ export const ModelRegistryPage = () => {
         </p>
       )}
       {status && <p role="status">{status}</p>}
+      {form && <>
       <section className="ticket-panel">
         <h2>{editing ? '등록 항목 수정 · 새 revision' : '모델 등록'}</h2>
         <fieldset disabled={busy || loading}>
@@ -245,32 +244,30 @@ export const ModelRegistryPage = () => {
             </Button>
           </div>
         </fieldset>
-        <p className="serving-help">
-          키 입력/복사는 하지 않습니다. 기존 키 보관소를 실행 시 해석합니다. 수정은 새 revision이며
-          기존 정의/티켓을 자동 교체하지 않습니다.
-        </p>
+        {editing && <p className="serving-help">새 revision으로 저장 · 기존 작업의 모델 고정값 유지</p>}
       </section>
-      <section className="ticket-panel">
-        <h2>등록 모델</h2>
+      </>}
+      {!form && <>
+      <section className="ui02-list" aria-label="등록 모델">
         {loading ? (
           <p>등록 목록 읽는 중</p>
         ) : listConfirmed && !listError && models.length === 0 ? (
-          <p>등록 모델 없음. 모델 없는 처리 노드는 등록 없이 사용할 수 있습니다.</p>
+          <p>등록 모델 없음</p>
         ) : (
-          models.map((row) => {
+          models.filter(row => (!identity || row.id === identity) && row.versions[String(row.current_revision)].name.toLocaleLowerCase().includes(query.toLocaleLowerCase())).map((row) => {
             const current = row.versions[String(row.current_revision)];
             return (
-              <article className="ticket-step" key={row.id}>
-                <h3>
-                  {current.name} · r{row.current_revision}
+              <article className="ui02-list-item" key={row.id}>
+                <div className="ui02-list-copy"><h3 className="ui02-list-title">
+                  <a href={'#/serving/' + row.id}>{current.name}</a> · r{row.current_revision}
                 </h3>
                 <p>
                   {current.provider} / {current.model} · {row.active ? '사용 가능' : '사용 중지'} ·
-                  실연결 미확인
+                  연결 미확인
                 </p>
-                <p>{current.uses.map((u) => modelUseLabels[u]).join(' / ')}</p>
-                <div className="ticket-actions">
-                  <Button variant="secondary" disabled={busy} onClick={() => void edit(row)}>
+                <p className="ui02-list-meta">{current.uses.map((u) => modelUseLabels[u]).join(' / ')}</p>
+                </div><div className="ticket-actions ui02-list-actions">
+                  <Button variant="secondary" disabled={busy} onClick={() => { location.hash = '/serving/' + row.id + '/edit'; }}>
                     수정 {current.name}
                   </Button>
                   <Button
@@ -281,23 +278,21 @@ export const ModelRegistryPage = () => {
                     {row.active ? '사용 중지' : '사용 가능으로 변경'}
                   </Button>
                 </div>
-                <details>
-                  <summary>불변 revision 이력</summary>
+                {identity && <details className="ui02-list-extra">
+                  <summary>revision 이력</summary>
                   {Object.values(row.versions).map((v) => (
                     <p key={v.revision}>
                       r{v.revision} · {v.name} · {v.provider}/{v.model}
                     </p>
                   ))}
-                </details>
+                </details>}
               </article>
             );
           })
         )}
       </section>
-      <details>
-        <summary>기존 공유 역할 설정 · 이전 티켓 호환</summary>
-        <ServingPage />
-      </details>
+      </>}
+      {!form && <a className="ui02-text-action" href="#/serving/roles">역할 설정</a>}
     </main>
   );
 };

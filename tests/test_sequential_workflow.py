@@ -162,7 +162,8 @@ class SequentialTests(unittest.TestCase):
                             return result
                         return execute
                     app.state.workflow_executor_factory=factory
-                    result=client.post(path+'/start',json=body)
+                    from approval_fixtures import approved_post
+                    result=approved_post(client,path+'/start',json=body)
                     self.assertEqual(result.status_code,200,result.text);self.assertEqual(result.json()['status'],'completed')
                     downloaded=client.get(path+'/artifacts/extract/audio')
                     self.assertEqual(downloaded.content,b'actual deterministic fixture artifact')
@@ -181,7 +182,7 @@ class SequentialTests(unittest.TestCase):
                     other_path=base+'/'+other['id'];other_plan=client.get(other_path+'/plan').json()
                     c=client.post(other_path+'/confirm',json={'revision':1,'token':other_plan['token'],'paid_confirmed':False}).json()
                     with ThreadPoolExecutor() as pool:
-                        future=pool.submit(client.post,other_path+'/start',json={'revision':c['revision'],'token':other_plan['token']})
+                        future=pool.submit(approved_post,client,other_path+'/start',json={'revision':c['revision'],'token':other_plan['token']})
                         self.assertTrue(started.wait(timeout=1))
                         try:self.assertEqual(client.get(other_path).json()['status'],'running')
                         finally:release.set()

@@ -3,5 +3,6 @@
 @import "tailwindcss/utilities.css" layer(utilities);
 @import "./hangyeol/foundation/theme.css";
 @import "./hangyeol/foundation/fonts.css";
+@import "./mideagent-density.css";
 @source "./hangyeol";
 /* Hangyeol managed integration v1 */

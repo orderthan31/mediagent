@@ -84,10 +84,10 @@ export const QueuePanel = ({
     };
   }, []);
   return (
-    <section className="queue-panel" aria-label="작업 큐" aria-busy={busy}>
+    <section className="queue-panel" aria-label="실행 순서" aria-busy={busy}>
       <div className="queue-toolbar">
         <h2>
-          대기 큐 <Badge>{state ? `${ids.length}개` : '개수 미확인'}</Badge>
+          실행 순서 <Badge>{state ? `${ids.length}개` : '개수 미확인'}</Badge>
         </h2>
         <Button
           variant="secondary"
@@ -105,11 +105,7 @@ export const QueuePanel = ({
             ? '새 작업 시작 일시정지'
             : '자원에 맞춰 순서대로 시작'}
       </Badge>
-      <p className="muted">
-        {state?.paused
-          ? '현재 계정의 새 작업 시작을 멈췄습니다. 진행 중인 작업은 계속 처리합니다.'
-          : '대기 순서를 우선하되, 사용 가능한 자원에 맞춰 시작합니다. 진행 중인 작업은 함께 처리됩니다.'}
-      </p>
+      {state?.paused && <p className="muted">진행 중인 작업은 계속 처리됩니다.</p>}
       {error && (
         <p className="alert" role="alert">
           {error}

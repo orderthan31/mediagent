@@ -1,0 +1,76 @@
+/* Mideagent consumer overrides only. Canonical Hangyeol sources/imports stay intact.
+   Observed root = 16 CSS px. Override leaf roles once; aliases do not subtract again. */
+@theme {
+  --text-g-body: .875rem;
+  --text-g-small: .75rem;
+  --text-g-caption: .625rem;
+  --text-g-title: 1.625rem;
+  --spacing-g-control: .75rem;
+  --radius-g-control: .375rem;
+  --radius-g-panel: .625rem;
+  --spacing: .21875rem;
+}
+:root {
+  --m-space-4: 3px;
+  --m-space-6: 4px;
+  --m-space-8: 6px;
+  --m-space-10: 8px;
+  --m-space-12: 10px;
+  --m-space-14: 12px;
+  --m-space-16: 12px;
+  --m-space-18: 14px;
+  --m-space-20: 16px;
+  --m-space-24: 18px;
+  --m-space-28: 20px;
+  --m-space-32: 24px;
+  --m-space-36: 28px;
+  --m-space-40: 32px;
+  --m-space-48: 36px;
+  --m-space-64: 48px;
+  --m-space-72: 56px;
+
+  --m-type-min: 10px;
+  --m-type-micro: 10px;
+  --m-type-note: 11px;
+  --m-type-label: 13px;
+  --m-type-subtitle: 15px;
+  --m-type-emphasis: 16px;
+  --m-type-panel-title: 17px;
+  --m-type-section-title: 18px;
+  --m-type-card-title: 19px;
+  --m-type-heading: 20px;
+  --m-type-title: 21px;
+  --m-type-page-small: 22px;
+  --m-type-page-title: 23px;
+  --m-type-page-medium: 24px;
+  --m-type-display: 28px;
+  --m-type-display-large: 30px;
+  --m-type-fine: 10.8px;
+  --m-type-detail: 12.4px;
+  --m-type-lead: 14.8px;
+  --m-type-title-fraction: 23.6px;
+  --m-type-helper: 11.6px;
+  --m-type-responsive-title: clamp(22px, calc(4vw - 2px), 30px);
+  --m-control-height: 36px;
+  --m-control-line: 20px;
+  --m-control-pad: 12px;
+  --m-control-gap: 6px;
+  --m-page-pad: 24px;
+  --m-card-pad: 18px;
+  --m-row-pad: 14px;
+  --m-row-gap: 12px;
+  --m-header-height: 60px;
+  --m-rail-width: 208px;
+  --m-rail-collapsed: 64px;
+  --m-nav-height: 40px;
+  --m-list-height: 68px;
+}
+[data-hangyeol] { font-size: var(--text-g-body); }
+.workspace-theme :is(.min-h-11, input:not([type='checkbox']):not([type='radio']), select) { min-height: var(--m-control-height); }
+.workspace-theme .leading-6 { line-height: var(--m-control-line); }
+.workspace-theme .min-h-11 { padding-block: 7px; gap: var(--m-control-gap); }
+.workspace-theme :is(button, a):focus-visible { outline: 2px solid var(--g-focus); outline-offset: 3px; }
+@media (max-width: 55.999rem) {
+  .workspace-theme :is(.min-h-11, input:not([type='checkbox']):not([type='radio']), select) { min-height: 44px; }
+}
+/* Existing 10/11px noninteractive badges keep a 10px readability floor. */

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { request } from './api';
+import { ExecutionApproval, type ExecutionHeaders } from './ExecutionApproval';
 import { jsonPost, type VideoAsset } from './video-api';
 import { Button } from './hangyeol/primitives/button';
 import { Input } from './hangyeol/primitives/input';
@@ -138,10 +139,7 @@ export const WorkflowTickets = ({
       applyTicket(await request<Ticket>(base + '/' + ticket.id));
     }
   };
-  const runRequest = useRef<{
-    key: string;
-    body: { request_id: string; revision: number; token: string };
-  } | null>(null);
+  const [executionNonce, setExecutionNonce] = useState(() => crypto.randomUUID());
   const plannable = review
     ? ['held', 'confirmed', 'awaiting_review', 'awaiting_decision', 'continuation_confirmed']
     : ['held', 'confirmed'];
@@ -177,6 +175,7 @@ export const WorkflowTickets = ({
   const [capability, setCapability] = useState<Capability | null>(null);
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [plan, setPlan] = useState<Plan | null>(null);
+  useEffect(() => { setExecutionNonce(crypto.randomUUID()); }, [ticket?.id, plan?.token]);
   const [paid, setPaid] = useState(false);
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState('load');
@@ -363,7 +362,7 @@ export const WorkflowTickets = ({
     setBusy('confirm');
     setError('');
     try {
-      runRequest.current = null;
+      setExecutionNonce(crypto.randomUUID());
       applyTicket(
         await jsonPost<Ticket>(base + '/' + ticket.id + '/confirm', {
           revision: ticket.revision,
@@ -379,7 +378,7 @@ export const WorkflowTickets = ({
       setBusy('');
     }
   };
-  const start = async () => {
+  const start = async (headers: ExecutionHeaders) => {
     if (!ticket || !plan) {
       return;
     }
@@ -387,18 +386,9 @@ export const WorkflowTickets = ({
     setError('');
     try {
       const operation = review && (ticket.phase || 0) > 0 ? 'continue' : 'start';
-      const key = ticket.id + ':' + plan.token + ':' + operation;
-      if (runRequest.current?.key !== key) {
-        runRequest.current = {
-          key,
-          body: { request_id: crypto.randomUUID(), revision: ticket.revision, token: plan.token },
-        };
-      }
+      const payload = { revision: ticket.revision, token: plan.token, ...(review ? { request_id: executionNonce } : {}) };
       applyTicket(
-        await jsonPost<Ticket>(
-          base + '/' + ticket.id + '/' + operation,
-          review ? runRequest.current.body : { revision: ticket.revision, token: plan.token },
-        ),
+        await request<Ticket>(base + '/' + ticket.id + '/' + operation, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(payload) }),
       );
       if (review) {
         setPlan(null);
@@ -408,6 +398,7 @@ export const WorkflowTickets = ({
       setStatus('실행 응답을 저장했습니다. 실제 단계 상태와 산출물을 확인하세요.');
     } catch (e) {
       setError(e instanceof Error ? e.message : '실행 요청 실패. 자동 재시도하지 않습니다.');
+      throw e;
     } finally {
       setBusy('');
     }
@@ -508,11 +499,11 @@ export const WorkflowTickets = ({
       )}
       {decision && !work && (
         <p className="serving-help">
-          기본 작업 동선은 영상 + 저장 워크플로우 → 흐름/노드 설정 요약 → 명시 계획 확인 →
+          기본 작업 동선은 영상 + 저장 워크플로우 → 흐름/에이전트 설정 요약 → 명시 계획 확인 →
           티켓입니다. 이 화면은 신규 AI 판단 경로의 기능 검증 화면이며 내부 실행기를 다시 고르는
-          최종 제품 진입이 아닙니다. 처리 옵션은 워크플로우 편집기에서 노드를 클릭해 설정합니다. 이
+          최종 제품 진입이 아닙니다. 처리 옵션은 워크플로우 편집기에서 에이전트를 클릭해 설정합니다. 이
           이전 티켓 형식은 등록 모델 참조를 사용하지 않습니다. 새 등록 모델 연결은 작업 시작에서
-          사용하며 전역 역할 설정을 노드 연결로 간주하지 않습니다.
+          사용하며 전역 역할 설정을 에이전트 연결로 간주하지 않습니다.
         </p>
       )}
       <p>
@@ -899,25 +890,20 @@ export const WorkflowTickets = ({
                 >
                   계획 확인 저장
                 </Button>
-                <Button
-                  disabled={
-                    !!busy ||
-                    !runtime?.connected ||
-                    !(review ? ['confirmed', 'continuation_confirmed'] : ['confirmed']).includes(
-                      ticket.status,
-                    ) ||
-                    ticket.confirmation?.token !== plan.token
-                  }
-                  onClick={() => void start()}
-                >
-                  {review && (ticket.phase || 0) > 0
-                    ? '확인한 계획 이어 실행 요청'
-                    : '확인한 계획 실행 요청'}
-                </Button>
+                {ticket.confirmation?.token === plan.token && (
+                  <ExecutionApproval
+                    path={`/api${base}/${ticket.id}/${review && (ticket.phase || 0) > 0 ? 'continue' : 'start'}`}
+                    payload={{ revision: ticket.revision, token: plan.token, ...(review ? { request_id: executionNonce } : {}) }}
+                    requestId={executionNonce}
+                    actionLabel={review && (ticket.phase || 0) > 0 ? '확인한 계획 이어 실행 요청' : '확인한 계획 실행 요청'}
+                    disabled={!!busy || !runtime?.connected || !(review ? ['confirmed', 'continuation_confirmed'] : ['confirmed']).includes(ticket.status)}
+                    onExecute={start}
+                  />
+                )}
               </div>
               {!runtime?.connected && (
                 <p className="serving-help">
-                  현재 실행기가 미연결이라 실행 요청은 비활성입니다. 기존 큐/Worker를 자동 시작하지
+                  현재 실행기가 미연결이라 실행 요청은 비활성입니다. 기존 큐/에이전트를 자동 시작하지
                   않습니다.
                 </p>
               )}
@@ -939,7 +925,7 @@ export const WorkflowTickets = ({
                       ? '실패'
                       : states[step.status] || step.status}
                 </h3>
-                {graph && <p className="serving-help">노드 {step.id}</p>}
+                {graph && <p className="serving-help">에이전트 {step.id}</p>}
                 {work && ticket.model_bindings?.[step.id] && (
                   <div className="node-model-snapshot">
                     <p>
@@ -1007,7 +993,7 @@ export const WorkflowTickets = ({
             : review
               ? '검수 대기는 해당 후행만 멈춥니다. 승인 전 필수 join은 대기하고 독립 가지의 성공/부분 결과는 보존합니다. 최신 서빙은 미실행 부분의 새 계획 확인에만 사용하며 완료 단계는 재실행하지 않습니다. 실패 재시도·crash 복구·AI Decision은 미지원입니다.'
               : graph
-                ? '수동 선택·독립 병렬·선택 필수 합류를 지원합니다. 합류 출력은 노드ID.포트 결과 참조 manifest이며 미디어/clock 병합 또는 단일 미디어 입력이 아닙니다. 얼굴 합성 세션/preview·GPU VAD·새 사람검수/AI Decision은 미지원입니다.'
+                ? '수동 선택·독립 병렬·선택 필수 합류를 지원합니다. 합류 출력은 에이전트ID.포트 결과 참조 manifest이며 미디어/clock 병합 또는 단일 미디어 입력이 아닙니다. 얼굴 합성 세션/preview·GPU VAD·새 사람검수/AI Decision은 미지원입니다.'
                 : '지원 범위는 단일 처리 사슬입니다. 얼굴 합성 세션/preview·GPU VAD·추가 검수/Decision·병렬/합류는 이번 순차 어댑터에서 미지원입니다.'}{' '}
         단계 상태는 실행기가 기록한 결과이며 실모델 품질 검증을 뜻하지 않습니다.
       </p>

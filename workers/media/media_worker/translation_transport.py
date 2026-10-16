@@ -122,6 +122,11 @@ async def request_translation(provider, key, model, parts, schema, check, attemp
 
 
 async def request_provider(provider, key, model, payload, check, attempt, retry_delay, *, url, parse, files=None):
+    from video_service.execution_authorization import external_async_call
+    return await external_async_call(provider,model,{'payload':payload,'files':files},lambda:_request_provider_once(provider,key,model,payload,check,attempt,retry_delay,url=url,parse=parse,files=files))
+
+
+async def _request_provider_once(provider, key, model, payload, check, attempt, retry_delay, *, url, parse, files=None):
     """Shared cancellation, diagnostics and retry classification for fixed provider endpoints."""
     if os.getenv('PAID_LLM_ENABLED', 'false').lower() != 'true':
         raise RuntimeError('Paid LLM calls are disabled (PAID_LLM_ENABLED=false)')

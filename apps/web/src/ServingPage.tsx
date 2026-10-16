@@ -241,16 +241,12 @@ export const ServingPage = () => {
       <header className="serving-heading">
         <div>
           <p className="workspace-eyebrow">실행 기반</p>
-          <h1>노드·서빙</h1>
+          <h1>에이전트·서빙</h1>
         </div>
         <Button variant="secondary" disabled={!!busy} onClick={() => void load()}>
           서빙 설정 새로 불러오기
         </Button>
       </header>
-      <p>
-        기존 단일 media_worker의 <strong>처리 역할별</strong> 공급자·모델을 지정합니다. 분산 Worker
-        등록이나 캔버스 실행기는 아닙니다.
-      </p>
       <p className="serving-help">
         기존 AI 공급자 설정과 같은 revision·암호화키를 사용합니다. 새로 불러오면 편집은 서버값으로
         교체됩니다. 키 등록·삭제는 <a href="#/settings">설정</a>에서만 합니다.
@@ -276,13 +272,13 @@ export const ServingPage = () => {
             <Badge tone="neutral">설정 revision {config.revision}</Badge>
           </div>
           <p className="serving-help">
-            {config.runtime.notice} Worker 연결 미확인 · 모델 목록은 서버 지원 목록이며 사용
+            {config.runtime.notice} 에이전트 연결 미확인 · 모델 목록은 서버 지원 목록이며 사용
             권한이나 추론을 검증하지 않습니다.
           </p>
           <div className="serving-roles">
             {roles.map(([role, label]) => (
               <fieldset key={role} disabled={!!busy || stale}>
-                <legend>{label} Worker 역할</legend>
+                <legend>{label} 에이전트 역할</legend>
                 <Badge tone="neutral">연결·추론 미확인</Badge>
                 <div className="serving-grid">
                   <label>
@@ -387,7 +383,7 @@ export const ServingPage = () => {
         </section>
       )}
       {catalog && (
-        <section aria-label="노드 입출력 검증">
+        <section aria-label="에이전트 입출력 검증">
           <h2>현재 처리 단계·입출력</h2>
           <p>{catalog.scope}</p>
           {catalog.notes.map((t) => (
@@ -427,7 +423,7 @@ export const ServingPage = () => {
                     입력 {key} · {type}
                     {node.optional_inputs.includes(key) ? ' (선택)' : ' (필수)'}
                     <select
-                      aria-label={`노드 입력 ${key}`}
+                      aria-label={`에이전트 입력 ${key}`}
                       value={inputs[key] || ''}
                       onChange={(e) => {
                         setInputs({ ...inputs, [key]: e.target.value });
@@ -445,7 +441,7 @@ export const ServingPage = () => {
                   <label key={key}>
                     검증용 {key}
                     <select
-                      aria-label={`노드 옵션 ${key}`}
+                      aria-label={`에이전트 옵션 ${key}`}
                       value={options[key] || values[0]}
                       onChange={(e) => {
                         setOptions({ ...options, [key]: e.target.value });

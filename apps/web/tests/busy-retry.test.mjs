@@ -62,8 +62,11 @@ test('only reads, resumable upload operations and keyed creations retry automati
       method: 'POST',
       body: JSON.stringify({ request_id: 'stable' }),
     }),
-    true,
+    false,
   );
   assert.equal(canRetryBusy('/videos/abc/subtitles', { method: 'POST', body: '{}' }), false);
   assert.equal(canRetryBusy('/jobs/abc', { method: 'DELETE' }), false);
+  assert.equal(canRetryBusy('/settings/work-tickets/abc/start', { method: 'POST', body: JSON.stringify({ request_id: 'stable' }) }), false);
+  assert.equal(canRetryBusy('/settings/recovery-tickets/abc/continue', { method: 'POST', body: JSON.stringify({ request_id: 'stable' }) }), false);
+  assert.equal(canRetryBusy('/jobs/abc/retry', { method: 'POST', headers: { 'X-Execution-Approval': 'opaque' }, body: JSON.stringify({ request_id: 'stable' }) }), false);
 });

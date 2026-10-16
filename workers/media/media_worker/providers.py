@@ -29,6 +29,7 @@ from .llm_diagnostics import emit, exception_details, attempt_context, new_conte
 from .content_block import check_content_block, BLOCKED_TEXT, ContentBlockedError
 from video_service.llm_providers import PROVIDERS, valid_model, valid_stt_model
 from .translation_transport import ModelRequestError, request_translation
+from video_service.graph_tickets import file_sha
 from .stt_transport import request_transcription
 
 
@@ -127,6 +128,9 @@ class GeminiProvider:
                     stt_language or 'auto', check, trace_attempt, retry_delay)
             return await request_translation(selected_provider, key, selected_model, parts, schema,
                 check, trace_attempt, retry_delay)
+        from video_service.execution_authorization import active_authorization, external_async_call
+        if active_authorization() is not None:
+            return await external_async_call(provider,model,{'parts':parts,'schema':schema,'transcription':transcription_config,'stage':stage,'segment':identity.get('segment')},lambda:invoke(provider,model,1))
         # The segment queue owns the retry budget. Once it retries a failed
         # primary, keep subsequent attempts on the fallback, not both models.
         if fallback and (slot in self._fallback_active or (preferences.get('fallback_on_error') and (trace_attempt or 1) > 1)):
@@ -349,7 +353,8 @@ class GeminiProvider:
                         SENTENCE_SCHEMA, check, self.transcription_model, stt_language=language)
                 return validate_sentences(items, duration)
             except ValueError:
-                if attempt == 1:
+                from video_service.execution_authorization import active_authorization
+                if attempt == 1 or active_authorization() is not None:
                     raise
                 logging.warning("Retrying malformed sentence transcription once")
 
@@ -413,7 +418,9 @@ class GeminiProvider:
             results = asyncio.run(run_transcription_queue(len(windows), operation, check, progress,
                 blocked_result=lambda index: [{"start": 0, "end": (windows[index][2] - windows[index][1]) / rate,
                                                "text": BLOCKED_TEXT}],
-                path=path, validate=validate, operation_timeout=None, before_write=lambda size: assert_capacity(work.parents[1],
+                path=path, validate=validate, operation_timeout=None,
+                request_identity={"model":self.transcription_identity,"prompts":prompts,"source_sha256":file_sha(source),"windows":[(left,right,rate) for _,left,right,_ in windows]},
+                before_write=lambda size: assert_capacity(work.parents[1],
                     int(os.getenv("VIDEO_SERVICE_QUOTA_BYTES", str(300 * 1024**3))),
                     int(os.getenv("MIN_FREE_SPACE_BYTES", str(50 * 1024**3))), additional=size)))
         except PartialTranscriptionError as exc:
@@ -520,6 +527,7 @@ class GeminiProvider:
             results = asyncio.run(run_segment_queue(len(batches), operation, check,
                 lambda value: progress({**value, **stats}), path=path,
                 validate=validate, failure_type=PartialTranslationError, operation_timeout=None,
+                request_identity={"model":self.translation_identity,"prompts":prompts,"target_ids":target_ids,"identified":identified},
                 blocked_result=lambda index: [BLOCKED_TEXT] * len(batches[index]),
                 before_write=lambda size: assert_capacity(work.parents[1],
                     int(os.getenv("VIDEO_SERVICE_QUOTA_BYTES", str(300 * 1024**3))),

@@ -71,13 +71,19 @@ def invoke_decision(provider, metadata, source, work):
             raise DecisionInputError('판단 입력의 지원 JSON/UTF-8 형식을 확인하세요.') from None
     before = deepcopy(metadata)
     context = {'input': deepcopy(before), 'content': content, 'media_access': 'metadata_only' if content is None else 'bounded_readonly_content'}
-    value = provider.decide(context)
-    judgment = structured_result(value)
-    if descriptor(provider) != profile:
-        raise DecisionFormatError('판단 중 adapter ID/revision이 변경되었습니다.')
-    with source.open('rb') as stream:
-        if hashlib.file_digest(stream, 'sha256').hexdigest() != sha:
-            raise DecisionInputError('판단 중 입력 내용이 변경되었습니다.')
+    def perform():
+        value = provider.decide(context)
+        judgment = structured_result(value)
+        if descriptor(provider) != profile:
+            raise DecisionFormatError('판단 중 adapter ID/revision이 변경되었습니다.')
+        with source.open('rb') as stream:
+            if hashlib.file_digest(stream, 'sha256').hexdigest() != sha:
+                raise DecisionInputError('판단 중 입력 내용이 변경되었습니다.')
+        return judgment
+    if profile['paid']:
+        from .execution_authorization import external_call
+        judgment=external_call(getattr(provider,'provider','adapter:'+profile['id']),getattr(provider,'model',profile['revision']),context,perform)
+    else:judgment=perform()
     report = {'version': 1, 'kind': 'decision_result', 'input': before, 'adapter': profile, 'judgment': judgment}
     directory = Path(work)
     directory.mkdir(parents=True, exist_ok=True)

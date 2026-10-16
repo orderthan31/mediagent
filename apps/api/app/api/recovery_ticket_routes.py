@@ -6,7 +6,8 @@ from starlette.concurrency import run_in_threadpool
 from . import work_ticket_routes as work
 from .workflow_ticket_routes import body, verify_input
 
-router=APIRouter(prefix='/recovery-tickets')
+from .execution_approval_routes import GuardedRoute
+router=APIRouter(prefix='/recovery-tickets', route_class=GuardedRoute)
 # Reuse the established work API operations while selecting the owner-scoped
 # recovery store only from this server-installed namespace, never a body flag.
 for route in work.router.routes:

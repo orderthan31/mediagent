@@ -16,6 +16,7 @@ from app.api.workflow_routes import router as workflow_router
 from app.api.settings_routes import router as settings_router
 from app.api.faceswap_routes import router as faceswap_router
 from app.api.queue_routes import router as queue_router
+from app.api.execution_approval_routes import router as execution_approval_router
 from app.api.auth_routes import configured_auth, router as auth_router
 from app.core.config import settings
 from app.services.storage_monitor import monitor_storage
@@ -66,6 +67,7 @@ def create_app() -> FastAPI:
     app.include_router(settings_router)
     app.include_router(faceswap_router)
     app.include_router(queue_router)
+    app.include_router(execution_approval_router)
     return app
 
 

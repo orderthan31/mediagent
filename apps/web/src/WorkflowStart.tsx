@@ -192,7 +192,7 @@ export const WorkflowStart = () => {
         </Button>
       </div>
       <p>
-        영상과 저장 워크플로우를 고르고 흐름·노드 설정을 확인하세요. 계획/비용 확인 후 티켓을 만들며
+        영상과 저장 워크플로우를 고르고 흐름·에이전트 설정을 확인하세요. 계획/비용 확인 후 티켓을 만들며
         실행은 별도입니다.
       </p>
       {listError && (
@@ -285,9 +285,9 @@ export const WorkflowStart = () => {
       {busy && <p role="status">흐름·설정 확인 중</p>}
       {inspection && (
         <section className="ticket-panel">
-          <h2>흐름과 노드 설정</h2>
+          <h2>흐름과 에이전트 설정</h2>
           <p>
-            정의 r{inspection.definition_revision} · {inspection.summary.length}개 노드 ·{' '}
+            정의 r{inspection.definition_revision} · {inspection.summary.length}개 에이전트 ·{' '}
             <a href="#/workflow-editor">구성에서 상세 수정</a>
           </p>
           {!inspection.supported && (

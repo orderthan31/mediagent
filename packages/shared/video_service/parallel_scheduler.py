@@ -120,7 +120,8 @@ def run_ready(steps, execute, publish, *, max_workers=2, settle=False, initial=N
                     continue
                 nodes[identity]['status'] = 'running'
                 persist()
-                running[pool.submit(execute, deepcopy(step))] = identity
+                from contextvars import copy_context
+                running[pool.submit(copy_context().run, execute, deepcopy(step))] = identity
             if not running:
                 if changed:
                     continue

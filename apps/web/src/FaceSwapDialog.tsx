@@ -543,7 +543,7 @@ export const FaceSwapDialog = ({
         </strong>
         {!capability?.ready && (
           <p>
-            {capability?.reason || 'Worker 연결 확인 중…'} 엔진이 준비되면 아래 기능이 자동으로
+            {capability?.reason || '에이전트 연결 확인 중…'} 엔진이 준비되면 아래 기능이 자동으로
             활성화됩니다.
           </p>
         )}

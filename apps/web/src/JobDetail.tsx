@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
+import { executionRequest } from './execution-request';
 import {
   ArrowLeft,
   Download,
+  Trash2,
   FileText,
   Film,
   RefreshCw,
@@ -65,6 +67,18 @@ export const JobDetail = ({
   const [actionBusy, setActionBusy] = useState(false);
   const [promoting, setPromoting] = useState(false),
     [promotionError, setPromotionError] = useState('');
+  const deleteDialog = useRef<HTMLDialogElement>(null);
+  const [deleting, setDeleting] = useState(false), [deleteError, setDeleteError] = useState('');
+  const deletePending = useRef(false);
+  const removeJob = async () => {
+    if (deletePending.current || !job || !['COMPLETED', 'FAILED', 'CANCELLED'].includes(job.status)) return;
+    deletePending.current = true; setDeleting(true); setDeleteError('');
+    try {
+      await request(`/jobs/${id}`, { method: 'DELETE' });
+      deleteDialog.current?.close(); location.hash = '/jobs';
+    } catch (reason) { setDeleteError(reason instanceof Error ? reason.message : '작업 삭제 실패'); }
+    finally { deletePending.current = false; setDeleting(false); }
+  };
   const promotionDialog = useRef<HTMLDialogElement>(null);
   const video = useRef<HTMLVideoElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
@@ -91,7 +105,8 @@ export const JobDetail = ({
   const faceSwapAction = async (action: 'cancel' | 'retry') => {
     setActionBusy(true);
     try {
-      await request(`/jobs/${id}/${action}`, { method: 'POST' });
+      if (action === 'retry') await executionRequest(`/jobs/${id}/${action}`);
+      else await request(`/jobs/${id}/${action}`, { method: 'POST' });
       setReload((n) => n + 1);
     } catch (e) {
       setError(e instanceof Error ? e.message : '요청에 실패했습니다.');
@@ -189,6 +204,7 @@ export const JobDetail = ({
         {job?.status === 'AWAITING_REVIEW' && (
           <Button onClick={() => setEditing(true)}>자막 검수</Button>
         )}
+        {job && ['COMPLETED', 'FAILED', 'CANCELLED'].includes(job.status) && <Button variant="quiet" onClick={() => { setDeleteError(''); deleteDialog.current?.showModal(); }}><Trash2 size={17} />작업 삭제</Button>}
         <Button variant="secondary" title="작업 새로고침" onClick={() => setReload((n) => n + 1)}>
           <RefreshCw size={18} />
           새로고침
@@ -481,6 +497,13 @@ export const JobDetail = ({
             {promoting ? '등록 중…' : '새 원본 등록'}
           </Button>
         </div>
+      </dialog>
+      <dialog ref={deleteDialog} className="confirm-modal storage-confirm" aria-labelledby="job-delete-title" onCancel={event => { if (deleting) event.preventDefault(); }}>
+        <h2 id="job-delete-title">작업을 삭제할까요?</h2>
+        <p>{job?.original_filename}</p>
+        <p>작업과 결과 파일이 삭제됩니다. 이 작업은 되돌릴 수 없습니다.</p>
+        {deleteError && <p role="alert" className="alert">{deleteError}</p>}
+        <div><Button variant="secondary" autoFocus disabled={deleting} onClick={() => deleteDialog.current?.close()}>취소</Button><Button className="storage-confirm-delete" disabled={deleting} onClick={() => void removeJob()}>{deleting ? '삭제 중' : '삭제'}</Button></div>
       </dialog>
     </main>
   );

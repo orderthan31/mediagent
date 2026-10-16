@@ -5,15 +5,15 @@
 .auth-shell .auth-header {
   position: static;
   height: 76px;
-  padding: 0 40px;
+  padding: 0 var(--m-space-40);
   border-bottom: 1px solid var(--g-line);
   background: var(--g-surface);
 }
 .auth-brand {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
-  font-size: 20px;
+  gap: var(--m-space-12);
+  font-size: var(--m-type-section-title);
   font-weight: 700;
   text-decoration: none;
 }
@@ -42,37 +42,37 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 24px;
+  gap: var(--m-space-24);
   min-height: calc(100dvh - 76px);
   max-width: none;
   margin: 0;
-  padding: 48px 24px 64px;
+  padding: var(--m-space-48) var(--m-space-24) var(--m-space-64);
 }
 .auth-panel {
   width: 100%;
   max-width: 440px;
-  padding: 36px;
+  padding: var(--m-space-36);
   background: var(--g-surface);
   border: 1px solid var(--g-line);
   border-radius: var(--radius-g-panel);
 }
 .auth-intro {
-  margin-bottom: 32px;
+  margin-bottom: var(--m-space-32);
 }
 .auth-eyebrow {
   color: var(--g-action);
   font-size: var(--text-g-small);
   font-weight: 600;
-  margin-bottom: 12px;
+  margin-bottom: var(--m-space-12);
 }
 .auth-description {
-  margin-top: 12px;
+  margin-top: var(--m-space-12);
 }
 .auth-form,
 .auth-fields,
 .auth-connection {
   display: grid;
-  gap: 24px;
+  gap: var(--m-space-24);
 }
 .auth-fields label {
   display: block;
@@ -84,8 +84,8 @@
   overflow-wrap: anywhere;
 }
 .auth-error {
-  margin-bottom: 24px;
-  padding: 16px;
+  margin-bottom: var(--m-space-24);
+  padding: var(--m-space-16);
   border: 1px solid var(--g-line);
   border-radius: var(--radius-g-control);
   color: var(--g-danger);
@@ -94,7 +94,7 @@
   overflow-wrap: anywhere;
 }
 .auth-error p {
-  margin-top: 8px;
+  margin-top: var(--m-space-8);
 }
 .auth-connection p {
   color: var(--g-soft);
@@ -104,7 +104,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: var(--m-space-12);
   min-height: 96px;
   color: var(--g-soft);
 }
@@ -125,16 +125,16 @@
   .auth-shell .auth-header {
     height: 68px;
     min-height: 68px;
-    padding: 0 20px;
+    padding: 0 var(--m-space-20);
   }
   .auth-header-note {
     display: none;
   }
   .auth-shell .auth-main {
     min-height: calc(100dvh - 68px);
-    padding: 32px 20px;
+    padding: var(--m-space-32) var(--m-space-20);
   }
   .auth-panel {
-    padding: 28px 24px;
+    padding: var(--m-space-28) var(--m-space-24);
   }
 }

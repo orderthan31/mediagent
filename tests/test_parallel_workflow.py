@@ -417,7 +417,8 @@ class ParallelSchedulingTests(unittest.TestCase):
                             return {'video': output}
                         return execute
                     app.state.graph_executor_factory = factory
-                    response = client.post(base + '/' + ticket['id'] + '/start', json=request)
+                    from approval_fixtures import approved_post
+                    response = approved_post(client,base + '/' + ticket['id'] + '/start', json=request)
                     self.assertEqual(response.status_code, 200, response.text)
                     self.assertEqual(response.json()['status'], 'completed')
                     artifact = client.get(base + '/' + ticket['id'] + '/artifacts/joined/manifest')

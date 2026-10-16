@@ -14,7 +14,8 @@ from video_service.capacity import assert_capacity
 from .graph_ticket_routes import GraphCreate
 from .workflow_ticket_routes import (PlanRequest, ConfirmRequest, body, settings_module, preferences, asset_input, verify_input)
 
-router = APIRouter(prefix='/decision-tickets')
+from .execution_approval_routes import GuardedRoute
+router = APIRouter(prefix='/decision-tickets', route_class=GuardedRoute)
 UUID4 = r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
 SHA = r'^[0-9a-f]{64}$'
 
@@ -106,7 +107,7 @@ async def create_ticket(request: Request):
         return store(request).create(payload.request_id, payload.model_dump(exclude={'request_id'}),
             lambda: DefinitionStore(settings_module().settings.storage_root, request.state.settings_owner).get(payload.definition_id),
             lambda: asset_input(request, payload.asset_id)[0])
-    return respond(create)
+    return await run_in_threadpool(lambda: respond(create))
 
 
 @router.get('/{identity}')
@@ -130,7 +131,7 @@ async def confirm_ticket(identity: str, request: Request):
         s = store(request)
         verify_input(request, s.get(identity))
         return s.confirm(identity, payload.revision, payload.token, payload.paid_confirmed, preferences(request))
-    return respond(confirm)
+    return await run_in_threadpool(lambda: respond(confirm))
 
 
 async def run_request(identity, request, operation):

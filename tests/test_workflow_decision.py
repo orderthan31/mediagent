@@ -298,10 +298,11 @@ class DecisionAdapterTests(unittest.TestCase):
                 confirmed=client.post(url+'/confirm',json={'revision':created.json()['revision'],'token':plan['token'],'paid_confirmed':True})
                 self.assertEqual(confirmed.status_code,200,confirmed.text)
                 args={'request_id':str(uuid4()),'revision':confirmed.json()['revision'],'token':plan['token']}
-                response=client.post(url+'/start',json=args)
+                from approval_fixtures import approved_post
+                response=approved_post(client,url+'/start',json=args)
                 self.assertEqual(response.status_code,200,response.text)
                 self.assertEqual(response.json()['status'],'awaiting_decision')
-                self.assertEqual(client.post(url+'/start',json=args).json()['revision'],response.json()['revision'])
+                self.assertEqual(approved_post(client,url+'/start',json=args).json()['revision'],response.json()['revision'])
                 self.assertEqual(client.get(url).json()['decisions'],response.json()['decisions'])
                 self.assertEqual(len(h.provider.calls),1)
                 next_plan=client.get(url+'/plan').json()

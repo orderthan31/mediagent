@@ -19,13 +19,13 @@ export const StorageAssetRow = ({
   video: VideoAsset;
   thumbnail: ReactNode;
 }) => (
-  <a className="asset-row storage-asset-row" href={`#/videos/${video.asset_id}`}>
+  <a className="asset-row storage-asset-row ui02-list-item" href={`#/videos/${video.asset_id}`}>
     {thumbnail}
-    <div className="storage-asset-copy">
+    <div className="storage-asset-copy ui02-list-copy">
       <Badge tone={video.provenance.kind === 'result' ? 'info' : 'neutral'}>
         {video.provenance.kind === 'result' ? '결과에서 등록' : '업로드 원본'}
       </Badge>
-      <h2>{video.original_filename}</h2>
+      <h2 className="ui02-list-title">{video.original_filename}</h2>
       <ul className="storage-metadata" aria-label="영상 정보">
         <li>{videoDuration(video)}</li>
         <li>{sizeLabel(video.size_bytes)}</li>

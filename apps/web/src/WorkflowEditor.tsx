@@ -63,11 +63,11 @@ const payload = (d: Definition) => ({
   edges: d.edges,
 });
 
-export const WorkflowEditor = () => {
+export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
   const [doc, setDoc] = useState<Definition>(draft);
   const [catalog, setCatalog] = useState<Spec[]>([]);
-  const [saved, setSaved] = useState<Summary[]>([]);
-  const [openId, setOpenId] = useState('');
+  const [, setSaved] = useState<Summary[]>([]);
+  const [, setOpenId] = useState('');
   const [selected, setSelected] = useState('');
   const [source, setSource] = useState<Port | null>(null);
   const [selectedEdge, setSelectedEdge] = useState('');
@@ -98,7 +98,7 @@ export const WorkflowEditor = () => {
     identity === '$input'
       ? '외부 입력'
       : catalog.find((s) => s.id === doc.nodes.find((n) => n.id === identity)?.type)?.label ||
-        '없는 노드';
+        '없는 에이전트';
   const change = (next: Definition) => {
     setDoc(next);
     setDirty(true);
@@ -155,7 +155,7 @@ export const WorkflowEditor = () => {
     try {
       const result = await check();
       if (!result.valid) {
-        setError('노드·연결 문제를 해결한 뒤 저장하세요. 현재 편집은 유지됩니다.');
+        setError('에이전트·연결 문제를 해결한 뒤 저장하세요. 현재 편집은 유지됩니다.');
         return;
       }
       const next = await request<Definition>(endpoint + '/' + doc.id, {
@@ -239,7 +239,7 @@ export const WorkflowEditor = () => {
   };
   const connect = (identity: string, port: string) => {
     if (!source) {
-      setError('먼저 외부 입력이나 노드의 출력 포트를 선택하세요.');
+      setError('먼저 외부 입력이나 에이전트의 출력 포트를 선택하세요.');
       return;
     }
     change({
@@ -279,6 +279,7 @@ export const WorkflowEditor = () => {
         const c = await request<{ nodes: Spec[] }>('/settings/node-catalog');
         setCatalog(c.nodes);
         await list();
+        if (initialId) await load(initialId);
       } catch (e) {
         setError(e instanceof Error ? e.message : '정의를 읽지 못했습니다.');
       } finally {
@@ -298,16 +299,6 @@ export const WorkflowEditor = () => {
           편집 revision {doc.revision} · {dirty ? '미저장 편집' : '서버 반영 또는 새 정의'}
         </Badge>
       </div>
-      <p>
-        노드를 배치하고 포트를 연결해 저장합니다.{' '}
-        <strong>실제 티켓·개별 노드 실행은 하지 않습니다.</strong> 기존 고정 template·영상·설정에
-        소급 적용되지 않습니다.
-      </p>
-      <p className="editor-help">
-        초기·변경된 정의는 서버 검증 후 저장합니다. 문제가 있는 정의는 편집을 유지하되 저장하지
-        않습니다. ‘열기/다시 불러오기’는 현재 편집을 서버값으로 교체합니다. 편집 revision은 실행
-        버전정책이 아닙니다.
-      </p>
       {error && (
         <p role="alert" className="alert">
           {error}
@@ -343,49 +334,15 @@ export const WorkflowEditor = () => {
           새 정의
         </Button>
       </fieldset>
-      <fieldset disabled={!!busy} className="editor-toolbar">
-        <label>
-          저장된 정의
-          <select
-            aria-label="저장된 정의"
-            value={openId}
-            onChange={(e) => setOpenId(e.target.value)}
-          >
-            <option value="">저장된 정의 선택</option>
-            {saved.map((s) => (
-              <option value={s.id} key={s.id}>
-                {s.name} · r{s.revision}
-              </option>
-            ))}
-          </select>
-        </label>
-        <DefinitionHistory
-          key={doc.id}
-          identity={doc.id}
-          revision={doc.revision}
-          dirty={dirty}
-          onRestored={async () => {
-            await load(doc.id);
-            await list();
-          }}
-        />
-        <Button variant="secondary" disabled={!openId} onClick={() => void load(openId)}>
-          선택 정의 서버값 열기
-        </Button>
-        <Button variant="secondary" disabled={doc.revision === 0} onClick={() => void load(doc.id)}>
-          현재 정의 서버값 다시 불러오기
-        </Button>
-      </fieldset>
+      {doc.revision > 0 && <DefinitionHistory key={doc.id} identity={doc.id} revision={doc.revision} dirty={dirty} onRestored={async () => { await load(doc.id); await list(); }} />}
       {!catalog.length ? (
         <p>서버 catalog 미확인 · 편집은 catalog 로드 후 가능합니다.</p>
       ) : (
         <>
           <div className="editor-layout">
-            <aside className="editor-panel" aria-label="노드 선택">
+            <aside className="editor-panel" aria-label="에이전트 선택">
               <h2>처리 단계</h2>
-              <p className="editor-help">
-                현재 실행 경로가 있는 정의만 표시합니다. 아직 독립 executor가 아닙니다.
-              </p>
+
               {catalog.map((c) => (
                 <Button
                   key={c.id}
@@ -567,8 +524,8 @@ export const WorkflowEditor = () => {
                 </div>
               </div>
             </section>
-            <aside className="editor-panel" aria-label="노드 속성">
-              <h2>노드 속성</h2>
+            <aside className="editor-panel" aria-label="에이전트 속성">
+              <h2>에이전트 속성</h2>
               {node && spec ? (
                 <fieldset disabled={!!busy}>
                   <h3>{spec.label}</h3>
@@ -587,7 +544,7 @@ export const WorkflowEditor = () => {
                   />
                   {node.type === 'preprocess_audio' && (
                     <p className="editor-help">
-                      전처리 옵션은 이 노드에 저장합니다. 현재 새 실행 경로의 GPU VAD/NVIDIA 무음
+                      전처리 옵션은 이 에이전트에 저장합니다. 현재 새 실행 경로의 GPU VAD/NVIDIA 무음
                       제거는 미지원이며 서버가 거절합니다.
                     </p>
                   )}
@@ -597,7 +554,7 @@ export const WorkflowEditor = () => {
                       type="number"
                       min={0}
                       max={4000}
-                      aria-label="노드 X"
+                      aria-label="에이전트 X"
                       value={node.position.x}
                       onChange={(e) => move(node.id, Number(e.target.value), node.position.y)}
                     />
@@ -608,7 +565,7 @@ export const WorkflowEditor = () => {
                       type="number"
                       min={0}
                       max={3000}
-                      aria-label="노드 Y"
+                      aria-label="에이전트 Y"
                       value={node.position.y}
                       onChange={(e) => move(node.id, node.position.x, Number(e.target.value))}
                     />
@@ -617,7 +574,7 @@ export const WorkflowEditor = () => {
                     <label key={key}>
                       {key}
                       <select
-                        aria-label={`노드 옵션 ${key}`}
+                        aria-label={`에이전트 옵션 ${key}`}
                         value={node.options[key] || values[0]}
                         onChange={(e) =>
                           change({
@@ -637,11 +594,11 @@ export const WorkflowEditor = () => {
                     </label>
                   ))}
                   <Button variant="secondary" onClick={removeNode}>
-                    선택 노드 삭제
+                    선택 에이전트 삭제
                   </Button>
                 </fieldset>
               ) : (
-                <p>노드 제목을 선택하세요. 작은 화면에서는 배치 X/Y로도 이동할 수 있습니다.</p>
+                <p>에이전트 제목을 선택하세요. 작은 화면에서는 배치 X/Y로도 이동할 수 있습니다.</p>
               )}
               <h3>외부 입력 선언</h3>
               <p className="editor-help">
@@ -749,7 +706,7 @@ export const WorkflowEditor = () => {
         </>
       )}
       <p className="editor-help">
-        노드 설정과 고정 모델 revision을 저장한 뒤 작업 시작에서 계획을 확인하세요. 저장은 모델
+        에이전트 설정과 고정 모델 revision을 저장한 뒤 작업 시작에서 계획을 확인하세요. 저장은 모델
         실행/키 변경/큐 소비가 아닙니다.
       </p>
     </main>

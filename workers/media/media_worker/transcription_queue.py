@@ -34,7 +34,15 @@ class PartialTranslationError(PartialTranscriptionError):
 
 async def run_segment_queue(count, operation, check, progress, *, path=None, before_write=None,
                             validate=lambda index, result: result, concurrency=3, attempts=3,
-                            failure_type=PartialTranscriptionError, operation_timeout=125, blocked_result=None):
+                            failure_type=PartialTranscriptionError, operation_timeout=125, blocked_result=None, request_identity=None):
+    from video_service.execution_authorization import active_authorization
+    active=active_authorization();authorization=None
+    if active is not None:
+        attempts=1
+        blocked_result=None
+        if path is not None:
+            from .queue_authorization import QueueAuthorization
+            authorization=QueueAuthorization(active,path,count,request_identity)
     results = {}
     history = []
     saved_blocks = []
@@ -56,6 +64,8 @@ async def run_segment_queue(count, operation, check, progress, *, path=None, bef
         except (OSError, ValueError, TypeError, KeyError, AttributeError):
             results = {}
             history = []
+    if authorization is not None:
+        results={index:validate(index,value) for index,value in authorization.cached.items()}
     pending = deque(index for index in range(count) if index not in results)
     running = {}
     retries = {}
@@ -84,7 +94,8 @@ async def run_segment_queue(count, operation, check, progress, *, path=None, bef
         if path is not None:
             await disk_call(write_json_atomic, path, {"count": count, "results": {str(k): v for k, v in results.items()},
                 "failed": failed, "content_blocks": content_blocks,
-                "attempts": counts, "history": history, "progress": snapshot},
+                "attempts": counts, "history": history, "progress": snapshot,
+                **({"authorization_binding":authorization.binding} if authorization is not None else {})},
                 before_write=before_write)
         await disk_call(progress, snapshot)
 
@@ -142,6 +153,7 @@ async def run_segment_queue(count, operation, check, progress, *, path=None, bef
                     result = task.result()
                     validating = True
                     results[index] = validate(index, result)
+                    if authorization is not None:await disk_call(authorization.record,index,results[index])
                     record(index, "success", retryable=False)
                 except ContentBlockedError as exc:
                     content_blocks.append({"segment": index + 1, "reason": exc.reason, "provider": exc.provider})

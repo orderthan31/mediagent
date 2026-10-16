@@ -1,7 +1,7 @@
 /* REN-04: presentation only; status codes, draft state and request contracts stay intact. */
 .ticket-detail .detail-page-heading {
   flex-wrap: wrap;
-  gap: 16px;
+  gap: var(--m-space-16);
 }
 .ticket-detail .detail-page-heading > div {
   flex-basis: 60%;
@@ -11,21 +11,21 @@
   font-size: var(--text-g-small);
 }
 .ticket-detail .detail-page-heading h1 {
-  font-size: 26px;
+  font-size: var(--m-type-page-medium);
 }
 .ticket-summary {
   border: 1px solid var(--g-line);
   border-radius: var(--radius-g-panel);
-  padding: 24px;
-  margin-bottom: 24px;
+  padding: var(--m-space-24);
+  margin-bottom: var(--m-space-24);
   background: var(--g-surface);
 }
 .ticket-status-heading {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 16px;
-  margin-bottom: 16px;
+  gap: var(--m-space-16);
+  margin-bottom: var(--m-space-16);
 }
 .ticket-status-heading > span:last-child,
 .ticket-note {
@@ -36,7 +36,7 @@
 .ticket-summary > p {
   font-size: var(--text-g-body);
   line-height: 1.7;
-  margin: 12px 0;
+  margin: var(--m-space-12) 0;
 }
 .ticket-input-link {
   display: inline-flex;
@@ -47,25 +47,25 @@
 }
 .ticket-plan {
   border-top: 1px solid var(--g-line);
-  padding-top: 20px;
-  margin-top: 12px;
+  padding-top: var(--m-space-20);
+  margin-top: var(--m-space-12);
 }
 .ticket-plan h2 {
-  font-size: 16px;
-  margin-bottom: 16px;
+  font-size: var(--text-g-body);
+  margin-bottom: var(--m-space-16);
 }
 .ticket-plan ol {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: var(--m-space-12);
   list-style-position: inside;
-  margin: 0 0 16px;
+  margin: 0 0 var(--m-space-16);
   padding: 0;
 }
 .ticket-plan li {
   border: 1px solid var(--g-line);
   border-radius: var(--radius-g-control);
-  padding: 10px 14px;
+  padding: var(--m-space-10) var(--m-space-14);
   font-size: var(--text-g-small);
 }
 .ticket-plan li[aria-current='step'] {
@@ -73,12 +73,12 @@
   color: var(--g-action);
 }
 .ticket-plan li span {
-  margin-left: 10px;
+  margin-left: var(--m-space-10);
   font-weight: 600;
 }
 .ticket-summary .stage-progress,
 .ticket-detail .stage-progress {
-  margin: 20px 0 0;
+  margin: var(--m-space-20) 0 0;
   min-width: 0;
   width: 100%;
 }
@@ -91,7 +91,7 @@
 .ticket-detail .detail-panels {
   border: 0;
   padding-top: 0;
-  gap: 24px;
+  gap: var(--m-space-24);
   align-items: start;
 }
 .ticket-detail .media-panel,
@@ -99,14 +99,14 @@
   background: var(--g-surface);
   border: 1px solid var(--g-line);
   border-radius: var(--radius-g-panel);
-  padding: 24px;
+  padding: var(--m-space-24);
 }
 .ticket-detail .panel-heading h2 {
-  font-size: 18px;
+  font-size: var(--m-type-emphasis);
 }
 .ticket-detail .media-info {
   border-top: 1px solid var(--g-line);
-  padding-top: 20px;
+  padding-top: var(--m-space-20);
 }
 .ticket-detail .media-info dt {
   color: var(--g-soft);
@@ -114,13 +114,13 @@
 .ticket-detail .tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--m-space-8);
   border-bottom: 1px solid var(--g-line);
-  padding-bottom: 12px;
+  padding-bottom: var(--m-space-12);
 }
 .ticket-detail .tabs button {
   min-height: 44px;
-  padding: 10px 16px;
+  padding: var(--m-space-10) var(--m-space-16);
   border: 1px solid var(--g-line);
   border-radius: var(--radius-g-control);
   background: var(--g-surface);
@@ -132,7 +132,7 @@
   background: var(--g-muted);
 }
 .ticket-partial {
-  padding: 12px 0;
+  padding: var(--m-space-12) 0;
   color: var(--g-action);
   font-size: var(--text-g-small);
   line-height: 1.7;
@@ -152,11 +152,11 @@
   height: auto;
   max-height: 500px;
   border-top: 1px solid var(--g-line);
-  margin-top: 8px;
+  margin-top: var(--m-space-8);
 }
 .ticket-detail .preview-cue {
   border-bottom: 1px solid var(--g-line);
-  padding: 16px 0;
+  padding: var(--m-space-16) 0;
   line-height: 1.8;
   grid-template-columns: 72px minmax(0, 1fr);
   color: var(--g-ink);
@@ -176,8 +176,8 @@
 .ticket-detail .result-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 20px;
+  gap: var(--m-space-12);
+  margin-top: var(--m-space-20);
 }
 .ticket-detail .text-download a,
 .ticket-detail .result-actions a {
@@ -185,12 +185,12 @@
   min-height: 44px;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--m-space-8);
 }
 .ticket-detail .result-downloads summary {
   border: 1px solid var(--g-line);
   border-radius: var(--radius-g-control);
-  padding: 12px 16px;
+  padding: var(--m-space-12) var(--m-space-16);
   min-height: 44px;
   color: var(--g-action);
 }
@@ -220,24 +220,24 @@
   height: auto;
   max-height: none;
   overflow: visible;
-  padding: 28px;
+  padding: var(--m-space-28);
   min-width: 0;
 }
 .ticket-editor .editor-heading {
   display: flex;
-  gap: 16px;
+  gap: var(--m-space-16);
   align-items: start;
   justify-content: space-between;
-  margin-bottom: 20px;
+  margin-bottom: var(--m-space-20);
 }
 .ticket-editor .editor-heading > div {
   min-width: 0;
 }
 .ticket-editor .editor-heading h2 {
-  font-size: 22px;
+  font-size: var(--m-type-heading);
 }
 .ticket-editor .editor-heading p {
-  margin-top: 12px;
+  margin-top: var(--m-space-12);
   overflow-wrap: anywhere;
   color: var(--g-soft);
   font-size: var(--text-g-small);
@@ -246,13 +246,13 @@
   display: flex;
   flex-wrap: wrap;
   align-items: end;
-  gap: 16px;
-  padding: 20px 0;
+  gap: var(--m-space-16);
+  padding: var(--m-space-20) 0;
   border-block: 1px solid var(--g-line);
 }
 .ticket-editor .editor-toolbar label {
   display: grid;
-  gap: 8px;
+  gap: var(--m-space-8);
   color: var(--g-soft);
   font-size: var(--text-g-small);
 }
@@ -260,7 +260,7 @@
   min-height: 44px;
   border: 1px solid var(--g-line);
   border-radius: var(--radius-g-control);
-  padding: 8px 12px;
+  padding: var(--m-space-8) var(--m-space-12);
   background: var(--g-surface);
   color: var(--g-ink);
 }
@@ -272,8 +272,8 @@
 .ticket-editor .cue-row {
   display: grid;
   grid-template-columns: 100px 100px minmax(0, 1fr) 44px;
-  gap: 12px;
-  padding: 16px 0;
+  gap: var(--m-space-12);
+  padding: var(--m-space-16) 0;
 }
 .ticket-editor .cue-heading {
   color: var(--g-soft);
@@ -303,14 +303,14 @@
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
-  gap: 16px;
-  padding-top: 20px;
+  gap: var(--m-space-16);
+  padding-top: var(--m-space-20);
 }
 .ticket-editor .editor-footer > div {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: var(--m-space-12);
 }
 .ticket-editor .icon {
   width: auto;
@@ -325,10 +325,10 @@
 .ticket-editor .edit-saved {
   border: 1px solid var(--g-line);
   border-radius: var(--radius-g-control);
-  padding: 12px 16px;
+  padding: var(--m-space-12) var(--m-space-16);
   font-size: var(--text-g-small);
   line-height: 1.7;
-  margin-block: 16px;
+  margin-block: var(--m-space-16);
 }
 .ticket-editor .edit-saved {
   color: var(--g-action);
@@ -342,12 +342,12 @@
     flex-basis: calc(100% - 56px);
   }
   .ticket-detail .detail-page-heading h1 {
-    font-size: 22px;
+    font-size: var(--m-type-heading);
   }
   .ticket-summary,
   .ticket-detail .media-panel,
   .ticket-detail .text-panel {
-    padding: 20px;
+    padding: var(--m-space-20);
   }
   .ticket-detail .detail-panels {
     grid-template-columns: minmax(0, 1fr);
@@ -356,7 +356,7 @@
     grid-template-columns: minmax(0, 1fr);
   }
   .ticket-editor .subtitle-editor {
-    padding: 20px;
+    padding: var(--m-space-20);
   }
   .ticket-editor .cue-heading {
     grid-template-columns: 1fr 1fr;

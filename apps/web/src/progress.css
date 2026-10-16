@@ -1,5 +1,5 @@
 .job-row:has(.stage-progress) { flex-wrap: wrap; }
 .stage-progress { flex-basis: 100%; min-width: 0; margin-left: 62px; }
-.stage-progress p { font-size: 12px; color: #56685e; margin: 0 0 8px; }
+.stage-progress p { font-size: var(--text-g-caption); color: #56685e; margin: 0 0 var(--m-space-8); }
 .stage-progress progress { max-width: 360px; }
 @media (max-width: 720px) { .stage-progress { margin-left: 58px; } }
