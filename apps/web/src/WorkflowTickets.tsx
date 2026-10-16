@@ -720,13 +720,17 @@ export const WorkflowTickets = ({
         </h2>
         {ready && tickets.length === 0 && (
           <p>
-            {decision
-              ? '저장된 AI 판단 티켓 없음.'
-              : review
-                ? '저장된 검수 지원 티켓 없음.'
-                : graph
-                  ? '저장된 새 병렬 티켓 없음.'
-                  : '저장된 새 순차 티켓 없음.'}{' '}
+            {recovery
+              ? '저장된 복구 계약 티켓이 없습니다'
+              : work
+                ? '저장된 작업 티켓이 없습니다'
+                : decision
+                  ? '저장된 AI 판단 티켓 없음.'
+                  : review
+                    ? '저장된 검수 지원 티켓 없음.'
+                    : graph
+                      ? '저장된 새 병렬 티켓 없음.'
+                      : '저장된 새 순차 티켓 없음.'}{' '}
             기존 고정 workflow/작업은 변경하지 않습니다.
           </p>
         )}

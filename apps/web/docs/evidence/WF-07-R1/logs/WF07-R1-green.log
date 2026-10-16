@@ -1,0 +1,7 @@
+Running 4 tests using 1 worker
+
+[1/4] tests\browser\workflow-ticket-empty.spec.ts:26:3 › WF07 R1 correct empty ticket subject recovery 1440
+[2/4] tests\browser\workflow-ticket-empty.spec.ts:26:3 › WF07 R1 correct empty ticket subject recovery 390
+[3/4] tests\browser\workflow-ticket-empty.spec.ts:26:3 › WF07 R1 correct empty ticket subject work 1440
+[4/4] tests\browser\workflow-ticket-empty.spec.ts:26:3 › WF07 R1 correct empty ticket subject decision 1440
+  4 passed (3.5s)
