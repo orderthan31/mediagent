@@ -1,0 +1,11 @@
+{
+  "scope": "R1 list rendering + R2 resolved-option reopen only",
+  "unique_passes": 6,
+  "list_render_contract_fixture": 4,
+  "actual_asgi_node_reopen": 2,
+  "full_backend82_rerun": false,
+  "full_browser14_rerun": false,
+  "frontend_node_tests": 42,
+  "mutating_policy_changed": false,
+  "backend_source_changed": false
+}

@@ -21,18 +21,21 @@ export const ModelRegistryPage = () => {
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [listError, setListError] = useState('');
+  const [listConfirmed, setListConfirmed] = useState(false);
   const [status, setStatus] = useState('');
   const load = async () => {
     setLoading(true);
-    setError('');
+    setListError('');
     try {
       const data = await request<{ models: RegisteredModel[]; providers: Record<string, string> }>(
         endpoint,
       );
       setModels(data.models);
       setProviders(data.providers);
+      setListConfirmed(true);
     } catch (e) {
-      setError(e instanceof Error ? e.message : '등록 모델 조회 실패');
+      setListError(e instanceof Error ? e.message : '등록 모델 조회 실패');
     } finally {
       setLoading(false);
     }
@@ -149,6 +152,16 @@ export const ModelRegistryPage = () => {
         모델을 등록한 뒤 워크플로우의 해당 노드에 정확한 revision을 연결하세요. 등록·키 보유·adapter
         호환은 실제 연결/추론 성공이 아닙니다.
       </p>
+      {listError && (
+        <p role="alert" className="alert list-query-error">
+          목록 조회 실패 · {listError}
+        </p>
+      )}
+      {listError && listConfirmed && (
+        <p className="list-query-stale">
+          이전 조회값 · 최신 미확인. 등록 모델 목록을 다시 읽어 확인하세요.
+        </p>
+      )}
       {error && (
         <p role="alert" className="alert">
           {error}
@@ -241,7 +254,7 @@ export const ModelRegistryPage = () => {
         <h2>등록 모델</h2>
         {loading ? (
           <p>등록 목록 읽는 중</p>
-        ) : models.length === 0 ? (
+        ) : listConfirmed && !listError && models.length === 0 ? (
           <p>등록 모델 없음. 모델 없는 처리 노드는 등록 없이 사용할 수 있습니다.</p>
         ) : (
           models.map((row) => {

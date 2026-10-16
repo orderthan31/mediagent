@@ -139,7 +139,12 @@ for (const width of [1440, 390]) {
     await page.getByLabel('저장된 정의', { exact: true }).selectOption('a'.repeat(32));
     await page.getByRole('button', { name: '선택 정의 서버값 열기', exact: true }).click();
     await page.locator('.canvas-node[data-id="judge"] .canvas-drag').click();
+    await expect(page.getByLabel('호환 등록 모델', { exact: true })).toBeEnabled();
     await expect(page.getByLabel('호환 등록 모델', { exact: true })).toHaveValue(reference!);
+    await expect(
+      page.getByLabel('호환 등록 모델', { exact: true }).locator('option:checked'),
+    ).toHaveText('검증용 판단 모델 · r1 · openai/gpt-4o-mini');
+    await expect(page.locator('.node-model-binding')).not.toContainText('등록 항목 미확인');
     await page.locator('.node-model-binding').scrollIntoViewIfNeeded();
     await page.screenshot({ path: `${E}/node-binding-${width}.png` });
     await page.goto('/#/start');

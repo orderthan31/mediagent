@@ -49,6 +49,8 @@ export const WorkflowStart = () => {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [listError, setListError] = useState('');
+  const [listsConfirmed, setListsConfirmed] = useState(false);
   const generation = useRef(0);
   const invalidate = () => {
     setPlan(null);
@@ -61,7 +63,7 @@ export const WorkflowStart = () => {
     setInspection(null);
     setDefinitionId('');
     setLoading(true);
-    setError('');
+    setListError('');
     try {
       const [videos, workflows] = await Promise.all([
         request<{ videos: VideoAsset[] }>('/videos'),
@@ -71,10 +73,9 @@ export const WorkflowStart = () => {
       ]);
       setAssets(videos.videos);
       setDefinitions(workflows.definitions);
+      setListsConfirmed(true);
     } catch (e) {
-      setAssets([]);
-      setDefinitions([]);
-      setError(
+      setListError(
         e instanceof Error ? e.message : '목록 조회 실패. 정상/빈 목록으로 간주하지 않습니다.',
       );
     } finally {
@@ -192,6 +193,16 @@ export const WorkflowStart = () => {
         영상과 저장 워크플로우를 고르고 흐름·노드 설정을 확인하세요. 계획/비용 확인 후 티켓을 만들며
         실행은 별도입니다.
       </p>
+      {listError && (
+        <p role="alert" className="alert list-query-error">
+          목록 조회 실패 · {listError}
+        </p>
+      )}
+      {listError && listsConfirmed && (
+        <p className="list-query-stale">
+          이전 조회값 · 최신 미확인. 영상·워크플로우 목록을 다시 읽어 확인하세요.
+        </p>
+      )}
       {error && (
         <p role="alert" className="alert">
           {error}
@@ -239,13 +250,13 @@ export const WorkflowStart = () => {
               </select>
             </label>
           </div>
-          {definitions.length === 0 && (
+          {listsConfirmed && !listError && definitions.length === 0 && (
             <p>
               저장 워크플로우 없음 · <a href="#/workflow-editor">워크플로우 구성</a>에서 먼저
               저장하세요.
             </p>
           )}
-          {assets.length === 0 && (
+          {listsConfirmed && !listError && assets.length === 0 && (
             <p>
               입력 영상 없음 · <a href="#/">영상 보관함</a>에서 등록하세요.
             </p>

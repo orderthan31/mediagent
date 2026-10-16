@@ -1,0 +1,5 @@
+Running 2 tests using 1 worker
+
+[1/2] tests\browser\ui01-reopen-scoped.spec.ts:7:3 › scoped confirmed registry option on node reopen 1440
+[2/2] tests\browser\ui01-reopen-scoped.spec.ts:7:3 › scoped confirmed registry option on node reopen 390
+  2 passed (58.8s)

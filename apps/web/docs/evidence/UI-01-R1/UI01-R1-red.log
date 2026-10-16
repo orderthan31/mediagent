@@ -1,0 +1,63 @@
+Running 2 tests using 1 worker
+
+[1/2] tests\browser\ui01-list-state.spec.ts:6:5 › scoped start initial error empty success stale refresh 1440
+  1) tests\browser\ui01-list-state.spec.ts:6:5 › scoped start initial error empty success stale refresh 1440
+
+    Error: expect(locator).toContainText(expected) failed
+
+    Locator: locator('.workflow-start').locator('.list-query-error')
+    Expected substring: "국소 목록 조회 실패"
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toContainText" with timeout 5000ms
+      - waiting for locator('.workflow-start').locator('.list-query-error')
+
+
+      31 |    const absent=kind==='start'?/저장 워크플로우 없음|입력 영상 없음/:/등록 모델 없음/;
+      32 |    const refresh=page.getByRole('button',{name:kind==='start'?'목록 새로 읽기':'등록 목록 새로 읽기',exact:true});
+    > 33 |    await expect(panel.locator('.list-query-error')).toContainText('국소 목록 조회 실패');
+         |                                                     ^
+      34 |    await expect(panel).not.toContainText(absent);
+      35 |    if(kind==='models'){await page.getByRole('button',{name:'새 등록 입력',exact:true}).click();await expect(panel.locator('.list-query-error')).toContainText('국소 목록 조회 실패');}
+      36 |    await page.screenshot({path:`${E}/${kind}-initial-error-${width}.png`});
+        at PRIVATE_WORKSPACE\dev\mediagent-s2\apps\web\tests\browser\ui01-list-state.spec.ts:33:53
+
+    Test timeout of 30000ms exceeded.
+
+    Error Context: ..\..\..\..\AppData\Local\hermes\cache\scratch\s2-audit\browser-results\ui01-list-state-scoped-sta-240d8--success-stale-refresh-1440\error-context.md
+
+
+[2/2] tests\browser\ui01-list-state.spec.ts:6:5 › scoped models initial error empty success stale refresh 1440
+  2) tests\browser\ui01-list-state.spec.ts:6:5 › scoped models initial error empty success stale refresh 1440
+
+    Error: expect(locator).toContainText(expected) failed
+
+    Locator: locator('.model-registry').locator('.list-query-error')
+    Expected substring: "국소 목록 조회 실패"
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toContainText" with timeout 5000ms
+      - waiting for locator('.model-registry').locator('.list-query-error')
+
+
+      31 |    const absent=kind==='start'?/저장 워크플로우 없음|입력 영상 없음/:/등록 모델 없음/;
+      32 |    const refresh=page.getByRole('button',{name:kind==='start'?'목록 새로 읽기':'등록 목록 새로 읽기',exact:true});
+    > 33 |    await expect(panel.locator('.list-query-error')).toContainText('국소 목록 조회 실패');
+         |                                                     ^
+      34 |    await expect(panel).not.toContainText(absent);
+      35 |    if(kind==='models'){await page.getByRole('button',{name:'새 등록 입력',exact:true}).click();await expect(panel.locator('.list-query-error')).toContainText('국소 목록 조회 실패');}
+      36 |    await page.screenshot({path:`${E}/${kind}-initial-error-${width}.png`});
+        at PRIVATE_WORKSPACE\dev\mediagent-s2\apps\web\tests\browser\ui01-list-state.spec.ts:33:53
+
+    Test timeout of 30000ms exceeded.
+
+    Error Context: ..\..\..\..\AppData\Local\hermes\cache\scratch\s2-audit\browser-results\ui01-list-state-scoped-mod-e7801--success-stale-refresh-1440\error-context.md
+
+
+  2 failed
+    tests\browser\ui01-list-state.spec.ts:6:5 › scoped start initial error empty success stale refresh 1440
+    tests\browser\ui01-list-state.spec.ts:6:5 › scoped models initial error empty success stale refresh 1440

@@ -1,0 +1,516 @@
+{
+  "mode": "actual isolated ASGI/registry/definition, no model execution",
+  "reference": "b461c9e15a8047c3b4b877ad0bbda7ce@1",
+  "selectedOption": "검증용 판단 모델 · r1 · openai/gpt-4o-mini",
+  "pin": {
+    "model_id": "b461c9e15a8047c3b4b877ad0bbda7ce",
+    "revision": 1
+  },
+  "events": [
+    {
+      "method": "GET",
+      "path": "/api/settings/node-catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/node-catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/registered-models",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/serving",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/serving",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/registered-models",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/registered-models/compatibility",
+      "status": 200,
+      "payload": {
+        "provider": "openai",
+        "model": "gpt-4o-mini"
+      }
+    },
+    {
+      "method": "PUT",
+      "path": "/api/settings/registered-models/b461c9e15a8047c3b4b877ad0bbda7ce",
+      "status": 200,
+      "payload": {
+        "revision": 0,
+        "name": "검증용 판단 모델",
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "uses": [
+          "decision"
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/registered-models",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/node-catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/node-catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/registered-models",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/registered-models",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/workflow-definitions/validate",
+      "status": 200,
+      "payload": {
+        "catalog_version": 1,
+        "revision": 1,
+        "name": "격리 구조화 AI 판단",
+        "inputs": {
+          "video": "video"
+        },
+        "nodes": [
+          {
+            "id": "judge",
+            "type": "decision",
+            "options": {
+              "data_type": "video"
+            },
+            "position": {
+              "x": 0,
+              "y": 100
+            },
+            "model_ref": {
+              "model_id": "b461c9e15a8047c3b4b877ad0bbda7ce",
+              "revision": 1
+            }
+          },
+          {
+            "id": "gate",
+            "type": "review",
+            "options": {
+              "data_type": "video"
+            },
+            "position": {
+              "x": 200,
+              "y": 100
+            }
+          },
+          {
+            "id": "a",
+            "type": "encode",
+            "options": {
+              "subtitle_mode": "none"
+            },
+            "position": {
+              "x": 400,
+              "y": 100
+            }
+          },
+          {
+            "id": "b",
+            "type": "encode",
+            "options": {
+              "subtitle_mode": "none"
+            },
+            "position": {
+              "x": 600,
+              "y": 100
+            }
+          },
+          {
+            "id": "joined",
+            "type": "join",
+            "options": {
+              "left_type": "video",
+              "right_type": "video"
+            },
+            "position": {
+              "x": 800,
+              "y": 100
+            }
+          },
+          {
+            "id": "independent",
+            "type": "analyze",
+            "options": {},
+            "position": {
+              "x": 1000,
+              "y": 100
+            }
+          }
+        ],
+        "edges": [
+          {
+            "id": "e0",
+            "source": {
+              "node": "$input",
+              "port": "video"
+            },
+            "target": {
+              "node": "judge",
+              "port": "value"
+            }
+          },
+          {
+            "id": "e1",
+            "source": {
+              "node": "judge",
+              "port": "a"
+            },
+            "target": {
+              "node": "gate",
+              "port": "value"
+            }
+          },
+          {
+            "id": "e2",
+            "source": {
+              "node": "gate",
+              "port": "value"
+            },
+            "target": {
+              "node": "a",
+              "port": "video"
+            }
+          },
+          {
+            "id": "e3",
+            "source": {
+              "node": "judge",
+              "port": "b"
+            },
+            "target": {
+              "node": "b",
+              "port": "video"
+            }
+          },
+          {
+            "id": "e4",
+            "source": {
+              "node": "a",
+              "port": "video"
+            },
+            "target": {
+              "node": "joined",
+              "port": "left"
+            }
+          },
+          {
+            "id": "e5",
+            "source": {
+              "node": "b",
+              "port": "video"
+            },
+            "target": {
+              "node": "joined",
+              "port": "right"
+            }
+          },
+          {
+            "id": "e6",
+            "source": {
+              "node": "$input",
+              "port": "video"
+            },
+            "target": {
+              "node": "independent",
+              "port": "video"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "method": "PUT",
+      "path": "/api/settings/workflow-definitions/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "status": 200,
+      "payload": {
+        "catalog_version": 1,
+        "revision": 1,
+        "name": "격리 구조화 AI 판단",
+        "inputs": {
+          "video": "video"
+        },
+        "nodes": [
+          {
+            "id": "judge",
+            "type": "decision",
+            "options": {
+              "data_type": "video"
+            },
+            "position": {
+              "x": 0,
+              "y": 100
+            },
+            "model_ref": {
+              "model_id": "b461c9e15a8047c3b4b877ad0bbda7ce",
+              "revision": 1
+            }
+          },
+          {
+            "id": "gate",
+            "type": "review",
+            "options": {
+              "data_type": "video"
+            },
+            "position": {
+              "x": 200,
+              "y": 100
+            }
+          },
+          {
+            "id": "a",
+            "type": "encode",
+            "options": {
+              "subtitle_mode": "none"
+            },
+            "position": {
+              "x": 400,
+              "y": 100
+            }
+          },
+          {
+            "id": "b",
+            "type": "encode",
+            "options": {
+              "subtitle_mode": "none"
+            },
+            "position": {
+              "x": 600,
+              "y": 100
+            }
+          },
+          {
+            "id": "joined",
+            "type": "join",
+            "options": {
+              "left_type": "video",
+              "right_type": "video"
+            },
+            "position": {
+              "x": 800,
+              "y": 100
+            }
+          },
+          {
+            "id": "independent",
+            "type": "analyze",
+            "options": {},
+            "position": {
+              "x": 1000,
+              "y": 100
+            }
+          }
+        ],
+        "edges": [
+          {
+            "id": "e0",
+            "source": {
+              "node": "$input",
+              "port": "video"
+            },
+            "target": {
+              "node": "judge",
+              "port": "value"
+            }
+          },
+          {
+            "id": "e1",
+            "source": {
+              "node": "judge",
+              "port": "a"
+            },
+            "target": {
+              "node": "gate",
+              "port": "value"
+            }
+          },
+          {
+            "id": "e2",
+            "source": {
+              "node": "gate",
+              "port": "value"
+            },
+            "target": {
+              "node": "a",
+              "port": "video"
+            }
+          },
+          {
+            "id": "e3",
+            "source": {
+              "node": "judge",
+              "port": "b"
+            },
+            "target": {
+              "node": "b",
+              "port": "video"
+            }
+          },
+          {
+            "id": "e4",
+            "source": {
+              "node": "a",
+              "port": "video"
+            },
+            "target": {
+              "node": "joined",
+              "port": "left"
+            }
+          },
+          {
+            "id": "e5",
+            "source": {
+              "node": "b",
+              "port": "video"
+            },
+            "target": {
+              "node": "joined",
+              "port": "right"
+            }
+          },
+          {
+            "id": "e6",
+            "source": {
+              "node": "$input",
+              "port": "video"
+            },
+            "target": {
+              "node": "independent",
+              "port": "video"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/node-catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/node-catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/workflow-definitions/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/registered-models",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/registered-models",
+      "status": 200
+    }
+  ],
+  "errors": []
+}

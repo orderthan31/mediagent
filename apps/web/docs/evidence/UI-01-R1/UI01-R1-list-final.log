@@ -1,0 +1,7 @@
+Running 4 tests using 1 worker
+
+[1/4] tests\browser\ui01-list-state.spec.ts:6:5 › scoped start initial error empty success stale refresh 1440
+[2/4] tests\browser\ui01-list-state.spec.ts:6:5 › scoped models initial error empty success stale refresh 1440
+[3/4] tests\browser\ui01-list-state.spec.ts:6:5 › scoped start initial error empty success stale refresh 390
+[4/4] tests\browser\ui01-list-state.spec.ts:6:5 › scoped models initial error empty success stale refresh 390
+  4 passed (6.7s)
