@@ -570,23 +570,25 @@ export const VideoWorkspace = () => {
                     {hasConfirmedList && <Pagination {...jobPage} disabled={!online} />}
                   </>
                 ) : (
-                  <div className="asset-list storage-library">
-                    {videoPage.items.map((v) => (
-                      <StorageAssetRow
-                        key={v.asset_id}
-                        video={v}
-                        thumbnail={<Thumbnail assetId={v.asset_id} />}
-                      />
-                    ))}
+                  <>
+                    <div className="asset-list storage-library">
+                      {videoPage.items.map((v) => (
+                        <StorageAssetRow
+                          key={v.asset_id}
+                          video={v}
+                          thumbnail={<Thumbnail assetId={v.asset_id} />}
+                        />
+                      ))}
+                      {!shownVideos.length && online && (
+                        <EmptyState
+                          className="storage-empty"
+                          illustration={<FolderOpen size={32} aria-hidden="true" />}
+                          heading={query ? '검색 결과가 없습니다.' : '등록된 원본 영상이 없습니다.'}
+                        />
+                      )}
+                    </div>
                     {hasConfirmedList && <Pagination {...videoPage} disabled={!online} />}
-                    {!shownVideos.length && online && (
-                      <EmptyState
-                        className="storage-empty"
-                        illustration={<FolderOpen size={32} aria-hidden="true" />}
-                        heading={query ? '검색 결과가 없습니다.' : '등록된 원본 영상이 없습니다.'}
-                      />
-                    )}
-                  </div>
+                  </>
                 )}
               </>
             )}

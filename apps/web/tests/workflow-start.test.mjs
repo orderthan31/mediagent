@@ -7,7 +7,14 @@ test('primary workflow start consumes server inspection instead of an executor-t
   assert.ok(component.includes('/settings/work-entry/inspect'));
   assert.ok(component.includes('aria-label="원본"'));
   assert.ok(component.includes('aria-label="워크플로우"'));
-  assert.ok(component.includes('처리 흐름'));
+  assert.ok(component.includes('<WorkflowCanvas'));
+  assert.ok(component.includes('inputLabel={asset?.original_filename'));
+  assert.ok(!component.includes('작업 요약'));
+  assert.ok(!component.includes('새로고침'));
+  assert.ok(!component.includes('추가 옵션'));
+  assert.ok(!component.includes('복구 지원'));
+  assert.ok(component.includes('비용 발생 가능성'));
+  assert.ok(component.includes('paid_confirmed: paid'));
   assert.ok(component.includes('/settings/work-entry/preview'));
   const tickets = readFileSync(new URL('../src/WorkflowTickets.tsx', import.meta.url), 'utf8');
   assert.ok(tickets.includes('plan.model_bindings'));

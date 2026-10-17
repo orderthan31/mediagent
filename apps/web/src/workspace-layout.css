@@ -1,8 +1,64 @@
 /* Product composition. Geometry is tuned for a 1920×1080 desktop; no page zoom. */
-.ui02-workspace :is(.video-main, .serving-page, .ui02-catalog, .job-detail, .workflow-editor-page) {
+.ui02-workspace :is(.video-main, .serving-page, .ui02-catalog, .job-detail, .workflow-editor) {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
   width: 100%;
   max-width: var(--m-content-width);
+  min-height: calc(100dvh - var(--m-header-height));
+  margin: 0;
+  padding: var(--m-page-pad);
   box-sizing: border-box;
+}
+.ui02-workspace main:has(> .list-pagination) {
+  height: calc(100dvh - var(--m-header-height));
+}
+.ui02-workspace
+  main:has(> .list-pagination)
+  > :is(.ui02-list, .storage-library, .job-ledger-scroll) {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.ui02-workspace main > .list-pagination {
+  margin-top: auto;
+  padding-top: var(--m-space-24);
+}
+.ui02-workspace main > :is(.ui02-list, .storage-library, .job-ledger-scroll) {
+  margin-bottom: var(--m-space-24);
+}
+.page-actions {
+  position: sticky;
+  bottom: var(--m-page-pad);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--m-space-12);
+  margin-top: auto;
+  padding-block: var(--m-space-16);
+  border-top: 1px solid var(--g-line);
+  background: var(--g-surface);
+}
+.ui02-workspace .page-form {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+.ui02-workspace .page-form > fieldset {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--m-space-24);
+}
+.ui02-workspace .page-form .page-actions {
+  margin-top: auto;
+}
+.ui02-workspace .connection-form {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
 }
 .ui02-workspace .ui02-lnb {
   background: var(--g-muted);
@@ -25,7 +81,7 @@
 .ui02-workspace .page-form .serving-grid > label,
 .ui02-workspace .connection-form fieldset > label {
   display: grid;
-  grid-template-columns: 132px minmax(0, 1fr);
+  grid-template-columns: 132px minmax(0, 720px);
   align-items: center;
   gap: var(--m-space-24);
 }
@@ -38,8 +94,9 @@
   margin-left: calc(132px + var(--m-space-24));
 }
 .ui02-workspace .page-form.ticket-panel {
-  border-top: 0;
-  margin-top: 0;
+  border: 0;
+  margin: 0;
+  padding: 0;
 }
 .ui02-workspace .connection-form {
   max-width: var(--m-form-width);
@@ -151,12 +208,47 @@
   border-left: 1px solid var(--g-line);
 }
 .work-entry-layout {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--m-space-24);
+  margin-top: var(--m-space-24);
+}
+.entry-selection {
+  max-width: var(--m-form-width);
+}
+.model-profile-fields {
   display: grid;
-  grid-template-columns: minmax(0, 720px) minmax(240px, 300px);
-  gap: var(--m-space-64);
-  align-items: start;
-  max-width: 1120px;
-  margin-top: var(--m-space-32);
+  gap: var(--m-space-24);
+}
+.model-profile-row {
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--m-space-24);
+}
+.model-profile-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--m-space-12) var(--m-space-24);
+}
+.model-profile-choices .serving-check {
+  margin: 0;
+}
+.work-entry-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--m-space-16);
+}
+.entry-media-preview {
+  display: block;
+  max-width: 100%;
+  max-height: 360px;
+}
+.workflow-start .workflow-graph-viewport {
+  height: clamp(300px, 50dvh, 560px);
 }
 .work-entry-fields {
   min-width: 0;
@@ -265,11 +357,11 @@
 }
 @media (max-width: 68rem) {
   .work-entry-layout {
-    grid-template-columns: minmax(0, 1fr) 240px;
-    gap: var(--m-space-32);
+    gap: var(--m-space-24);
   }
 }
 @media (max-width: 55.999rem) {
+  .model-profile-row,
   .ui02-workspace .page-form .serving-grid > label,
   .ui02-workspace .connection-form fieldset > label {
     grid-template-columns: minmax(0, 1fr);

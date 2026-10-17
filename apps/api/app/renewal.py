@@ -6,7 +6,7 @@ There is deliberately no module-level app or implicit DATABASE_URL discovery.
 import hmac
 from urllib.parse import urlsplit
 
-from fastapi import Depends, FastAPI, HTTPException, Request, Response
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt
@@ -18,6 +18,7 @@ from video_service.model_endpoints import PROVIDERS
 from video_service.postgres import Conflict, Missing
 from video_service.postgres.accounts import Accounts
 from video_service.postgres.registry import Registry
+from video_service.postgres.sources import Sources
 
 
 class Body(BaseModel):
@@ -50,13 +51,25 @@ class Model(Body):
     model: str = Field(min_length=1, max_length=200)
     connection_id: str = Field(pattern=r'^[a-f0-9]{32}$')
     connection_revision: StrictInt = Field(ge=1)
-    uses: list[str] = Field(min_length=1, max_length=8)
+    model_types: list[str] = Field(min_length=1, max_length=9)
+    input_modalities: list[str] = Field(min_length=1, max_length=5)
+    output_modalities: list[str] = Field(min_length=1, max_length=5)
+    capabilities: list[str] = Field(min_length=1, max_length=8)
     provider: str | None = Field(default=None, max_length=80)
 
 
 class Availability(Body):
     revision: StrictInt = Field(ge=1)
     active: StrictBool
+
+
+class SourceMetadata(Body):
+    filename: str = Field(min_length=1, max_length=255)
+    artifact_ref: str = Field(pattern=r'^sha256:[a-f0-9]{64}$')
+    byte_count: StrictInt = Field(ge=0, le=9223372036854775807)
+    sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
+    media_type: str = Field(min_length=1, max_length=40)
+    duration_seconds: float | None = Field(default=None, ge=0, le=31536000, allow_inf_nan=False)
 
 
 class JsonBodyLimit:
@@ -93,7 +106,7 @@ def create_app(database, *, allowed_origins, secure_cookies=True):
     app = FastAPI(title='mideagent renewal API', version='0.1.0', docs_url=None, redoc_url=None)
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=list({urlsplit(value).hostname for value in origins}))
     app.add_middleware(JsonBodyLimit)
-    accounts, registry = Accounts(database), Registry(database)
+    accounts, registry, sources = Accounts(database), Registry(database), Sources(database)
     cookie = '__Host-mideagent_session' if secure_cookies else 'mideagent_session_dev'
 
     @app.middleware('http')
@@ -195,7 +208,7 @@ def create_app(database, *, allowed_origins, secure_cookies=True):
 
     @app.get('/api/capabilities')
     def capabilities(value=Depends(session)):
-        return {'backend': 'postgres', 'features': ['accounts', 'serving_connections', 'registered_models'],
+        return {'backend': 'postgres', 'features': ['accounts', 'serving_connections', 'registered_models', 'source_metadata'],
                 'execution_enabled': False, 'model_network_enabled': False}
 
     @app.get('/api/settings/serving-connections')
@@ -222,5 +235,18 @@ def create_app(database, *, allowed_origins, secure_cookies=True):
     @app.post('/api/settings/registered-models/{identity}/availability')
     def availability(identity: str, body: Availability, value=Depends(session)):
         return registry.availability(value['user']['id'], identity, **body.model_dump())
+
+    @app.get('/api/source-metadata')
+    def source_list(page: int = Query(default=1, ge=1, le=1000000),
+                    page_size: int = Query(default=20, ge=1, le=100), value=Depends(session)):
+        return sources.list(value['user']['id'], page=page, page_size=page_size)
+
+    @app.get('/api/source-metadata/{identity}')
+    def source_detail(identity: str, value=Depends(session)):
+        return sources.get(value['user']['id'], identity)
+
+    @app.put('/api/source-metadata/{identity}')
+    def source_register(identity: str, body: SourceMetadata, value=Depends(session)):
+        return sources.register(value['user']['id'], identity, **body.model_dump())
 
     return app

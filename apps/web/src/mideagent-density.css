@@ -56,8 +56,8 @@
   --m-control-pad: 12px;
   --m-control-gap: 6px;
   --m-page-pad: 24px;
-  --m-content-width: 1440px;
-  --m-form-width: 640px;
+  --m-content-width: none;
+  --m-form-width: 100%;
   --m-auth-width: 336px;
   --m-auth-top: clamp(64px, 13vh, 140px);
   --m-card-pad: 14px;

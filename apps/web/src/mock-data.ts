@@ -152,9 +152,9 @@ export const seedDefinitions = (): MockDefinition[] => [
 ];
 export const seedModels = (): RegisteredModel[] =>
   [
-    [301, '음성 전사 · 샘플', 'openai', 'sample-transcription-model', ['transcription']],
-    [302, '번역 · 샘플', 'gemini', 'sample-text-model', ['translation']],
-    [303, '구조화 판단 · 샘플', 'openai', 'sample-decision-model', ['decision', 'translation']],
+    [301, '음성 인식 · 샘플', 'openai', 'sample-speech-model', ['transcription']],
+    [302, '텍스트 · 샘플', 'gemini', 'sample-text-model', ['translation']],
+    [303, '디시전 · 샘플', 'openai', 'sample-decision-model', ['decision', 'translation']],
   ].map(([n, name, provider, model, uses]) => ({
     id: mockId(Number(n)),
     revision: 1,
@@ -171,6 +171,20 @@ export const seedModels = (): RegisteredModel[] =>
         connection_id: seedConnections().find((connection) => connection.provider === provider)?.id,
         model: String(model),
         uses: uses as string[],
+        model_types:
+          Number(n) === 301
+            ? ['speech_recognition']
+            : Number(n) === 303
+              ? ['text', 'decision']
+              : ['text'],
+        input_modalities: Number(n) === 301 ? ['audio'] : ['text'],
+        output_modalities: ['text'],
+        capabilities:
+          Number(n) === 301
+            ? ['speech_recognition']
+            : Number(n) === 303
+              ? ['text_generation', 'structured_output']
+              : ['text_generation'],
         sha256: '0'.repeat(64),
       },
     },

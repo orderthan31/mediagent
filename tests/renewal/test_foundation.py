@@ -144,9 +144,9 @@ def test_registry_owner_pinned_revision_conflict_immutable_and_availability(db, 
     first = registry.save_connection(owner, connection_id, revision=0, name='Local model endpoint',
             provider='openai_compatible', protocol='openai_compatible', endpoint='http://127.0.0.1:9000/deploy/v1')
     assert first['credential'] == 'not_set' and first['connection_verified'] is False
-    assert registry.compatibility(owner, connection_id)['uses'] == ['translation']
+    assert 'tts' in registry.compatibility(owner, connection_id)['model_types']
     model = registry.save_model(owner, model_id, revision=0, name='Local text', model='local-model:latest',
-            connection_id=connection_id, connection_revision=1, uses=['translation'])
+            connection_id=connection_id, connection_revision=1, model_types=['text'], input_modalities=['text'], output_modalities=['text'], capabilities=['text_generation'])
     registry.save_connection(owner, connection_id, revision=1, name='Changed endpoint', provider='openai_compatible',
             protocol='openai_compatible', endpoint='http://127.0.0.1:9001/v1')
     assert registry.model(owner, model_id)['versions']['1']['connection_revision'] == 1
@@ -166,7 +166,7 @@ def test_registry_owner_pinned_revision_conflict_immutable_and_availability(db, 
     with pytest.raises(Missing):
         registry.model(reader['id'], model_id)
     with pytest.raises(Missing):
-        registry.save_model(reader['id'], uuid4().hex, revision=0, name='Cross-owner', model='remote', connection_id=connection_id, connection_revision=1, uses=['translation'])
+        registry.save_model(reader['id'], uuid4().hex, revision=0, name='Cross-owner', model='remote', connection_id=connection_id, connection_revision=1, model_types=['text'], input_modalities=['text'], output_modalities=['text'], capabilities=['text_generation'])
     with db.connection() as conn:
         assert conn.execute('SELECT count(*) AS n FROM registered_models WHERE owner_id=%s', (reader['id'],)).fetchone()['n'] == 0
 
@@ -180,12 +180,12 @@ def test_registry_api_round_trip_and_schema_rejection(db, admin):
         reread = client.get('/api/settings/serving-connections').json()['connections']
         assert reread[0]['id'] == cid and reread[0]['revision'] == 1
         assert client.post('/api/settings/registered-models/compatibility', json={'connection_id': cid, 'connection_revision': 1, 'model': 'anything'}).json()['verified'] is False
-        config = {'revision': 0, 'name': 'Pinned local model', 'model': 'anything', 'connection_id': cid, 'connection_revision': 1, 'uses': ['translation']}
+        config = {'revision': 0, 'name': 'Pinned local model', 'model': 'anything', 'connection_id': cid, 'connection_revision': 1, 'model_types': ['text'], 'input_modalities': ['text'], 'output_modalities': ['text'], 'capabilities': ['text_generation']}
         assert client.put('/api/settings/registered-models/' + mid, json=config).status_code == 200
         assert client.get('/api/settings/registered-models').json()['models'][0]['versions']['1']['connection_id'] == cid
         assert client.put('/api/settings/registered-models/' + mid, json=config).status_code == 409
         config['revision'] = 1
-        config['uses'] = ['transcription']
+        config['model_types'] = ['translation']
         assert client.put('/api/settings/registered-models/' + mid, json=config).status_code == 422
         assert client.get('/api/capabilities').json()['execution_enabled'] is False
 

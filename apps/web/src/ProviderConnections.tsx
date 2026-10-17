@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { ChevronRight, KeyRound } from 'lucide-react';
 import { PageTitle } from './PageTitle';
 import { Pagination, usePagination } from './Pagination';
 import { request } from './api';
@@ -29,8 +28,9 @@ export const ProviderConnections = ({ route, query }: { route: string; query: st
   const [revision, setRevision] = useState(0);
   const [busy, setBusy] = useState('load');
   const [error, setError] = useState('');
-  const identity = route.match(/^#\/serving\/connections\/([a-f0-9]{32})\/edit$/)?.[1];
-  const form = !!identity || route === '#/serving/connections/new';
+  const identity = route.match(/^#\/serving\/connections\/([a-f0-9]{32})(?:\/edit)?$/)?.[1];
+  const form = route.endsWith('/edit') || route === '#/serving/connections/new';
+  const selected = rows.find((row) => row.id === identity);
   const shown = rows.filter((row) =>
     `${row.name} ${providers[row.provider] || row.provider}`
       .toLocaleLowerCase()
@@ -56,7 +56,7 @@ export const ProviderConnections = ({ route, query }: { route: string; query: st
           ...(renewalBackend ? { protocol } : {}),
         }),
       });
-      location.hash = '/serving/connections';
+      location.hash = '/serving/connections/' + id;
     } catch (value) {
       setError(value instanceof Error ? value.message : '저장하지 못했습니다.');
     } finally {
@@ -102,9 +102,13 @@ export const ProviderConnections = ({ route, query }: { route: string; query: st
   return (
     <main className="serving-page">
       <PageTitle>
-        {form ? (identity ? name || '공급자 불러오는 중' : '공급자 추가') : '공급자'}
+        {identity
+          ? name || (busy === 'load' ? '공급자 불러오는 중' : '공급자를 찾을 수 없음')
+          : form
+            ? '공급자 추가'
+            : '공급자'}
       </PageTitle>
-      {!form && <ServingTabs connections />}
+      {!form && !identity && <ServingTabs connections />}
       {error && (
         <p className="alert" role="alert">
           {error}
@@ -175,28 +179,66 @@ export const ProviderConnections = ({ route, query }: { route: string; query: st
                 autoComplete="off"
               />
             </label>
-            <Button type="submit" disabled={!name.trim()} loading={busy === 'save'}>
+          </fieldset>
+          <div className="page-actions">
+            <Button
+              type="submit"
+              disabled={!name.trim() || !!busy || (!!identity && revision === 0)}
+              loading={busy === 'save'}
+            >
               저장
             </Button>
-          </fieldset>
+          </div>
         </form>
+      ) : identity ? (
+        selected && (
+          <>
+            <dl className="serving-resource-facts">
+              <div>
+                <dt>공급자</dt>
+                <dd>{providers[selected.provider] || selected.provider}</dd>
+              </div>
+              <div>
+                <dt>접속 주소</dt>
+                <dd>{selected.endpoint || '기본 주소'}</dd>
+              </div>
+              {renewalBackend && (
+                <div>
+                  <dt>API 프로토콜</dt>
+                  <dd>{selected.protocol || '미설정'}</dd>
+                </div>
+              )}
+              <div>
+                <dt>API 키</dt>
+                <dd>{selected.credential === 'reference_set' ? '참조 설정됨' : '미설정'}</dd>
+              </div>
+              <div>
+                <dt>연결 확인</dt>
+                <dd>미확인</dd>
+              </div>
+            </dl>
+            <div className="page-actions">
+              <Button
+                onClick={() => {
+                  location.hash = '/serving/connections/' + identity + '/edit';
+                }}
+              >
+                수정
+              </Button>
+            </div>
+          </>
+        )
       ) : (
         <section className="ui02-list" aria-label="공급자">
           {page.items.map((row) => (
             <a
               key={row.id}
-              href={'#/serving/connections/' + row.id + '/edit'}
-              className="ui02-list-item connection-row"
+              href={'#/serving/connections/' + row.id}
+              className="ui02-list-item serving-resource-row"
             >
-              <KeyRound size={22} />
-              <div className="ui02-list-copy">
-                <strong className="ui02-list-title">{row.name}</strong>
-                <p className="ui02-list-meta">
-                  {providers[row.provider] || row.provider} ·{' '}
-                  {row.credential === 'reference_set' ? '키 참조 설정' : '키 미설정'}
-                </p>
-              </div>
-              <ChevronRight size={18} />
+              <strong className="ui02-list-title">{row.name}</strong>
+              <span className="ui02-list-meta">{providers[row.provider] || row.provider}</span>
+              <span className="ui02-list-meta">{row.endpoint || '기본 주소'}</span>
             </a>
           ))}
           {!error && !shown.length && (
@@ -204,7 +246,7 @@ export const ProviderConnections = ({ route, query }: { route: string; query: st
           )}
         </section>
       )}
-      {!form && !busy && !error && <Pagination {...page} />}
+      {!form && !identity && !busy && !error && <Pagination {...page} />}
     </main>
   );
 };

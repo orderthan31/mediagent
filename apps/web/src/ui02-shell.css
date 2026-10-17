@@ -402,8 +402,8 @@
 .ui02-catalog {
   padding: 30px var(--m-space-32) var(--m-space-64);
   width: 100%;
-  max-width: 1280px;
-  margin-inline: auto;
+  max-width: none;
+  margin-inline: 0;
   box-sizing: border-box;
 }
 .ui02-page-heading {
@@ -516,6 +516,7 @@
 .renewed-workspace .ui02-list,
 .renewed-workspace .storage-library {
   display: grid;
+  align-content: start;
   gap: 0;
   border-top: 1px solid var(--g-line);
 }

@@ -50,6 +50,8 @@ export const WorkflowCanvas = ({
   disabled = false,
   nodeStates = {},
   detailsLabel = '노드 설정',
+  inputLabel = '입력 트리거',
+  inputThumbnail,
 }: {
   definition: CanvasDefinition;
   catalog: CanvasSpec[];
@@ -60,8 +62,11 @@ export const WorkflowCanvas = ({
   disabled?: boolean;
   nodeStates?: Record<string, { label: string; state: string }>;
   detailsLabel?: string;
+  inputLabel?: string;
+  inputThumbnail?: string;
 }) => {
   const viewport = useRef<HTMLDivElement>(null);
+  const detailsPanel = useRef<HTMLElement>(null);
   const marker = useId().replaceAll(':', '');
   const [size, setSize] = useState({ width: 900, height: 580 });
   const [view, setView] = useState({ x: 40, y: 40, scale: 1 });
@@ -81,7 +86,7 @@ export const WorkflowCanvas = ({
     () => [
       {
         id: '$input',
-        label: '입력 트리거',
+        label: inputLabel,
         type: '',
         x: 20,
         y: 24,
@@ -126,7 +131,7 @@ export const WorkflowCanvas = ({
         };
       }),
     ],
-    [definition, catalog],
+    [definition, catalog, inputLabel],
   );
   const bounds = useMemo(
     () => ({
@@ -262,6 +267,8 @@ export const WorkflowCanvas = ({
       });
     }
   };
+  const selectedBox = boxes.find((box) => box.id === selected);
+  const previewFrom = source ? point(source, true) : null;
   useEffect(() => {
     if (!viewport.current) {
       return;
@@ -276,8 +283,15 @@ export const WorkflowCanvas = ({
   useEffect(() => {
     setView(fitted());
   }, [size.width, size.height, definition.id]);
-  const selectedBox = boxes.find((box) => box.id === selected);
-  const previewFrom = source ? point(source, true) : null;
+  useEffect(() => {
+    if (selected) {
+      const panel = detailsPanel.current;
+      if (panel) {
+        panel.scrollTop = 0;
+        panel.scrollIntoView({ block: 'nearest' });
+      }
+    }
+  }, [selected]);
   return (
     <section className="workflow-graph" aria-label="워크플로우">
       {catalogError && (
@@ -449,7 +463,9 @@ export const WorkflowCanvas = ({
                 }}
               >
                 <span className="workflow-node-symbol">
-                  {box.id === '$input' ? (
+                  {box.id === '$input' && inputThumbnail ? (
+                    <img src={inputThumbnail} alt="" />
+                  ) : box.id === '$input' ? (
                     <LogIn size={20} />
                   ) : box.type === '$output' ? (
                     <LogOut size={20} />
@@ -632,7 +648,12 @@ export const WorkflowCanvas = ({
         )}
       </div>
       {selectedBox && (
-        <section className="workflow-node-settings" aria-label={detailsLabel}>
+        <section
+          className="workflow-node-settings"
+          aria-label={detailsLabel}
+          ref={detailsPanel}
+          tabIndex={0}
+        >
           <div>
             <strong>{selectedBox.label}</strong>
             <button

@@ -95,6 +95,24 @@
   margin: 0;
   font-size: var(--text-g-body);
 }
+.ui02-workspace .account-page:has(.account-members) {
+  height: calc(100dvh - var(--m-header-height));
+}
+.account-members {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.account-table {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.account-members > .list-pagination {
+  margin-top: auto;
+  flex-shrink: 0;
+}
 .account-table-head,
 .account-table-row {
   display: grid;

@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react';
 import { request } from './api';
-import { type RegisteredModel, type ModelReference, nodeModelRoles } from './registered-models';
+import {
+  type RegisteredModel,
+  type ModelReference,
+  nodeModelRoles,
+  supportsModelRole,
+} from './registered-models';
+import { frontendOnly, renewalBackend } from './preview';
 
 export const NodeModelBinding = ({
   type,
@@ -18,6 +24,12 @@ export const NodeModelBinding = ({
   const [loading, setLoading] = useState(true);
   const role = modelRole || nodeModelRoles[type];
   const selected = models.find((row) => row.id === value?.model_id);
+  const pinned = selected?.versions[String(value?.revision)];
+  const pinnedAvailable =
+    pinned &&
+    (frontendOnly || renewalBackend
+      ? supportsModelRole(pinned, role)
+      : pinned.uses?.includes(role));
   const load = async () => {
     setLoading(true);
     setError('');
@@ -56,34 +68,38 @@ export const NodeModelBinding = ({
           }}
         >
           <option value="">등록 모델 선택 (필수)</option>
-          {models.flatMap((row) =>
-            Object.values(row.versions)
-              .filter((v) => v.uses.includes(role))
-              .map((v) => (
-                <option
-                  key={`${row.id}@${v.revision}`}
-                  value={`${row.id}@${v.revision}`}
-                  disabled={!row.active}
-                >
-                  {v.name} · r{v.revision} · {v.provider}/{v.model}
-                  {row.active ? '' : ' · 사용 중지'}
-                </option>
-              )),
-          )}
-          {value && !selected && (
+          {models.map((row) => {
+            const current = row.versions[String(row.current_revision)];
+            if (
+              !current ||
+              !(frontendOnly || renewalBackend
+                ? supportsModelRole(current, role)
+                : current.uses?.includes(role))
+            ) {
+              return null;
+            }
+            return (
+              <option key={row.id} value={`${row.id}@${current.revision}`} disabled={!row.active}>
+                {current.name} · {current.provider}/{current.model}
+                {row.active ? '' : ' · 사용 중지'}
+              </option>
+            );
+          })}
+          {value && (!pinnedAvailable || selected?.current_revision !== value.revision) && (
             <option value={`${value.model_id}@${value.revision}`} disabled>
-              등록 모델 미확인
+              {pinned
+                ? `${pinned.name} · ${pinnedAvailable ? '이 워크플로우에 저장된 연결' : '유형/능력 재확인 필요'}`
+                : '등록 모델 미확인'}
             </option>
           )}
         </select>
       </label>
-      {value && (
+      {value && selected && selected.current_revision !== value.revision && (
         <p className="editor-help">
-          버전 {value.revision}
-          {selected && selected.current_revision > value.revision ? ' · 새 버전 있음' : ''}
-          {selected && !selected.active ? ' · 사용 중지' : ''}
+          등록 연결 설정이 변경됐습니다. 이 워크플로우의 기존 선택은 유지됩니다.
         </p>
       )}
+      {selected && !selected.active && <p className="editor-help">사용 중지된 모델입니다.</p>}
     </section>
   );
 };

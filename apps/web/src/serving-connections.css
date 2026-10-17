@@ -44,16 +44,46 @@
 .connection-form button {
   justify-self: start;
 }
-.connection-row {
-  gap: 16px;
+.ui02-workspace .ui02-list .serving-resource-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 0.9fr) minmax(220px, 1.3fr) minmax(120px, 0.8fr);
+  align-items: center;
+  gap: var(--m-space-16);
+  min-height: 52px;
 }
-.connection-row > svg:first-child {
-  color: var(--g-soft);
-  flex-shrink: 0;
+.serving-resource-row > * {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.connection-row > svg:last-child {
+.serving-resource-facts {
+  margin: 0;
+}
+.serving-resource-facts > div {
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr);
+  gap: var(--m-space-24);
+  padding-block: var(--m-space-16);
+  border-bottom: 1px solid var(--g-line);
+}
+.serving-resource-facts dt {
   color: var(--g-soft);
-  margin-left: auto;
+}
+.serving-resource-facts dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 45rem) {
+  .ui02-workspace .ui02-list .serving-resource-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--m-space-4);
+  }
+  .serving-resource-facts > div {
+    grid-template-columns: 88px minmax(0, 1fr);
+    gap: var(--m-space-12);
+  }
 }
 .node-configuration,
 .workflow-node-settings .node-model-binding {

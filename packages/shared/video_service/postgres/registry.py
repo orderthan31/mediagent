@@ -1,6 +1,7 @@
 """Owner-scoped registry with immutable snapshots and pessimistic CAS writes."""
 import re
 from ..model_endpoints import canonical_hash, validate_endpoint, PROVIDERS, PROTOCOL_USES
+from ..model_profile import validate_profile, MODEL_TYPES, MODALITIES, CAPABILITIES
 from . import Conflict, Missing
 
 
@@ -75,9 +76,11 @@ class Registry:
         with self.database.connection() as db:
             parent, row = self._connection(db, owner, resource_id(connection_id), connection_revision)
             if not parent['active']:
-                return {'uses': [], 'reason': '사용 중지된 공급자 연결입니다.', 'verified': False}
-            return {'uses': list(PROTOCOL_USES[row['protocol']]), 'verified': False,
-                    'reason': '구현된 텍스트 어댑터 기준입니다. 실제 서버·모델 연결은 검사하지 않았습니다.'}
+                return {'model_types': [], 'reason': '사용 중지된 공급자 연결입니다.', 'verified': False}
+            return {'model_types': sorted(MODEL_TYPES), 'modalities': sorted(MODALITIES),
+                    'capabilities': sorted(CAPABILITIES), 'verified': False,
+                    'adapter_capabilities': ['text_generation'] if row['protocol'] in ('openai', 'openai_compatible') else [],
+                    'reason': '등록 가능한 메타데이터입니다. 모델 능력·실제 연결은 확인하지 않았습니다.'}
 
     def _model(self, db, owner, identity):
         parent = db.execute('SELECT * FROM registered_models WHERE owner_id=%s AND id=%s', (owner, identity)).fetchone()
@@ -87,7 +90,11 @@ class Registry:
         for row in db.execute('SELECT mr.*,cr.provider FROM model_revisions mr JOIN connection_revisions cr ON cr.owner_id=mr.owner_id AND cr.connection_id=mr.connection_id AND cr.revision=mr.connection_revision WHERE mr.owner_id=%s AND mr.model_id=%s ORDER BY mr.revision', (owner, identity)):
             versions[str(row['revision'])] = {'model_id': identity, 'revision': row['revision'], 'name': row['name'],
                 'provider': row['provider'], 'connection_id': row['connection_id'], 'connection_revision': row['connection_revision'],
-                'model': row['remote_model'], 'uses': row['capabilities'], 'sha256': row['sha256']}
+                'model': row['remote_model'], 'model_types': row['model_types'],
+                'input_modalities': row['input_modalities'], 'output_modalities': row['output_modalities'],
+                'capabilities': row['capabilities'] if row['model_types'] else [],
+                'classification': 'declared' if row['model_types'] else 'legacy_unclassified',
+                'sha256': row['sha256']}
         return {'id': identity, 'revision': parent['state_revision'], 'state_revision': parent['state_revision'],
                 'current_revision': parent['revision'], 'active': parent['active'],
                 'connection': 'unverified', 'versions': versions}
@@ -101,25 +108,24 @@ class Registry:
         with self.database.connection() as db:
             return self._model(db, owner, resource_id(identity))
 
-    def save_model(self, owner, identity, *, revision, name, model, connection_id, connection_revision, uses):
+    def save_model(self, owner, identity, *, revision, name, model, connection_id, connection_revision, model_types, input_modalities, output_modalities, capabilities):
         resource_id(identity)
         resource_id(connection_id)
         text(name, 80)
         text(model, 200)
+        profile = validate_profile(model_types, input_modalities, output_modalities, capabilities)
         with self.database.connection() as db:
             # Serialize deactivation/config writes with admission to this snapshot.
             db.execute('SELECT 1 FROM serving_connections WHERE owner_id=%s AND id=%s FOR UPDATE', (owner, connection_id))
             connection, config = self._connection(db, owner, connection_id, connection_revision)
             if not connection['active']:
                 raise Conflict('사용 중지된 공급자 연결입니다.')
-            if not uses or len(set(uses)) != len(uses) or not set(uses) <= set(PROTOCOL_USES[config['protocol']]):
-                raise ValueError('선택한 연결에서 구현되지 않은 모델 용도입니다.')
             parent = self._lock(db, 'registered_models', owner, identity, revision)
             next_revision = parent['revision'] + 1
             value = {'name': name, 'model': model, 'connection_id': connection_id,
-                     'connection_revision': config['revision'], 'uses': sorted(uses)}
-            db.execute('INSERT INTO model_revisions(owner_id,model_id,revision,name,remote_model,connection_id,connection_revision,capabilities,sha256) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)',
-                       (owner, identity, next_revision, name, model, connection_id, config['revision'], sorted(uses), canonical_hash(value)))
+                     'connection_revision': config['revision'], **profile}
+            db.execute('INSERT INTO model_revisions(owner_id,model_id,revision,name,remote_model,connection_id,connection_revision,capabilities,model_types,input_modalities,output_modalities,sha256) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)',
+                       (owner, identity, next_revision, name, model, connection_id, config['revision'], profile['capabilities'], profile['model_types'], profile['input_modalities'], profile['output_modalities'], canonical_hash(value)))
             db.execute('UPDATE registered_models SET revision=%s,state_revision=state_revision+1 WHERE owner_id=%s AND id=%s', (next_revision, owner, identity))
             result = self._model(db, owner, identity)
         return result

@@ -90,8 +90,9 @@ const restore = (): State => {
         Array.isArray(value.definitions) &&
         value.history &&
         value.tickets
-      )
+      ) {
         return value;
+      }
     }
   } catch {
     /* Storage can be unavailable in private browsing. Keep memory usable. */
@@ -100,9 +101,28 @@ const restore = (): State => {
 };
 let state = restore();
 state.reviews ||= seedReviewTasks();
-if (state.reviews['review-mapping']?.node_id === 'mapping')
+if (state.reviews['review-mapping']?.node_id === 'mapping') {
   state.reviews['review-mapping'].node_id = 'swap';
+}
 state.connections ||= seedConnections();
+for (const row of state.models) {
+  const sample = seedModels().find((item) => item.id === row.id);
+  const version = row.versions['1'];
+  if (
+    sample &&
+    row.current_revision === 1 &&
+    version?.model_types === undefined &&
+    version.model.startsWith('sample-')
+  ) {
+    const metadata = sample.versions['1'];
+    Object.assign(version, {
+      model_types: metadata.model_types,
+      input_modalities: metadata.input_modalities,
+      output_modalities: metadata.output_modalities,
+      capabilities: metadata.capabilities,
+    });
+  }
+}
 if (state.publishingContractVersion !== 1) {
   for (const sample of seedJobs().slice(7)) {
     if (!state.jobs.some((job) => job.job_id === sample.job_id)) {
@@ -154,12 +174,15 @@ export const resetMock = () => {
   location.reload();
 };
 const ensure = <T>(value: T | undefined, name: string): T => {
-  if (!value) throw new Error(`목업 ${name}을 찾을 수 없습니다.`);
+  if (!value) {
+    throw new Error(`목업 ${name}을 찾을 수 없습니다.`);
+  }
   return value;
 };
 const requireRevision = (body: Document, current: Document) => {
-  if (body.revision !== undefined && body.revision !== current.revision)
+  if (body.revision !== undefined && body.revision !== current.revision) {
     throw new Error('목업 편집본이 바뀌었습니다. 새로 불러온 뒤 저장해 주세요.');
+  }
 };
 const draftFor = (id: string) =>
   (state.drafts[id] ||= {
@@ -377,8 +400,9 @@ const faceOptions = () => ({
 export const mockRequest = async <T>(path: string, init: RequestInit = {}): Promise<T> => {
   init.signal?.throwIfAborted();
   const url = new URL(path, 'https://mock.invalid');
-  if (url.origin !== 'https://mock.invalid')
+  if (url.origin !== 'https://mock.invalid') {
     throw new Error('목업에서 외부 URL은 호출하지 않습니다.');
+  }
   const route = url.pathname.replace(/^\/api/, '').replace(/\/$/, '') || '/';
   const method = (init.method || 'GET').toUpperCase();
   const body: Document = typeof init.body === 'string' ? JSON.parse(init.body || '{}') : {};
@@ -510,9 +534,11 @@ export const mockRequest = async <T>(path: string, init: RequestInit = {}): Prom
     } else {
       throw new Error('지원하지 않는 요청입니다.');
     }
-  } else if (route === '/videos') value = { videos: state.videos };
-  else if (route === '/jobs') value = { jobs: state.jobs };
-  else if (route === '/video-uploads') {
+  } else if (route === '/videos') {
+    value = { videos: state.videos };
+  } else if (route === '/jobs') {
+    value = { jobs: state.jobs };
+  } else if (route === '/video-uploads') {
     if (method === 'POST') {
       const upload = {
         upload_id: uid(),
@@ -524,7 +550,9 @@ export const mockRequest = async <T>(path: string, init: RequestInit = {}): Prom
       };
       state.uploads.unshift(upload);
       value = upload;
-    } else value = { uploads: state.uploads };
+    } else {
+      value = { uploads: state.uploads };
+    }
   } else if (parts[0] === 'video-uploads' || parts[0] === 'uploads') {
     const upload = ensure(
       state.uploads.find((u) => u.upload_id === parts[1]),
@@ -550,7 +578,9 @@ export const mockRequest = async <T>(path: string, init: RequestInit = {}): Prom
       upload.status = 'COMPLETED';
       upload.uploaded_bytes = upload.expected_size;
       value = upload;
-    } else value = { ...upload, uploaded_bytes: upload.expected_size, resumable: false };
+    } else {
+      value = { ...upload, uploaded_bytes: upload.expected_size, resumable: false };
+    }
   } else if (parts[0] === 'videos' && parts[1]) {
     const asset = ensure(
       state.videos.find((v) => v.asset_id === parts[1]),
@@ -569,14 +599,16 @@ export const mockRequest = async <T>(path: string, init: RequestInit = {}): Prom
         };
         subtitles.unshift(subtitle);
         value = subtitle;
-      } else value = { subtitles };
-    } else if (parts[2] === 'audio-inputs')
+      } else {
+        value = { subtitles };
+      }
+    } else if (parts[2] === 'audio-inputs') {
       value = {
         audio_inputs: state.jobs
           .filter((j) => j.metadata.asset_id === asset.asset_id)
           .map((j) => ({ job_id: j.job_id, created_at: j.created_at, size_bytes: 384000 })),
       };
-    else if (parts[2] === 'workflow-plan') {
+    } else if (parts[2] === 'workflow-plan') {
       const stages =
         body.template === 'extract_audio'
           ? ['analyze', 'extract_audio']
@@ -609,19 +641,21 @@ export const mockRequest = async <T>(path: string, init: RequestInit = {}): Prom
         };
         state.sessions[session.session_id] = session;
         value = session;
-      } else
+      } else {
         value = {
           sessions: Object.values(state.sessions).filter((s) => s.asset_id === asset.asset_id),
         };
+      }
     } else if (method === 'DELETE') {
       state.videos = state.videos.filter((v) => v !== asset);
       delete state.subtitles[asset.asset_id];
       value = {};
-    } else
+    } else {
       value = {
         video: asset,
         jobs: state.jobs.filter((j) => j.metadata.asset_id === asset.asset_id),
       };
+    }
   } else if (parts[0] === 'jobs' && parts[1]) {
     const job = ensure(
       state.jobs.find((j) => j.job_id === parts[1]),
@@ -636,7 +670,9 @@ export const mockRequest = async <T>(path: string, init: RequestInit = {}): Prom
         seedDefinitions().find(
           (row) => row.id === fixed?.definition_id && row.revision === fixed?.revision,
         );
-      if (!definition) throw new Error('작업에 고정된 워크플로우 버전을 찾을 수 없습니다.');
+      if (!definition) {
+        throw new Error('작업에 고정된 워크플로우 버전을 찾을 수 없습니다.');
+      }
       const tasks = Object.values(state.reviews).filter((task) => task.job_id === job.job_id);
       value = mockExecution(job, definition, publishingCatalog(mockCatalog.nodes), tasks);
     } else if (parts[2] === 'preview') {
@@ -664,7 +700,9 @@ export const mockRequest = async <T>(path: string, init: RequestInit = {}): Prom
         draft.tracks = clone(body.tracks);
         draft.revision++;
         job.metadata.subtitle_revision = draft.revision;
-        if (body.action === 'render') job.status = 'QUEUED';
+        if (body.action === 'render') {
+          job.status = 'QUEUED';
+        }
       }
       value = draft;
     } else if (parts[2] === 'cancel') {
@@ -690,12 +728,18 @@ export const mockRequest = async <T>(path: string, init: RequestInit = {}): Prom
     } else if (method === 'DELETE') {
       state.jobs = state.jobs.filter((j) => j !== job);
       value = {};
-    } else value = job;
+    } else {
+      value = job;
+    }
   } else if (route === '/queue') {
     if (method === 'PATCH') {
       requireRevision(body, state.queue);
-      if (body.order) state.queue.order = body.order;
-      if (typeof body.paused === 'boolean') state.queue.paused = body.paused;
+      if (body.order) {
+        state.queue.order = body.order;
+      }
+      if (typeof body.paused === 'boolean') {
+        state.queue.paused = body.paused;
+      }
       state.queue.revision++;
     }
     const ids = state.jobs.filter((j) => j.status === 'QUEUED').map((j) => j.job_id);
@@ -704,24 +748,26 @@ export const mockRequest = async <T>(path: string, init: RequestInit = {}): Prom
     ];
     value = { ...state.queue, order, jobs: order };
   } else if (route === '/queue/cancel-pending') {
-    for (const job of state.jobs)
-      if (body.job_ids?.includes(job.job_id) && job.status === 'QUEUED') job.status = 'CANCELLED';
+    for (const job of state.jobs) {
+      if (body.job_ids?.includes(job.job_id) && job.status === 'QUEUED') {
+        job.status = 'CANCELLED';
+      }
+    }
     state.queue.revision++;
     value = {};
-  } else if (route === '/settings/node-catalog')
+  } else if (route === '/settings/node-catalog') {
     value = { ...mockCatalog, nodes: publishingCatalog(mockCatalog.nodes) };
-  else if (route === '/settings/node-validation')
+  } else if (route === '/settings/node-validation') {
     value = { valid: true, notice: '목업 표시 · 실제 유형/엔진 검사 아님' };
-  else if (route === '/settings/registered-models/compatibility')
+  } else if (route === '/settings/registered-models/compatibility') {
     value = {
-      uses: /transcri|audio|whisper/.test(body.model || '')
-        ? ['transcription']
-        : ['translation', 'decision'],
-      reason: '목업 호환 용도',
+      verified: false,
+      reason: '목업 · 모델 유형과 입출력·지원 기능은 직접 등록합니다.',
     };
-  else if (parts[0] === 'settings' && parts[1] === 'registered-models') {
-    if (!parts[2]) value = { models: state.models, providers };
-    else {
+  } else if (parts[0] === 'settings' && parts[1] === 'registered-models') {
+    if (!parts[2]) {
+      value = { models: state.models, providers };
+    } else {
       let row = state.models.find((m) => m.id === parts[2]);
       if (parts[3] === 'availability') {
         row = ensure(row, '모델');
@@ -731,7 +777,9 @@ export const mockRequest = async <T>(path: string, init: RequestInit = {}): Prom
         row.revision++;
         value = row;
       } else if (method === 'PUT') {
-        if (row) requireRevision(body, row);
+        if (row) {
+          requireRevision(body, row);
+        }
         const connection = state.connections.find((item) => item.id === body.connection_id);
         if (!connection || connection.provider !== body.provider) {
           throw new Error('사용할 공급자 연결을 선택해 주세요.');
@@ -744,7 +792,10 @@ export const mockRequest = async <T>(path: string, init: RequestInit = {}): Prom
           provider: body.provider,
           connection_id: connection.id,
           model: body.model,
-          uses: body.uses,
+          model_types: body.model_types,
+          input_modalities: body.input_modalities,
+          output_modalities: body.output_modalities,
+          capabilities: body.capabilities,
           sha256: '0'.repeat(64),
         };
         if (row) {
@@ -764,9 +815,11 @@ export const mockRequest = async <T>(path: string, init: RequestInit = {}): Prom
           state.models.push(row);
         }
         value = row;
-      } else value = ensure(row, '모델');
+      } else {
+        value = ensure(row, '모델');
+      }
     }
-  } else if (route === '/settings/workflow-definitions/validate')
+  } else if (route === '/settings/workflow-definitions/validate') {
     value = {
       valid: body.nodes?.length > 0,
       issues: body.nodes?.length
@@ -774,15 +827,15 @@ export const mockRequest = async <T>(path: string, init: RequestInit = {}): Prom
         : [{ node_id: null, edge_id: null, message: '에이전트를 추가해 주세요.' }],
       notice: '목업 구성 확인 · 실제 서버 검증 아님',
     };
-  else if (parts[0] === 'settings' && parts[1] === 'workflow-definitions') {
+  } else if (parts[0] === 'settings' && parts[1] === 'workflow-definitions') {
     const identity = parts[2];
-    if (!identity)
+    if (!identity) {
       value = {
         definitions: state.definitions.map(({ id, name, revision }) => ({ id, name, revision })),
       };
-    else {
+    } else {
       const current = state.definitions.find((d) => d.id === identity);
-      if (parts[3] === 'versions')
+      if (parts[3] === 'versions') {
         value = {
           versions: (state.history[identity] || []).map((d) => ({
             revision: d.revision,
@@ -790,7 +843,7 @@ export const mockRequest = async <T>(path: string, init: RequestInit = {}): Prom
             source: { kind: 'mock' },
           })),
         };
-      else if (parts[3] === 'restore') {
+      } else if (parts[3] === 'restore') {
         const doc = ensure(current, '워크플로우');
         requireRevision(body, doc);
         const prior =
@@ -802,7 +855,9 @@ export const mockRequest = async <T>(path: string, init: RequestInit = {}): Prom
         (state.history[identity] ||= []).push(clone(next));
         value = next;
       } else if (method === 'PUT') {
-        if (current) requireRevision(body, current);
+        if (current) {
+          requireRevision(body, current);
+        }
         const next = {
           ...body,
           id: identity,
@@ -811,14 +866,17 @@ export const mockRequest = async <T>(path: string, init: RequestInit = {}): Prom
         state.definitions = [...state.definitions.filter((d) => d.id !== identity), next];
         (state.history[identity] ||= []).push(clone(next));
         value = next;
-      } else value = ensure(current, '워크플로우');
+      } else {
+        value = ensure(current, '워크플로우');
+      }
     }
-  } else if (route === '/settings/llm/stt-models') value = { providers: sttModels };
-  else if (route === '/settings/llm/models')
+  } else if (route === '/settings/llm/stt-models') {
+    value = { providers: sttModels };
+  } else if (route === '/settings/llm/models') {
     value = {
       models: ['sample-text-model', 'sample-decision-model', 'sample-transcription-model'],
     };
-  else if (route === '/settings/llm') {
+  } else if (route === '/settings/llm') {
     if (method === 'PUT') {
       requireRevision(body, state.llm);
       // Discard secret fields entirely. The preview never stores entered keys.
@@ -836,24 +894,27 @@ export const mockRequest = async <T>(path: string, init: RequestInit = {}): Prom
   } else if (route === '/settings/serving') {
     if (method === 'PUT') {
       requireRevision(body, state.serving);
-      for (const role of ['transcription', 'translation'])
+      for (const role of ['transcription', 'translation']) {
         state.serving.workers[role] = { ...state.serving.workers[role], ...body.workers?.[role] };
+      }
       state.serving.revision++;
       state.serving.fallback_on_error = !!body.fallback_on_error;
       state.serving.fallback_on_block = !!body.fallback_on_block;
     }
     value = state.serving;
-  } else if (route === '/settings/storage') value = storageSnapshot();
-  else if (route === '/settings/storage/cleanup') {
+  } else if (route === '/settings/storage') {
+    value = storageSnapshot();
+  } else if (route === '/settings/storage/cleanup') {
     const selected = storageSnapshot().jobs.filter(
       (j) => j.deletable && body.job_ids?.includes(j.job_id),
     );
-    if (body.mode === 'jobs')
+    if (body.mode === 'jobs') {
       state.jobs = state.jobs.filter((j) => !selected.some((s) => s.job_id === j.job_id));
-    else
+    } else {
       state.cleanedTemporary = [
         ...new Set([...(state.cleanedTemporary || []), ...selected.map((j) => j.job_id)]),
       ];
+    }
     value = {
       removed_bytes: selected.reduce(
         (s, j) => s + (body.mode === 'jobs' ? j.total_bytes : j.temporary_bytes),
@@ -882,14 +943,14 @@ export const mockRequest = async <T>(path: string, init: RequestInit = {}): Prom
         model: modelBindings(definition)[n.id],
       })),
     };
-  } else if (route === '/settings/work-entry/preview')
+  } else if (route === '/settings/work-entry/preview') {
     value = planFor(
       ensure(
         state.definitions.find((d) => d.id === body.definition_id),
         '워크플로우',
       ),
     );
-  else if (route === '/settings/work-entry/create') {
+  } else if (route === '/settings/work-entry/create') {
     const namespace = body.recovery_enabled ? 'recovery-tickets' : 'work-tickets';
     const ticket = ticketFor(body);
     ticketsFor(namespace).unshift(ticket);
@@ -910,23 +971,26 @@ export const mockRequest = async <T>(path: string, init: RequestInit = {}): Prom
       list = ticketsFor(namespace),
       identity = parts[2],
       operation = parts[3];
-    if (identity === 'runtime')
+    if (identity === 'runtime') {
       value = { connected: false, mode: 'mock', notice: '목업 · 실제 실행 자원 미연결' };
-    else if (identity === 'capability')
+    } else if (identity === 'capability') {
       value = { supported: true, reasons: [], notice: '목업 표시 · 실제 실행 검증 아님' };
-    else if (!identity) {
+    } else if (!identity) {
       if (method === 'POST') {
         const ticket = ticketFor(body);
         list.unshift(ticket);
         value = ticket;
-      } else value = { tickets: list };
+      } else {
+        value = { tickets: list };
+      }
     } else {
       const ticket = ensure(
         list.find((t) => t.id === identity),
         '작업',
       );
-      if (operation === 'plan') value = planFor(ticket.definition);
-      else if (operation === 'reviews') {
+      if (operation === 'plan') {
+        value = planFor(ticket.definition);
+      } else if (operation === 'reviews') {
         const node = parts[4];
         const document = (ticket.reviews[node] ||= reviewDoc());
         if (method === 'PUT') {
@@ -938,12 +1002,13 @@ export const mockRequest = async <T>(path: string, init: RequestInit = {}): Prom
           document.status = body.action === 'approve' ? 'approved' : 'changes_requested';
           document.request_changes_reason = body.reason || '';
           document.state_revision++;
-          if (document.status === 'approved')
+          if (document.status === 'approved') {
             document.approval = {
               revision: document.revision,
               sha256: document.sha256,
               input_sha256: '0'.repeat(64),
             };
+          }
         }
         value = document;
       } else if (operation === 'confirm') {
@@ -980,16 +1045,18 @@ export const mockRequest = async <T>(path: string, init: RequestInit = {}): Prom
         child.reuse_origins = {};
         list.unshift(child);
         value = child;
-      } else value = ticket;
+      } else {
+        value = ticket;
+      }
     }
-  } else if (route === '/execution-approvals/plan')
+  } else if (route === '/execution-approvals/plan') {
     value = {
       token: '0'.repeat(64),
       input_sha256: '0'.repeat(64),
       cost: { state: 'no_external_call', amount: null, notice: '목업 · 실제 요청·실행·과금 없음' },
       risk_required: false,
     };
-  else if (route === '/execution-approvals/confirm') {
+  } else if (route === '/execution-approvals/confirm') {
     const now = Date.now() / 1000;
     value = {
       id: uid(),
@@ -999,7 +1066,7 @@ export const mockRequest = async <T>(path: string, init: RequestInit = {}): Prom
       server_time: now,
       cost: { state: 'no_external_call', amount: null, notice: '목업 확인' },
     };
-  } else if (route === '/faceswap/capabilities')
+  } else if (route === '/faceswap/capabilities') {
     value = {
       ready: true,
       reason: '목업 · FaceFusion/GPU 미연결',
@@ -1007,7 +1074,7 @@ export const mockRequest = async <T>(path: string, init: RequestInit = {}): Prom
       version: 'mock',
       fingerprint: 'mock',
     };
-  else if (parts[0] === 'faceswap' && parts[1] === 'sessions') {
+  } else if (parts[0] === 'faceswap' && parts[1] === 'sessions') {
     const session = ensure(state.sessions[parts[2]], '합성 설정');
     if (parts[3] === 'source') {
       session.source_file = '목업 이미지';
@@ -1043,9 +1110,13 @@ export const mockRequest = async <T>(path: string, init: RequestInit = {}): Prom
           },
         };
         jobs.unshift(job);
-        if (body.operation === 'render') state.jobs.unshift(job);
+        if (body.operation === 'render') {
+          state.jobs.unshift(job);
+        }
         value = job;
-      } else value = { jobs };
+      } else {
+        value = { jobs };
+      }
     } else if (method === 'PUT') {
       requireRevision(body, session);
       session.settings = body.settings;
@@ -1054,11 +1125,18 @@ export const mockRequest = async <T>(path: string, init: RequestInit = {}): Prom
     } else if (method === 'DELETE') {
       delete state.sessions[session.session_id];
       value = {};
-    } else value = session;
-  } else if (route === '/auth/session') value = { enabled: false, user: null };
-  else throw new Error(`목업에 연결되지 않은 화면 동작: ${method} ${route}`);
+    } else {
+      value = session;
+    }
+  } else if (route === '/auth/session') {
+    value = { enabled: false, user: null };
+  } else {
+    throw new Error(`목업에 연결되지 않은 화면 동작: ${method} ${route}`);
+  }
 
   init.signal?.throwIfAborted();
-  if (change) persist();
+  if (change) {
+    persist();
+  }
   return clone(value) as T;
 };

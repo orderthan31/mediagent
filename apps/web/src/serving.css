@@ -1,6 +1,6 @@
 [data-hangyeol] .serving-page {
-  max-width: 1180px;
-  margin: 0 auto;
+  max-width: none;
+  margin: 0;
   padding: var(--m-space-32);
   color: var(--g-ink);
 }
@@ -105,7 +105,7 @@
   border-radius: 18px;
   background: var(--g-surface);
 }
-[data-hangyeol] .serving-page section {
+[data-hangyeol] .serving-page > section {
   margin-top: var(--m-space-32);
 }
 [data-hangyeol] .serving-page code {

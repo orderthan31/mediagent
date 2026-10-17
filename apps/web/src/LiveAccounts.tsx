@@ -138,20 +138,20 @@ export const LiveAccounts = ({ create = false }: { create?: boolean }) => {
               onChange={(event) => setConfirmation(event.target.value)}
             />
             <p className="form-note">비밀번호는 12~256자로 입력하세요.</p>
-            <div className="form-actions">
-              <Button
-                variant="quiet"
-                onClick={() => {
-                  location.hash = '/account';
-                }}
-              >
-                취소
-              </Button>
-              <Button type="submit" loading={busy}>
-                계정 발급
-              </Button>
-            </div>
           </fieldset>
+          <div className="page-actions">
+            <Button
+              variant="quiet"
+              onClick={() => {
+                location.hash = '/account';
+              }}
+            >
+              취소
+            </Button>
+            <Button type="submit" loading={busy}>
+              계정 발급
+            </Button>
+          </div>
         </form>
       ) : (
         <section className="account-members" aria-labelledby="live-members-title">

@@ -8,10 +8,23 @@ operational settings, launch workers, or consume a queue.
 
 - Explicit checksum-checked transactional SQL migrations.
 - First-administrator bootstrap, scrypt passwords, hashed sessions, CSRF and admin-issued accounts.
-- Owner-scoped serving connections and registered models, CAS state revisions and immutable configuration revisions.
+- Owner-scoped serving connections and registered models, CAS state revisions and immutable configuration snapshots.
+- Declared model types, input/output modalities and capabilities are separate from agent task roles.
+- Source-metadata repository/API with immutable, idempotent declarations and bounded owner-scoped pagination.
 - OpenAI-compatible text adapter with a required injected transport; URL registration and compatibility checks perform **no network requests**.
 - Optional frontend binding through `VITE_RENEWAL_BACKEND=1`; DEV publishing mode still wins when `DEV && VITE_FRONTEND_ONLY=1`.
 - CPU local transcript-to-SRT runner contract. This is not an independently deployed process or broker integration.
+
+Serving lists are read-only navigation rows; edit/availability controls belong to
+detail pages. Configuration revisions stay internal rather than appearing as
+model versions. Snapshots preserve registered settings, not external model weights
+or endpoint reproducibility. Existing workflow references never silently retarget.
+
+`/api/source-metadata` stores declarations only. A `sha256:...` reference is not a
+filesystem path or evidence that content exists. Responses explicitly return
+`content_verified: false`. Registration does not upload, open, probe, download or
+process media; trusted content verification and the frontend source binding remain
+subsequent work. No job, outbox message or execution claim is created.
 
 The existing private DEV preview remains mock-backed. Unsupported renewal pages
 show an unavailable boundary instead of querying legacy media/queue APIs. Jobs,
@@ -66,3 +79,10 @@ Origins must be configured explicitly. The loopback browser test alone opts out 
 secure cookies. Apply migrations separately using
 `python -m video_service.postgres.migrate --dsn-env <explicit_environment_name>`;
 API startup never invokes that command.
+
+For a bounded DEV synthetic browser check, set `MIDEAGENT_PREVIEW_ORIGIN` to the
+explicit private publishing preview origin and run
+`node tests/renewal/frontend-preview.mjs`. It creates its own isolated browser/tab
+state, exercises empty/single/multi-page lists, detail-only serving actions,
+selected-media canvas and selected-node scrolling. It does not validate an
+operational API, model execution or actual touch hardware.

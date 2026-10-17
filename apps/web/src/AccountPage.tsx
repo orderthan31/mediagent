@@ -112,7 +112,7 @@ const PreviewAccountPage = ({ create = false }: { create?: boolean }) => {
               </p>
             )}
             <p className="form-note">목업 · 비밀번호를 저장하지 않습니다.</p>
-            <div className="form-actions">
+            <div className="page-actions">
               <Button
                 variant="quiet"
                 onClick={() => {
