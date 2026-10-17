@@ -212,20 +212,6 @@ export const WorkspaceChrome = ({
             <Upload size={21} />
             {uploadCount > 0 && <span>{uploadCount}</span>}
           </button>
-          {frontendOnly && (
-            <button
-              type="button"
-              className="ui02-mock-label"
-              title="화면 확인용 샘플 · 실제 API·GPU·과금 없음 · 누르면 샘플 초기화"
-              aria-label="목업 데이터 초기화"
-              onClick={() => {
-                if (window.confirm('목업 편집을 지우고 처음 샘플로 돌아갈까요?'))
-                  void import('./mock-api').then((module) => module.resetMock());
-              }}
-            >
-              목업
-            </button>
-          )}
         </div>
       </header>
       {wide && (

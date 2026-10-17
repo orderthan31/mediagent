@@ -29,23 +29,7 @@
 .ui02-page-actions {
   margin-left: auto;
 }
-.ui02-gnb .ui02-mock-label {
-  flex: 0 0 auto;
-  min-height: var(--m-gnb-control-height);
-  padding: 6px 12px;
-  border: 1px solid var(--g-line, #e6e8ee);
-  border-radius: 6px;
-  background: var(--g-muted, #f8f9fb);
-  color: var(--g-soft, #677086);
-  font: inherit;
-  font-size: var(--text-g-small);
-  white-space: nowrap;
-  cursor: pointer;
-}
-.ui02-gnb .ui02-mock-label:focus-visible {
-  outline: 2px solid var(--g-focus);
-  outline-offset: 2px;
-}
+
 .ui02-brand {
   display: flex;
   align-items: center;
