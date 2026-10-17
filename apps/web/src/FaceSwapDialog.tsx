@@ -515,7 +515,6 @@ export const FaceSwapDialog = ({
     >
       <header>
         <div>
-          <p className="feature-eyebrow">영상 도구 · 인물 선택과 결과 확인</p>
           <h2 id="faceswap-title">얼굴 합성</h2>
           <p>{detail.video.original_filename}</p>
         </div>
@@ -538,9 +537,11 @@ export const FaceSwapDialog = ({
           {frontendOnly ? '목업' : capability?.ready ? '엔진 준비됨' : '엔진 확인 필요'}
         </Badge>
         <strong>
-          {frontendOnly ? '합성 화면 미리보기 · 실제 엔진 미연결' : capability?.ready
-            ? `얼굴 합성 준비 완료 · FaceFusion ${capability.version || ''}`
-            : '얼굴 합성 엔진 연결 대기'}
+          {frontendOnly
+            ? '합성 화면 미리보기 · 실제 엔진 미연결'
+            : capability?.ready
+              ? `얼굴 합성 준비 완료 · FaceFusion ${capability.version || ''}`
+              : '얼굴 합성 엔진 연결 대기'}
         </strong>
         {!capability?.ready && (
           <p>
@@ -548,18 +549,8 @@ export const FaceSwapDialog = ({
             활성화됩니다.
           </p>
         )}
-        <p className="feature-steps">사진 선택 → 대상 인물 선택 → 미리보기 확인 → 전체 합성</p>
-        <p>
-          사진을 등록하고 영상에서 원하는 장면으로 이동하세요. 멈춘 위치에서 얼굴을 자동 분석하고,
-          얼굴 선택·마스크 설정을 바꾸면 미리보기도 자동 갱신됩니다.
-        </p>
         {capability?.ready && !session && <p>작업 설정을 준비하고 있습니다.</p>}
-        {capability?.ready && session && !session.source_file && (
-          <p>
-            새 얼굴의 JPEG/PNG 사진을 등록하세요. 얼굴이 하나면 자동 선택되며, 여러 명이면 원하는
-            얼굴을 눌러주세요.
-          </p>
-        )}
+
         {active.length > 0 && (
           <p>얼굴 분석·미리보기 작업이 진행 중입니다. 완료되면 결과가 자동으로 표시됩니다.</p>
         )}
@@ -932,10 +923,6 @@ export const FaceSwapDialog = ({
           >
             현재 설정으로 전체 영상 처리
           </Button>
-          <p>
-            최대 10분씩 순차 합성 후 하나의 영상으로 연결하고 인코딩합니다. 실패한 경우 완료된
-            구간부터 이어서 처리합니다.
-          </p>
           {!currentPreview && (
             <p>현재 장면·설정의 자동 미리보기가 완료되면 전체 처리가 활성화됩니다.</p>
           )}

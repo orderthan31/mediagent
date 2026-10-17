@@ -184,17 +184,12 @@ export const WorkflowStart = () => {
     <main className="serving-page workflow-tickets workflow-start">
       <div className="serving-heading">
         <div>
-          <p className="workspace-eyebrow">작업</p>
-          <h1>작업 시작</h1>
+          <h1>작업 추가</h1>
         </div>
         <Button variant="secondary" disabled={loading || busy} onClick={() => void load()}>
-          목록 새로 읽기
+          새로고침
         </Button>
       </div>
-      <p>
-        영상과 저장 워크플로우를 고르고 흐름·에이전트 설정을 확인하세요. 계획/비용 확인 후 티켓을 만들며
-        실행은 별도입니다.
-      </p>
       {listError && (
         <p role="alert" className="alert list-query-error">
           목록 조회 실패 · {listError}
@@ -226,12 +221,8 @@ export const WorkflowStart = () => {
                 invalidate();
               }}
             />
-            새 복구 계약 사용 · 검증된 완료 결과 보존/명시 재시도 지원
+            복구 지원
           </label>
-          <p>
-            기존 티켓은 자동 전환하지 않습니다. 취소 접수는 외부 호출 즉시 중단이 아니며, 복구 생성
-            뒤에도 새 계획 확인과 별도 실행이 필요합니다.
-          </p>
           <div className="serving-grid">
             <label>
               입력 영상
@@ -288,7 +279,7 @@ export const WorkflowStart = () => {
           <h2>흐름과 에이전트 설정</h2>
           <p>
             정의 r{inspection.definition_revision} · {inspection.summary.length}개 에이전트 ·{' '}
-            <a href="#/workflow-editor">구성에서 상세 수정</a>
+            <a href={'#/workflows/' + definitionId}>워크플로우 열기</a>
           </p>
           {!inspection.supported && (
             <div role="alert">

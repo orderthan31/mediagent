@@ -174,7 +174,9 @@ export const WorkflowDialog = ({
     }
     lastPayload.current = serialized;
     try {
-      onCreated(await executionRequest<Job>(base + '/jobs', { ...payload, request_id: key.current }));
+      onCreated(
+        await executionRequest<Job>(base + '/jobs', { ...payload, request_id: key.current }),
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : '작업 생성 실패');
     } finally {
@@ -271,7 +273,6 @@ export const WorkflowDialog = ({
         <div className="dialog-heading">
           <div>
             <h2 id="workflow-title">워크플로우 설정</h2>
-            <p>입력과 실행 계획을 확인한 뒤 티켓을 생성하세요.</p>
           </div>
           <Button
             variant="quiet"

@@ -112,10 +112,19 @@
 .workflow-node-ports > div {
   min-width: 0;
 }
-.workflow-node-ports span {
+.workflow-graph .workflow-node-ports button {
   position: relative;
   display: block;
+  width: 100%;
   height: 20px;
+  min-height: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  text-align: inherit;
+  cursor: crosshair;
+  touch-action: none;
   padding: 0 12px;
   font-size: var(--m-type-micro);
   line-height: 20px;
@@ -144,7 +153,7 @@
 .workflow-graph-controls {
   position: absolute;
   bottom: 16px;
-  left: 16px;
+  right: 16px;
   z-index: 2;
   display: flex;
   align-items: center;
@@ -224,5 +233,178 @@
 @media (max-width: 55.999rem) {
   .workflow-graph-viewport {
     height: max(420px, calc(100dvh - 205px));
+  }
+}
+
+.workflow-graph .workflow-node-ports button:disabled {
+  opacity: 1;
+  cursor: default;
+}
+.workflow-graph .workflow-node-ports button:hover,
+.workflow-graph .workflow-node-ports button.is-source {
+  color: var(--g-action);
+  background: var(--g-muted);
+}
+.workflow-node-heading {
+  touch-action: none;
+}
+.workflow-graph-wires > path {
+  pointer-events: stroke;
+  cursor: pointer;
+  stroke-width: 3;
+}
+.workflow-graph-wires > path.is-preview {
+  stroke: var(--g-action);
+  stroke-dasharray: 5 4;
+  pointer-events: none;
+}
+.workflow-agent-picker {
+  position: absolute;
+  bottom: 16px;
+  left: 16px;
+  z-index: 4;
+  display: flex;
+  gap: 8px;
+}
+.workflow-control-add {
+  display: inline-flex;
+  gap: 7px;
+  align-items: center;
+  min-height: 36px;
+  padding: 8px 12px;
+  border: 1px solid var(--g-line);
+  border-radius: 8px;
+  background: var(--g-surface);
+  color: var(--g-ink);
+  font: inherit;
+  font-size: var(--text-g-small);
+  cursor: pointer;
+}
+.workflow-agent-menu {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 0;
+  width: 260px;
+  max-height: min(380px, 55dvh);
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid var(--g-line);
+  border-radius: 10px;
+  background: var(--g-surface);
+  box-shadow: 0 8px 30px #1822401a;
+  touch-action: pan-y;
+}
+.workflow-graph .workflow-agent-menu > button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 36px;
+  border: 0;
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: none;
+  color: var(--g-ink);
+  text-align: left;
+  font: inherit;
+  font-size: var(--text-g-small);
+  cursor: pointer;
+}
+.workflow-graph .workflow-agent-menu > button:hover {
+  background: var(--g-muted);
+  color: var(--g-action);
+}
+.workflow-node-settings {
+  margin-top: 16px;
+  padding: 16px 20px;
+  background: var(--g-surface);
+  border: 1px solid var(--g-line);
+  border-radius: var(--radius-g-panel);
+}
+.workflow-node-settings > div:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--text-g-body);
+}
+.workflow-node-settings fieldset {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+  gap: 12px 20px;
+  align-items: start;
+}
+.workflow-node-settings label {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  font-size: var(--text-g-small);
+}
+.workflow-node-settings :is(select, textarea) {
+  width: 100%;
+  min-width: 0;
+  min-height: 34px;
+  padding: 6px 8px;
+  box-sizing: border-box;
+  border: 1px solid var(--g-line);
+  border-radius: var(--radius-g-control);
+  background: var(--g-surface);
+  color: var(--g-ink);
+  font: inherit;
+}
+.workflow-node-settings h4 {
+  margin: 0 0 8px;
+  font-size: var(--text-g-small);
+}
+.workflow-node-settings dl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  font-size: var(--text-g-small);
+}
+.workflow-node-settings dt,
+.workflow-node-settings small {
+  color: var(--g-soft);
+}
+.workflow-node-settings dd {
+  margin: 8px 0 0;
+}
+.workflow-node-settings dd span {
+  display: block;
+}
+.workflow-connection-error {
+  position: absolute;
+  top: 12px;
+  left: 16px;
+  margin: 0;
+  padding: 8px 12px;
+  background: var(--g-surface);
+  border-radius: 6px;
+  color: var(--g-danger);
+  font-size: var(--text-g-small);
+}
+.workflow-edge-action {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  background: var(--g-surface);
+  border: 1px solid var(--g-line);
+  border-radius: 6px;
+}
+@media (max-width: 700px) {
+  .workflow-graph-controls {
+    top: 12px;
+    bottom: auto;
+  }
+  .workflow-agent-picker {
+    gap: 6px;
+    left: 12px;
+    bottom: 12px;
+  }
+  .workflow-agent-picker > button {
+    padding: 8px 10px;
+    font-size: var(--text-g-small);
+  }
+  .workflow-node-settings {
+    padding: 14px;
   }
 }

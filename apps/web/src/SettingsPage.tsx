@@ -112,7 +112,9 @@ export const SettingsPage = () => {
       setKeys({});
       setRemovals({});
       setModels({});
-      setNotice(frontendOnly ? '목업 설정을 저장했습니다. 실제 설정·키는 변경하지 않습니다.' : '저장했습니다. 다음 작업·재시도부터 적용됩니다.');
+      setNotice(
+        frontendOnly ? '목업 설정 저장됨' : '저장했습니다. 다음 작업·재시도부터 적용됩니다.',
+      );
     } catch (e) {
       setKeys({});
       setError(e instanceof Error ? e.message : '설정을 저장하지 못했습니다.');
@@ -228,9 +230,6 @@ export const SettingsPage = () => {
               <KeyRound size={18} />
               API 키
             </legend>
-            <p className="settings-help">
-              키 보유 상태와 모델 목록 조회는 연결·추론 성공을 뜻하지 않습니다.
-            </p>
             <ul className="settings-provider-status" aria-label="공급자별 키 상태">
               {providers.map(([id, name]) => (
                 <li key={id}>
@@ -281,7 +280,9 @@ export const SettingsPage = () => {
                   autoComplete="new-password"
                   value={keys[credentialProvider] || ''}
                   spellCheck={false}
-                  placeholder={frontendOnly ? '목업에서는 키를 입력하지 않습니다' : '변경할 때만 입력'}
+                  placeholder={
+                    frontendOnly ? '목업에서는 키를 입력하지 않습니다' : '변경할 때만 입력'
+                  }
                   maxLength={512}
                   onChange={(event) => {
                     setKeys({ ...keys, [credentialProvider]: event.target.value });
@@ -337,10 +338,6 @@ export const SettingsPage = () => {
           </fieldset>
           <fieldset disabled={!!busy}>
             <legend>전사</legend>
-            <p className="settings-help">
-              공급자마다 지원 모델이 다릅니다. 전사 모델 목록은 서버가 지원하는 항목이며 연결·추론
-              성공을 뜻하지 않습니다.
-            </p>
             <div className="settings-model-grid">
               <label>
                 전사 공급자

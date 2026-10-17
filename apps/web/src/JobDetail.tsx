@@ -69,16 +69,25 @@ export const JobDetail = ({
   const [promoting, setPromoting] = useState(false),
     [promotionError, setPromotionError] = useState('');
   const deleteDialog = useRef<HTMLDialogElement>(null);
-  const [deleting, setDeleting] = useState(false), [deleteError, setDeleteError] = useState('');
+  const [deleting, setDeleting] = useState(false),
+    [deleteError, setDeleteError] = useState('');
   const deletePending = useRef(false);
   const removeJob = async () => {
-    if (deletePending.current || !job || !['COMPLETED', 'FAILED', 'CANCELLED'].includes(job.status)) return;
-    deletePending.current = true; setDeleting(true); setDeleteError('');
+    if (deletePending.current || !job || !['COMPLETED', 'FAILED', 'CANCELLED'].includes(job.status))
+      return;
+    deletePending.current = true;
+    setDeleting(true);
+    setDeleteError('');
     try {
       await request(`/jobs/${id}`, { method: 'DELETE' });
-      deleteDialog.current?.close(); location.hash = '/jobs';
-    } catch (reason) { setDeleteError(reason instanceof Error ? reason.message : '작업 삭제 실패'); }
-    finally { deletePending.current = false; setDeleting(false); }
+      deleteDialog.current?.close();
+      location.hash = '/jobs';
+    } catch (reason) {
+      setDeleteError(reason instanceof Error ? reason.message : '작업 삭제 실패');
+    } finally {
+      deletePending.current = false;
+      setDeleting(false);
+    }
   };
   const promotionDialog = useRef<HTMLDialogElement>(null);
   const video = useRef<HTMLVideoElement>(null);
@@ -172,15 +181,7 @@ export const JobDetail = ({
   return (
     <main className="job-detail ticket-detail">
       <div className="detail-page-heading">
-        <a
-          href={job?.metadata.asset_id ? `#/videos/${job.metadata.asset_id}` : '#/jobs'}
-          className="icon"
-          title={job?.metadata.asset_id ? '입력 영상으로' : '작업 목록으로'}
-        >
-          <ArrowLeft size={22} />
-        </a>
         <div>
-          <p className="eyebrow">티켓 상세</p>
           <h1 ref={heading} tabIndex={-1}>
             {job?.original_filename || '작업 불러오는 중'}
           </h1>
@@ -194,7 +195,11 @@ export const JobDetail = ({
             </summary>
             <div>
               {downloadFiles.map((file) => (
-                <a key={file} download={frontendOnly ? file : undefined} href={mediaUrl(`/jobs/${id}/results/${encodeURIComponent(file)}`)}>
+                <a
+                  key={file}
+                  download={frontendOnly ? file : undefined}
+                  href={mediaUrl(`/jobs/${id}/results/${encodeURIComponent(file)}`)}
+                >
                   <Download size={15} />
                   {resultLabel(file)}
                 </a>
@@ -205,7 +210,18 @@ export const JobDetail = ({
         {job?.status === 'AWAITING_REVIEW' && (
           <Button onClick={() => setEditing(true)}>자막 검수</Button>
         )}
-        {job && ['COMPLETED', 'FAILED', 'CANCELLED'].includes(job.status) && <Button variant="quiet" onClick={() => { setDeleteError(''); deleteDialog.current?.showModal(); }}><Trash2 size={17} />작업 삭제</Button>}
+        {job && ['COMPLETED', 'FAILED', 'CANCELLED'].includes(job.status) && (
+          <Button
+            variant="quiet"
+            onClick={() => {
+              setDeleteError('');
+              deleteDialog.current?.showModal();
+            }}
+          >
+            <Trash2 size={17} />
+            작업 삭제
+          </Button>
+        )}
         <Button variant="secondary" title="작업 새로고침" onClick={() => setReload((n) => n + 1)}>
           <RefreshCw size={18} />
           새로고침
@@ -305,16 +321,12 @@ export const JobDetail = ({
         {isFaceSwap ? (
           <section className="text-panel" aria-label="얼굴 합성 작업">
             <h2>얼굴 합성</h2>
-            <p>
-              영상을 최대 10분 구간으로 나누어 순서대로 합성한 뒤, 연결과 최종 인코딩을 진행합니다.
-            </p>
             {job?.metadata.faceswap_chunks && (
               <p>
                 합성 구간 {job.metadata.faceswap_chunks.completed} /{' '}
                 {job.metadata.faceswap_chunks.total} 완료 · 재시도 시 완료 구간 재사용
               </p>
             )}
-            <p>완료된 영상을 새 원본으로 등록하면 자막 작업을 이어서 시작할 수 있습니다.</p>
             {job && !['COMPLETED', 'FAILED', 'CANCELLED'].includes(job.status) && (
               <Button
                 variant="secondary"
@@ -449,7 +461,9 @@ export const JobDetail = ({
                 <a
                   className="download"
                   download={frontendOnly ? `${tab}.srt` : undefined}
-                  href={mediaUrl(`/jobs/${id}/results/${tab === 'original' ? 'original' : 'translated'}.srt`)}
+                  href={mediaUrl(
+                    `/jobs/${id}/results/${tab === 'original' ? 'original' : 'translated'}.srt`,
+                  )}
                 >
                   <Download size={16} />
                   {tab === 'original' ? '원문 SRT' : '번역 SRT'}
@@ -500,12 +514,39 @@ export const JobDetail = ({
           </Button>
         </div>
       </dialog>
-      <dialog ref={deleteDialog} className="confirm-modal storage-confirm" aria-labelledby="job-delete-title" onCancel={event => { if (deleting) event.preventDefault(); }}>
+      <dialog
+        ref={deleteDialog}
+        className="confirm-modal storage-confirm"
+        aria-labelledby="job-delete-title"
+        onCancel={(event) => {
+          if (deleting) event.preventDefault();
+        }}
+      >
         <h2 id="job-delete-title">작업을 삭제할까요?</h2>
         <p>{job?.original_filename}</p>
         <p>작업과 결과 파일이 삭제됩니다. 이 작업은 되돌릴 수 없습니다.</p>
-        {deleteError && <p role="alert" className="alert">{deleteError}</p>}
-        <div><Button variant="secondary" autoFocus disabled={deleting} onClick={() => deleteDialog.current?.close()}>취소</Button><Button className="storage-confirm-delete" disabled={deleting} onClick={() => void removeJob()}>{deleting ? '삭제 중' : '삭제'}</Button></div>
+        {deleteError && (
+          <p role="alert" className="alert">
+            {deleteError}
+          </p>
+        )}
+        <div>
+          <Button
+            variant="secondary"
+            autoFocus
+            disabled={deleting}
+            onClick={() => deleteDialog.current?.close()}
+          >
+            취소
+          </Button>
+          <Button
+            className="storage-confirm-delete"
+            disabled={deleting}
+            onClick={() => void removeJob()}
+          >
+            {deleting ? '삭제 중' : '삭제'}
+          </Button>
+        </div>
       </dialog>
     </main>
   );

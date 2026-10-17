@@ -73,13 +73,7 @@ export const TicketSummary = ({ job, labels }: { job: Job; labels: Record<string
       ) : (
         <p>단계 목록이 제공되지 않았어요. 현재 티켓 상태를 기준으로 확인하세요.</p>
       )}
-      <p className="ticket-note">
-        요청된 단계 목록입니다. 실제 진행은 현재 단계와 상태를 확인하세요.
-      </p>
     </div>
     <StageProgress job={job} />
-    {failureMessage(job) && (
-      <p className="ticket-note">오류 원문과 부분 결과는 별도로 보존됩니다.</p>
-    )}
   </section>
 );

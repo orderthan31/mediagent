@@ -36,7 +36,7 @@ export const NodeModelBinding = ({
     }
   }, [role]);
   if (!role) {
-    return <p className="editor-help">이 처리 에이전트는 모델 없이 아래 처리 옵션을 사용합니다.</p>;
+    return null;
   }
   return (
     <section className="node-model-binding">
@@ -70,26 +70,18 @@ export const NodeModelBinding = ({
           )}
           {value && !selected && (
             <option value={`${value.model_id}@${value.revision}`} disabled>
-              등록 항목 미확인 · 기존 pin 유지
+              등록 모델 미확인
             </option>
           )}
         </select>
       </label>
       {value && (
         <p className="editor-help">
-          고정 r{value.revision}
-          {selected && selected.current_revision > value.revision
-            ? ' · 새 revision 있음. 자동 교체하지 않습니다.'
-            : ''}
-          {selected && !selected.active
-            ? ' · 사용 중지: 활성 모델로 명시 교체하고 새 정의/계획/티켓을 만드세요.'
-            : ''}
+          버전 {value.revision}
+          {selected && selected.current_revision > value.revision ? ' · 새 버전 있음' : ''}
+          {selected && !selected.active ? ' · 사용 중지' : ''}
         </p>
       )}
-      <p className="editor-help">
-        키는 저장하지 않습니다. 등록/형식 호환과 실제 연결/추론은 다릅니다.{' '}
-        <a href="#/serving">서빙에서 등록·관리</a>
-      </p>
     </section>
   );
 };

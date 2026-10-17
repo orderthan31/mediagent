@@ -65,7 +65,7 @@ export const RecoveryActions = ({
   };
   return (
     <section className="recovery-actions ticket-panel">
-      <h3>새 복구 계약 · 결과 보존</h3>
+      <h3>복구</h3>
       <p>
         <strong>
           {ticket.status === 'held'
@@ -80,10 +80,6 @@ export const RecoveryActions = ({
                     ? '완료 · 검증된 결과 보존'
                     : '계획 확인/실행 상태는 아래 티켓에 표시'}
         </strong>
-      </p>
-      <p>
-        생성 ≠ 실행. 원 티켓을 초기화하지 않고, 검증된 완료 결과만 새 복구 티켓에 출처와 함께
-        재사용합니다.
       </p>
       {ticket.recovery_parent && (
         <p>
@@ -140,10 +136,6 @@ export const RecoveryActions = ({
       )}
       {['failed', 'cancelled', 'running'].includes(ticket.status) && (
         <>
-          <p>
-            실제 실행 중이면 서버가 복구 생성을 거절합니다. timeout만으로 재호출 안전을 추정하지
-            않습니다.
-          </p>
           {!!ticket.recovery_unknown_nodes?.length && (
             <label className="serving-check">
               <input
@@ -164,10 +156,6 @@ export const RecoveryActions = ({
           </Button>
         </>
       )}
-      <p>
-        자식 생성만으로 호출하지 않습니다. 남은 단계의 새 계획/비용 확인 후 별도로 실행하세요. 기존
-        티켓/큐 자동 변환·전체 exactly-once 보장은 없습니다.
-      </p>
     </section>
   );
 };
@@ -198,11 +186,7 @@ export const TicketSnapshotRestore = ({
           source: { kind: 'ticket_snapshot', namespace, ticket_id: ticketId },
         },
       );
-      setStatus(
-        '티켓 snapshot을 새 revision ' +
-          next.revision +
-          '으로 저장했습니다. 티켓 재개/실행은 하지 않았습니다.',
-      );
+      setStatus('버전 ' + next.revision + '으로 복원했습니다.');
     } catch (e) {
       setError(e instanceof Error ? e.message : '복원 실패. 기존 정의·티켓을 유지합니다.');
     } finally {
@@ -211,13 +195,9 @@ export const TicketSnapshotRestore = ({
   };
   return (
     <details className="ticket-panel">
-      <summary>티켓 정의 snapshot 복원</summary>
-      <p>
-        현재 정의를 과거로 되감지 않고 새 revision을 만듭니다. 기존 티켓/pin은 바뀌지 않으며, 실행은
-        별도입니다.
-      </p>
+      <summary>워크플로우 복원</summary>
       <Button variant="secondary" disabled={busy} onClick={() => void restore()}>
-        티켓 정의를 새 revision으로 복원
+        새 버전으로 복원
       </Button>
       {status && <p role="status">{status}</p>}
       {error && <p role="alert">{error}</p>}

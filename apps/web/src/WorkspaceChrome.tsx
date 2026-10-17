@@ -70,7 +70,9 @@ export const WorkspaceChrome = ({
         : /\/new$/.test(route)
           ? '추가'
           : /\/edit$/.test(route)
-            ? '편집'
+            ? route.startsWith('#/workflows/')
+              ? '상세'
+              : '편집'
             : route.startsWith('#/serving/') ||
                 route.startsWith('#/videos/') ||
                 /^#\/jobs\//.test(route) ||
@@ -86,10 +88,12 @@ export const WorkspaceChrome = ({
       : group === 1
         ? null
         : group === 2
-          ? {
-              label: child === '상세' ? '편집' : '새 워크플로우',
-              href: child === '상세' ? route + '/edit' : '#/workflows/new',
-            }
+          ? child
+            ? null
+            : {
+                label: '새 워크플로우',
+                href: '#/workflows/new',
+              }
           : group === 4
             ? { label: '모델 추가', href: '#/serving/new' }
             : null;

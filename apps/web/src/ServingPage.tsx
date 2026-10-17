@@ -240,17 +240,12 @@ export const ServingPage = () => {
     <main className="serving-page">
       <header className="serving-heading">
         <div>
-          <p className="workspace-eyebrow">실행 기반</p>
-          <h1>에이전트·서빙</h1>
+          <h1>역할 설정</h1>
         </div>
         <Button variant="secondary" disabled={!!busy} onClick={() => void load()}>
-          서빙 설정 새로 불러오기
+          새로고침
         </Button>
       </header>
-      <p className="serving-help">
-        기존 AI 공급자 설정과 같은 revision·암호화키를 사용합니다. 새로 불러오면 편집은 서버값으로
-        교체됩니다. 키 등록·삭제는 <a href="#/settings">설정</a>에서만 합니다.
-      </p>
       {error && (
         <p role="alert" className="alert">
           {error} 저장 실패 뒤 입력은 유지됩니다. 충돌은 새로 불러온 뒤 다시 선택하세요.
@@ -271,10 +266,6 @@ export const ServingPage = () => {
             <h2>역할별 서빙 설정</h2>
             <Badge tone="neutral">설정 revision {config.revision}</Badge>
           </div>
-          <p className="serving-help">
-            {config.runtime.notice} 에이전트 연결 미확인 · 모델 목록은 서버 지원 목록이며 사용
-            권한이나 추론을 검증하지 않습니다.
-          </p>
           <div className="serving-roles">
             {roles.map(([role, label]) => (
               <fieldset key={role} disabled={!!busy || stale}>
@@ -455,12 +446,8 @@ export const ServingPage = () => {
                   </label>
                 ))}
               </div>
-              <p className="serving-help">
-                실제 영상·파일·세션을 연결하지 않는 유형/옵션 검사입니다. 실행 작업이나 티켓을
-                만들지 않습니다.
-              </p>
               <Button type="button" disabled={!!busy} onClick={() => void validate()}>
-                서버에서 입출력 유형 검증
+                호환성 확인
               </Button>
               {validation && <p role="status">{validation}</p>}
             </article>

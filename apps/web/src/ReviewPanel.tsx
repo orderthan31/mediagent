@@ -150,10 +150,6 @@ export const ReviewPanel = ({
       <p className="review-sha">
         {executed ? '실행에 고정한 SHA' : '승인할 SHA'} {shown.sha256}
       </p>
-      <p className="serving-help">
-        저장 ≠ 승인 ≠ 계획 확인 ≠ 이어 실행. 원본·과거 수정본을 보존합니다. 승인 후 재편집/취소·실패
-        재시도/전체 재개는 하지 않습니다.
-      </p>
       {!shown.editable && <p>{shown.read_only_reason}</p>}
       <a href={mediaUrl(`${base}/input`)} target="_blank" rel="noreferrer">
         검수 입력 원본 열기
@@ -169,13 +165,7 @@ export const ReviewPanel = ({
           {error}
         </p>
       )}
-      {executed ? (
-        <p role="status">
-          정확한 승인 revision/SHA로 검수 단계를 통과했습니다. 이후 단계 상태는 별도로 확인하세요.
-        </p>
-      ) : (
-        status && <p role="status">{status}</p>
-      )}
+      {!executed && status && <p role="status">{status}</p>}
       {initial.state_revision !== shown.state_revision && (
         <p className="serving-help">
           다른 화면의 상태와 차이가 있으면 최신값을 명시 조회하세요. 내 편집을 자동 교체하지
@@ -238,8 +228,7 @@ export const ReviewPanel = ({
         </fieldset>
       ))}
       <p className="serving-help">
-        문서/수정 결과 각 1MiB 이하. 기존 구간 수·speaker를 유지한 텍스트/구간 수정만 지원하며 원본
-        길이·겹침을 서버에서 검증합니다. 미디어 bytes·clockmap·manifest 구성원은 바꾸지 않습니다.
+        최대 1MiB. 구간 수와 화자를 유지한 텍스트·구간 수정만 가능합니다.
       </p>
       <div className="ticket-actions">
         <Button variant="secondary" disabled={busy} onClick={() => void reload()}>

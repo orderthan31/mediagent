@@ -1,10 +1,8 @@
 import { type ReactNode } from 'react';
-import { ArrowRight, Download, Trash2 } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { mediaUrl } from './api';
-import { frontendOnly } from './preview';
 import { durationLabel, sizeLabel, type VideoAsset } from './video-api';
 import { Badge } from './hangyeol/primitives/badge';
-import { Button } from './hangyeol/primitives/button';
 
 const videoDuration = (video: VideoAsset) => {
   const duration = video.media?.duration;
@@ -43,15 +41,7 @@ export const StorageAssetRow = ({
   </a>
 );
 
-export const StorageVideoInfo = ({
-  video,
-  assetId,
-  onDelete,
-}: {
-  video: VideoAsset;
-  assetId: string;
-  onDelete: () => void;
-}) => (
+export const StorageVideoInfo = ({ video, assetId }: { video: VideoAsset; assetId: string }) => (
   <section className="storage-video-info" aria-label="원본 영상 정보">
     <div className="storage-preview">
       <video
@@ -61,7 +51,6 @@ export const StorageVideoInfo = ({
         poster={mediaUrl(`/videos/${assetId}/thumbnail`)}
         src={mediaUrl(`/videos/${assetId}/stream`)}
       />
-      <p>원본 미리보기 · 재생은 영상에서 시작할 수 있어요.</p>
     </div>
     <div className="storage-info">
       <h2>영상 정보</h2>
@@ -100,14 +89,6 @@ export const StorageVideoInfo = ({
           </dd>
         </div>
       </dl>
-      <a className="storage-download" download={frontendOnly ? video.original_filename : undefined} href={mediaUrl(`/videos/${assetId}/download`)}>
-        <Download size={17} aria-hidden="true" />
-        원본 다운로드
-      </a>
-      <Button variant="quiet" className="storage-delete" onClick={onDelete}>
-        <Trash2 size={16} aria-hidden="true" />
-        원본 삭제
-      </Button>
     </div>
   </section>
 );

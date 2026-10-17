@@ -45,11 +45,7 @@ export const DefinitionHistory = ({
         { revision, source: { kind: 'definition_revision', revision: Number(selected) } },
       );
       await onRestored();
-      setStatus(
-        '선택 이력을 새 revision ' +
-          next.revision +
-          '으로 복원했습니다. 정의 저장이며 티켓 재개/실행이 아닙니다.',
-      );
+      setStatus('버전 ' + next.revision + '으로 복원했습니다.');
       setVersions(null);
       setSelected('');
     } catch (e) {
@@ -60,22 +56,18 @@ export const DefinitionHistory = ({
   };
   return (
     <section className="definition-history ticket-panel">
-      <h2>저장 이력 · 새 revision 복원</h2>
-      <p>
-        도입 뒤 실제 저장한 이력만 표시합니다. 없는 과거본은 합성하지 않습니다. 복원해도 기존
-        티켓/모델 pin은 바뀌지 않습니다.
-      </p>
+      <h2>저장 이력</h2>
       <Button variant="secondary" disabled={busy || revision === 0} onClick={() => void load()}>
-        저장 이력 읽기
+        불러오기
       </Button>
       {error && <p role="alert">{error}</p>}
       {versions && versions.length === 0 && <p>이 기능으로 저장된 과거 이력이 없습니다.</p>}
       {versions && versions.length > 0 && (
         <>
           <label>
-            복원할 저장 revision
+            버전
             <select
-              aria-label="복원할 저장 revision"
+              aria-label="버전"
               value={selected}
               disabled={busy}
               onChange={(e) => setSelected(e.target.value)}
@@ -89,15 +81,11 @@ export const DefinitionHistory = ({
             </select>
           </label>
           <Button disabled={busy || dirty || !selected} onClick={() => void restore()}>
-            선택 이력을 새 revision으로 복원
+            복원
           </Button>
         </>
       )}
-      {dirty && (
-        <p>
-          미저장 편집을 보존합니다. 먼저 저장하거나 명시적으로 서버값을 열어 확인한 뒤 복원하세요.
-        </p>
-      )}
+      {dirty && <p>변경 내용을 저장한 뒤 복원할 수 있습니다.</p>}
       {status && <p role="status">{status}</p>}
     </section>
   );

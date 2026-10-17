@@ -1,8 +1,16 @@
-import { useEffect, useId, useMemo, useRef, useState, type PointerEvent } from 'react';
-import { Boxes, FileVideo, Maximize, Minus, Plus, X } from 'lucide-react';
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent,
+  type ReactNode,
+} from 'react';
+import { Boxes, FileVideo, GitBranch, Maximize, Minus, Plus, Trash2, X } from 'lucide-react';
+import { isControlNode, switchOutputs } from './workflow-controls';
 import { resolvePorts, type PortSpec } from './workflow-spec';
 import './workflow-canvas.css';
-
 type Endpoint = { node: string; port: string };
 export type CanvasDefinition = {
   id: string;
@@ -33,18 +41,36 @@ const width = 210;
 export const WorkflowCanvas = ({
   definition,
   catalog,
-  catalogError,
+  catalogError = '',
+  onChange,
+  onSelect,
+  details,
+  disabled = false,
 }: {
   definition: CanvasDefinition;
   catalog: CanvasSpec[];
-  catalogError: string;
+  catalogError?: string;
+  onChange?: (next: CanvasDefinition) => void;
+  onSelect?: (id: string) => void;
+  details?: ReactNode;
+  disabled?: boolean;
 }) => {
   const viewport = useRef<HTMLDivElement>(null);
   const marker = useId().replaceAll(':', '');
   const [size, setSize] = useState({ width: 900, height: 580 });
   const [view, setView] = useState({ x: 40, y: 40, scale: 1 });
   const [selected, setSelected] = useState('');
-  const drag = useRef<{ px: number; py: number; x: number; y: number } | null>(null);
+  const [edgeId, setEdgeId] = useState('');
+  const [adding, setAdding] = useState<'agent' | 'control' | null>(null);
+  const [source, setSource] = useState<Endpoint | null>(null);
+  const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
+  const [connectionError, setConnectionError] = useState('');
+  const pan = useRef<{ px: number; py: number; x: number; y: number } | null>(null);
+  const nodeDrag = useRef<{ id: string; px: number; py: number; x: number; y: number } | null>(
+    null,
+  );
+  const wireDrag = useRef<{ px: number; py: number } | null>(null);
+  const suppressPortClick = useRef(false);
   const boxes = useMemo<Box[]>(
     () => [
       {
@@ -62,7 +88,6 @@ export const WorkflowCanvas = ({
           catalog.find((item) => item.id === node.type),
           node.options,
         );
-        // Unknown catalog entries still retain every saved edge endpoint.
         const inputs =
           spec?.inputs ||
           Object.fromEntries(
@@ -71,12 +96,14 @@ export const WorkflowCanvas = ({
               .map((edge) => [edge.target.port, '미확인']),
           );
         const outputs =
-          spec?.outputs ||
-          Object.fromEntries(
-            definition.edges
-              .filter((edge) => edge.source.node === node.id)
-              .map((edge) => [edge.source.port, '미확인']),
-          );
+          node.type === 'control_switch'
+            ? switchOutputs(node.options)
+            : spec?.outputs ||
+              Object.fromEntries(
+                definition.edges
+                  .filter((edge) => edge.source.node === node.id)
+                  .map((edge) => [edge.source.port, '미확인']),
+              );
         return {
           id: node.id,
           label: spec?.label || node.type,
@@ -120,17 +147,11 @@ export const WorkflowCanvas = ({
       y: (size.height - (bounds.bottom - bounds.top) * scale) / 2 - bounds.top * scale,
     };
   };
-  useEffect(() => {
-    if (!viewport.current) return;
-    const observer = new ResizeObserver(([entry]) =>
-      setSize({ width: entry.contentRect.width, height: entry.contentRect.height }),
-    );
-    observer.observe(viewport.current);
-    return () => observer.disconnect();
-  }, []);
-  useEffect(() => {
-    setView(fitted());
-  }, [size.width, size.height, bounds]);
+  const select = (id: string) => {
+    setSelected(id);
+    setEdgeId('');
+    onSelect?.(id);
+  };
   const zoom = (factor: number) =>
     setView((previous) => {
       const scale = Math.min(1.8, Math.max(0.15, previous.scale * factor));
@@ -143,26 +164,118 @@ export const WorkflowCanvas = ({
     });
   const point = (endpoint: Endpoint, output: boolean) => {
     const box = boxes.find((item) => item.id === endpoint.node);
-    if (!box) return null;
+    if (!box) {
+      return null;
+    }
     const index = Object.keys(output ? box.outputs : box.inputs).indexOf(endpoint.port);
     return { x: box.x + (output ? width : 0), y: box.y + 56 + Math.max(0, index) * 20 };
   };
-  const selectedBox = boxes.find((box) => box.id === selected);
-  const selectedNode = definition.nodes.find((node) => node.id === selected);
+  const curve = (from: { x: number; y: number }, to: { x: number; y: number }) => {
+    const bend = Math.max(70, Math.abs(to.x - from.x) * 0.45);
+    return `M${from.x},${from.y} C${from.x + bend},${from.y} ${to.x - bend},${to.y} ${to.x},${to.y}`;
+  };
+  const connect = (target: Endpoint) => {
+    if (!source || !onChange || disabled) {
+      return;
+    }
+    if (source.node === target.node) {
+      setConnectionError('같은 에이전트에는 연결할 수 없습니다.');
+      return;
+    }
+    if (
+      definition.edges.some(
+        (edge) => edge.target.node === target.node && edge.target.port === target.port,
+      )
+    ) {
+      setConnectionError('이미 연결된 입력입니다.');
+      return;
+    }
+    onChange({
+      ...definition,
+      edges: [...definition.edges, { id: crypto.randomUUID().replaceAll('-', ''), source, target }],
+    });
+    setSource(null);
+    setCursor(null);
+    setConnectionError('');
+  };
+  const add = (spec: CanvasSpec) => {
+    if (!onChange || disabled) {
+      return;
+    }
+    const id = crypto.randomUUID().replaceAll('-', '');
+    onChange({
+      ...definition,
+      nodes: [
+        ...definition.nodes,
+        {
+          id,
+          type: spec.id,
+          position: {
+            x: Math.round(Math.max(0, (size.width * 0.45 - view.x) / view.scale)),
+            y: Math.round(Math.max(0, (size.height * 0.4 - view.y) / view.scale)),
+          },
+          options: Object.fromEntries(
+            Object.entries(spec.options).map(([key, values]) => [
+              key,
+              key === 'subtitle_mode' && values.includes('none') ? 'none' : values[0],
+            ]),
+          ),
+        },
+      ],
+    });
+    select(id);
+    setAdding(null);
+  };
   const panStart = (event: PointerEvent<HTMLDivElement>) => {
     if (
       event.button !== 0 ||
-      (event.target as HTMLElement).closest('button, a, .workflow-node-detail')
-    )
+      (event.target as Element).closest(
+        'button, a, input, select, .workflow-node-detail, .workflow-agent-picker',
+      )
+    ) {
       return;
-    drag.current = { px: event.clientX, py: event.clientY, x: view.x, y: view.y };
+    }
+    pan.current = { px: event.clientX, py: event.clientY, x: view.x, y: view.y };
     event.currentTarget.setPointerCapture(event.pointerId);
+    setAdding(null);
   };
+  const movePointer = (event: PointerEvent<HTMLDivElement>) => {
+    if (pan.current) {
+      setView((previous) => ({
+        ...previous,
+        x: pan.current!.x + event.clientX - pan.current!.px,
+        y: pan.current!.y + event.clientY - pan.current!.py,
+      }));
+    }
+    if (source && viewport.current) {
+      const rect = viewport.current.getBoundingClientRect();
+      setCursor({
+        x: (event.clientX - rect.left - view.x) / view.scale,
+        y: (event.clientY - rect.top - view.y) / view.scale,
+      });
+    }
+  };
+  useEffect(() => {
+    if (!viewport.current) {
+      return;
+    }
+    const observer = new ResizeObserver(([entry]) =>
+      setSize({ width: entry.contentRect.width, height: entry.contentRect.height }),
+    );
+    observer.observe(viewport.current);
+    return () => observer.disconnect();
+  }, []);
+  // Editing must not reset the current viewport on every pointer movement.
+  useEffect(() => {
+    setView(fitted());
+  }, [size.width, size.height, definition.id]);
+  const selectedBox = boxes.find((box) => box.id === selected);
+  const previewFrom = source ? point(source, true) : null;
   return (
-    <section className="workflow-graph" aria-label="워크플로우 그래프">
+    <section className="workflow-graph" aria-label="워크플로우">
       {catalogError && (
         <p role="alert" className="workflow-catalog-error">
-          에이전트 정보 미확인 · {catalogError}
+          {catalogError}
         </p>
       )}
       <div
@@ -171,22 +284,25 @@ export const WorkflowCanvas = ({
         tabIndex={0}
         aria-label="워크플로우 캔버스"
         onPointerDown={panStart}
-        onPointerMove={(event) => {
-          if (drag.current)
-            setView((previous) => ({
-              ...previous,
-              x: drag.current!.x + event.clientX - drag.current!.px,
-              y: drag.current!.y + event.clientY - drag.current!.py,
-            }));
-        }}
+        onPointerMove={movePointer}
         onPointerUp={() => {
-          drag.current = null;
+          pan.current = null;
         }}
         onPointerCancel={() => {
-          drag.current = null;
+          pan.current = null;
+          nodeDrag.current = null;
+          wireDrag.current = null;
+          setSource(null);
         }}
         onKeyDown={(event) => {
-          if (event.target !== event.currentTarget) return;
+          if (event.key === 'Escape') {
+            setSource(null);
+            setAdding(null);
+            select('');
+          }
+          if (event.target !== event.currentTarget) {
+            return;
+          }
           const delta: Record<string, [number, number]> = {
             ArrowLeft: [40, 0],
             ArrowRight: [-40, 0],
@@ -198,7 +314,19 @@ export const WorkflowCanvas = ({
             const [x, y] = delta[event.key];
             setView((previous) => ({ ...previous, x: previous.x + x, y: previous.y + y }));
           }
-          if (event.key === 'Escape') setSelected('');
+          if (
+            (event.key === 'Delete' || event.key === 'Backspace') &&
+            edgeId &&
+            onChange &&
+            !disabled
+          ) {
+            event.preventDefault();
+            onChange({
+              ...definition,
+              edges: definition.edges.filter((edge) => edge.id !== edgeId),
+            });
+            setEdgeId('');
+          }
         }}
       >
         <div
@@ -227,20 +355,35 @@ export const WorkflowCanvas = ({
             {definition.edges.map((edge) => {
               const from = point(edge.source, true),
                 to = point(edge.target, false);
-              if (!from || !to) return null;
-              const bend = Math.max(70, Math.abs(to.x - from.x) * 0.45);
-              const active = selected === edge.source.node || selected === edge.target.node;
+              if (!from || !to) {
+                return null;
+              }
+              const active =
+                edgeId === edge.id ||
+                selected === edge.source.node ||
+                selected === edge.target.node;
               return (
                 <path
                   key={edge.id}
                   className={active ? 'is-active' : ''}
-                  d={`M${from.x},${from.y} C${from.x + bend},${from.y} ${to.x - bend},${to.y} ${to.x},${to.y}`}
+                  d={curve(from, to)}
                   markerEnd={`url(#${marker})`}
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onClick={() => {
+                    if (onChange) {
+                      setEdgeId(edge.id);
+                      setSelected('');
+                      onSelect?.('');
+                    }
+                  }}
                 >
-                  <title>{`${edge.source.node}.${edge.source.port} → ${edge.target.node}.${edge.target.port}`}</title>
+                  <title>{`${edge.source.port} → ${edge.target.port}`}</title>
                 </path>
               );
             })}
+            {previewFrom && cursor && (
+              <path className="is-preview" d={curve(previewFrom, cursor)} />
+            )}
           </svg>
           {boxes.map((box) => (
             <article
@@ -252,24 +395,132 @@ export const WorkflowCanvas = ({
                 type="button"
                 className="workflow-node-heading"
                 aria-pressed={selected === box.id}
-                onClick={() => setSelected((previous) => (previous === box.id ? '' : box.id))}
+                onClick={() => select(box.id)}
+                onPointerDown={(event) => {
+                  if (!onChange || disabled || box.id === '$input' || event.button !== 0) {
+                    return;
+                  }
+                  event.currentTarget.setPointerCapture(event.pointerId);
+                  nodeDrag.current = {
+                    id: box.id,
+                    px: event.clientX,
+                    py: event.clientY,
+                    x: box.x,
+                    y: box.y,
+                  };
+                }}
+                onPointerMove={(event) => {
+                  const start = nodeDrag.current;
+                  if (start && onChange && !disabled) {
+                    onChange({
+                      ...definition,
+                      nodes: definition.nodes.map((node) =>
+                        node.id === start.id
+                          ? {
+                              ...node,
+                              position: {
+                                x: Math.round(
+                                  Math.max(0, start.x + (event.clientX - start.px) / view.scale),
+                                ),
+                                y: Math.round(
+                                  Math.max(0, start.y + (event.clientY - start.py) / view.scale),
+                                ),
+                              },
+                            }
+                          : node,
+                      ),
+                    });
+                  }
+                }}
+                onPointerUp={() => {
+                  nodeDrag.current = null;
+                }}
+                onPointerCancel={() => {
+                  nodeDrag.current = null;
+                }}
               >
                 <span className="workflow-node-symbol">
-                  {box.id === '$input' ? <FileVideo size={20} /> : <Boxes size={20} />}
+                  {box.id === '$input' ? (
+                    <FileVideo size={20} />
+                  ) : isControlNode(box.type) ? (
+                    <GitBranch size={20} />
+                  ) : (
+                    <Boxes size={20} />
+                  )}
                 </span>
                 <span>
                   <strong>{box.label}</strong>
-                  <small>{box.id === '$input' ? '입력' : box.id}</small>
+                  <small>
+                    {box.id === '$input'
+                      ? '입력'
+                      : isControlNode(box.type)
+                        ? '제어 노드'
+                        : '에이전트'}
+                  </small>
                 </span>
               </button>
               <div className="workflow-node-ports">
                 {(['inputs', 'outputs'] as const).map((direction) => (
                   <div key={direction} className={direction}>
                     {Object.keys(box[direction]).map((port) => (
-                      <span key={port} title={`${port} · ${box[direction][port]}`}>
+                      <button
+                        type="button"
+                        key={port}
+                        className={
+                          source?.node === box.id && source.port === port ? 'is-source' : ''
+                        }
+                        disabled={!onChange || disabled}
+                        data-port-direction={direction}
+                        data-node={box.id}
+                        data-port={port}
+                        aria-label={`${box.label} ${direction === 'inputs' ? '입력' : '출력'} ${port}`}
+                        title={`${port} · ${box[direction][port]}`}
+                        onPointerDown={(event) => {
+                          if (direction !== 'outputs') {
+                            return;
+                          }
+                          setSource({ node: box.id, port });
+                          setConnectionError('');
+                          wireDrag.current = { px: event.clientX, py: event.clientY };
+                          event.currentTarget.setPointerCapture(event.pointerId);
+                        }}
+                        onPointerUp={(event) => {
+                          if (direction !== 'outputs' || !wireDrag.current) {
+                            return;
+                          }
+                          const start = wireDrag.current;
+                          wireDrag.current = null;
+                          if (
+                            Math.abs(event.clientX - start.px) +
+                              Math.abs(event.clientY - start.py) <
+                            5
+                          ) {
+                            return;
+                          }
+                          suppressPortClick.current = true;
+                          const target = document
+                            .elementFromPoint(event.clientX, event.clientY)
+                            ?.closest<HTMLElement>('[data-port-direction="inputs"]');
+                          if (target?.dataset.node && target.dataset.port) {
+                            connect({ node: target.dataset.node, port: target.dataset.port });
+                          }
+                        }}
+                        onClick={() => {
+                          if (suppressPortClick.current) {
+                            suppressPortClick.current = false;
+                            return;
+                          }
+                          if (direction === 'outputs') {
+                            setSource({ node: box.id, port });
+                            setConnectionError('');
+                          } else {
+                            connect({ node: box.id, port });
+                          }
+                        }}
+                      >
                         <i />
                         {port}
-                      </span>
+                      </button>
                     ))}
                   </div>
                 ))}
@@ -277,6 +528,41 @@ export const WorkflowCanvas = ({
             </article>
           ))}
         </div>
+        {onChange && (
+          <div className="workflow-agent-picker">
+            {(['agent', 'control'] as const).map((kind) => (
+              <button
+                type="button"
+                className={kind === 'agent' ? 'ui02-primary' : 'workflow-control-add'}
+                key={kind}
+                disabled={disabled || definition.nodes.length >= 100}
+                aria-expanded={adding === kind}
+                aria-controls={`${marker}-nodes`}
+                onClick={() => setAdding((previous) => (previous === kind ? null : kind))}
+              >
+                <Plus size={17} />
+                {kind === 'agent' ? '에이전트 추가' : '제어 노드 추가'}
+              </button>
+            ))}
+            {adding && (
+              <div
+                id={`${marker}-nodes`}
+                className="workflow-agent-menu"
+                role="group"
+                aria-label="추가할 노드"
+              >
+                {catalog
+                  .filter((spec) => isControlNode(spec.id) === (adding === 'control'))
+                  .map((spec) => (
+                    <button type="button" key={spec.id} onClick={() => add(spec)}>
+                      {adding === 'control' ? <GitBranch size={16} /> : <Boxes size={16} />}
+                      {spec.label}
+                    </button>
+                  ))}
+              </div>
+            )}
+          </div>
+        )}
         <div className="workflow-graph-controls">
           <button
             type="button"
@@ -304,19 +590,46 @@ export const WorkflowCanvas = ({
             <Maximize size={16} />
           </button>
         </div>
-        {selectedBox && (
-          <aside className="workflow-node-detail" aria-label="선택한 에이전트">
-            <div>
-              <strong>{selectedBox.label}</strong>
-              <button
-                type="button"
-                className="ui02-icon"
-                aria-label="에이전트 정보 닫기"
-                onClick={() => setSelected('')}
-              >
-                <X size={16} />
-              </button>
-            </div>
+        {connectionError && (
+          <p role="alert" className="workflow-connection-error">
+            {connectionError}
+          </p>
+        )}
+        {edgeId && onChange && (
+          <div className="workflow-edge-action">
+            <button
+              type="button"
+              className="ui02-icon"
+              disabled={disabled}
+              aria-label="선택한 연결 삭제"
+              title="연결 삭제"
+              onClick={() => {
+                onChange({
+                  ...definition,
+                  edges: definition.edges.filter((edge) => edge.id !== edgeId),
+                });
+                setEdgeId('');
+              }}
+            >
+              <Trash2 size={17} />
+            </button>
+          </div>
+        )}
+      </div>
+      {selectedBox && (
+        <section className="workflow-node-settings" aria-label="노드 설정">
+          <div>
+            <strong>{selectedBox.label}</strong>
+            <button
+              type="button"
+              className="ui02-icon"
+              aria-label="노드 설정 닫기"
+              onClick={() => select('')}
+            >
+              <X size={16} />
+            </button>
+          </div>
+          {details ?? (
             <dl>
               {(['inputs', 'outputs'] as const).map((direction) => (
                 <div key={direction}>
@@ -332,26 +645,10 @@ export const WorkflowCanvas = ({
                   </dd>
                 </div>
               ))}
-              {selectedNode &&
-                Object.entries(selectedNode.options || {}).map(([key, value]) => (
-                  <div key={key}>
-                    <dt>{key}</dt>
-                    <dd>{value}</dd>
-                  </div>
-                ))}
-              {selectedNode?.model_ref && (
-                <div>
-                  <dt>모델</dt>
-                  <dd>
-                    {selectedNode.model_ref.model_id} · r{selectedNode.model_ref.revision}
-                  </dd>
-                </div>
-              )}
             </dl>
-            {selectedNode && <a href={`#/workflows/${definition.id}/edit`}>에이전트 설정 편집</a>}
-          </aside>
-        )}
-      </div>
+          )}
+        </section>
+      )}
     </section>
   );
 };

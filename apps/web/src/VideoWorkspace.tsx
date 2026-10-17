@@ -53,7 +53,9 @@ import './storage.css';
 import './feature-renewal.css';
 export const VideoWorkspace = () => {
   const [agentLabel, setAgentLabel] = useState('');
-  const agentIdentity = location.hash.startsWith('#/agents/') ? decodeURIComponent(location.hash.slice('#/agents/'.length)) : undefined;
+  const agentIdentity = location.hash.startsWith('#/agents/')
+    ? decodeURIComponent(location.hash.slice('#/agents/'.length))
+    : undefined;
   const [route, setRoute] = useState(location.hash || '#/jobs'),
     [videos, setVideos] = useState<VideoAsset[]>([]),
     [jobs, setJobs] = useState<Job[]>([]),
@@ -117,8 +119,8 @@ export const VideoWorkspace = () => {
   const servingView = route === '#/serving' || route.startsWith('#/serving/');
   const modelIdentity = route.match(/^#\/serving\/([a-f0-9]{32})/)?.[1];
   const workflowIdentity = route.match(/^#\/workflows\/([a-f0-9]{32})/)?.[1];
-  const editorView = route === '#/workflows/new' || /^#\/workflows\/[a-f0-9]{32}\/edit$/.test(route);
-  const catalogView = route === '#/workflows' || route === '#/workflow-editor' || (!!workflowIdentity && !editorView);
+  const editorView = route === '#/workflows/new' || !!workflowIdentity;
+  const catalogView = route === '#/workflows' || route === '#/workflow-editor';
   const graphTicketsView = route === '#/graph-tickets';
   const decisionTicketsView = route === '#/decision-tickets';
   const reviewTicketsView = route === '#/review-tickets';
@@ -272,7 +274,9 @@ export const VideoWorkspace = () => {
                   disabled={!!busy}
                   onClick={() =>
                     void action(job.job_id, () =>
-                      executionRequest(`/jobs/${job.job_id}/${job.status === 'READY' ? 'start' : 'retry'}`),
+                      executionRequest(
+                        `/jobs/${job.job_id}/${job.status === 'READY' ? 'start' : 'retry'}`,
+                      ),
                     )
                   }
                 >
@@ -312,9 +316,10 @@ export const VideoWorkspace = () => {
                   원본 등록
                 </button>
               )}
-
             </div>
-            <div className="ui02-list-extra"><StageProgress job={job} /></div>
+            <div className="ui02-list-extra">
+              <StageProgress job={job} />
+            </div>
           </article>
         ))}
         {!items.length && (
@@ -328,7 +333,14 @@ export const VideoWorkspace = () => {
   };
   useEffect(() => {
     const navigate = () => {
-      setRoute(location.hash || '#/');
+      const next = (location.hash || '#/jobs').replace(
+        /^(#\/workflows\/[a-f0-9]{32})\/edit$/,
+        '$1',
+      );
+      if (next !== location.hash) {
+        window.history.replaceState(null, '', next);
+      }
+      setRoute(next);
       setWorkflow(false);
       setFaceswap(false);
       setDetail(null);
@@ -336,6 +348,7 @@ export const VideoWorkspace = () => {
       setQuery('');
       window.scrollTo(0, 0);
     };
+    navigate();
     window.addEventListener('hashchange', navigate);
     return () => window.removeEventListener('hashchange', navigate);
   }, []);
@@ -411,34 +424,42 @@ export const VideoWorkspace = () => {
   return (
     <Theme mode="light" palette="Indigo" className="workspace-theme">
       <div className="video-workspace renewed-workspace ui02-workspace">
-        <WorkspaceChrome route={route} agentLabel={agentLabel} query={query} onQuery={setQuery}
-          onUpload={() => { resume.current = null; input.current?.click(); }}
+        <WorkspaceChrome
+          route={route}
+          agentLabel={agentLabel}
+          query={query}
+          onQuery={setQuery}
+          onUpload={() => {
+            resume.current = null;
+            input.current?.click();
+          }}
           uploadCount={uploads.length + pendingSessions.length}
-          uploadContent={<StorageUploads
-                    uploads={uploads}
-                    sessions={pendingSessions}
-                    online={online}
-                    busy={busy}
-                    onPause={(key) => queue.pause(key)}
-                    onResume={(key) => queue.resume(key)}
-                    onRemove={(key) => queue.remove(key)}
-                    onRegister={(id) =>
-                      void action(id, () =>
-                        request(`/video-uploads/${id}/complete`, { method: 'POST' }),
-                      )
-                    }
-                    onChooseResume={(id) => chooseResume(id)}
-                    onDeleteSession={(session) =>
-                      setConfirm({
-                        title: `${session.filename} 업로드를 삭제할까요?`,
-                        action: async () => {
-                          await request(`/video-uploads/${session.upload_id}`, {
-                            method: 'DELETE',
-                          });
-                        },
-                      })
-                    }
-                  />} />
+          uploadContent={
+            <StorageUploads
+              uploads={uploads}
+              sessions={pendingSessions}
+              online={online}
+              busy={busy}
+              onPause={(key) => queue.pause(key)}
+              onResume={(key) => queue.resume(key)}
+              onRemove={(key) => queue.remove(key)}
+              onRegister={(id) =>
+                void action(id, () => request(`/video-uploads/${id}/complete`, { method: 'POST' }))
+              }
+              onChooseResume={(id) => chooseResume(id)}
+              onDeleteSession={(session) =>
+                setConfirm({
+                  title: `${session.filename} 업로드를 삭제할까요?`,
+                  action: async () => {
+                    await request(`/video-uploads/${session.upload_id}`, {
+                      method: 'DELETE',
+                    });
+                  },
+                })
+              }
+            />
+          }
+        />
         <input
           ref={input}
           type="file"
@@ -476,14 +497,28 @@ export const VideoWorkspace = () => {
             graph={graphTicketsView || reviewTicketsView}
             review={reviewTicketsView}
           />
-        ) : (route === '#/agents' || route.startsWith('#/agents/')) ? (
-          <AgentCatalog key={route} query={query} identity={agentIdentity} onLabel={setAgentLabel} />
+        ) : route === '#/agents' || route.startsWith('#/agents/') ? (
+          <AgentCatalog
+            key={route}
+            query={query}
+            identity={agentIdentity}
+            onLabel={setAgentLabel}
+          />
         ) : catalogView ? (
-          <WorkflowCatalog query={query} identity={workflowIdentity} />
+          <WorkflowCatalog query={query} />
         ) : editorView ? (
           <WorkflowEditor key={route} initialId={workflowIdentity} />
         ) : servingView ? (
-          route === '#/serving/roles' ? <ServingPage /> : <ModelRegistryPage key={route} form={route === '#/serving/new' || route.endsWith('/edit')} identity={modelIdentity} query={query} />
+          route === '#/serving/roles' ? (
+            <ServingPage />
+          ) : (
+            <ModelRegistryPage
+              key={route}
+              form={route === '#/serving/new' || route.endsWith('/edit')}
+              identity={modelIdentity}
+              query={query}
+            />
+          )
         ) : settingsView ? (
           <SettingsPage />
         ) : jobId ? (
@@ -516,70 +551,11 @@ export const VideoWorkspace = () => {
                 {detail ? (
                   <>
                     <div className="storage-detail-heading">
-                      <a className="storage-back" href="#/">
-                        <ArrowLeft size={18} aria-hidden="true" />
-                        영상 보관함으로
-                      </a>
                       <div>
-                        <p className="workspace-eyebrow">원본 영상</p>
                         <h1>{detail.video.original_filename}</h1>
                       </div>
-                      <Button variant="secondary" onClick={() => setFaceswap(true)}>
-                        얼굴 합성
-                      </Button>
-                      <Button onClick={() => setWorkflow(true)}>
-                        <Play size={17} aria-hidden="true" />새 작업
-                      </Button>
                     </div>
-                    <StorageVideoInfo
-                      video={detail.video}
-                      assetId={assetId}
-                      onDelete={() =>
-                        setConfirm({
-                          title: '원본 영상을 삭제할까요? 연결된 작업이 있으면 삭제할 수 없습니다.',
-                          action: async () => {
-                            await request(`/videos/${assetId}`, { method: 'DELETE' });
-                            location.hash = '/';
-                          },
-                        })
-                      }
-                    />
-                    <section className="asset-subtitles">
-                      <div className="section-heading">
-                        <h2>
-                          자막 입력 <small>{subtitleInputs.length}</small>
-                        </h2>
-                        <button disabled={!!busy} onClick={() => srtInput.current?.click()}>
-                          <Plus size={16} />
-                          SRT 첨부
-                        </button>
-                      </div>
-                      {subtitleInputs.length ? (
-                        <ul>
-                          {subtitleInputs.map((s) => (
-                            <li key={s.artifact_id}>
-                              <span>{s.filename}</span>
-                              <small>
-                                {s.language} · {s.cue_count}개 ·{' '}
-                                {s.provenance.kind === 'job_subtitle'
-                                  ? `작업 자막 v${s.provenance.revision}`
-                                  : '외부 첨부'}
-                              </small>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="muted">첨부된 자막이 없습니다.</p>
-                      )}
-                    </section>
-                    <section>
-                      <div className="section-heading">
-                        <h2>
-                          작업 기록 <small>{detail.jobs.length}</small>
-                        </h2>
-                      </div>
-                      {jobRows(detail.jobs)}
-                    </section>
+                    <StorageVideoInfo video={detail.video} assetId={assetId} />
                   </>
                 ) : (
                   <p role="status">영상 불러오는 중</p>
@@ -591,7 +567,6 @@ export const VideoWorkspace = () => {
                   <div>
                     <h1>{jobsView ? '작업' : '원본'}</h1>
                   </div>
-
                 </div>
                 {jobsView && <ExecutionPopover jobs={jobs} onChanged={refresh} />}
 
@@ -615,7 +590,6 @@ export const VideoWorkspace = () => {
                         className="storage-empty"
                         illustration={<FolderOpen size={32} aria-hidden="true" />}
                         heading={query ? '검색 결과가 없습니다.' : '등록된 원본 영상이 없습니다.'}
-                        
                       />
                     )}
                   </div>

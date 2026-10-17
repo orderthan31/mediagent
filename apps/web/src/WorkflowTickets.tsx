@@ -176,7 +176,9 @@ export const WorkflowTickets = ({
   const [capability, setCapability] = useState<Capability | null>(null);
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [plan, setPlan] = useState<Plan | null>(null);
-  useEffect(() => { setExecutionNonce(crypto.randomUUID()); }, [ticket?.id, plan?.token]);
+  useEffect(() => {
+    setExecutionNonce(crypto.randomUUID());
+  }, [ticket?.id, plan?.token]);
   const [paid, setPaid] = useState(false);
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState('load');
@@ -387,9 +389,17 @@ export const WorkflowTickets = ({
     setError('');
     try {
       const operation = review && (ticket.phase || 0) > 0 ? 'continue' : 'start';
-      const payload = { revision: ticket.revision, token: plan.token, ...(review ? { request_id: executionNonce } : {}) };
+      const payload = {
+        revision: ticket.revision,
+        token: plan.token,
+        ...(review ? { request_id: executionNonce } : {}),
+      };
       applyTicket(
-        await request<Ticket>(base + '/' + ticket.id + '/' + operation, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(payload) }),
+        await request<Ticket>(base + '/' + ticket.id + '/' + operation, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...headers },
+          body: JSON.stringify(payload),
+        }),
       );
       if (review) {
         setPlan(null);
@@ -413,7 +423,9 @@ export const WorkflowTickets = ({
       <a
         key={port}
         className={partial ? 'partial-link' : 'artifact-link'}
-        href={mediaUrl(`${base}/${ticket?.id}/artifacts/${encodeURIComponent(step.id)}/${encodeURIComponent(port)}${partial ? '?partial=true' : ''}`)}
+        href={mediaUrl(
+          `${base}/${ticket?.id}/artifacts/${encodeURIComponent(step.id)}/${encodeURIComponent(port)}${partial ? '?partial=true' : ''}`,
+        )}
       >
         {partial ? '부분 결과' : '산출물'} {port} · {meta.bytes} bytes
       </a>
@@ -457,90 +469,41 @@ export const WorkflowTickets = ({
     <main className="serving-page workflow-tickets">
       <div className="serving-heading">
         <div>
-          <p className="workspace-eyebrow">
-            {work
-              ? '작업 · 계획 확인과 실행은 별도'
-              : decision
-                ? '구조화 판단 · 서버 조건 평가 · 결과 고정 · 선택 후행 새 확인'
-                : review
-                  ? '원하는 지원 지점 · 영속 검수 대기 · 명시 승인·이어 실행'
-                  : graph
-                    ? '수동 선택 · 제어된 동시 진행 · 결과 참조 합류'
-                    : '정의 기반 순차 처리'}
-          </p>
           <h1>
             {recovery
-              ? '복구 계약 작업 티켓'
+              ? '복구 작업'
               : work
-                ? '작업 티켓'
+                ? '작업'
                 : decision
-                  ? 'AI 판단 워크플로우 티켓'
+                  ? 'AI 판단 작업'
                   : review
-                    ? '사람 검수 워크플로우 티켓'
+                    ? '검수 작업'
                     : graph
-                      ? '분기·병렬 워크플로우 티켓'
-                      : '순차 워크플로우 티켓'}
+                      ? '분기·병렬 작업'
+                      : '순차 작업'}
           </h1>
         </div>
         <Button variant="secondary" disabled={!!busy} onClick={() => void load()}>
-          서버 목록 새로 불러오기
+          새로고침
         </Button>
       </div>
-      {decision && !work && (
-        <p className="serving-help">
-          이전 티켓은 기존 계약을 유지합니다. <a href="#/recovery-tickets">새 복구 계약 티켓</a>으로
-          자동 변환하지 않습니다.
-        </p>
-      )}
-      {work && (
-        <nav aria-label="작업 티켓 계약">
-          <a href="#/work-tickets">기존 등록 모델 티켓</a> ·{' '}
-          <a href="#/recovery-tickets">새 복구 계약 티켓</a>
-        </nav>
-      )}
-      {decision && !work && (
-        <p className="serving-help">
-          기본 작업 동선은 영상 + 저장 워크플로우 → 흐름/에이전트 설정 요약 → 명시 계획 확인 →
-          티켓입니다. 이 화면은 신규 AI 판단 경로의 기능 검증 화면이며 내부 실행기를 다시 고르는
-          최종 제품 진입이 아닙니다. 처리 옵션은 워크플로우 편집기에서 에이전트를 클릭해 설정합니다. 이
-          이전 티켓 형식은 등록 모델 참조를 사용하지 않습니다. 새 등록 모델 연결은 작업 시작에서
-          사용하며 전역 역할 설정을 에이전트 연결로 간주하지 않습니다.
-        </p>
-      )}
-      <p>
-        {work ? (
-          '고정된 흐름·모델·현재 미실행 계획을 확인한 뒤 명시 실행합니다. 새 작업은 작업 시작에서 만드세요.'
-        ) : (
-          <>
-            영상과 저장 정의를 선택해 <strong>보류 티켓</strong>을 만듭니다. 생성/계획 확인은
-            실행이나 기존 큐 등록이 아닙니다.
-          </>
-        )}
-      </p>
-      <p className="serving-help">
-        정의는 생성 때 ID·revision·내용을 고정합니다. 계획 확인 때 서빙 설정을 결합하고 변경 시
-        재확인을 요구합니다. 비밀키는 복사하지 않습니다.{' '}
-        {graph
-          ? '독립 가지는 실패를 전파하지 않고 결과를 보존합니다. join은 목록이며 미디어/clock 병합이 아닙니다.'
-          : '첫 실패에서 중단합니다.'}{' '}
-        {recovery
-          ? '자동 재실행은 없습니다. 취소/실패는 원 티켓 보존과 새 복구 티켓·새 계획 확인으로 분리합니다.'
-          : '자동 재시도·취소 후 재개는 제공하지 않습니다.'}
-      </p>
+
       {runtime && (
         <p>
           <Badge tone="neutral">
-            {frontendOnly ? '목업' : runtime.connected
-              ? runtime.mode
-              : work
-                ? '작업 실행기 미연결'
-                : decision
-                  ? 'AI 판단 실행기 미연결'
-                  : review
-                    ? '검수 실행기 미연결'
-                    : graph
-                      ? '병렬 실행기 미연결'
-                      : '새 순차 실행기 미연결'}
+            {frontendOnly
+              ? '목업'
+              : runtime.connected
+                ? runtime.mode
+                : work
+                  ? '작업 실행기 미연결'
+                  : decision
+                    ? 'AI 판단 실행기 미연결'
+                    : review
+                      ? '검수 실행기 미연결'
+                      : graph
+                        ? '병렬 실행기 미연결'
+                        : '새 순차 실행기 미연결'}
           </Badge>{' '}
           {runtime.notice}
         </p>
@@ -681,9 +644,6 @@ export const WorkflowTickets = ({
                     ? '현재 병렬 실행 미지원'
                     : '현재 순차 실행 미지원'}
               </Badge>
-              <p className="serving-help">
-                {capability.notice} 타입 검증 통과와 실제 실행 가능성/성공은 다릅니다.
-              </p>
               {!capability.supported && (
                 <div className="execution-reasons">
                   {capability.reasons.map((r, i) => (
@@ -713,9 +673,9 @@ export const WorkflowTickets = ({
         {ready && tickets.length === 0 && (
           <p>
             {recovery
-              ? '저장된 복구 계약 티켓이 없습니다'
+              ? '저장된 복구 작업이 없습니다'
               : work
-                ? '저장된 작업 티켓이 없습니다'
+                ? '저장된 작업이 없습니다'
                 : decision
                   ? '저장된 AI 판단 티켓 없음.'
                   : review
@@ -739,19 +699,7 @@ export const WorkflowTickets = ({
           ))}
         </div>
       </section>
-      {work && (
-        <details className="ticket-panel">
-          <summary>이전 티켓 · 기능 검증 화면</summary>
-          <p>
-            <a href="#/recovery-tickets">새 복구 계약 티켓</a> ·{' '}
-            <a href="#/workflow-tickets">이전 순차 티켓</a> ·{' '}
-            <a href="#/graph-tickets">이전 분기·병렬 티켓</a> ·{' '}
-            <a href="#/review-tickets">이전 검수 티켓</a> ·{' '}
-            <a href="#/decision-tickets">이전 판단 티켓</a>
-          </p>
-          <p>기존 티켓/저장소를 보존합니다. 등록 모델 참조로 소급 변환하지 않습니다.</p>
-        </details>
-      )}
+
       {ticket && recovery && <RecoveryActions key={ticket.id} ticket={ticket} onOpen={open} />}
       {ticket && (
         <TicketSnapshotRestore
@@ -829,9 +777,6 @@ export const WorkflowTickets = ({
                 고정 정의 r{ticket.definition.revision} · 서빙 revision{' '}
                 {String(plan.settings.revision)}
               </p>
-              <p className="serving-help">
-                {plan.notice} 입력/옵션 변경은 새 티켓과 새 확인이 필요합니다.
-              </p>
               <ol>
                 {plan.steps.map((s) => (
                   <li key={s.id}>
@@ -894,18 +839,34 @@ export const WorkflowTickets = ({
                 {ticket.confirmation?.token === plan.token && (
                   <ExecutionApproval
                     path={`/api${base}/${ticket.id}/${review && (ticket.phase || 0) > 0 ? 'continue' : 'start'}`}
-                    payload={{ revision: ticket.revision, token: plan.token, ...(review ? { request_id: executionNonce } : {}) }}
+                    payload={{
+                      revision: ticket.revision,
+                      token: plan.token,
+                      ...(review ? { request_id: executionNonce } : {}),
+                    }}
                     requestId={executionNonce}
-                    actionLabel={frontendOnly ? '목업 실행' : review && (ticket.phase || 0) > 0 ? '확인한 계획 이어 실행 요청' : '확인한 계획 실행 요청'}
-                    disabled={!!busy || (!runtime?.connected && !frontendOnly) || !(review ? ['confirmed', 'continuation_confirmed'] : ['confirmed']).includes(ticket.status)}
+                    actionLabel={
+                      frontendOnly
+                        ? '목업 실행'
+                        : review && (ticket.phase || 0) > 0
+                          ? '확인한 계획 이어 실행 요청'
+                          : '확인한 계획 실행 요청'
+                    }
+                    disabled={
+                      !!busy ||
+                      (!runtime?.connected && !frontendOnly) ||
+                      !(review ? ['confirmed', 'continuation_confirmed'] : ['confirmed']).includes(
+                        ticket.status,
+                      )
+                    }
                     onExecute={start}
                   />
                 )}
               </div>
               {!runtime?.connected && !frontendOnly && (
                 <p className="serving-help">
-                  현재 실행기가 미연결이라 실행 요청은 비활성입니다. 기존 큐/에이전트를 자동 시작하지
-                  않습니다.
+                  현재 실행기가 미연결이라 실행 요청은 비활성입니다. 기존 큐/에이전트를 자동
+                  시작하지 않습니다.
                 </p>
               )}
             </section>
@@ -936,7 +897,7 @@ export const WorkflowTickets = ({
                       {ticket.model_bindings[step.id].model}
                     </p>
                     {ticket.model_availability?.[step.id]?.new_revision_available && (
-                      <p>새 revision 있음 · 기존 pin 유지</p>
+                      <p>새 버전 있음</p>
                     )}
                     {ticket.model_availability?.[step.id]?.active === false && (
                       <p>
@@ -986,18 +947,6 @@ export const WorkflowTickets = ({
           </ol>
         </section>
       )}
-      <p className="serving-help">
-        {recovery
-          ? '복구는 owner·입출력 SHA·고정 정의/옵션/모델·선택 입력과 완료 receipt를 대조합니다. 결과 불명은 자동 재호출하지 않고 별도 위험 확인과 새 계획을 요구합니다. 외부 호출 exactly-once나 즉시 취소/환불 보장은 없습니다.'
-          : decision
-            ? '판단 adapter의 구조화 결과와 서버 조건으로 정확히 한 경로만 선택합니다. review/reject는 라벨이며 자동 검수 생성/가지 종료 명령이 아닙니다. 판단 결과는 고정하고, 결과·미실행 경로·서빙 새 계획 확인 뒤 별도 이어실행합니다. 오류/형식/조건 실패는 차단하며 기본경로·자동 재판정·일반 복구는 없습니다. 영상/음성 판단은 현재 metadata-only 계약이고 실미디어 모델 추론을 뜻하지 않습니다.'
-            : review
-              ? '검수 대기는 해당 후행만 멈춥니다. 승인 전 필수 join은 대기하고 독립 가지의 성공/부분 결과는 보존합니다. 최신 서빙은 미실행 부분의 새 계획 확인에만 사용하며 완료 단계는 재실행하지 않습니다. 실패 재시도·crash 복구·AI Decision은 미지원입니다.'
-              : graph
-                ? '수동 선택·독립 병렬·선택 필수 합류를 지원합니다. 합류 출력은 에이전트ID.포트 결과 참조 manifest이며 미디어/clock 병합 또는 단일 미디어 입력이 아닙니다. 얼굴 합성 세션/preview·GPU VAD·새 사람검수/AI Decision은 미지원입니다.'
-                : '지원 범위는 단일 처리 사슬입니다. 얼굴 합성 세션/preview·GPU VAD·추가 검수/Decision·병렬/합류는 이번 순차 어댑터에서 미지원입니다.'}{' '}
-        단계 상태는 실행기가 기록한 결과이며 실모델 품질 검증을 뜻하지 않습니다.
-      </p>
     </main>
   );
 };

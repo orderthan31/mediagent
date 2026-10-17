@@ -151,7 +151,7 @@ export const QueuePanel = ({
             취소 실행
           </Button>
           <Button variant="secondary" disabled={busy} onClick={() => setConfirmCancel(false)}>
-            돌아가기
+            닫기
           </Button>
         </div>
       )}
