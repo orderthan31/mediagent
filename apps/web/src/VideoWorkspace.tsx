@@ -1,17 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import {
-  ArrowLeft,
-  FileVideo,
-  FolderOpen,
-  ListVideo,
-  Pause,
-  Play,
-  Plus,
-  Search,
-  Trash2,
-  Upload,
-  X,
-} from 'lucide-react';
+import { ArrowLeft, FileVideo, FolderOpen, Plus, Search, Trash2, Upload, X } from 'lucide-react';
 import { mediaUrl, Job, request, resumeUpload, uploadRequest } from './api';
 import { frontendOnly } from './preview';
 import { ticketNumber, workflowName } from './job-identity';
@@ -25,8 +13,6 @@ import { ServingPage } from './ServingPage';
 import { WorkflowStart } from './WorkflowStart';
 import { WorkflowEditor } from './WorkflowEditor';
 import { WorkflowTickets } from './WorkflowTickets';
-import { failureMessage, isContentBlocked } from './job-failure';
-import { StageProgress } from './StageProgress';
 import { ExecutionPopover } from './ExecutionPopover';
 import { SubtitleEditor } from './SubtitleEditor';
 import { UploadItem, UploadQueue } from './upload-queue';
@@ -50,7 +36,6 @@ import { Button } from './hangyeol/primitives/button';
 import { EmptyState } from './hangyeol/components/empty-state';
 import { StorageAssetRow, StorageVideoInfo } from './StorageVideo';
 import { StorageUploads } from './StorageUploads';
-import { executionRequest } from './execution-request';
 import './video-workspace.css';
 import './workspace-polish.css';
 import './workspace-shell.css';
@@ -236,136 +221,75 @@ export const VideoWorkspace = () => {
       srtInput.current.value = '';
     }
   };
-  const terminal = (j: Job) => ['COMPLETED', 'FAILED', 'CANCELLED'].includes(j.status);
-  const jobRows = (items: Job[]) => {
-    return (
-      <div className="ui02-list job-ledger">
-        <div className="job-ledger-head" aria-hidden="true">
-          <span>티켓번호</span>
-          <span>원본</span>
-          <span>워크플로우</span>
-          <span>상태</span>
-          <span>생성일</span>
-        </div>
-        {items.map((job) => (
-          <article key={job.job_id} className="ui02-list-item">
-            <div className="ui02-list-copy">
-              <a className="ui02-list-title" href={`#/jobs/${job.job_id}`}>
-                {ticketNumber(job)}
-              </a>
-              <span className="job-source" title={job.original_filename}>
-                {job.original_filename}
-              </span>
-              <span className="job-workflow" title={workflowName(job)}>
-                {workflowName(job)}
-              </span>
-              <span className={'status job-state ' + job.status.toLowerCase()}>
-                {frontendOnly && job.status === 'AWAITING_REVIEW' && job.status_message
-                  ? job.status_message
-                  : job.status === 'AWAITING_REVIEW' && job.metadata.content_block_review
-                    ? '차단 구간 검토'
-                    : isContentBlocked(job)
-                      ? '콘텐츠 차단'
-                      : statusLabels[job.status] || job.status}
-              </span>
-              <time className="job-created" dateTime={job.created_at}>
-                {new Date(job.created_at).toLocaleString('ko-KR', {
-                  month: '2-digit',
-                  day: '2-digit',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
-              </time>
-              {failureMessage(job) && (
-                <p className="alert" role="alert">
-                  {failureMessage(job)}
-                </p>
-              )}
-            </div>
-            <div className="row-actions ui02-list-actions">
-              {job.status === 'UPLOADING' && (
-                <button
-                  className="icon"
-                  title="업로드 재개"
-                  onClick={() => chooseResume(job.job_id, true)}
+  const jobRows = (items: Job[]) => (
+    <div className="job-ledger-scroll" role="region" aria-label="작업 목록" tabIndex={0}>
+      <table className="job-ledger">
+        <colgroup>
+          <col className="job-ticket-column" />
+          <col />
+          <col />
+          <col className="job-state-column" />
+          <col className="job-created-column" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th scope="col">티켓번호</th>
+            <th scope="col">원본</th>
+            <th scope="col">워크플로우</th>
+            <th scope="col">상태</th>
+            <th scope="col">생성일</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((job) => (
+            <tr key={job.job_id}>
+              <td>
+                <a
+                  className="job-ticket-link"
+                  href={`#/jobs/${job.job_id}`}
+                  title={ticketNumber(job)}
                 >
-                  <Upload size={17} />
-                </button>
-              )}
-              {['READY', 'FAILED', 'CANCELLED'].includes(job.status) && (
-                <button
-                  className="icon"
-                  title={job.status === 'READY' ? '작업 시작' : '중단 단계부터 재시도'}
-                  disabled={!!busy}
-                  onClick={() =>
-                    void action(job.job_id, () =>
-                      executionRequest(
-                        `/jobs/${job.job_id}/${job.status === 'READY' ? 'start' : 'retry'}`,
-                      ),
-                    )
-                  }
-                >
-                  <Play size={17} />
-                </button>
-              )}
-              {job.status === 'AWAITING_REVIEW' && (
-                <button
-                  onClick={() => {
-                    if (frontendOnly) {
-                      location.hash = `/jobs/${job.job_id}`;
-                    } else {
-                      setReview(job);
-                    }
-                  }}
-                >
-                  검토
-                </button>
-              )}
-              {!terminal(job) && !['READY', 'UPLOADING'].includes(job.status) && (
-                <button
-                  className="icon"
-                  title="작업 중단"
-                  disabled={!!busy}
-                  onClick={() =>
-                    void action(job.job_id, () =>
-                      request(`/jobs/${job.job_id}/cancel`, { method: 'POST' }),
-                    )
-                  }
-                >
-                  <Pause size={17} />
-                </button>
-              )}
-              {!job.metadata.asset_id && job.status !== 'UPLOADING' && (
-                <button
-                  disabled={!!busy}
-                  onClick={() =>
-                    void action(job.job_id, async () => {
-                      const a = await request<VideoAsset>(`/jobs/${job.job_id}/register-source`, {
-                        method: 'POST',
-                      });
-                      location.hash = `/videos/${a.asset_id}`;
-                    })
-                  }
-                >
-                  <FolderOpen size={15} />
-                  원본 등록
-                </button>
-              )}
-            </div>
-            <div className="ui02-list-extra">
-              <StageProgress job={job} />
-            </div>
-          </article>
-        ))}
-        {!items.length && (
-          <div className="library-empty">
-            <ListVideo size={30} />
-            <p>작업이 없습니다.</p>
-          </div>
-        )}
-      </div>
-    );
-  };
+                  {ticketNumber(job)}
+                </a>
+              </td>
+              <td>
+                <span title={job.original_filename}>{job.original_filename}</span>
+              </td>
+              <td>
+                <span className="job-workflow" title={workflowName(job)}>
+                  {workflowName(job)}
+                </span>
+              </td>
+              <td>
+                <span className={'status job-state ' + job.status.toLowerCase()}>
+                  {job.status === 'AWAITING_REVIEW'
+                    ? '검토 대기'
+                    : statusLabels[job.status] || job.status}
+                </span>
+              </td>
+              <td>
+                <time className="job-created" dateTime={job.created_at}>
+                  {new Date(job.created_at).toLocaleString('ko-KR', {
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </time>
+              </td>
+            </tr>
+          ))}
+          {!items.length && (
+            <tr>
+              <td colSpan={5}>
+                <p className="ui02-empty">작업이 없습니다.</p>
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
   useEffect(() => {
     const navigate = () => {
       const next = (location.hash || '#/jobs').replace(

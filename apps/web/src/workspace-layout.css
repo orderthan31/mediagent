@@ -63,41 +63,69 @@
 .renewed-workspace .ui02-list-extra:empty {
   display: none;
 }
-.job-ledger {
-  --m-job-columns: minmax(110px, 0.6fr) minmax(140px, 1.05fr) minmax(160px, 1.1fr)
-    minmax(90px, 0.6fr) minmax(100px, 0.65fr);
+.job-ledger-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
 }
-.renewed-workspace .job-ledger > .ui02-list-item {
-  grid-template-columns: minmax(0, 1fr) 72px;
-  padding-inline: var(--m-card-pad);
-  gap: var(--m-row-gap);
+.renewed-workspace .job-ledger {
+  --m-job-min-width: 760px;
+  --m-job-ticket-width: 124px;
+  --m-job-state-width: 116px;
+  --m-job-created-width: 160px;
+  width: 100%;
+  min-width: var(--m-job-min-width);
+  table-layout: fixed;
+  border-collapse: collapse;
+  border-top: 1px solid var(--g-line);
+  text-align: left;
 }
-.job-ledger-head {
-  display: grid;
-  grid-template-columns: var(--m-job-columns) 72px;
-  gap: var(--m-row-gap);
-  padding: var(--m-space-12) var(--m-card-pad);
-  background: var(--g-muted);
-  color: var(--g-soft);
-  font-size: var(--text-g-small);
+.job-ledger .job-ticket-column {
+  width: var(--m-job-ticket-width);
+}
+.job-ledger .job-state-column {
+  width: var(--m-job-state-width);
+}
+.job-ledger .job-created-column {
+  width: var(--m-job-created-width);
+}
+.renewed-workspace .job-ledger :is(th, td) {
+  padding: var(--m-row-pad) var(--m-card-pad);
   border-bottom: 1px solid var(--g-line);
-}
-.renewed-workspace .job-ledger .ui02-list-copy {
-  display: grid;
-  grid-template-columns: var(--m-job-columns);
-  gap: var(--m-row-gap);
-  align-items: center;
-}
-.renewed-workspace .job-ledger .ui02-list-title {
-  font-size: var(--m-type-label);
-  font-variant-numeric: tabular-nums;
-}
-.job-ledger :is(.job-source, .job-workflow) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  min-width: 0;
+  vertical-align: middle;
   font-size: var(--text-g-small);
+}
+.job-ledger th {
+  color: var(--g-soft);
+  background: var(--g-muted);
+  font-weight: 500;
+}
+.job-ledger td {
+  height: var(--m-list-height);
+  box-sizing: border-box;
+}
+.job-ledger td > :is(a, span, time) {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.job-ledger tbody tr:hover {
+  background: var(--g-muted);
+}
+.job-ledger .job-ticket-link {
+  color: var(--g-ink);
+  text-decoration: none;
+  font-size: var(--m-type-label);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.job-ledger .job-ticket-link:hover {
+  color: var(--g-action);
 }
 .job-workflow,
 .job-created {
@@ -107,15 +135,8 @@
   font-variant-numeric: tabular-nums;
   font-size: var(--text-g-small);
 }
-.job-ledger .job-state {
-  justify-self: start;
-  white-space: nowrap;
-}
-.job-ledger .ui02-list-copy > .alert {
-  grid-column: 2 / -1;
-}
-.renewed-workspace .job-ledger .ui02-list-extra {
-  grid-column: 1;
+.job-ledger td > .job-state {
+  display: inline-block;
 }
 .job-heading-context {
   display: flex;
@@ -249,38 +270,6 @@
   }
 }
 @media (max-width: 55.999rem) {
-  .job-ledger-head {
-    display: none;
-  }
-  .renewed-workspace .job-ledger > .ui02-list-item {
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: var(--m-space-12);
-  }
-  .renewed-workspace .job-ledger .ui02-list-copy {
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: var(--m-space-8) var(--m-space-12);
-  }
-  .job-ledger .job-source,
-  .job-ledger .job-workflow {
-    grid-column: 1 / -1;
-    white-space: normal;
-    overflow-wrap: anywhere;
-  }
-  .job-ledger .job-state {
-    grid-column: 2;
-    grid-row: 1;
-  }
-  .job-ledger .job-created {
-    grid-column: 1 / -1;
-  }
-  .renewed-workspace .job-ledger .ui02-list-actions {
-    grid-column: 2;
-    grid-row: 1;
-    align-self: start;
-  }
-  .renewed-workspace .job-ledger .ui02-list-extra {
-    grid-column: 1 / -1;
-  }
   .ui02-workspace .page-form .serving-grid > label,
   .ui02-workspace .connection-form fieldset > label {
     grid-template-columns: minmax(0, 1fr);
