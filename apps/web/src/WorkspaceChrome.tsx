@@ -61,27 +61,30 @@ export const WorkspaceChrome = ({
               ? 1
               : 0;
   const current = sections[group];
-  const child = route.startsWith('#/agents/')
-    ? agentLabel || '상세'
-    : route === '#/serving/roles'
-      ? '역할 설정'
-      : route === '#/start'
-        ? '추가'
-        : /\/new$/.test(route)
-          ? '추가'
-          : /\/edit$/.test(route)
-            ? route.startsWith('#/workflows/')
-              ? '상세'
-              : '편집'
-            : route.startsWith('#/serving/') ||
-                route.startsWith('#/videos/') ||
-                /^#\/jobs\//.test(route) ||
-                /^#\/workflows\//.test(route)
-              ? '상세'
-              : route.includes('tickets')
-                ? '워크플로우 작업'
-                : '';
-  const list = !child;
+  const child =
+    route === '#/serving/connections'
+      ? '공급자'
+      : route.startsWith('#/agents/')
+        ? agentLabel || '상세'
+        : route === '#/serving/roles'
+          ? '역할 설정'
+          : route === '#/start'
+            ? '추가'
+            : /\/new$/.test(route)
+              ? '추가'
+              : /\/edit$/.test(route)
+                ? route.startsWith('#/workflows/')
+                  ? '상세'
+                  : '편집'
+                : route.startsWith('#/serving/') ||
+                    route.startsWith('#/videos/') ||
+                    /^#\/jobs\//.test(route) ||
+                    /^#\/workflows\//.test(route)
+                  ? '상세'
+                  : route.includes('tickets')
+                    ? '워크플로우 작업'
+                    : '';
+  const list = !child || route === '#/serving/connections';
   const action =
     group === 0
       ? { label: '새 작업', href: '#/start' }
@@ -95,7 +98,9 @@ export const WorkspaceChrome = ({
                 href: '#/workflows/new',
               }
           : group === 4
-            ? { label: '모델 추가', href: '#/serving/new' }
+            ? route.startsWith('#/serving/connections')
+              ? { label: '공급자 추가', href: '#/serving/connections/new' }
+              : { label: '모델 추가', href: '#/serving/new' }
             : null;
   const links = (
     <nav aria-label="주 메뉴">
@@ -238,6 +243,12 @@ export const WorkspaceChrome = ({
         {child ? (
           <>
             <a href={current.href}>{current.name}</a>
+            {route.startsWith('#/serving/connections/') && (
+              <>
+                <ChevronRight size={14} aria-hidden="true" />
+                <a href="#/serving/connections">공급자</a>
+              </>
+            )}
             <ChevronRight size={14} aria-hidden="true" />
             <span aria-current="page">{child}</span>
           </>

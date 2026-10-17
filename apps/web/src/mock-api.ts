@@ -1,4 +1,7 @@
 import type { Job } from './api';
+import { seedConnections, type ServingConnection } from './serving-connection';
+import { publishingCatalog, seedReviewTasks } from './publishing-node-contracts';
+import { validateForm, readonlyChanges, type ReviewTask, type FormData } from './form-contract';
 import type { VideoUpload, VideoAsset, SubtitleInput } from './video-api';
 import type { RegisteredModel } from './registered-models';
 import {
@@ -22,6 +25,9 @@ import {
 // provider SDK, credential store, DB or worker connection belongs in this module.
 type Document = Record<string, any>;
 type State = {
+  publishingContractVersion?: number;
+  connections: ServingConnection[];
+  reviews: Record<string, ReviewTask>;
   videos: VideoAsset[];
   jobs: Job[];
   uploads: VideoUpload[];
@@ -49,6 +55,9 @@ const initial = (): State => {
   const definitions = seedDefinitions();
   const jobs = seedJobs();
   return {
+    publishingContractVersion: 1,
+    connections: seedConnections(),
+    reviews: seedReviewTasks(),
     videos: seedVideos(),
     jobs,
     definitions,
@@ -88,6 +97,21 @@ const restore = (): State => {
   return initial();
 };
 let state = restore();
+state.reviews ||= seedReviewTasks();
+state.connections ||= seedConnections();
+if (state.publishingContractVersion !== 1) {
+  for (const sample of seedJobs().slice(7)) {
+    if (!state.jobs.some((job) => job.job_id === sample.job_id)) {
+      state.jobs.push(sample);
+    }
+  }
+  const example = seedDefinitions().find((definition) => definition.id === mockId(204));
+  if (example && !state.definitions.some((definition) => definition.id === example.id)) {
+    state.definitions.push(example);
+    state.history[example.id] = [clone(example)];
+  }
+  state.publishingContractVersion = 1;
+}
 const persist = () => {
   try {
     sessionStorage.setItem(storageKey, JSON.stringify(state));
@@ -325,7 +349,131 @@ export const mockRequest = async <T>(path: string, init: RequestInit = {}): Prom
   let value: unknown;
   const change = method !== 'GET';
 
-  if (route === '/videos') value = { videos: state.videos };
+  if (
+    parts[0] === 'publishing' &&
+    parts[1] === 'jobs' &&
+    parts[3] === 'reviews' &&
+    method === 'GET'
+  ) {
+    value = { tasks: Object.values(state.reviews).filter((task) => task.job_id === parts[2]) };
+  } else if (parts[0] === 'publishing' && parts[1] === 'reviews' && parts[2]) {
+    const task = ensure(state.reviews[parts[2]], '검토');
+    if (method === 'PUT') {
+      if (body.revision !== task.revision || body.contract_version !== task.contract.version) {
+        throw new Error('다른 화면에서 변경되었습니다. 다시 불러와 주세요.');
+      }
+      if (!['save', 'confirm', 'request_changes', 'reopen'].includes(body.action)) {
+        throw new Error('요청을 확인해 주세요.');
+      }
+      if (body.action === 'reopen') {
+        task.state = 'draft';
+        delete task.confirmed;
+      } else {
+        if (task.state === 'confirmed') {
+          throw new Error('다시 수정을 누른 뒤 변경해 주세요.');
+        }
+        const next = body.data as FormData;
+        if (
+          !next ||
+          typeof next !== 'object' ||
+          Array.isArray(next) ||
+          JSON.stringify(next).length > 100000
+        ) {
+          throw new Error('입력 내용을 확인해 주세요.');
+        }
+        if (readonlyChanges(task.contract.fields, task.data, next)) {
+          throw new Error('읽기 전용 항목은 수정할 수 없습니다.');
+        }
+        if (body.action === 'confirm') {
+          if (JSON.stringify(next) !== JSON.stringify(task.data)) {
+            throw new Error('변경 내용을 먼저 저장해 주세요.');
+          }
+          const issues = validateForm(task.contract.fields, next);
+          if (issues.length) {
+            throw new Error(issues[0].message);
+          }
+          task.state = 'confirmed';
+          task.confirmed = { revision: task.revision, data: clone(next) };
+        } else if (body.action === 'request_changes') {
+          if (typeof body.reason !== 'string' || !body.reason.trim() || body.reason.length > 1000) {
+            throw new Error('수정할 내용을 적어 주세요.');
+          }
+          task.state = 'changes_requested';
+          task.reason = body.reason.trim();
+        } else {
+          task.data = clone(next);
+          task.state = 'draft';
+          task.reason = '';
+          delete task.confirmed;
+        }
+      }
+      task.revision++;
+      const job = state.jobs.find((job) => job.job_id === task.job_id);
+      if (job) {
+        job.status_message =
+          task.state === 'confirmed' ? '확인 완료 · 실행 전' : task.contract.title + ' 필요';
+      }
+    } else if (method !== 'GET') {
+      throw new Error('지원하지 않는 요청입니다.');
+    }
+    value = task;
+  } else if (parts[0] === 'publishing' && parts[1] === 'connections') {
+    if (!parts[2] && method === 'GET') {
+      value = { connections: state.connections, providers };
+    } else if (parts[2] && method === 'PUT') {
+      if (
+        !/^[a-f0-9]{32}$/.test(parts[2]) ||
+        typeof body.name !== 'string' ||
+        !body.name.trim() ||
+        body.name.length > 80 ||
+        !Object.hasOwn(providers, body.provider)
+      ) {
+        throw new Error('이름과 공급자를 확인해 주세요.');
+      }
+      const endpoint = String(body.endpoint || '').trim();
+      if (endpoint) {
+        let target: URL;
+        try {
+          target = new URL(endpoint);
+        } catch {
+          throw new Error('접속 주소를 확인해 주세요.');
+        }
+        if (
+          !['http:', 'https:'].includes(target.protocol) ||
+          target.username ||
+          target.password ||
+          endpoint.length > 300
+        ) {
+          throw new Error('주소에는 인증 정보를 넣을 수 없습니다.');
+        }
+      }
+      const current = state.connections.find((row) => row.id === parts[2]);
+      if (body.revision !== (current?.revision || 0)) {
+        throw new Error('변경된 항목입니다. 다시 불러와 주세요.');
+      }
+      if (
+        current &&
+        current.provider !== body.provider &&
+        state.models.some((row) =>
+          Object.values(row.versions).some((version) => version.connection_id === current.id),
+        )
+      ) {
+        throw new Error('사용 중인 공급자는 새 연결로 추가해 주세요.');
+      }
+      const next: ServingConnection = {
+        id: parts[2],
+        name: body.name.trim(),
+        provider: body.provider,
+        endpoint,
+        revision: (current?.revision || 0) + 1,
+        credential: 'not_set',
+      };
+      state.connections = [...state.connections.filter((row) => row.id !== next.id), next];
+      value = next;
+    } else {
+      throw new Error('지원하지 않는 요청입니다.');
+    }
+  } else if (route === '/videos') value = { videos: state.videos };
   else if (route === '/jobs') value = { jobs: state.jobs };
   else if (route === '/video-uploads') {
     if (method === 'POST') {
@@ -511,7 +659,8 @@ export const mockRequest = async <T>(path: string, init: RequestInit = {}): Prom
       if (body.job_ids?.includes(job.job_id) && job.status === 'QUEUED') job.status = 'CANCELLED';
     state.queue.revision++;
     value = {};
-  } else if (route === '/settings/node-catalog') value = mockCatalog;
+  } else if (route === '/settings/node-catalog')
+    value = { ...mockCatalog, nodes: publishingCatalog(mockCatalog.nodes) };
   else if (route === '/settings/node-validation')
     value = { valid: true, notice: '목업 표시 · 실제 유형/엔진 검사 아님' };
   else if (route === '/settings/registered-models/compatibility')
@@ -534,12 +683,17 @@ export const mockRequest = async <T>(path: string, init: RequestInit = {}): Prom
         value = row;
       } else if (method === 'PUT') {
         if (row) requireRevision(body, row);
+        const connection = state.connections.find((item) => item.id === body.connection_id);
+        if (!connection || connection.provider !== body.provider) {
+          throw new Error('사용할 공급자 연결을 선택해 주세요.');
+        }
         const revision = (row?.current_revision || 0) + 1;
         const version = {
           model_id: parts[2],
           revision,
           name: body.name,
           provider: body.provider,
+          connection_id: connection.id,
           model: body.model,
           uses: body.uses,
           sha256: '0'.repeat(64),

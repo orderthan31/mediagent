@@ -16,6 +16,7 @@ import { mediaUrl, Job, request, resumeUpload, uploadRequest } from './api';
 import { JobDetail } from './JobDetail';
 import { SettingsPage } from './SettingsPage';
 import { ModelRegistryPage } from './ModelRegistryPage';
+import { ProviderConnections } from './ProviderConnections';
 import { ServingPage } from './ServingPage';
 import { WorkflowStart } from './WorkflowStart';
 import { WorkflowEditor } from './WorkflowEditor';
@@ -245,11 +246,13 @@ export const VideoWorkspace = () => {
                 {new Date(job.created_at).toLocaleString('ko-KR')}
               </p>
               <span className={'status ' + job.status.toLowerCase()}>
-                {job.status === 'AWAITING_REVIEW' && job.metadata.content_block_review
-                  ? '차단 구간 검토'
-                  : isContentBlocked(job)
-                    ? '콘텐츠 차단'
-                    : statusLabels[job.status] || job.status}
+                {frontendOnly && job.status === 'AWAITING_REVIEW' && job.status_message
+                  ? job.status_message
+                  : job.status === 'AWAITING_REVIEW' && job.metadata.content_block_review
+                    ? '차단 구간 검토'
+                    : isContentBlocked(job)
+                      ? '콘텐츠 차단'
+                      : statusLabels[job.status] || job.status}
               </span>
               {failureMessage(job) && (
                 <p className="alert" role="alert">
@@ -509,7 +512,9 @@ export const VideoWorkspace = () => {
         ) : editorView ? (
           <WorkflowEditor key={route} initialId={workflowIdentity} />
         ) : servingView ? (
-          route === '#/serving/roles' ? (
+          frontendOnly && route.startsWith('#/serving/connections') ? (
+            <ProviderConnections key={route} route={route} query={query} />
+          ) : route === '#/serving/roles' && !frontendOnly ? (
             <ServingPage />
           ) : (
             <ModelRegistryPage

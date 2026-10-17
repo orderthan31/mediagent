@@ -10,6 +10,7 @@ import {
 import { Boxes, FileVideo, GitBranch, Maximize, Minus, Plus, Trash2, X } from 'lucide-react';
 import { isControlNode, switchOutputs } from './workflow-controls';
 import { resolvePorts, type PortSpec } from './workflow-spec';
+import type { NodeFormContract } from './form-contract';
 import './workflow-canvas.css';
 type Endpoint = { node: string; port: string };
 export type CanvasDefinition = {
@@ -26,8 +27,9 @@ export type CanvasDefinition = {
   }[];
   edges: { id: string; source: Endpoint; target: Endpoint }[];
 };
-export type CanvasSpec = PortSpec & { id: string; label: string };
+export type CanvasSpec = PortSpec & { id: string; label: string } & NodeFormContract;
 type Box = {
+  review?: boolean;
   id: string;
   label: string;
   type: string;
@@ -107,6 +109,7 @@ export const WorkflowCanvas = ({
         return {
           id: node.id,
           label: spec?.label || node.type,
+          review: !!node.options.review_mode && node.options.review_mode !== 'none',
           type: node.type,
           x: node.position?.x ?? 330 + index * 290,
           y: node.position?.y ?? 100,
@@ -456,6 +459,7 @@ export const WorkflowCanvas = ({
                       : isControlNode(box.type)
                         ? '제어 노드'
                         : '에이전트'}
+                    {box.review && ' · 검토'}
                   </small>
                 </span>
               </button>

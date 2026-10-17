@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
 import { request } from './api';
+import { frontendOnly } from './preview';
+import { ServingTabs } from './ProviderConnections';
+import type { ServingConnection } from './serving-connection';
 import { jsonPost } from './video-api';
 import { Button } from './hangyeol/primitives/button';
 import { Input } from './hangyeol/primitives/input';
@@ -18,6 +21,8 @@ export const ModelRegistryPage = ({
   query?: string;
 }) => {
   const [models, setModels] = useState<RegisteredModel[]>([]);
+  const [connections, setConnections] = useState<ServingConnection[]>([]);
+  const [connectionId, setConnectionId] = useState('');
   const [providers, setProviders] = useState<Record<string, string>>({});
   const [editing, setEditing] = useState<RegisteredModel | null>(null);
   const [name, setName] = useState('');
@@ -38,6 +43,12 @@ export const ModelRegistryPage = ({
       const data = await request<{ models: RegisteredModel[]; providers: Record<string, string> }>(
         endpoint,
       );
+      if (frontendOnly) {
+        const linked = await request<{ connections: ServingConnection[] }>(
+          '/publishing/connections',
+        );
+        setConnections(linked.connections);
+      }
       setModels(data.models);
       setProviders(data.providers);
       setListConfirmed(true);
@@ -80,6 +91,7 @@ export const ModelRegistryPage = ({
     const version = row.versions[String(row.current_revision)];
     setEditing(row);
     setName(version.name);
+    setConnectionId(version.connection_id || '');
     setProvider(version.provider);
     setModel(version.model);
     setUses(version.uses);
@@ -106,7 +118,14 @@ export const ModelRegistryPage = ({
       const row = await request<RegisteredModel>(endpoint + '/' + identity, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ revision: editing?.revision || 0, name, provider, model, uses }),
+        body: JSON.stringify({
+          revision: editing?.revision || 0,
+          name,
+          provider,
+          model,
+          uses,
+          ...(frontendOnly ? { connection_id: connectionId } : {}),
+        }),
       });
       setEditing(row);
       setStatus('저장됨');
@@ -158,6 +177,7 @@ export const ModelRegistryPage = ({
           새로고침
         </Button>
       </div>
+      {frontendOnly && !form && !identity && <ServingTabs />}
       {listError && (
         <p role="alert" className="alert list-query-error">
           목록 조회 실패 · {listError}
@@ -190,25 +210,48 @@ export const ModelRegistryPage = ({
                   />
                 </label>
                 <label>
-                  Provider
-                  <select
-                    aria-label="등록 provider"
-                    value={provider}
-                    onChange={(e) => {
-                      setProvider(e.target.value);
-                      setUses([]);
-                      setCompatible([]);
-                    }}
-                  >
-                    {Object.entries(providers).map(([id, label]) => (
-                      <option key={id} value={id}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
+                  {frontendOnly ? '공급자 연결' : '공급자'}
+                  {frontendOnly ? (
+                    <select
+                      aria-label="공급자 연결"
+                      value={connectionId}
+                      onChange={(event) => {
+                        const selected = connections.find((row) => row.id === event.target.value);
+                        setConnectionId(event.target.value);
+                        if (selected) {
+                          setProvider(selected.provider);
+                        }
+                        setUses([]);
+                        setCompatible([]);
+                      }}
+                    >
+                      <option value="">연결 선택</option>
+                      {connections.map((row) => (
+                        <option key={row.id} value={row.id}>
+                          {row.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <select
+                      aria-label="등록 provider"
+                      value={provider}
+                      onChange={(e) => {
+                        setProvider(e.target.value);
+                        setUses([]);
+                        setCompatible([]);
+                      }}
+                    >
+                      {Object.entries(providers).map(([id, label]) => (
+                        <option key={id} value={id}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </label>
                 <label>
-                  Model ID
+                  모델 ID
                   <Input
                     aria-label="등록 model"
                     value={model}
@@ -221,7 +264,11 @@ export const ModelRegistryPage = ({
                   />
                 </label>
               </div>
-              <Button variant="secondary" disabled={!model} onClick={() => void check()}>
+              <Button
+                variant="secondary"
+                disabled={!model || (frontendOnly && !connectionId)}
+                onClick={() => void check()}
+              >
                 호환 용도 확인
               </Button>
               <div>
@@ -243,7 +290,12 @@ export const ModelRegistryPage = ({
               </div>
               <div className="ticket-actions">
                 <Button
-                  disabled={!name.trim() || !uses.length || !compatible.length}
+                  disabled={
+                    !name.trim() ||
+                    !uses.length ||
+                    !compatible.length ||
+                    (frontendOnly && !connectionId)
+                  }
                   onClick={() => void save()}
                 >
                   모델 등록 저장
@@ -325,7 +377,7 @@ export const ModelRegistryPage = ({
           </section>
         </>
       )}
-      {!form && (
+      {!frontendOnly && !form && (
         <a className="ui02-text-action" href="#/serving/roles">
           역할 설정
         </a>

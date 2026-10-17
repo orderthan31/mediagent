@@ -6,6 +6,7 @@ import { WorkflowCanvas, type CanvasDefinition, type CanvasSpec } from './Workfl
 import { Button } from './hangyeol/primitives/button';
 import { Input } from './hangyeol/primitives/input';
 import { NodeModelBinding } from './NodeModelBinding';
+import { NodeConfiguration } from './NodeConfiguration';
 import { DefinitionHistory } from './DefinitionHistory';
 import { frontendOnly } from './preview';
 import {
@@ -215,6 +216,7 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
           <NodeModelBinding
             key={node.id}
             type={node.type}
+            modelRole={spec.model_role}
             value={node.model_ref}
             changed={(reference) =>
               change({
@@ -226,55 +228,69 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
             }
           />
         )}
-        {Object.entries(spec.options).map(([key, values]) => {
-          const update = (value: string) =>
-            change({
-              ...doc,
-              nodes: doc.nodes.map((item) =>
-                item.id === node.id
-                  ? { ...item, options: { ...item.options, [key]: value } }
-                  : item,
-              ),
-            });
-          const free = isControlNode(node.type) && values.length === 1;
-          return (
-            <label key={key}>
-              {controlFieldLabels[key] || key}
-              {key === 'cases' ? (
-                <textarea
-                  aria-label="분기값"
-                  value={node.options[key] ?? values[0]}
-                  rows={4}
-                  onChange={(event) => update(event.target.value)}
-                />
-              ) : free ? (
-                <Input
-                  aria-label={controlFieldLabels[key] || key}
-                  type={
-                    ['repeat_count', 'max_iterations', 'max_attempts'].includes(key)
-                      ? 'number'
-                      : 'text'
-                  }
-                  min={1}
-                  value={node.options[key] ?? values[0]}
-                  onChange={(event) => update(event.target.value)}
-                />
-              ) : (
-                <select
-                  aria-label={controlFieldLabels[key] || key}
-                  value={node.options[key] || values[0]}
-                  onChange={(event) => update(event.target.value)}
-                >
-                  {values.map((value) => (
-                    <option value={value} key={value}>
-                      {controlValueLabels[value] || value}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </label>
-          );
-        })}
+        {!spec.settings_schema &&
+          Object.entries(spec.options).map(([key, values]) => {
+            const update = (value: string) =>
+              change({
+                ...doc,
+                nodes: doc.nodes.map((item) =>
+                  item.id === node.id
+                    ? { ...item, options: { ...item.options, [key]: value } }
+                    : item,
+                ),
+              });
+            const free = isControlNode(node.type) && values.length === 1;
+            return (
+              <label key={key}>
+                {controlFieldLabels[key] || key}
+                {key === 'cases' ? (
+                  <textarea
+                    aria-label="분기값"
+                    value={node.options[key] ?? values[0]}
+                    rows={4}
+                    onChange={(event) => update(event.target.value)}
+                  />
+                ) : free ? (
+                  <Input
+                    aria-label={controlFieldLabels[key] || key}
+                    type={
+                      ['repeat_count', 'max_iterations', 'max_attempts'].includes(key)
+                        ? 'number'
+                        : 'text'
+                    }
+                    min={1}
+                    value={node.options[key] ?? values[0]}
+                    onChange={(event) => update(event.target.value)}
+                  />
+                ) : (
+                  <select
+                    aria-label={controlFieldLabels[key] || key}
+                    value={node.options[key] || values[0]}
+                    onChange={(event) => update(event.target.value)}
+                  >
+                    {values.map((value) => (
+                      <option value={value} key={value}>
+                        {controlValueLabels[value] || value}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </label>
+            );
+          })}
+        {frontendOnly && (spec.settings_schema || spec.review_contracts) && (
+          <NodeConfiguration
+            key={node.id}
+            contract={spec}
+            options={node.options}
+            changed={(options) =>
+              change({
+                ...doc,
+                nodes: doc.nodes.map((item) => (item.id === node.id ? { ...item, options } : item)),
+              })
+            }
+          />
+        )}
         <Button variant="quiet" onClick={removeNode}>
           노드 삭제
         </Button>

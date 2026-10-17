@@ -20,6 +20,7 @@ import { VideoAsset } from './video-api';
 import { StageProgress } from './StageProgress';
 import { failureMessage, isContentBlocked } from './job-failure';
 import { SubtitleEditor } from './SubtitleEditor';
+import { GenericJobReview } from './GenericJobReview';
 import { TicketSummary } from './TicketSummary';
 import { JobTiming } from './JobTiming';
 import { Button } from './hangyeol/primitives/button';
@@ -207,7 +208,7 @@ export const JobDetail = ({
             </div>
           </details>
         )}
-        {job?.status === 'AWAITING_REVIEW' && (
+        {!frontendOnly && job?.status === 'AWAITING_REVIEW' && (
           <Button onClick={() => setEditing(true)}>자막 검수</Button>
         )}
         {job && ['COMPLETED', 'FAILED', 'CANCELLED'].includes(job.status) && (
@@ -232,247 +233,260 @@ export const JobDetail = ({
           {error}
         </p>
       )}
-      {job && <TicketSummary job={job} labels={labels} />}
+      {job && (
+        <TicketSummary
+          job={job}
+          labels={
+            frontendOnly && job.status_message
+              ? { ...labels, AWAITING_REVIEW: job.status_message }
+              : labels
+          }
+        />
+      )}
       {job && <JobTiming job={job} />}
       {job && failureMessage(job) && (
         <p className="alert" role="alert">
           {failureMessage(job)}
         </p>
       )}
-      <div className="detail-panels">
-        <section className="media-panel" aria-label="영상">
-          <div className="panel-heading">
-            <h2>
-              <Film size={18} />
-              {preview?.video_available ? '결과 영상' : '원본 영상'}
-            </h2>
-          </div>
-          <div className="player-surface">
-            {videoAvailable && !editing ? (
-              <video
-                ref={video}
-                controls
-                playsInline
-                preload="metadata"
-                src={videoUrl}
-                onTimeUpdate={(e) => setTime(e.currentTarget.currentTime)}
-                onError={() => setVideoError(true)}
-                onLoadedMetadata={(e) => {
-                  setVideoError(false);
-                  if (time > 0) {
-                    e.currentTarget.currentTime = time;
-                  }
-                }}
-              />
-            ) : (
-              <div className="media-empty">
-                <Film size={36} />
-                <p>
-                  {editing
-                    ? '자막 편집 중'
-                    : preview?.expired
-                      ? '영상 보관 기간이 만료되었습니다.'
-                      : job?.status === 'COMPLETED'
-                        ? '영상 파일이 없습니다.'
-                        : '영상 처리 완료 후 재생할 수 있습니다.'}
-                </p>
-              </div>
-            )}
-          </div>
-          {videoError && (
-            <p className="alert" role="alert">
-              영상을 재생할 수 없습니다. 브라우저의 코덱 지원이나 연결 상태를 확인하거나 MP4를
-              다운로드해 주세요.
-            </p>
-          )}
-          {job?.status === 'COMPLETED' && preview?.video_available && !preview.expired && (
-            <div className="result-actions">
-              {promotedAssetId ? (
-                <a href={`#/videos/${promotedAssetId}`}>
-                  <ArrowUpRight size={16} />
-                  등록된 원본 열기
-                </a>
-              ) : (
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    setPromotionError('');
-                    promotionDialog.current?.showModal();
-                  }}
-                >
-                  <FolderPlus size={16} />새 원본으로 등록
-                </Button>
-              )}
+      {frontendOnly && job?.status === 'AWAITING_REVIEW' ? (
+        <GenericJobReview jobId={id} />
+      ) : (
+        <div className="detail-panels">
+          <section className="media-panel" aria-label="영상">
+            <div className="panel-heading">
+              <h2>
+                <Film size={18} />
+                {preview?.video_available ? '결과 영상' : '원본 영상'}
+              </h2>
             </div>
-          )}
-          {job && (
-            <dl className="media-info">
-              <div>
-                <dt>등록 일시</dt>
-                <dd>{new Date(job.created_at).toLocaleString('ko-KR')}</dd>
-              </div>
-              <div>
-                <dt>영상 설명</dt>
-                <dd>{job.video_description || '없음'}</dd>
-              </div>
-            </dl>
-          )}
-        </section>
-        {isFaceSwap ? (
-          <section className="text-panel" aria-label="얼굴 합성 작업">
-            <h2>얼굴 합성</h2>
-            {job?.metadata.faceswap_chunks && (
-              <p>
-                합성 구간 {job.metadata.faceswap_chunks.completed} /{' '}
-                {job.metadata.faceswap_chunks.total} 완료 · 재시도 시 완료 구간 재사용
-              </p>
-            )}
-            {job && !['COMPLETED', 'FAILED', 'CANCELLED'].includes(job.status) && (
-              <Button
-                variant="secondary"
-                disabled={actionBusy || !!job.metadata.cancel_requested}
-                onClick={() => void faceSwapAction('cancel')}
-              >
-                {job.metadata.cancel_requested ? '취소 중…' : '합성 취소'}
-              </Button>
-            )}
-            {job && ['FAILED', 'CANCELLED'].includes(job.status) && (
-              <Button
-                variant="secondary"
-                disabled={actionBusy}
-                onClick={() => void faceSwapAction('retry')}
-              >
-                합성 재시도
-              </Button>
-            )}
-          </section>
-        ) : (
-          <section className="text-panel" aria-label="전사록과 번역 자막">
-            <div className="tabs" role="tablist" aria-label="자막 종류">
-              {(
-                [
-                  ['original', '전사록'],
-                  ['translated', '번역 자막'],
-                ] as const
-              ).map(([value, label]) => (
-                <Button
-                  variant="secondary"
-                  id={`tab-${value}`}
-                  key={value}
-                  role="tab"
-                  aria-selected={tab === value}
-                  aria-controls="cue-panel"
-                  tabIndex={tab === value ? 0 : -1}
-                  onClick={() => setTab(value)}
-                  onKeyDown={(e) => {
-                    if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) {
-                      e.preventDefault();
-                      const next =
-                        e.key === 'Home'
-                          ? 'original'
-                          : e.key === 'End'
-                            ? 'translated'
-                            : tab === 'original'
-                              ? 'translated'
-                              : 'original';
-                      setTab(next);
-                      document.getElementById(`tab-${next}`)?.focus();
+            <div className="player-surface">
+              {videoAvailable && !editing ? (
+                <video
+                  ref={video}
+                  controls
+                  playsInline
+                  preload="metadata"
+                  src={videoUrl}
+                  onTimeUpdate={(e) => setTime(e.currentTarget.currentTime)}
+                  onError={() => setVideoError(true)}
+                  onLoadedMetadata={(e) => {
+                    setVideoError(false);
+                    if (time > 0) {
+                      e.currentTarget.currentTime = time;
                     }
                   }}
-                >
-                  {label}
-                </Button>
-              ))}
-            </div>
-            {track?.partial && (
-              <p className="ticket-partial" role="status">
-                일부 결과 · 티켓 전체 완료를 뜻하지 않습니다.
-              </p>
-            )}
-            {job && !['COMPLETED', 'AWAITING_REVIEW'].includes(job.status) && (
-              <p className="ticket-note">
-                읽기 전용 미리보기 · 현재 상태에서는 자막 편집을 제공하지 않습니다.
-              </p>
-            )}
-            <div className="cue-toolbar">
-              <TextField
-                label="자막 검색"
-                prefix={<Search size={16} aria-hidden="true" />}
-                value={query}
-                onValueChange={setQuery}
-                placeholder="대사에서 검색"
-                clearable
-              />
-              <span>
-                {track?.available
-                  ? `${cues.length}개${track.partial ? ' · 일부 결과' : ''}`
-                  : '자막 개수 미확인'}
-              </span>
-            </div>
-            <div
-              id="cue-panel"
-              role="tabpanel"
-              aria-labelledby={`tab-${tab}`}
-              className="cue-panel"
-              tabIndex={0}
-            >
-              {track?.available ? (
-                cues.length ? (
-                  cues.map((cue, index) => (
-                    <Button
-                      variant="secondary"
-                      className={
-                        'preview-cue ' + (time >= cue.start && time < cue.end ? 'current' : '')
-                      }
-                      key={`${cue.start}-${index}`}
-                      disabled={!videoAvailable || videoError}
-                      onClick={() => seek(cue)}
-                      aria-label={`${timestamp(cue.start)} ${cue.text}`}
-                    >
-                      <time>{timestamp(cue.start)}</time>
-                      <span>{cue.text}</span>
-                    </Button>
-                  ))
-                ) : (
-                  <div className="text-empty">
-                    <FileText size={28} />
-                    <p>{query ? '검색 결과가 없습니다.' : '저장된 대사가 없습니다.'}</p>
-                  </div>
-                )
+                />
               ) : (
-                <div className="text-empty">
-                  <FileText size={28} />
+                <div className="media-empty">
+                  <Film size={36} />
                   <p>
-                    {preview?.expired
-                      ? '자막 보관 기간이 만료되었습니다.'
-                      : tab === 'original'
-                        ? '전사 결과를 기다리고 있습니다.'
-                        : '번역 결과를 기다리고 있습니다.'}
+                    {editing
+                      ? '자막 편집 중'
+                      : preview?.expired
+                        ? '영상 보관 기간이 만료되었습니다.'
+                        : job?.status === 'COMPLETED'
+                          ? '영상 파일이 없습니다.'
+                          : '영상 처리 완료 후 재생할 수 있습니다.'}
                   </p>
                 </div>
               )}
             </div>
-            {job?.status === 'COMPLETED' && !preview?.expired && track?.available && (
-              <div className="text-download">
-                <Button variant="primary" title="최종 자막 편집" onClick={() => setEditing(true)}>
-                  <Pencil size={18} />
-                  자막 수정
-                </Button>
-                <a
-                  className="download"
-                  download={frontendOnly ? `${tab}.srt` : undefined}
-                  href={mediaUrl(
-                    `/jobs/${id}/results/${tab === 'original' ? 'original' : 'translated'}.srt`,
-                  )}
-                >
-                  <Download size={16} />
-                  {tab === 'original' ? '원문 SRT' : '번역 SRT'}
-                </a>
+            {videoError && (
+              <p className="alert" role="alert">
+                영상을 재생할 수 없습니다. 브라우저의 코덱 지원이나 연결 상태를 확인하거나 MP4를
+                다운로드해 주세요.
+              </p>
+            )}
+            {job?.status === 'COMPLETED' && preview?.video_available && !preview.expired && (
+              <div className="result-actions">
+                {promotedAssetId ? (
+                  <a href={`#/videos/${promotedAssetId}`}>
+                    <ArrowUpRight size={16} />
+                    등록된 원본 열기
+                  </a>
+                ) : (
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      setPromotionError('');
+                      promotionDialog.current?.showModal();
+                    }}
+                  >
+                    <FolderPlus size={16} />새 원본으로 등록
+                  </Button>
+                )}
               </div>
             )}
+            {job && (
+              <dl className="media-info">
+                <div>
+                  <dt>등록 일시</dt>
+                  <dd>{new Date(job.created_at).toLocaleString('ko-KR')}</dd>
+                </div>
+                <div>
+                  <dt>영상 설명</dt>
+                  <dd>{job.video_description || '없음'}</dd>
+                </div>
+              </dl>
+            )}
           </section>
-        )}
-      </div>
+          {isFaceSwap ? (
+            <section className="text-panel" aria-label="얼굴 합성 작업">
+              <h2>얼굴 합성</h2>
+              {job?.metadata.faceswap_chunks && (
+                <p>
+                  합성 구간 {job.metadata.faceswap_chunks.completed} /{' '}
+                  {job.metadata.faceswap_chunks.total} 완료 · 재시도 시 완료 구간 재사용
+                </p>
+              )}
+              {job && !['COMPLETED', 'FAILED', 'CANCELLED'].includes(job.status) && (
+                <Button
+                  variant="secondary"
+                  disabled={actionBusy || !!job.metadata.cancel_requested}
+                  onClick={() => void faceSwapAction('cancel')}
+                >
+                  {job.metadata.cancel_requested ? '취소 중…' : '합성 취소'}
+                </Button>
+              )}
+              {job && ['FAILED', 'CANCELLED'].includes(job.status) && (
+                <Button
+                  variant="secondary"
+                  disabled={actionBusy}
+                  onClick={() => void faceSwapAction('retry')}
+                >
+                  합성 재시도
+                </Button>
+              )}
+            </section>
+          ) : (
+            <section className="text-panel" aria-label="전사록과 번역 자막">
+              <div className="tabs" role="tablist" aria-label="자막 종류">
+                {(
+                  [
+                    ['original', '전사록'],
+                    ['translated', '번역 자막'],
+                  ] as const
+                ).map(([value, label]) => (
+                  <Button
+                    variant="secondary"
+                    id={`tab-${value}`}
+                    key={value}
+                    role="tab"
+                    aria-selected={tab === value}
+                    aria-controls="cue-panel"
+                    tabIndex={tab === value ? 0 : -1}
+                    onClick={() => setTab(value)}
+                    onKeyDown={(e) => {
+                      if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) {
+                        e.preventDefault();
+                        const next =
+                          e.key === 'Home'
+                            ? 'original'
+                            : e.key === 'End'
+                              ? 'translated'
+                              : tab === 'original'
+                                ? 'translated'
+                                : 'original';
+                        setTab(next);
+                        document.getElementById(`tab-${next}`)?.focus();
+                      }
+                    }}
+                  >
+                    {label}
+                  </Button>
+                ))}
+              </div>
+              {track?.partial && (
+                <p className="ticket-partial" role="status">
+                  일부 결과 · 티켓 전체 완료를 뜻하지 않습니다.
+                </p>
+              )}
+              {job && !['COMPLETED', 'AWAITING_REVIEW'].includes(job.status) && (
+                <p className="ticket-note">
+                  읽기 전용 미리보기 · 현재 상태에서는 자막 편집을 제공하지 않습니다.
+                </p>
+              )}
+              <div className="cue-toolbar">
+                <TextField
+                  label="자막 검색"
+                  prefix={<Search size={16} aria-hidden="true" />}
+                  value={query}
+                  onValueChange={setQuery}
+                  placeholder="대사에서 검색"
+                  clearable
+                />
+                <span>
+                  {track?.available
+                    ? `${cues.length}개${track.partial ? ' · 일부 결과' : ''}`
+                    : '자막 개수 미확인'}
+                </span>
+              </div>
+              <div
+                id="cue-panel"
+                role="tabpanel"
+                aria-labelledby={`tab-${tab}`}
+                className="cue-panel"
+                tabIndex={0}
+              >
+                {track?.available ? (
+                  cues.length ? (
+                    cues.map((cue, index) => (
+                      <Button
+                        variant="secondary"
+                        className={
+                          'preview-cue ' + (time >= cue.start && time < cue.end ? 'current' : '')
+                        }
+                        key={`${cue.start}-${index}`}
+                        disabled={!videoAvailable || videoError}
+                        onClick={() => seek(cue)}
+                        aria-label={`${timestamp(cue.start)} ${cue.text}`}
+                      >
+                        <time>{timestamp(cue.start)}</time>
+                        <span>{cue.text}</span>
+                      </Button>
+                    ))
+                  ) : (
+                    <div className="text-empty">
+                      <FileText size={28} />
+                      <p>{query ? '검색 결과가 없습니다.' : '저장된 대사가 없습니다.'}</p>
+                    </div>
+                  )
+                ) : (
+                  <div className="text-empty">
+                    <FileText size={28} />
+                    <p>
+                      {preview?.expired
+                        ? '자막 보관 기간이 만료되었습니다.'
+                        : tab === 'original'
+                          ? '전사 결과를 기다리고 있습니다.'
+                          : '번역 결과를 기다리고 있습니다.'}
+                    </p>
+                  </div>
+                )}
+              </div>
+              {job?.status === 'COMPLETED' && !preview?.expired && track?.available && (
+                <div className="text-download">
+                  <Button variant="primary" title="최종 자막 편집" onClick={() => setEditing(true)}>
+                    <Pencil size={18} />
+                    자막 수정
+                  </Button>
+                  <a
+                    className="download"
+                    download={frontendOnly ? `${tab}.srt` : undefined}
+                    href={mediaUrl(
+                      `/jobs/${id}/results/${tab === 'original' ? 'original' : 'translated'}.srt`,
+                    )}
+                  >
+                    <Download size={16} />
+                    {tab === 'original' ? '원문 SRT' : '번역 SRT'}
+                  </a>
+                </div>
+              )}
+            </section>
+          )}
+        </div>
+      )}
       {editing && job && (
         <SubtitleEditor
           job={job}

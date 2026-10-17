@@ -4,17 +4,19 @@ import { type RegisteredModel, type ModelReference, nodeModelRoles } from './reg
 
 export const NodeModelBinding = ({
   type,
+  modelRole,
   value,
   changed,
 }: {
   type: string;
+  modelRole?: string;
   value?: ModelReference;
   changed: (value: ModelReference | undefined) => void;
 }) => {
   const [models, setModels] = useState<RegisteredModel[]>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
-  const role = nodeModelRoles[type];
+  const role = modelRole || nodeModelRoles[type];
   const selected = models.find((row) => row.id === value?.model_id);
   const load = async () => {
     setLoading(true);

@@ -1,0 +1,61 @@
+.serving-tabs {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--g-line);
+}
+.serving-tabs a {
+  display: block;
+  padding: 8px 0 10px;
+  border-bottom: 2px solid transparent;
+  color: var(--g-soft);
+  font-size: var(--text-g-small);
+  text-decoration: none;
+}
+.serving-tabs a[aria-current='page'] {
+  color: var(--g-action);
+  border-color: var(--g-action);
+  font-weight: 600;
+}
+.connection-form {
+  max-width: 620px;
+}
+.connection-form fieldset {
+  display: grid;
+  gap: 18px;
+  padding: 0;
+  border: 0;
+}
+.connection-form label {
+  display: grid;
+  gap: 8px;
+  font-size: var(--text-g-small);
+}
+.connection-form select {
+  width: 100%;
+  min-height: 36px;
+  padding: 8px 10px;
+  border: 1px solid var(--g-line);
+  border-radius: var(--radius-g-control);
+  color: var(--g-ink);
+  background: var(--g-surface);
+  font: inherit;
+}
+.connection-form button {
+  justify-self: start;
+}
+.connection-row {
+  gap: 16px;
+}
+.connection-row > svg:first-child {
+  color: var(--g-soft);
+  flex-shrink: 0;
+}
+.connection-row > svg:last-child {
+  color: var(--g-soft);
+  margin-left: auto;
+}
+.node-configuration,
+.workflow-node-settings .node-model-binding {
+  grid-column: 1 / -1;
+}

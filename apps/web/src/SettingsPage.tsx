@@ -39,7 +39,7 @@ type ModelField =
   | 'translation_model'
   | 'translation_fallback_model';
 
-export const SettingsPage = () => {
+const LegacySettingsPage = () => {
   const [preferences, setPreferences] = useState<Preferences | null>(null);
   const [credentialProvider, setCredentialProvider] = useState<Provider>('gemini');
   const [keys, setKeys] = useState<Partial<Record<Provider, string>>>({});
@@ -478,3 +478,18 @@ export const SettingsPage = () => {
     </main>
   );
 };
+
+export const SettingsPage = () =>
+  frontendOnly ? (
+    <main className="video-main settings-page settings-renewal">
+      <div className="settings-heading">
+        <h1>
+          <Settings size={24} />
+          시스템
+        </h1>
+      </div>
+      <StorageSettings />
+    </main>
+  ) : (
+    <LegacySettingsPage />
+  );
