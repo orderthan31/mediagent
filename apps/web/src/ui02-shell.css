@@ -516,6 +516,8 @@
 .renewed-workspace .ui02-list,
 .renewed-workspace .storage-library {
   display: grid;
+  /* Scroll the list, never compress a row below its padded content height. */
+  grid-auto-rows: max-content;
   align-content: start;
   gap: 0;
   border-top: 1px solid var(--g-line);
@@ -564,6 +566,7 @@
   font-size: var(--text-g-small);
   line-height: 1.5;
   color: var(--g-soft);
+  overflow-wrap: anywhere;
 }
 .renewed-workspace .ui02-list-actions {
   display: flex;

@@ -4,6 +4,7 @@
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { listGeometry } from "./list-geometry.mjs";
 import { chromium } from "../../apps/web/node_modules/@playwright/test/index.mjs";
 const base = process.env.MIDEAGENT_PREVIEW_ORIGIN;
 const evidence = process.env.MIDEAGENT_PREVIEW_EVIDENCE_DIR;
@@ -188,7 +189,7 @@ try {
       ...new Set([
         "jobs",
         "start",
-        "storage",
+        "", // Original list is #/, not the unknown #/storage fallback.
         "videos/" + fixture.videos[0].asset_id,
         "jobs/" + fixture.jobs[0].job_id,
         "workflows",
@@ -212,6 +213,13 @@ try {
     for (const route of routes) {
       try {
         await visit(page, route);
+        if (route === "") {
+          assert.match(
+            await page.title(),
+            /원본/,
+            "Original-list root must retain its navigation context",
+          );
+        }
         if (route === "start") {
           await page
             .getByLabel("원본", { exact: true })
@@ -238,6 +246,12 @@ try {
           "Fit must leave controls clear of nodes",
         );
         assert.deepEqual(g.outside, [], "Out-of-bounds layout");
+        const lists = await listGeometry(page);
+        assert.deepEqual(
+          lists.violations,
+          [],
+          "List content crosses row padding or divider",
+        );
         assert(g.brand.right <= g.actions.x + 1, "GNB title overlaps actions");
         for (const footer of g.footers)
           assert.equal(footer.position, "static", "No overlaying footer");
@@ -435,7 +449,7 @@ try {
         });
       for (const [route, key, idField] of [
         ["jobs", "jobs", "job_id"],
-        ["storage", "videos", "asset_id"],
+        ["", "videos", "asset_id"],
         ["workflows", "definitions", "id"],
         ["serving", "models", "id"],
         ["serving/connections", "connections", "id"],
@@ -463,6 +477,11 @@ try {
           bottoms.push(Math.round(b.y + b.height));
           assert(b.y >= 64 && b.y + b.height <= v.height + 1);
           assert((await geometry(page)).overflow <= 1);
+          assert.deepEqual(
+            (await listGeometry(page)).violations,
+            [],
+            "Paginated rows must contain their children",
+          );
           if (count === 45) {
             await page
               .getByLabel("페이지 선택", { exact: true })

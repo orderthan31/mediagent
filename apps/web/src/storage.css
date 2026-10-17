@@ -1,24 +1,5 @@
 /* Storage-only presentation. Shared shell, routes and transfer policy stay owned by their existing modules. */
-.renewed-workspace .storage-library {
-  display: grid;
-  gap: var(--m-space-16);
-}
-.renewed-workspace .storage-asset-row {
-  display: grid;
-  grid-template-columns: 112px minmax(0, 1fr) auto;
-  gap: var(--m-space-24);
-  padding: var(--m-space-24);
-  border: 1px solid var(--g-line);
-  border-radius: var(--radius-g-panel);
-  background: var(--g-surface);
-  align-items: center;
-  text-decoration: none;
-  color: var(--g-ink);
-}
-.renewed-workspace .storage-asset-row:hover {
-  border-color: var(--g-action);
-  background: var(--g-surface);
-}
+/* List grid, row padding and dividers are owned by ui02-shell.css. */
 .storage-asset-row:focus-visible,
 .storage-back:focus-visible,
 .storage-download:focus-visible {
@@ -275,16 +256,6 @@
   }
   .storage-upload {
     padding: var(--m-space-20);
-  }
-  .renewed-workspace .storage-asset-row {
-    grid-template-columns: 64px minmax(0, 1fr);
-    padding: var(--m-space-20);
-    gap: var(--m-space-16);
-    align-items: start;
-  }
-  .storage-asset-row .asset-thumbnail {
-    width: 64px;
-    height: 64px;
   }
   .storage-open {
     grid-column: 2;

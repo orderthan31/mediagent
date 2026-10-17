@@ -167,7 +167,7 @@ try {
     const listResults = {};
     for (const [route, key, idField] of [
       ["jobs", "jobs", "job_id"],
-      ["storage", "videos", "asset_id"],
+      ["", "videos", "asset_id"],
       ["serving", "models", "id"],
       ["serving/connections", "connections", "id"],
       ["workflows", "definitions", "id"],

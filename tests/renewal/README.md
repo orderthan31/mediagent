@@ -113,3 +113,20 @@ covering fields or the canvas. Pagination labels must remain horizontal despite
 legacy global label rules, and a closed execution popover must remain invisible.
 The test fails closed on real API/external network requests and uses fresh,
 isolated synthetic browser state only.
+
+For agent/source row containment (including all offscreen rows, long synthetic
+text, empty/single/45-source pagination and last-row reachability), run:
+
+```sh
+MIDEAGENT_PREVIEW_ORIGIN=<explicit-private-dev-origin> \
+MIDEAGENT_PREVIEW_EVIDENCE_DIR=<external-evidence-directory> \
+  node tests/renewal/frontend-list-containment.mjs
+```
+
+This uses the same cover/unfolded/FHD and adjacent viewport probes, not measured
+hardware dimensions. `list-geometry.mjs` checks each direct child's bounds against
+its row's padded content box and the next divider; clipping an entire row is a
+failure, not a containment fix. Agent text expansion is a browser-only synthetic
+DOM stress case, while source names/counts use isolated DEV session fixtures.
+The responsive route matrix shares this row assertion so document-width checks
+cannot silently pass a vertically compressed list again.
