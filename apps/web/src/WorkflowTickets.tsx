@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import { PageTitle } from './PageTitle';
+import { Pagination, usePagination } from './Pagination';
 import { request, mediaUrl } from './api';
 import { ExecutionApproval, type ExecutionHeaders } from './ExecutionApproval';
 import { jsonPost, type VideoAsset } from './video-api';
@@ -165,6 +167,7 @@ export const WorkflowTickets = ({
   const [assets, setAssets] = useState<VideoAsset[]>([]);
   const [catalog, setCatalog] = useState<Spec[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  const ticketPage = usePagination(tickets, base);
   const [runtime, setRuntime] = useState<Runtime | null>(null);
   const [definition, setDefinition] = useState<Definition | null>(null);
   const [definitionId, setDefinitionId] = useState('');
@@ -469,7 +472,7 @@ export const WorkflowTickets = ({
     <main className="serving-page workflow-tickets">
       <div className="serving-heading">
         <div>
-          <h1>
+          <PageTitle>
             {recovery
               ? '복구 작업'
               : work
@@ -481,7 +484,7 @@ export const WorkflowTickets = ({
                     : graph
                       ? '분기·병렬 작업'
                       : '순차 작업'}
-          </h1>
+          </PageTitle>
         </div>
         <Button variant="secondary" disabled={!!busy} onClick={() => void load()}>
           새로고침
@@ -687,7 +690,7 @@ export const WorkflowTickets = ({
           </p>
         )}
         <div className="ticket-list">
-          {tickets.map((t) => (
+          {ticketPage.items.map((t) => (
             <Button
               key={t.id}
               variant="secondary"
@@ -698,6 +701,7 @@ export const WorkflowTickets = ({
             </Button>
           ))}
         </div>
+        {ready && <Pagination {...ticketPage} disabled={!!busy} />}
       </section>
 
       {ticket && recovery && <RecoveryActions key={ticket.id} ticket={ticket} onOpen={open} />}

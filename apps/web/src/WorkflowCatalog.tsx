@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { GitBranch, ChevronRight } from 'lucide-react';
+import { PageTitle } from './PageTitle';
+import { Pagination, usePagination } from './Pagination';
 import { request } from './api';
 type Summary = { id: string; name: string; revision: number };
 export const WorkflowCatalog = ({ query }: { query: string }) => {
@@ -31,12 +33,10 @@ export const WorkflowCatalog = ({ query }: { query: string }) => {
   const shown = rows.filter((row) =>
     row.name.toLocaleLowerCase().includes(query.toLocaleLowerCase()),
   );
+  const page = usePagination(shown, query);
   return (
     <main className="ui02-catalog">
-      <div className="ui02-page-heading">
-        <h1>워크플로우</h1>
-        {!loading && !error && <span>{rows.length}</span>}
-      </div>
+      <PageTitle>워크플로우</PageTitle>
       {error && (
         <p role="alert" className="alert">
           {error}
@@ -46,7 +46,7 @@ export const WorkflowCatalog = ({ query }: { query: string }) => {
         <p role="status">불러오는 중</p>
       ) : (
         <div className="ui02-list">
-          {shown.map((row) => (
+          {page.items.map((row) => (
             <a
               href={'#/workflows/' + row.id}
               className="ui02-list-item ui02-catalog-row"
@@ -65,6 +65,7 @@ export const WorkflowCatalog = ({ query }: { query: string }) => {
           )}
         </div>
       )}
+      {!loading && !error && <Pagination {...page} />}
     </main>
   );
 };

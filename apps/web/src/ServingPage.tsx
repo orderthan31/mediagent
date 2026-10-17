@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { PageTitle } from './PageTitle';
 import { request } from './api';
 import { resolvePorts } from './workflow-spec';
 import { jsonPost } from './video-api';
@@ -240,7 +241,7 @@ export const ServingPage = () => {
     <main className="serving-page">
       <header className="serving-heading">
         <div>
-          <h1>역할 설정</h1>
+          <PageTitle>역할 설정</PageTitle>
         </div>
         <Button variant="secondary" disabled={!!busy} onClick={() => void load()}>
           새로고침

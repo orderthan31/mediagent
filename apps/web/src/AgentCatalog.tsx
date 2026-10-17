@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Boxes } from 'lucide-react';
+import { PageTitle } from './PageTitle';
+import { Pagination, usePagination } from './Pagination';
 import { request } from './api';
 import { AgentInformation } from './AgentInformation';
 
@@ -59,14 +61,12 @@ export const AgentCatalog = ({
   const shown = agents.filter((agent) =>
     `${agent.label} ${agent.id}`.toLocaleLowerCase().includes(query.toLocaleLowerCase()),
   );
+  const page = usePagination(shown, query);
   const ports = (value: Record<string, string>) =>
     [...new Set(Object.values(value))].map((type) => types[type] || type).join(' · ');
   return (
     <main className="ui02-catalog">
-      <div className="ui02-page-heading">
-        <h1>{identity ? selected?.label || '에이전트 상세' : '에이전트'}</h1>
-        {!identity && !loading && !error && <span>{agents.length}</span>}
-      </div>
+      <PageTitle>{identity ? selected?.label || '에이전트 상세' : '에이전트'}</PageTitle>
       {error && (
         <p role="alert" className="alert">
           {error}
@@ -82,7 +82,7 @@ export const AgentCatalog = ({
         )
       ) : (
         <div className="ui02-list">
-          {shown.map((agent) => (
+          {page.items.map((agent) => (
             <a
               href={'#/agents/' + agent.id}
               key={agent.id}
@@ -105,6 +105,7 @@ export const AgentCatalog = ({
           )}
         </div>
       )}
+      {!identity && !loading && !error && <Pagination {...page} />}
     </main>
   );
 };

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { PageTitle } from './PageTitle';
 import { request } from './api';
 import { frontendOnly } from './preview';
 import { stageLabels } from './video-api';
@@ -189,7 +190,7 @@ export const WorkflowStart = () => {
   return (
     <main className="serving-page workflow-start">
       <div className="serving-heading">
-        <h1>작업 추가</h1>
+        <PageTitle>작업 추가</PageTitle>
         <Button variant="quiet" disabled={loading || busy} onClick={() => void load()}>
           새로고침
         </Button>

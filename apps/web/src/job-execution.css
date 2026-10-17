@@ -1,0 +1,196 @@
+.job-detail-canvas .job-detail-toolbar,
+.execution-heading,
+.execution-artifact-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--m-space-12);
+}
+.job-detail-toolbar > div {
+  display: flex;
+  gap: var(--m-space-8);
+  flex-shrink: 0;
+  margin-left: auto;
+}
+.job-source-context {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--g-soft);
+}
+.job-detail-canvas .ticket-summary-compact {
+  margin-block: var(--m-space-8) var(--m-space-12);
+  padding: 0 0 var(--m-space-12);
+  border: 0;
+  border-bottom: 1px solid var(--g-line);
+  background: none;
+  border-radius: 0;
+}
+.ticket-summary-compact .ticket-status-heading time {
+  margin-left: auto;
+  color: var(--g-soft);
+  font-size: var(--m-type-label);
+}
+.job-execution .workflow-graph-viewport {
+  height: clamp(280px, 43dvh, 440px);
+}
+.execution-heading {
+  margin-block: 0 var(--m-space-12);
+}
+.execution-heading h2 {
+  margin: 0;
+  font-size: var(--m-type-emphasis);
+  font-weight: 600;
+}
+.execution-heading > span {
+  color: var(--g-soft);
+  font-size: var(--m-type-label);
+}
+.execution-notice {
+  margin-block: var(--m-space-8);
+  color: var(--g-soft);
+  font-size: var(--m-type-label);
+}
+.workflow-graph-node[data-state='running'] {
+  border-color: var(--g-action);
+}
+.workflow-graph-node[data-state='failed'] {
+  border-color: var(--g-danger, #c6414f);
+}
+.workflow-graph-node[data-state='review_required'] {
+  border-color: #b88230;
+}
+.workflow-graph-node[data-state='skipped'],
+.workflow-graph-node[data-state='cancelled'] {
+  opacity: 0.6;
+}
+.execution-node-body {
+  display: grid;
+  gap: var(--m-space-12);
+  min-width: 0;
+}
+.execution-node-body details {
+  border-bottom: 1px solid var(--g-line);
+  padding-block: var(--m-space-8);
+}
+.execution-node-body summary {
+  cursor: pointer;
+  font-weight: 500;
+}
+.execution-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--m-space-12) var(--m-space-24);
+  margin: 0;
+}
+.execution-facts > div {
+  display: flex;
+  gap: var(--m-space-8);
+}
+.execution-facts dt {
+  color: var(--g-soft);
+}
+.execution-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.execution-node-body pre {
+  margin-block: var(--m-space-8);
+  padding: var(--m-space-12);
+  background: var(--g-muted);
+  max-height: 280px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: var(--m-type-label);
+}
+.execution-artifacts {
+  display: grid;
+  gap: var(--m-space-16);
+}
+.execution-artifact {
+  min-width: 0;
+  border-top: 1px solid var(--g-line);
+  padding-top: var(--m-space-12);
+}
+.execution-artifact h4 {
+  margin: 0;
+  font-size: var(--m-type-emphasis);
+}
+.execution-artifact-heading {
+  margin-bottom: var(--m-space-8);
+}
+.execution-artifact-heading > span {
+  font-size: var(--m-type-label);
+  color: var(--g-soft);
+}
+.execution-artifact :is(video, img) {
+  display: block;
+  max-width: 100%;
+  width: min(100%, 720px);
+  max-height: 360px;
+  object-fit: contain;
+  background: var(--g-muted);
+}
+.execution-artifact audio {
+  max-width: 100%;
+  width: 480px;
+}
+.execution-artifact-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--m-space-16);
+  margin-top: var(--m-space-8);
+}
+.execution-artifact input[type='search'] {
+  width: min(100%, 400px);
+  margin-block: var(--m-space-8);
+}
+.execution-cues,
+.execution-events {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 340px;
+  overflow: auto;
+}
+.execution-cues li {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: var(--m-space-12);
+  padding-block: var(--m-space-10);
+  border-bottom: 1px solid var(--g-line);
+}
+.execution-cues time,
+.execution-events time {
+  font-variant-numeric: tabular-nums;
+  color: var(--g-soft);
+  font-size: var(--m-type-label);
+}
+.execution-cues p {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.execution-events li {
+  display: flex;
+  gap: var(--m-space-12);
+  padding-block: var(--m-space-8);
+}
+@media (max-width: 40rem) {
+  .ticket-summary-compact .ticket-status-heading time {
+    width: 100%;
+    margin-left: 0;
+  }
+  .execution-heading {
+    flex-wrap: wrap;
+  }
+  .execution-cues li {
+    grid-template-columns: 1fr;
+    gap: var(--m-space-4);
+  }
+  .execution-facts {
+    flex-direction: column;
+  }
+}

@@ -1,4 +1,5 @@
 import type { Job } from './api';
+import { mockExecution } from './mock-execution';
 import { seedConnections, type ServingConnection } from './serving-connection';
 import { publishingCatalog, seedReviewTasks } from './publishing-node-contracts';
 import { validateForm, readonlyChanges, type ReviewTask, type FormData } from './form-contract';
@@ -99,6 +100,8 @@ const restore = (): State => {
 };
 let state = restore();
 state.reviews ||= seedReviewTasks();
+if (state.reviews['review-mapping']?.node_id === 'mapping')
+  state.reviews['review-mapping'].node_id = 'swap';
 state.connections ||= seedConnections();
 if (state.publishingContractVersion !== 1) {
   for (const sample of seedJobs().slice(7)) {
@@ -624,7 +627,19 @@ export const mockRequest = async <T>(path: string, init: RequestInit = {}): Prom
       state.jobs.find((j) => j.job_id === parts[1]),
       '작업',
     );
-    if (parts[2] === 'preview') {
+    if (parts[2] === 'execution') {
+      const fixed = job.metadata.workflow;
+      const definition =
+        state.history[fixed?.definition_id || '']?.find(
+          (row) => row.revision === fixed?.revision,
+        ) ||
+        seedDefinitions().find(
+          (row) => row.id === fixed?.definition_id && row.revision === fixed?.revision,
+        );
+      if (!definition) throw new Error('작업에 고정된 워크플로우 버전을 찾을 수 없습니다.');
+      const tasks = Object.values(state.reviews).filter((task) => task.job_id === job.job_id);
+      value = mockExecution(job, definition, publishingCatalog(mockCatalog.nodes), tasks);
+    } else if (parts[2] === 'preview') {
       const draft = draftFor(job.job_id);
       value = {
         video_available: job.status === 'COMPLETED',

@@ -7,7 +7,7 @@ import {
   type PointerEvent,
   type ReactNode,
 } from 'react';
-import { Boxes, FileVideo, GitBranch, Maximize, Minus, Plus, Trash2, X } from 'lucide-react';
+import { Boxes, LogIn, LogOut, GitBranch, Maximize, Minus, Plus, Trash2, X } from 'lucide-react';
 import { isControlNode, switchOutputs } from './workflow-controls';
 import { resolvePorts, type PortSpec } from './workflow-spec';
 import type { NodeFormContract } from './form-contract';
@@ -48,6 +48,8 @@ export const WorkflowCanvas = ({
   onSelect,
   details,
   disabled = false,
+  nodeStates = {},
+  detailsLabel = '노드 설정',
 }: {
   definition: CanvasDefinition;
   catalog: CanvasSpec[];
@@ -56,6 +58,8 @@ export const WorkflowCanvas = ({
   onSelect?: (id: string) => void;
   details?: ReactNode;
   disabled?: boolean;
+  nodeStates?: Record<string, { label: string; state: string }>;
+  detailsLabel?: string;
 }) => {
   const viewport = useRef<HTMLDivElement>(null);
   const marker = useId().replaceAll(':', '');
@@ -77,7 +81,7 @@ export const WorkflowCanvas = ({
     () => [
       {
         id: '$input',
-        label: '원본 입력',
+        label: '입력 트리거',
         type: '',
         x: 20,
         y: 24,
@@ -392,6 +396,8 @@ export const WorkflowCanvas = ({
             <article
               key={box.id}
               className={`workflow-graph-node ${selected === box.id ? 'is-selected' : ''}`}
+              data-node-id={box.id}
+              data-state={nodeStates[box.id]?.state}
               style={{ left: box.x, top: box.y, width, height: box.height }}
             >
               <button
@@ -444,7 +450,9 @@ export const WorkflowCanvas = ({
               >
                 <span className="workflow-node-symbol">
                   {box.id === '$input' ? (
-                    <FileVideo size={20} />
+                    <LogIn size={20} />
+                  ) : box.type === '$output' ? (
+                    <LogOut size={20} />
                   ) : isControlNode(box.type) ? (
                     <GitBranch size={20} />
                   ) : (
@@ -455,11 +463,14 @@ export const WorkflowCanvas = ({
                   <strong>{box.label}</strong>
                   <small>
                     {box.id === '$input'
-                      ? '입력'
-                      : isControlNode(box.type)
-                        ? '제어 노드'
-                        : '에이전트'}
+                      ? '트리거'
+                      : box.type === '$output'
+                        ? '종료'
+                        : isControlNode(box.type)
+                          ? '제어 노드'
+                          : '에이전트'}
                     {box.review && ' · 검토'}
+                    {nodeStates[box.id] && ` · ${nodeStates[box.id].label}`}
                   </small>
                 </span>
               </button>
@@ -621,13 +632,13 @@ export const WorkflowCanvas = ({
         )}
       </div>
       {selectedBox && (
-        <section className="workflow-node-settings" aria-label="노드 설정">
+        <section className="workflow-node-settings" aria-label={detailsLabel}>
           <div>
             <strong>{selectedBox.label}</strong>
             <button
               type="button"
               className="ui02-icon"
-              aria-label="노드 설정 닫기"
+              aria-label={`${detailsLabel} 닫기`}
               onClick={() => select('')}
             >
               <X size={16} />

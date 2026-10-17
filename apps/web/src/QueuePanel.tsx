@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ArrowUp, ArrowDown, ChevronsUp, Pause, Play } from 'lucide-react';
 import { request, type Job } from './api';
 import { moveQueuedJob, type QueueState } from './queue-state';
+import { Pagination, usePagination } from './Pagination';
 import './queue-controls.css';
 
 export const QueuePanel = ({
@@ -21,6 +22,7 @@ export const QueuePanel = ({
   const pending = useRef(false);
   const byId = new Map(jobs.map((job) => [job.job_id, job]));
   const ids = (state?.jobs || []).filter((id) => byId.get(id)?.status === 'QUEUED');
+  const page = usePagination(ids, 'queue');
   const selection = selected.filter((id) => ids.includes(id));
   const refresh = async (signal?: AbortSignal) => {
     const next = await request<QueueState>('/queue', { signal });
@@ -155,58 +157,62 @@ export const QueuePanel = ({
           </Button>
         </div>
       )}
-      <ol className="queue-items">
-        {ids.map((id, index) => (
-          <li key={id}>
-            <label>
-              <input
-                type="checkbox"
-                aria-label={`${byId.get(id)?.original_filename} 선택`}
-                checked={selection.includes(id)}
-                disabled={busy}
-                onChange={(event) =>
-                  setSelected(
-                    event.target.checked
-                      ? [...selection, id]
-                      : selection.filter((item) => item !== id),
-                  )
-                }
-              />
-            </label>
-            <span>{index + 1}</span>
-            <a href={`#/jobs/${id}`}>{byId.get(id)?.original_filename}</a>
-            <div className="queue-move">
-              <Button
-                variant="secondary"
-                title="가장 먼저 처리"
-                aria-label="가장 먼저 처리"
-                disabled={busy || index === 0}
-                onClick={() => void update({ order: moveQueuedJob(ids, id, 0) })}
-              >
-                <ChevronsUp size={16} />
-              </Button>
-              <Button
-                variant="secondary"
-                title="위로 이동"
-                aria-label="위로 이동"
-                disabled={busy || index === 0}
-                onClick={() => void update({ order: moveQueuedJob(ids, id, index - 1) })}
-              >
-                <ArrowUp size={16} />
-              </Button>
-              <Button
-                variant="secondary"
-                title="아래로 이동"
-                aria-label="아래로 이동"
-                disabled={busy || index === ids.length - 1}
-                onClick={() => void update({ order: moveQueuedJob(ids, id, index + 1) })}
-              >
-                <ArrowDown size={16} />
-              </Button>
-            </div>
-          </li>
-        ))}
+      <ol className="queue-items" start={page.first || 1}>
+        {page.items.map((id, pageIndex) => {
+          const index = page.offset + pageIndex;
+          return (
+            <li key={id}>
+              <label>
+                <input
+                  type="checkbox"
+                  aria-label={`${byId.get(id)?.original_filename} 선택`}
+                  checked={selection.includes(id)}
+                  disabled={busy}
+                  onChange={(event) =>
+                    setSelected(
+                      event.target.checked
+                        ? [...selection, id]
+                        : selection.filter((item) => item !== id),
+                    )
+                  }
+                />
+              </label>
+              <span>{index + 1}</span>
+              <a href={`#/jobs/${id}`}>{byId.get(id)?.original_filename}</a>
+              <div className="queue-move">
+                <Button
+                  variant="secondary"
+                  title="가장 먼저 처리"
+                  aria-label="가장 먼저 처리"
+                  disabled={busy || index === 0}
+                  onClick={() => void update({ order: moveQueuedJob(ids, id, 0) })}
+                >
+                  <ChevronsUp size={16} />
+                </Button>
+                <Button
+                  variant="secondary"
+                  title="위로 이동"
+                  aria-label="위로 이동"
+                  disabled={busy || index === 0}
+                  onClick={() => void update({ order: moveQueuedJob(ids, id, index - 1) })}
+                >
+                  <ArrowUp size={16} />
+                </Button>
+                <Button
+                  variant="secondary"
+                  title="아래로 이동"
+                  aria-label="아래로 이동"
+                  disabled={busy || index === ids.length - 1}
+                  onClick={() => void update({ order: moveQueuedJob(ids, id, index + 1) })}
+                >
+                  <ArrowDown size={16} />
+                </Button>
+              </div>
+            </li>
+          );
+        })}
       </ol>
+      {state && <Pagination {...page} disabled={busy || !!error} />}
       {state && !error && !ids.length && <p className="muted">대기 중인 작업이 없습니다.</p>}
     </section>
   );

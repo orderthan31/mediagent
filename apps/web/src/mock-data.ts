@@ -1,11 +1,12 @@
 import type { Job } from './api';
+import type { CanvasSpec } from './WorkflowCanvas';
 import { seedConnections } from './serving-connection';
 import type { VideoAsset, VideoUpload, SubtitleInput } from './video-api';
 import type { RegisteredModel } from './registered-models';
 import catalog from './mock-node-catalog.json';
 
 // Synthetic publishing fixtures, never an export of a user's DB, media or keys.
-export const mockCatalog = catalog;
+export const mockCatalog = { ...catalog, nodes: catalog.nodes as unknown as CanvasSpec[] };
 export const mockId = (n: number) => n.toString(16).padStart(32, '0');
 export type MockDefinition = {
   id: string;

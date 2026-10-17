@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { request } from './api';
+import { PageTitle } from './PageTitle';
 import { jsonPost } from './video-api';
 import { resolvePorts } from './workflow-spec';
 import { WorkflowCanvas, type CanvasDefinition, type CanvasSpec } from './WorkflowCanvas';
@@ -298,6 +299,7 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
     ) : undefined;
   return (
     <main className="workflow-editor">
+      <PageTitle>{doc.name}</PageTitle>
       <div className="workflow-editor-toolbar">
         <Input
           aria-label="워크플로우 이름"

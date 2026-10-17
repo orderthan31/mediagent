@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { AccountMenu } from './AuthGate';
 import { frontendOnly } from './preview';
+import { PageTitleSlot } from './PageTitle';
 import './ui02-shell.css';
 const sections = [
   { name: '작업', href: '#/jobs', icon: BriefcaseBusiness },
@@ -172,6 +173,15 @@ export const WorkspaceChrome = ({
           <a href="#/jobs" className="ui02-brand" aria-label="mideagent">
             <strong>mideagent</strong>
           </a>
+          <nav className="ui02-breadcrumb" aria-label="브레드크럼">
+            {child && (
+              <>
+                <a href={current.href}>{current.name}</a>
+                <ChevronRight size={14} aria-hidden="true" />
+              </>
+            )}
+            <PageTitleSlot />
+          </nav>
         </div>
         <div className="ui02-page-actions">
           {list && group !== 5 && !accountView && (
@@ -239,23 +249,7 @@ export const WorkspaceChrome = ({
         </div>
         {!wide && links}
       </dialog>
-      <nav className="ui02-breadcrumb" aria-label="브레드크럼">
-        {child ? (
-          <>
-            <a href={current.href}>{current.name}</a>
-            {route.startsWith('#/serving/connections/') && (
-              <>
-                <ChevronRight size={14} aria-hidden="true" />
-                <a href="#/serving/connections">공급자</a>
-              </>
-            )}
-            <ChevronRight size={14} aria-hidden="true" />
-            <span aria-current="page">{child}</span>
-          </>
-        ) : (
-          <span aria-current="page">{current.name}</span>
-        )}
-      </nav>
+
       {uploads && (
         <section className="ui02-upload-popover" aria-label="업로드 상태">
           <div className="ui02-upload-content">{uploadContent}</div>

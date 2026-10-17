@@ -1,0 +1,27 @@
+.list-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--m-space-12);
+  padding-block: var(--m-space-12);
+  border-top: 1px solid var(--g-line);
+  color: var(--g-soft);
+  font-size: var(--m-type-label);
+}
+.list-pagination > div,
+.list-pagination label {
+  display: flex;
+  align-items: center;
+  gap: var(--m-space-8);
+}
+.list-pagination select {
+  width: auto;
+  min-width: 52px;
+}
+.pagination-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  clip-path: inset(50%);
+  overflow: hidden;
+}

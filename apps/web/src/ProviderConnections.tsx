@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ChevronRight, KeyRound } from 'lucide-react';
+import { PageTitle } from './PageTitle';
+import { Pagination, usePagination } from './Pagination';
 import { request } from './api';
 import { Button } from './hangyeol/primitives/button';
 import { Input } from './hangyeol/primitives/input';
@@ -32,6 +34,7 @@ export const ProviderConnections = ({ route, query }: { route: string; query: st
       .toLocaleLowerCase()
       .includes(query.toLocaleLowerCase()),
   );
+  const page = usePagination(shown, query);
   const save = async () => {
     if (!name.trim() || busy) {
       return;
@@ -89,9 +92,9 @@ export const ProviderConnections = ({ route, query }: { route: string; query: st
   }, [identity]);
   return (
     <main className="serving-page">
-      <header className="serving-heading">
-        <h1>{form ? (identity ? '공급자 편집' : '공급자 추가') : '서빙'}</h1>
-      </header>
+      <PageTitle>
+        {form ? (identity ? name || '공급자 불러오는 중' : '공급자 추가') : '공급자'}
+      </PageTitle>
       {!form && <ServingTabs connections />}
       {error && (
         <p className="alert" role="alert">
@@ -154,7 +157,7 @@ export const ProviderConnections = ({ route, query }: { route: string; query: st
         </form>
       ) : (
         <section className="ui02-list" aria-label="공급자">
-          {shown.map((row) => (
+          {page.items.map((row) => (
             <a
               key={row.id}
               href={'#/serving/connections/' + row.id + '/edit'}
@@ -175,6 +178,7 @@ export const ProviderConnections = ({ route, query }: { route: string; query: st
           )}
         </section>
       )}
+      {!form && !busy && !error && <Pagination {...page} />}
     </main>
   );
 };

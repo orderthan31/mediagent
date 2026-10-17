@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { KeyRound, RefreshCw, Save, Settings, Trash2 } from 'lucide-react';
+import { PageTitle } from './PageTitle';
 import { request } from './api';
 import { frontendOnly } from './preview';
 import './settings.css';
@@ -186,10 +187,7 @@ const LegacySettingsPage = () => {
   return (
     <main className="video-main settings-page settings-renewal">
       <div className="settings-heading">
-        <h1>
-          <Settings size={24} />
-          시스템
-        </h1>
+        <PageTitle>시스템</PageTitle>
         <Button
           variant="secondary"
           title="설정 새로 불러오기"
@@ -482,12 +480,7 @@ const LegacySettingsPage = () => {
 export const SettingsPage = () =>
   frontendOnly ? (
     <main className="video-main settings-page settings-renewal">
-      <div className="settings-heading">
-        <h1>
-          <Settings size={24} />
-          시스템
-        </h1>
-      </div>
+      <PageTitle>시스템</PageTitle>
       <StorageSettings />
     </main>
   ) : (

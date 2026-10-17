@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { PageTitle } from './PageTitle';
+import { Pagination, usePagination } from './Pagination';
 import { LogOut } from 'lucide-react';
 import { Button } from './hangyeol/primitives/button';
 import { TextField } from './hangyeol/components/text-field';
@@ -7,6 +9,7 @@ import './account.css';
 
 export const AccountPage = ({ create = false }: { create?: boolean }) => {
   const { accounts, currentId } = usePreviewAccounts();
+  const page = usePagination(accounts, 'accounts');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
@@ -30,9 +33,7 @@ export const AccountPage = ({ create = false }: { create?: boolean }) => {
   };
   return (
     <main className="serving-page account-page">
-      <header className="serving-heading">
-        <h1>{create ? '계정 발급' : '계정 관리'}</h1>
-      </header>
+      <PageTitle>{create ? '계정 발급' : '계정 관리'}</PageTitle>
       {current && (
         <div className="account-identity">
           <div>
@@ -136,7 +137,7 @@ export const AccountPage = ({ create = false }: { create?: boolean }) => {
               <span>권한</span>
               <span>생성일</span>
             </div>
-            {accounts.map((row) => (
+            {page.items.map((row) => (
               <div className="account-table-row" key={row.id}>
                 <strong>
                   {row.username}
@@ -149,6 +150,7 @@ export const AccountPage = ({ create = false }: { create?: boolean }) => {
               </div>
             ))}
           </div>
+          <Pagination {...page} />
         </section>
       ) : (
         <dl className="account-facts">

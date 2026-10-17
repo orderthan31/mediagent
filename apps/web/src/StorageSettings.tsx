@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { HardDrive, RefreshCw, Trash2 } from 'lucide-react';
 import { request } from './api';
 import { statusLabels } from './video-api';
+import { Pagination, usePagination } from './Pagination';
 
 type StorageJob = {
   job_id: string;
@@ -47,6 +48,7 @@ const categories: Record<string, string> = {
 
 export const StorageSettings = () => {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
+  const page = usePagination(snapshot?.jobs || [], 'storage-jobs');
   const [selected, setSelected] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -185,7 +187,7 @@ export const StorageSettings = () => {
                 </tr>
               </thead>
               <tbody>
-                {snapshot.jobs.map((job) => (
+                {page.items.map((job) => (
                   <tr key={job.job_id}>
                     <td>
                       <input
@@ -227,6 +229,7 @@ export const StorageSettings = () => {
               </tbody>
             </table>
           </div>
+          <Pagination {...page} disabled={busy || !!mode} />
           <div className="storage-actions">
             <Button
               variant="secondary"

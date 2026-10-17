@@ -189,7 +189,7 @@ const TaskForm = ({
     </div>
   );
 };
-export const GenericJobReview = ({ jobId }: { jobId: string }) => {
+export const GenericJobReview = ({ jobId, nodeId }: { jobId: string; nodeId?: string }) => {
   const [tasks, setTasks] = useState<ReviewTask[]>([]);
   const [selected, setSelected] = useState('');
   const [loading, setLoading] = useState(true);
@@ -203,7 +203,7 @@ export const GenericJobReview = ({ jobId }: { jobId: string }) => {
         signal,
       });
       if (!signal?.aborted) {
-        setTasks(result.tasks);
+        setTasks(result.tasks.filter((task) => !nodeId || task.node_id === nodeId));
       }
     } catch (value) {
       if (!signal?.aborted) {
@@ -219,7 +219,7 @@ export const GenericJobReview = ({ jobId }: { jobId: string }) => {
     const controller = new AbortController();
     void load(controller.signal);
     return () => controller.abort();
-  }, [jobId]);
+  }, [jobId, nodeId]);
   return (
     <section className="generic-review" aria-label="검토">
       <div className="generic-review-heading">

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, FileVideo, FolderOpen, Plus, Search, Trash2, Upload, X } from 'lucide-react';
 import { mediaUrl, Job, request, resumeUpload, uploadRequest } from './api';
+import { PageTitle } from './PageTitle';
+import { Pagination, usePagination } from './Pagination';
 import { frontendOnly } from './preview';
 import { ticketNumber, workflowName } from './job-identity';
 import { AccountPage } from './AccountPage';
@@ -123,6 +125,15 @@ export const VideoWorkspace = () => {
     decisionTicketsView;
   const shownVideos = videos.filter((v) =>
     v.original_filename.toLocaleLowerCase().includes(query.toLocaleLowerCase()),
+  );
+  const videoPage = usePagination(shownVideos, route + query);
+  const jobPage = usePagination(
+    jobs.filter((job) =>
+      `${ticketNumber(job)} ${job.original_filename} ${workflowName(job)}`
+        .toLocaleLowerCase()
+        .includes(query.toLocaleLowerCase()),
+    ),
+    route + query,
   );
   const pendingSessions = sessions.filter(
     (s) => !s.asset_id && !uploads.some((u) => u.jobId === s.upload_id),
@@ -516,11 +527,7 @@ export const VideoWorkspace = () => {
               <>
                 {detail ? (
                   <>
-                    <div className="storage-detail-heading">
-                      <div>
-                        <h1>{detail.video.original_filename}</h1>
-                      </div>
-                    </div>
+                    <PageTitle>{detail.video.original_filename}</PageTitle>
                     <StorageVideoInfo video={detail.video} assetId={assetId} />
                   </>
                 ) : (
@@ -529,30 +536,24 @@ export const VideoWorkspace = () => {
               </>
             ) : (
               <>
-                <div className="workspace-page-heading">
-                  <div>
-                    <h1>{jobsView ? '작업' : '원본'}</h1>
-                  </div>
-                </div>
+                <PageTitle>{jobsView ? '작업' : '원본'}</PageTitle>
                 {jobsView && <ExecutionPopover jobs={jobs} onChanged={refresh} />}
 
                 {jobsView ? (
-                  jobRows(
-                    jobs.filter((j) =>
-                      `${ticketNumber(j)} ${j.original_filename} ${workflowName(j)}`
-                        .toLocaleLowerCase()
-                        .includes(query.toLocaleLowerCase()),
-                    ),
-                  )
+                  <>
+                    {jobRows(jobPage.items)}
+                    {hasConfirmedList && <Pagination {...jobPage} disabled={!online} />}
+                  </>
                 ) : (
                   <div className="asset-list storage-library">
-                    {shownVideos.map((v) => (
+                    {videoPage.items.map((v) => (
                       <StorageAssetRow
                         key={v.asset_id}
                         video={v}
                         thumbnail={<Thumbnail assetId={v.asset_id} />}
                       />
                     ))}
+                    {hasConfirmedList && <Pagination {...videoPage} disabled={!online} />}
                     {!shownVideos.length && online && (
                       <EmptyState
                         className="storage-empty"

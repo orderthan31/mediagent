@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { PageTitle } from './PageTitle';
+import { Pagination, usePagination } from './Pagination';
 import { request } from './api';
 import { frontendOnly } from './preview';
 import { ServingTabs } from './ProviderConnections';
@@ -167,16 +169,26 @@ export const ModelRegistryPage = ({
     const row = models.find((item) => item.id === identity);
     if (form && row && editing?.id !== row.id) void edit(row);
   }, [form, identity, models, editing?.id]);
+  const selectedModel = models.find((row) => row.id === identity);
+  const selectedName = selectedModel?.versions[String(selectedModel.current_revision)]?.name;
+  const shown = models.filter(
+    (row) =>
+      (!identity || row.id === identity) &&
+      (identity ||
+        row.versions[String(row.current_revision)].name
+          .toLocaleLowerCase()
+          .includes(query.toLocaleLowerCase())),
+  );
+  const page = usePagination(shown, query);
   return (
     <main className="serving-page workflow-tickets model-registry">
-      <div className="serving-heading">
-        <div>
-          <h1>{form ? (identity ? '모델 편집' : '모델 추가') : '서빙'}</h1>
-        </div>
-        <Button variant="secondary" disabled={busy || loading} onClick={() => void load()}>
-          새로고침
-        </Button>
-      </div>
+      <PageTitle>
+        {identity
+          ? selectedName || (loading ? '모델 불러오는 중' : '모델을 찾을 수 없음')
+          : form
+            ? '모델 추가'
+            : '서빙'}
+      </PageTitle>
       {frontendOnly && !form && !identity && <ServingTabs />}
       {listError && (
         <p role="alert" className="alert list-query-error">
@@ -320,65 +332,61 @@ export const ModelRegistryPage = ({
               <p>등록 목록 읽는 중</p>
             ) : listConfirmed && !listError && models.length === 0 ? (
               <p>등록 모델 없음</p>
+            ) : listConfirmed && !listError && !shown.length ? (
+              <p>{identity ? '모델을 찾을 수 없습니다.' : '검색 결과 없음'}</p>
             ) : (
-              models
-                .filter(
-                  (row) =>
-                    (!identity || row.id === identity) &&
-                    row.versions[String(row.current_revision)].name
-                      .toLocaleLowerCase()
-                      .includes(query.toLocaleLowerCase()),
-                )
-                .map((row) => {
-                  const current = row.versions[String(row.current_revision)];
-                  return (
-                    <article className="ui02-list-item" key={row.id}>
-                      <div className="ui02-list-copy">
-                        <h3 className="ui02-list-title">
-                          <a href={'#/serving/' + row.id}>{current.name}</a> · r
-                          {row.current_revision}
-                        </h3>
-                        <p>
-                          {current.provider} / {current.model} ·{' '}
-                          {row.active ? '사용 가능' : '사용 중지'} · 연결 미확인
-                        </p>
-                        <p className="ui02-list-meta">
-                          {current.uses.map((u) => modelUseLabels[u]).join(' / ')}
-                        </p>
-                      </div>
-                      <div className="ticket-actions ui02-list-actions">
-                        <Button
-                          variant="secondary"
-                          disabled={busy}
-                          onClick={() => {
-                            location.hash = '/serving/' + row.id + '/edit';
-                          }}
-                        >
-                          수정 {current.name}
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          disabled={busy}
-                          onClick={() => void changeAvailability(row)}
-                        >
-                          {row.active ? '사용 중지' : '사용 가능으로 변경'}
-                        </Button>
-                      </div>
-                      {identity && (
-                        <details className="ui02-list-extra">
-                          <summary>revision 이력</summary>
-                          {Object.values(row.versions).map((v) => (
-                            <p key={v.revision}>
-                              r{v.revision} · {v.name} · {v.provider}/{v.model}
-                            </p>
-                          ))}
-                        </details>
-                      )}
-                    </article>
-                  );
-                })
+              page.items.map((row) => {
+                const current = row.versions[String(row.current_revision)];
+                return (
+                  <article className="ui02-list-item" key={row.id}>
+                    <div className="ui02-list-copy">
+                      <h3 className="ui02-list-title">
+                        <a href={'#/serving/' + row.id}>{current.name}</a> · r{row.current_revision}
+                      </h3>
+                      <p>
+                        {current.provider} / {current.model} ·{' '}
+                        {row.active ? '사용 가능' : '사용 중지'} · 연결 미확인
+                      </p>
+                      <p className="ui02-list-meta">
+                        {current.uses.map((u) => modelUseLabels[u]).join(' / ')}
+                      </p>
+                    </div>
+                    <div className="ticket-actions ui02-list-actions">
+                      <Button
+                        variant="secondary"
+                        disabled={busy}
+                        onClick={() => {
+                          location.hash = '/serving/' + row.id + '/edit';
+                        }}
+                      >
+                        수정 {current.name}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        disabled={busy}
+                        onClick={() => void changeAvailability(row)}
+                      >
+                        {row.active ? '사용 중지' : '사용 가능으로 변경'}
+                      </Button>
+                    </div>
+                    {identity && (
+                      <details className="ui02-list-extra">
+                        <summary>revision 이력</summary>
+                        {Object.values(row.versions).map((v) => (
+                          <p key={v.revision}>
+                            r{v.revision} · {v.name} · {v.provider}/{v.model}
+                          </p>
+                        ))}
+                      </details>
+                    )}
+                  </article>
+                );
+              })
             )}
           </section>
+          {!identity && !loading && listConfirmed && (
+            <Pagination {...page} disabled={!!listError} />
+          )}
         </>
       )}
       {!frontendOnly && !form && (

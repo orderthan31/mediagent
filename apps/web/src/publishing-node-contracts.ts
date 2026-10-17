@@ -318,7 +318,7 @@ export const seedReviewTasks = (): Record<string, ReviewTask> => {
       make(
         'review-mapping',
         108,
-        'mapping',
+        'swap',
         mappingReview,
         formDefaults(mappingReview.fields) as FormData,
       ),
