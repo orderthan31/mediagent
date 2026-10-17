@@ -101,8 +101,8 @@
   min-width: 0;
 }
 .workspace-page-heading h1 {
-  font-size: var(--text-g-title);
-  line-height: var(--leading-g-title);
+  font-size: var(--m-type-page-title);
+  line-height: 1.5;
   font-weight: 600;
   margin: var(--m-space-8) 0 var(--m-space-12);
 }

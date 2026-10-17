@@ -11,7 +11,7 @@
   font-size: var(--text-g-small);
 }
 .ticket-detail .detail-page-heading h1 {
-  font-size: var(--m-type-page-medium);
+  font-size: var(--m-type-page-title);
 }
 .ticket-summary {
   border: 0;

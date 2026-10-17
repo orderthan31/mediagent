@@ -83,7 +83,7 @@
 }
 .storage-detail-heading h1 {
   margin-top: var(--m-space-8);
-  font-size: var(--text-g-title);
+  font-size: var(--m-type-page-title);
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
@@ -299,7 +299,7 @@
     grid-template-columns: minmax(0, 1fr);
   }
   .storage-detail-heading h1 {
-    font-size: var(--m-type-page-small);
+    font-size: var(--m-type-page-title);
   }
   .storage-detail-heading button {
     justify-self: start;
