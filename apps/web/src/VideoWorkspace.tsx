@@ -13,6 +13,7 @@ import {
   X,
 } from 'lucide-react';
 import { mediaUrl, Job, request, resumeUpload, uploadRequest } from './api';
+import { frontendOnly } from './preview';
 import { JobDetail } from './JobDetail';
 import { SettingsPage } from './SettingsPage';
 import { ModelRegistryPage } from './ModelRegistryPage';
