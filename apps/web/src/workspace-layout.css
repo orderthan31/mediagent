@@ -28,9 +28,8 @@
   margin-bottom: var(--m-space-24);
 }
 .page-actions {
-  position: sticky;
-  bottom: var(--m-page-pad);
-  z-index: 5;
+  position: static;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -209,10 +208,13 @@
 }
 .work-entry-layout {
   display: flex;
-  flex: 1;
+  flex: 1 0 auto;
   flex-direction: column;
   gap: var(--m-space-24);
-  margin-top: var(--m-space-24);
+  margin-top: 0;
+}
+.work-entry-layout > section {
+  flex-shrink: 0;
 }
 .entry-selection {
   max-width: var(--m-form-width);
@@ -285,7 +287,7 @@
   padding-block: var(--m-space-8);
 }
 .ui02-workspace .entry-workflow {
-  margin-top: var(--m-space-36);
+  margin-top: 0;
   border-top: 1px solid var(--g-line);
   padding-top: var(--m-space-24);
 }
@@ -385,6 +387,9 @@
   }
 }
 @media (max-width: 480px) {
+  .ui02-workspace {
+    --m-page-pad: 16px;
+  }
   .form-row {
     grid-template-columns: minmax(0, 1fr);
     gap: var(--m-space-8);

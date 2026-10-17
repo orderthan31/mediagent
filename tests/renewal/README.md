@@ -86,3 +86,30 @@ explicit private publishing preview origin and run
 state, exercises empty/single/multi-page lists, detail-only serving actions,
 selected-media canvas and selected-node scrolling. It does not validate an
 operational API, model execution or actual touch hardware.
+
+For responsive route and touch/wheel checks, also set an evidence directory outside
+this watched checkout and run:
+
+```sh
+MIDEAGENT_PREVIEW_ORIGIN=<explicit-private-dev-origin> \
+MIDEAGENT_PREVIEW_EVIDENCE_DIR=<external-evidence-directory> \
+  node tests/renewal/frontend-responsive.mjs
+```
+
+The matrix distinguishes cover portrait (416×657 CSS px), unfolded landscape
+(816×616 CSS px), and FHD PC (1920×1080), plus shorter browser-chrome and adjacent
+320/390/896/1440px cases. Mobile probes assume DPR=3; these are reproducible browser
+emulations, **not measured Fold hardware dimensions**. Physical panel pixels must
+never be passed directly as CSS viewport dimensions. Actual browser zoom, display
+scaling, safe areas and device chrome still require a real-device check.
+
+Each viewport visits every active root, representative create/detail/edit routes,
+every catalog agent detail, and both access forms without entering credentials.
+It also exercises navigation, fold-size transitions without losing unsaved input,
+canvas pickers/settings, selected-node wheel and touch scrolling, table-local
+horizontal scrolling, and empty/single/45-row pagination. Short form actions share
+the bottom baseline; longer forms place actions after the content instead of
+covering fields or the canvas. Pagination labels must remain horizontal despite
+legacy global label rules, and a closed execution popover must remain invisible.
+The test fails closed on real API/external network requests and uses fresh,
+isolated synthetic browser state only.

@@ -666,10 +666,10 @@
   flex-wrap: nowrap;
 }
 .ui02-workspace .ui02-gnb .ui02-brand-group {
-  flex: 0 0 auto;
+  flex: 1 1 0;
 }
 .ui02-workspace .ui02-gnb .ui02-page-actions {
-  flex: 1 1 0;
+  flex: 0 1 auto;
   min-width: 0;
   flex-wrap: nowrap;
   justify-content: flex-end;
@@ -680,7 +680,7 @@
   flex-direction: row;
   flex-wrap: nowrap;
   align-items: center;
-  width: auto;
+  width: clamp(112px, 35vw, 320px);
   min-width: 0;
   height: var(--m-gnb-control-height);
   min-height: var(--m-gnb-control-height);
@@ -838,7 +838,7 @@
     padding: 0 var(--m-space-14);
     gap: var(--m-space-12);
   }
-  .ui02-brand strong {
+  .ui02-brand {
     display: none;
   }
   .ui02-brand-group,
@@ -873,5 +873,11 @@
 @media (prefers-reduced-motion: reduce) {
   .ui02-drawer[open] {
     animation: none;
+  }
+}
+@media (pointer: coarse) {
+  .ui02-lnb nav a,
+  .ui02-drawer nav a {
+    min-height: 44px;
   }
 }

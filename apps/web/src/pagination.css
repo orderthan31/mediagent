@@ -1,5 +1,7 @@
 .list-pagination {
   display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--m-space-12);
@@ -8,11 +10,37 @@
   color: var(--g-soft);
   font-size: var(--m-type-label);
 }
-.list-pagination > div,
-.list-pagination label {
+.list-pagination > .pagination-controls,
+.workspace-theme .list-pagination .pagination-controls > label {
   display: flex;
+  flex-direction: row;
   align-items: center;
   gap: var(--m-space-8);
+  margin: 0;
+}
+.list-pagination > [role='status'] {
+  margin-right: auto;
+}
+.workspace-theme .list-pagination .pagination-controls select {
+  min-height: 44px;
+  height: 44px;
+}
+.list-pagination .ui02-execution-trigger {
+  position: static;
+  flex-shrink: 0;
+  box-shadow: none;
+  border-radius: var(--radius-g-control);
+  padding: 8px 12px;
+}
+@media (max-width: 480px) {
+  .list-pagination .ui02-execution-trigger {
+    width: 44px;
+    padding: 0;
+    justify-content: center;
+  }
+  .list-pagination .ui02-execution-trigger > span {
+    display: none;
+  }
 }
 .list-pagination select {
   width: auto;

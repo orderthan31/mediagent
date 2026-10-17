@@ -562,12 +562,15 @@ export const VideoWorkspace = () => {
             ) : (
               <>
                 <PageTitle>{jobsView ? '작업' : '원본'}</PageTitle>
-                {jobsView && <ExecutionPopover jobs={jobs} onChanged={refresh} />}
 
                 {jobsView ? (
                   <>
                     {jobRows(jobPage.items)}
-                    {hasConfirmedList && <Pagination {...jobPage} disabled={!online} />}
+                    {hasConfirmedList && (
+                      <Pagination {...jobPage} disabled={!online}>
+                        <ExecutionPopover jobs={jobs} onChanged={refresh} />
+                      </Pagination>
+                    )}
                   </>
                 ) : (
                   <>

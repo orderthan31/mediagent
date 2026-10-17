@@ -156,10 +156,14 @@ try {
       footers.push(Math.round(footer.y + footer.height));
       if (width === 1920) assert(footer.x < 240 && footer.width > 1600);
     }
-    assert(
-      Math.max(...footers) - Math.min(...footers) <= 2,
-      `Form footers must share one baseline: ${JSON.stringify({ width, footers })}`,
-    );
+    // Short forms align at the viewport bottom. Long narrow forms flow below
+    // their content instead of pinning an action bar over still-unread fields.
+    if (footers.every((bottom) => bottom <= 1080)) {
+      assert(
+        Math.max(...footers) - Math.min(...footers) <= 2,
+        `Short form footer baseline: ${JSON.stringify({ width, footers })}`,
+      );
+    }
     const listResults = {};
     for (const [route, key, idField] of [
       ["jobs", "jobs", "job_id"],

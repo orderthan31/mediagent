@@ -143,20 +143,24 @@ export const WorkflowCanvas = ({
     [boxes],
   );
   const fitted = () => {
+    // Fit inside the unobstructed canvas, not underneath touch-sized controls.
+    const topInset = matchMedia('(max-width: 700px)').matches ? 72 : 0;
+    const bottomInset = onChange || topInset === 0 ? 72 : 0;
+    const contentHeight = Math.max(1, size.height - topInset - bottomInset);
     const scale = Math.min(
       1,
       Math.max(
         0.15,
         Math.min(
           (size.width - 80) / (bounds.right - bounds.left),
-          (size.height - 100) / (bounds.bottom - bounds.top),
+          (contentHeight - 48) / (bounds.bottom - bounds.top),
         ),
       ),
     );
     return {
       scale,
       x: (size.width - (bounds.right - bounds.left) * scale) / 2 - bounds.left * scale,
-      y: (size.height - (bounds.bottom - bounds.top) * scale) / 2 - bounds.top * scale,
+      y: topInset + (contentHeight - (bounds.bottom - bounds.top) * scale) / 2 - bounds.top * scale,
     };
   };
   const select = (id: string) => {

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from './hangyeol/primitives/button';
 import { pageWindow } from './pagination-state';
@@ -23,6 +23,7 @@ export const Pagination = ({
   last,
   onPage,
   disabled = false,
+  children,
 }: {
   total: number;
   page: number;
@@ -31,10 +32,11 @@ export const Pagination = ({
   last: number;
   onPage: (page: number) => void;
   disabled?: boolean;
+  children?: ReactNode;
 }) => (
   <nav className="list-pagination" aria-label="목록 페이지">
     <span role="status">{total ? `${first}–${last} / ${total}개` : '0개'}</span>
-    <div>
+    <div className="pagination-controls">
       <Button
         variant="quiet"
         aria-label="이전 페이지"
@@ -68,5 +70,6 @@ export const Pagination = ({
         <ChevronRight size={16} />
       </Button>
     </div>
+    {children}
   </nav>
 );

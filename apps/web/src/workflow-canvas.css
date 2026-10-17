@@ -176,6 +176,17 @@
   font-size: var(--text-g-small);
   font-variant-numeric: tabular-nums;
 }
+@media (pointer: coarse) {
+  .workflow-graph-controls .ui02-icon {
+    width: 44px;
+    height: 44px;
+    min-height: 44px;
+    flex-basis: 44px;
+  }
+  .workflow-agent-picker > button {
+    min-height: 44px;
+  }
+}
 .workflow-node-detail {
   position: absolute;
   right: 16px;

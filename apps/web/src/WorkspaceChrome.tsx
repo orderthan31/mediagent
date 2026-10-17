@@ -47,8 +47,8 @@ export const WorkspaceChrome = ({
   uploadCount: number;
   agentLabel?: string;
 }) => {
-  const [wide, setWide] = useState(() => matchMedia('(min-width: 56rem)').matches);
-  const [collapsed, setCollapsed] = useState(false),
+  const [wide, setWide] = useState(() => matchMedia('(min-width: 48rem)').matches);
+  const [collapsed, setCollapsed] = useState(() => matchMedia('(max-width: 74.999rem)').matches),
     [drawer, setDrawer] = useState(false),
     [uploads, setUploads] = useState(false);
   const dialog = useRef<HTMLDialogElement>(null),
@@ -138,9 +138,12 @@ export const WorkspaceChrome = ({
     </>
   );
   useEffect(() => {
-    const media = matchMedia('(min-width: 56rem)');
+    const media = matchMedia('(min-width: 48rem)');
     const changed = () => {
       setWide(media.matches);
+      if (media.matches && matchMedia('(max-width: 74.999rem)').matches) {
+        setCollapsed(true);
+      }
       setDrawer(false);
     };
     media.addEventListener('change', changed);
