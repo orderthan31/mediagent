@@ -63,7 +63,13 @@
   --m-card-pad: 14px;
   --m-row-pad: 10px;
   --m-row-gap: 12px;
-  --m-header-height: 52px;
+  --m-header-height: 64px;
+  --m-gnb-control-height: 44px;
+  --m-gnb-font-size: 14px;
+  --m-gnb-brand-size: 18px;
+  --m-gnb-icon-size: 20px;
+  --m-gnb-gap: 16px;
+  --m-gnb-pad: 24px;
   --m-rail-width: 184px;
   --m-rail-collapsed: 64px;
   --m-nav-height: 36px;

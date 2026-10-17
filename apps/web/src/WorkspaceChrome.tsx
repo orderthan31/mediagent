@@ -13,9 +13,9 @@ import {
   Plus,
   Search,
   ChevronRight,
+  UsersRound,
 } from 'lucide-react';
 import { AccountMenu } from './AuthGate';
-import { PreviewAccountMenu } from './AccountPage';
 import { frontendOnly } from './preview';
 import './ui02-shell.css';
 const sections = [
@@ -25,6 +25,7 @@ const sections = [
   { name: '에이전트', href: '#/agents', icon: Boxes },
   { name: '서빙', href: '#/serving', icon: Layers },
   { name: '시스템', href: '#/settings', icon: Settings },
+  ...(frontendOnly ? [{ name: '계정 관리', href: '#/account', icon: UsersRound }] : []),
 ];
 export const WorkspaceChrome = ({
   route,
@@ -62,7 +63,7 @@ export const WorkspaceChrome = ({
               ? 1
               : 0;
   const accountView = route.startsWith('#/account');
-  const current = accountView ? { name: '계정', href: '#/account' } : sections[group];
+  const current = accountView ? { name: '계정 관리', href: '#/account' } : sections[group];
   const child =
     route === '#/account/new'
       ? '발급'
@@ -108,20 +109,29 @@ export const WorkspaceChrome = ({
               : { label: '모델 추가', href: '#/serving/new' }
             : null;
   const links = (
-    <nav aria-label="주 메뉴">
-      {sections.map((item, index) => (
-        <a
-          href={item.href}
-          key={item.name}
-          aria-current={!accountView && group === index ? 'page' : undefined}
-          title={item.name}
-          onClick={() => setDrawer(false)}
-        >
-          <item.icon size={20} aria-hidden="true" />
-          <span>{item.name}</span>
-        </a>
-      ))}
-    </nav>
+    <>
+      <nav aria-label="주 메뉴">
+        {sections.map((item, index) => (
+          <a
+            href={item.href}
+            key={item.name}
+            aria-current={
+              (accountView ? item.href === '#/account' : group === index) ? 'page' : undefined
+            }
+            title={item.name}
+            onClick={() => setDrawer(false)}
+          >
+            <item.icon size={20} aria-hidden="true" />
+            <span>{item.name}</span>
+          </a>
+        ))}
+      </nav>
+      {!frontendOnly && (
+        <div className="ui02-session">
+          <AccountMenu />
+        </div>
+      )}
+    </>
   );
   useEffect(() => {
     const media = matchMedia('(min-width: 56rem)');
@@ -166,7 +176,7 @@ export const WorkspaceChrome = ({
         <div className="ui02-page-actions">
           {list && group !== 5 && !accountView && (
             <div className="ui02-search">
-              <Search size={17} aria-hidden="true" />
+              <Search size={20} aria-hidden="true" />
               <input
                 type="search"
                 aria-label={`${current.name} 검색`}
@@ -177,8 +187,8 @@ export const WorkspaceChrome = ({
             </div>
           )}
           {group === 1 && list && (
-            <button className="ui02-primary" onClick={onUpload}>
-              <Plus size={17} />
+            <button className="ui02-primary" aria-label="업로드" title="업로드" onClick={onUpload}>
+              <Plus size={20} />
               <span>업로드</span>
             </button>
           )}
@@ -189,7 +199,7 @@ export const WorkspaceChrome = ({
               title={action.label}
               href={action.href}
             >
-              <Plus size={17} />
+              <Plus size={20} />
               <span>{action.label}</span>
             </a>
           )}
@@ -199,7 +209,7 @@ export const WorkspaceChrome = ({
             aria-expanded={uploads}
             onClick={() => setUploads((value) => !value)}
           >
-            <Upload size={19} />
+            <Upload size={21} />
             {uploadCount > 0 && <span>{uploadCount}</span>}
           </button>
           {frontendOnly && (
@@ -216,7 +226,6 @@ export const WorkspaceChrome = ({
               목업
             </button>
           )}
-          {frontendOnly ? <PreviewAccountMenu /> : <AccountMenu />}
         </div>
       </header>
       {wide && (

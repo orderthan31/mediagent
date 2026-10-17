@@ -1,19 +1,10 @@
 import { useState } from 'react';
-import { UserRound, LogOut } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import { Button } from './hangyeol/primitives/button';
 import { TextField } from './hangyeol/components/text-field';
 import { issuePreviewAccount, logoutPreview, usePreviewAccounts } from './publishing-accounts';
 import './account.css';
 
-export const PreviewAccountMenu = () => {
-  const { accounts, currentId } = usePreviewAccounts();
-  const current = accounts.find((row) => row.id === currentId);
-  return (
-    <a className="ui02-icon" href="#/account" aria-label="계정" title={current?.username || '계정'}>
-      <UserRound size={18} />
-    </a>
-  );
-};
 export const AccountPage = ({ create = false }: { create?: boolean }) => {
   const { accounts, currentId } = usePreviewAccounts();
   const [username, setUsername] = useState('');
@@ -40,7 +31,7 @@ export const AccountPage = ({ create = false }: { create?: boolean }) => {
   return (
     <main className="serving-page account-page">
       <header className="serving-heading">
-        <h1>{create ? '계정 발급' : '계정'}</h1>
+        <h1>{create ? '계정 발급' : '계정 관리'}</h1>
       </header>
       {current && (
         <div className="account-identity">
