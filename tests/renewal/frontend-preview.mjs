@@ -205,7 +205,10 @@ try {
           const list = page.locator(".ui02-list");
           assert.equal(await list.getByRole("button").count(), 0);
           assert.doesNotMatch(await list.innerText(), /revision|\br[0-9]+\b/);
-          await list.locator("a.serving-resource-row").first().click();
+          await list
+            .locator("a.serving-resource-row, a.provider-resource-row")
+            .first()
+            .click();
           await page.locator(".serving-resource-facts").waitFor();
           await page
             .getByRole("button", { name: "수정", exact: true })

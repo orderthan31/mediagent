@@ -234,11 +234,21 @@ export const ProviderConnections = ({ route, query }: { route: string; query: st
             <a
               key={row.id}
               href={'#/serving/connections/' + row.id}
-              className="ui02-list-item serving-resource-row"
+              className="ui02-list-item provider-resource-row"
             >
-              <strong className="ui02-list-title">{row.name}</strong>
-              <span className="ui02-list-meta">{providers[row.provider] || row.provider}</span>
-              <span className="ui02-list-meta">{row.endpoint || '기본 주소'}</span>
+              <div className="ui02-list-copy">
+                <strong className="ui02-list-title">{row.name}</strong>
+                <p className="ui02-list-meta">
+                  {[
+                    row.name === (providers[row.provider] || row.provider)
+                      ? ''
+                      : providers[row.provider] || row.provider,
+                    row.endpoint || '기본 주소',
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </p>
+              </div>
             </a>
           ))}
           {!error && !shown.length && (

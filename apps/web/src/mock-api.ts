@@ -105,6 +105,21 @@ if (state.reviews['review-mapping']?.node_id === 'mapping') {
   state.reviews['review-mapping'].node_id = 'swap';
 }
 state.connections ||= seedConnections();
+// Correct only untouched synthetic labels; never rename user-edited registrations.
+for (const [index, oldName] of ['전사용 OpenAI', '번역용 Gemini'].entries()) {
+  const seed = seedConnections()[index];
+  const row = state.connections.find((item) => item.id === seed.id);
+  if (
+    row &&
+    row.name === oldName &&
+    row.provider === seed.provider &&
+    row.revision === 1 &&
+    row.endpoint === '' &&
+    row.credential === 'not_set'
+  ) {
+    row.name = seed.name;
+  }
+}
 for (const row of state.models) {
   const sample = seedModels().find((item) => item.id === row.id);
   const version = row.versions['1'];

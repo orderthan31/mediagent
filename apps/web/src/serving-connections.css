@@ -57,6 +57,19 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.ui02-workspace .ui02-list .provider-resource-row {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  min-height: 64px;
+}
+.provider-resource-row :is(.ui02-list-title, .ui02-list-meta) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ui02-workspace .provider-resource-row .ui02-list-meta {
+  margin: var(--m-space-4) 0 0;
+}
 .serving-resource-facts {
   margin: 0;
 }

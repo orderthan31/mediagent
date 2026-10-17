@@ -16,7 +16,7 @@ export type ServingConnection = {
 export const seedConnections = (): ServingConnection[] => [
   {
     id: '00000000000000000000000000000385',
-    name: '전사용 OpenAI',
+    name: 'OpenAI',
     provider: 'openai',
     endpoint: '',
     revision: 1,
@@ -24,7 +24,7 @@ export const seedConnections = (): ServingConnection[] => [
   },
   {
     id: '00000000000000000000000000000386',
-    name: '번역용 Gemini',
+    name: 'Gemini',
     provider: 'gemini',
     endpoint: '',
     revision: 1,
