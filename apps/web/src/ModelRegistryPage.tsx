@@ -196,8 +196,7 @@ export const ModelRegistryPage = ({
       {status && <p role="status">{status}</p>}
       {form && (
         <>
-          <section className="ticket-panel">
-            <h2>{editing ? '모델 편집' : '모델 등록'}</h2>
+          <section className="ticket-panel page-form">
             <fieldset disabled={busy || loading}>
               <div className="serving-grid">
                 <label>
@@ -298,10 +297,15 @@ export const ModelRegistryPage = ({
                   }
                   onClick={() => void save()}
                 >
-                  모델 등록 저장
+                  저장
                 </Button>
-                <Button variant="secondary" onClick={reset}>
-                  새 등록 입력
+                <Button
+                  variant="quiet"
+                  onClick={() => {
+                    location.hash = identity ? `/serving/${identity}` : '/serving';
+                  }}
+                >
+                  취소
                 </Button>
               </div>
             </fieldset>

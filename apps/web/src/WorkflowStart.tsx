@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { request } from './api';
+import { frontendOnly } from './preview';
+import { stageLabels } from './video-api';
 import { jsonPost, type VideoAsset } from './video-api';
 import { Button } from './hangyeol/primitives/button';
 import { WorkflowTickets } from './WorkflowTickets';
@@ -163,7 +165,11 @@ export const WorkflowStart = () => {
         token: plan.token,
         paid_confirmed: paid,
       });
-      setTicketId(ticket.id);
+      if (frontendOnly) {
+        location.hash = `/jobs/${ticket.id}`;
+      } else {
+        setTicketId(ticket.id);
+      }
     } catch (e) {
       setError(
         e instanceof Error
@@ -181,193 +187,196 @@ export const WorkflowStart = () => {
     return <WorkflowTickets key={ticketId} work recovery={recovery} initialTicketId={ticketId} />;
   }
   return (
-    <main className="serving-page workflow-tickets workflow-start">
+    <main className="serving-page workflow-start">
       <div className="serving-heading">
-        <div>
-          <h1>작업 추가</h1>
-        </div>
-        <Button variant="secondary" disabled={loading || busy} onClick={() => void load()}>
+        <h1>작업 추가</h1>
+        <Button variant="quiet" disabled={loading || busy} onClick={() => void load()}>
           새로고침
         </Button>
       </div>
       {listError && (
-        <p role="alert" className="alert list-query-error">
-          목록 조회 실패 · {listError}
+        <p role="alert" className="alert">
+          {listError}
         </p>
       )}
-      {listError && listsConfirmed && (
-        <p className="list-query-stale">
-          이전 조회값 · 최신 미확인. 영상·워크플로우 목록을 다시 읽어 확인하세요.
-        </p>
-      )}
+      {listError && listsConfirmed && <p className="list-query-stale">이전 조회값 · 최신 미확인</p>}
       {error && (
         <p role="alert" className="alert">
           {error}
         </p>
       )}
       {loading ? (
-        <p role="status">영상·워크플로우 읽는 중</p>
+        <p role="status">불러오는 중</p>
       ) : (
-        <section className="ticket-panel">
-          <h2>작업 대상</h2>
-          <label className="serving-check">
-            <input
-              type="checkbox"
-              aria-label="복구 계약 사용"
-              checked={recovery}
-              disabled={busy}
-              onChange={(e) => {
-                setRecovery(e.target.checked);
-                invalidate();
-              }}
-            />
-            복구 지원
-          </label>
-          <div className="serving-grid">
-            <label>
-              입력 영상
-              <select
-                aria-label="입력 영상"
-                value={assetId}
-                disabled={busy}
-                onChange={(e) => {
-                  setAssetId(e.target.value);
-                  invalidate();
-                }}
-              >
-                <option value="">영상 선택</option>
-                {assets.map((a) => (
-                  <option key={a.asset_id} value={a.asset_id}>
-                    {a.original_filename}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              저장 워크플로우
-              <select
-                aria-label="저장 워크플로우"
-                value={definitionId}
-                disabled={busy}
-                onChange={(e) => void inspect(e.target.value)}
-              >
-                <option value="">워크플로우 선택</option>
-                {definitions.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name} · r{d.revision}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          {listsConfirmed && !listError && definitions.length === 0 && (
-            <p>
-              저장 워크플로우 없음 · <a href="#/workflow-editor">워크플로우 구성</a>에서 먼저
-              저장하세요.
-            </p>
-          )}
-          {listsConfirmed && !listError && assets.length === 0 && (
-            <p>
-              입력 영상 없음 · <a href="#/">영상 보관함</a>에서 등록하세요.
-            </p>
-          )}
-        </section>
-      )}
-      {busy && <p role="status">흐름·설정 확인 중</p>}
-      {inspection && (
-        <section className="ticket-panel">
-          <h2>흐름과 에이전트 설정</h2>
-          <p>
-            정의 r{inspection.definition_revision} · {inspection.summary.length}개 에이전트 ·{' '}
-            <a href={'#/workflows/' + definitionId}>워크플로우 열기</a>
-          </p>
-          {!inspection.supported && (
-            <div role="alert">
-              {inspection.reasons.map((r, i) => (
-                <p key={i}>
-                  {r.node_id ? `${r.node_id}: ` : ''}
-                  {r.message}
-                </p>
-              ))}
-            </div>
-          )}
-          <ol>
-            {inspection.summary.map((node) => (
-              <li key={node.id}>
-                <strong>{node.id}</strong> · {node.type}
-                {node.model && (
-                  <p>
-                    {node.model.name} · r{node.model.revision} · {node.model.provider}/
-                    {node.model.model} · 실연결 미확인
-                  </p>
+        <div className="work-entry-layout">
+          <div className="work-entry-fields">
+            <section className="entry-selection" aria-labelledby="entry-selection-title">
+              <h2 id="entry-selection-title">작업 구성</h2>
+              <label className="form-row">
+                <span>원본</span>
+                <div>
+                  <select
+                    aria-label="원본"
+                    value={assetId}
+                    disabled={busy}
+                    onChange={(event) => {
+                      setAssetId(event.target.value);
+                      invalidate();
+                    }}
+                  >
+                    <option value="">원본 선택</option>
+                    {assets.map((asset) => (
+                      <option key={asset.asset_id} value={asset.asset_id}>
+                        {asset.original_filename}
+                      </option>
+                    ))}
+                  </select>
+                  {!assets.length && !listError && (
+                    <p className="form-note">
+                      등록된 원본이 없습니다. <a href="#/">원본 등록</a>
+                    </p>
+                  )}
+                </div>
+              </label>
+              <label className="form-row">
+                <span>워크플로우</span>
+                <div>
+                  <select
+                    aria-label="워크플로우"
+                    value={definitionId}
+                    disabled={busy}
+                    onChange={(event) => void inspect(event.target.value)}
+                  >
+                    <option value="">워크플로우 선택</option>
+                    {definitions.map((definition) => (
+                      <option key={definition.id} value={definition.id}>
+                        {definition.name}
+                      </option>
+                    ))}
+                  </select>
+                  {!definitions.length && !listError && (
+                    <p className="form-note">
+                      저장된 워크플로우가 없습니다. <a href="#/workflows/new">워크플로우 추가</a>
+                    </p>
+                  )}
+                </div>
+              </label>
+              <details className="entry-options">
+                <summary>추가 옵션</summary>
+                <label className="serving-check">
+                  <input
+                    type="checkbox"
+                    checked={recovery}
+                    disabled={busy}
+                    onChange={(event) => {
+                      setRecovery(event.target.checked);
+                      invalidate();
+                    }}
+                  />
+                  복구 지원
+                </label>
+              </details>
+            </section>
+            {busy && <p role="status">확인 중</p>}
+            {inspection && (
+              <section className="entry-workflow" aria-labelledby="entry-workflow-title">
+                <div className="section-heading">
+                  <h2 id="entry-workflow-title">처리 흐름</h2>
+                  <a href={'#/workflows/' + definitionId}>워크플로우 열기</a>
+                </div>
+                {!inspection.supported && (
+                  <div role="alert">
+                    {inspection.reasons.map((reason, i) => (
+                      <p key={i}>{reason.message}</p>
+                    ))}
+                  </div>
                 )}
-                {node.model_error && <p role="alert">{node.model_error}</p>}
-                {node.type === 'select' && (
-                  <label>
-                    수동 분기 {node.id}
-                    <select
-                      aria-label={`분기 ${node.id} 선택`}
+                <ol className="entry-steps">
+                  {inspection.summary.map((node) => (
+                    <li key={node.id}>
+                      <span>{stageLabels[node.type] || node.type}</span>
+                      {node.model && <small>{node.model.name}</small>}
+                      {node.model_error && <p role="alert">{node.model_error}</p>}
+                      {node.type === 'select' && (
+                        <label>
+                          분기
+                          <select
+                            aria-label={`분기 ${node.id} 선택`}
+                            disabled={busy}
+                            value={choices[node.id] || 'a'}
+                            onChange={(event) => {
+                              setChoices({ ...choices, [node.id]: event.target.value });
+                              invalidate();
+                            }}
+                          >
+                            <option value="a">a</option>
+                            <option value="b">b</option>
+                            <option value="both">둘 다</option>
+                          </select>
+                        </label>
+                      )}
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            )}
+          </div>
+          <aside className="work-entry-summary" aria-labelledby="entry-summary-title">
+            <h2 id="entry-summary-title">작업 요약</h2>
+            <dl>
+              <div>
+                <dt>원본</dt>
+                <dd>
+                  {assets.find((asset) => asset.asset_id === assetId)?.original_filename ||
+                    '선택 전'}
+                </dd>
+              </div>
+              <div>
+                <dt>워크플로우</dt>
+                <dd>
+                  {definitions.find((definition) => definition.id === definitionId)?.name ||
+                    '선택 전'}
+                </dd>
+              </div>
+              <div>
+                <dt>비용</dt>
+                <dd>{plan ? plan.notice : '확인 전'}</dd>
+              </div>
+            </dl>
+            {plan && (
+              <>
+                {plan.paid_roles.length > 0 && (
+                  <label className="serving-check">
+                    <input
+                      type="checkbox"
+                      checked={paid}
                       disabled={busy}
-                      value={choices[node.id] || 'a'}
-                      onChange={(e) => {
-                        setChoices({ ...choices, [node.id]: e.target.value });
-                        invalidate();
-                      }}
-                    >
-                      <option value="a">a</option>
-                      <option value="b">b</option>
-                      <option value="both">둘 다</option>
-                    </select>
+                      onChange={(event) => setPaid(event.target.checked)}
+                    />
+                    {plan.paid_roles.join(', ')} 호출에 따른 비용 발생 가능성을 확인했습니다.
                   </label>
                 )}
-                <details>
-                  <summary>처리 옵션·연결</summary>
-                  <pre>
-                    {JSON.stringify({ options: node.options, inputs: node.inputs }, null, 2)}
-                  </pre>
-                </details>
-              </li>
-            ))}
-          </ol>
-          <Button
-            disabled={busy || !inspection.supported || !inspection.model_ready || !assetId}
-            onClick={() => void preview()}
-          >
-            계획·비용 확인으로
-          </Button>
-        </section>
-      )}
-      {plan && (
-        <section className="ticket-panel start-plan">
-          <h2>계획·비용 명시 확인</h2>
-          <p>{plan.notice}</p>
-          <p>이번 미실행 대상: {plan.eligible_steps.join(' → ')}</p>
-          <p>
-            이번 모델 호출 역할: {plan.paid_roles.join(', ') || '해당 없음'} · 이후 판단/검수 뒤에는
-            새 확인이 필요합니다.
-          </p>
-          {Object.values(plan.model_bindings).map((binding) => (
-            <p key={`${binding.model_id}@${binding.revision}`}>
-              고정 모델 {binding.name} · r{binding.revision} · {binding.provider}/{binding.model}
-            </p>
-          ))}
-          <label className="serving-check">
-            <input
-              type="checkbox"
-              aria-label="계획의 모델 호출 확인"
-              checked={paid}
-              disabled={busy || plan.paid_roles.length === 0}
-              onChange={(e) => setPaid(e.target.checked)}
-            />
-            이 계획의 모델 호출/비용 역할을 명시 확인
-          </label>
-          <Button
-            disabled={busy || (plan.paid_roles.length > 0 && !paid)}
-            onClick={() => void create()}
-          >
-            확인하고 티켓 만들기
-          </Button>
-        </section>
+                <Button
+                  disabled={busy || (plan.paid_roles.length > 0 && !paid)}
+                  onClick={() => void create()}
+                >
+                  작업 생성
+                </Button>
+                <Button variant="quiet" disabled={busy} onClick={() => void preview()}>
+                  다시 확인
+                </Button>
+              </>
+            )}
+            {!plan && (
+              <Button
+                disabled={busy || !assetId || !inspection?.supported || !inspection.model_ready}
+                onClick={() => void preview()}
+              >
+                실행 전 확인
+              </Button>
+            )}
+          </aside>
+        </div>
       )}
     </main>
   );

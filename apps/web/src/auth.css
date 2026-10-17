@@ -50,11 +50,11 @@
 }
 .auth-panel {
   width: 100%;
-  max-width: 440px;
-  padding: var(--m-space-36);
-  background: var(--g-surface);
-  border: 1px solid var(--g-line);
-  border-radius: var(--radius-g-panel);
+  max-width: 344px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
 }
 .auth-intro {
   margin-bottom: var(--m-space-32);

@@ -14,6 +14,9 @@ import {
 } from 'lucide-react';
 import { mediaUrl, Job, request, resumeUpload, uploadRequest } from './api';
 import { frontendOnly } from './preview';
+import { ticketNumber, workflowName } from './job-identity';
+import { AccountPage } from './AccountPage';
+import { PublishingAuth } from './PublishingAuth';
 import { JobDetail } from './JobDetail';
 import { SettingsPage } from './SettingsPage';
 import { ModelRegistryPage } from './ModelRegistryPage';
@@ -53,6 +56,7 @@ import './workspace-polish.css';
 import './workspace-shell.css';
 import './storage.css';
 import './feature-renewal.css';
+import './workspace-layout.css';
 export const VideoWorkspace = () => {
   const [agentLabel, setAgentLabel] = useState('');
   const agentIdentity = location.hash.startsWith('#/agents/')
@@ -235,18 +239,27 @@ export const VideoWorkspace = () => {
   const terminal = (j: Job) => ['COMPLETED', 'FAILED', 'CANCELLED'].includes(j.status);
   const jobRows = (items: Job[]) => {
     return (
-      <div className="ui02-list">
+      <div className="ui02-list job-ledger">
+        <div className="job-ledger-head" aria-hidden="true">
+          <span>티켓번호</span>
+          <span>원본</span>
+          <span>워크플로우</span>
+          <span>상태</span>
+          <span>생성일</span>
+        </div>
         {items.map((job) => (
           <article key={job.job_id} className="ui02-list-item">
             <div className="ui02-list-copy">
               <a className="ui02-list-title" href={`#/jobs/${job.job_id}`}>
-                {job.original_filename}
+                {ticketNumber(job)}
               </a>
-              <p className="ui02-list-meta">
-                {templates[job.metadata.workflow?.template || 'full']} ·{' '}
-                {new Date(job.created_at).toLocaleString('ko-KR')}
-              </p>
-              <span className={'status ' + job.status.toLowerCase()}>
+              <span className="job-source" title={job.original_filename}>
+                {job.original_filename}
+              </span>
+              <span className="job-workflow" title={workflowName(job)}>
+                {workflowName(job)}
+              </span>
+              <span className={'status job-state ' + job.status.toLowerCase()}>
                 {frontendOnly && job.status === 'AWAITING_REVIEW' && job.status_message
                   ? job.status_message
                   : job.status === 'AWAITING_REVIEW' && job.metadata.content_block_review
@@ -255,6 +268,14 @@ export const VideoWorkspace = () => {
                       ? '콘텐츠 차단'
                       : statusLabels[job.status] || job.status}
               </span>
+              <time className="job-created" dateTime={job.created_at}>
+                {new Date(job.created_at).toLocaleString('ko-KR', {
+                  month: '2-digit',
+                  day: '2-digit',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </time>
               {failureMessage(job) && (
                 <p className="alert" role="alert">
                   {failureMessage(job)}
@@ -288,7 +309,17 @@ export const VideoWorkspace = () => {
                 </button>
               )}
               {job.status === 'AWAITING_REVIEW' && (
-                <button onClick={() => setReview(job)}>자막 검토</button>
+                <button
+                  onClick={() => {
+                    if (frontendOnly) {
+                      location.hash = `/jobs/${job.job_id}`;
+                    } else {
+                      setReview(job);
+                    }
+                  }}
+                >
+                  검토
+                </button>
               )}
               {!terminal(job) && !['READY', 'UPLOADING'].includes(job.status) && (
                 <button
@@ -425,6 +456,9 @@ export const VideoWorkspace = () => {
       clearTimeout(timer);
     };
   }, [assetId]);
+  if (frontendOnly && (route === '#/setup' || route === '#/login')) {
+    return <PublishingAuth key={route} setup={route === '#/setup'} />;
+  }
   return (
     <Theme mode="light" palette="Indigo" className="workspace-theme">
       <div className="video-workspace renewed-workspace ui02-workspace">
@@ -478,7 +512,9 @@ export const VideoWorkspace = () => {
           hidden
           onChange={(e) => void attachSrt(e.target.files?.[0])}
         />
-        {startView ? (
+        {frontendOnly && route.startsWith('#/account') ? (
+          <AccountPage key={route} create={route === '#/account/new'} />
+        ) : startView ? (
           <WorkflowStart />
         ) : workflowTicketsView ? (
           <WorkflowTickets
@@ -579,7 +615,9 @@ export const VideoWorkspace = () => {
                 {jobsView ? (
                   jobRows(
                     jobs.filter((j) =>
-                      j.original_filename.toLocaleLowerCase().includes(query.toLocaleLowerCase()),
+                      `${ticketNumber(j)} ${j.original_filename} ${workflowName(j)}`
+                        .toLocaleLowerCase()
+                        .includes(query.toLocaleLowerCase()),
                     ),
                   )
                 ) : (

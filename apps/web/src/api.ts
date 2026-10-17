@@ -7,6 +7,7 @@ export { mediaUrl } from './preview';
 export const base = import.meta.env.VITE_API_BASE_URL || '/api';
 export type Job = {
   job_id: string;
+  ticket_number?: string;
   status: string;
   original_filename: string;
   expected_size: number;
@@ -52,6 +53,9 @@ export type Job = {
     } | null;
     asset_id?: string;
     workflow?: {
+      definition_id?: string;
+      name?: string;
+      revision?: number;
       template: string;
       stages: string[];
     };

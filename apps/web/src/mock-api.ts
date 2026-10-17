@@ -25,6 +25,7 @@ import {
 // provider SDK, credential store, DB or worker connection belongs in this module.
 type Document = Record<string, any>;
 type State = {
+  ticketSequence?: number;
   publishingContractVersion?: number;
   connections: ServingConnection[];
   reviews: Record<string, ReviewTask>;
@@ -119,8 +120,33 @@ const persist = () => {
     /* in-memory preview still works */
   }
 };
+// Migrate display metadata only; preserve tab-local edits and deleted records.
+state.ticketSequence = Math.max(
+  1000,
+  state.ticketSequence || 0,
+  ...state.jobs.map((job) => Number(job.ticket_number?.replace(/^T-/, '')) || 0),
+);
+for (const job of state.jobs) {
+  if (!job.ticket_number) {
+    job.ticket_number = `T-${String(++state.ticketSequence).padStart(6, '0')}`;
+  }
+  const sample = seedJobs().find((row) => row.job_id === job.job_id);
+  if (sample && job.metadata.workflow && !job.metadata.workflow.name) {
+    Object.assign(job.metadata.workflow, {
+      definition_id: sample.metadata.workflow?.definition_id,
+      name: sample.metadata.workflow?.name,
+      revision: sample.metadata.workflow?.revision,
+    });
+  }
+}
+persist();
 export const resetMock = () => {
   state = initial();
+  try {
+    sessionStorage.removeItem('mideagent-publishing-accounts-v1');
+  } catch {
+    /* reset on reload */
+  }
   persist();
   location.reload();
 };
@@ -255,6 +281,7 @@ const ticketsFor = (namespace: string) =>
 const newJob = (asset: VideoAsset, body: Document): Job => ({
   ...clone(seedJobs()[0]),
   job_id: uid(),
+  ticket_number: `T-${String((state.ticketSequence = (state.ticketSequence || 1000) + 1)).padStart(6, '0')}`,
   status: 'READY',
   original_filename: asset.original_filename,
   expected_size: asset.size_bytes,
@@ -266,6 +293,13 @@ const newJob = (asset: VideoAsset, body: Document): Job => ({
     asset_id: asset.asset_id,
     duration: 12,
     workflow: {
+      ...(body.definition_id
+        ? {
+            definition_id: body.definition_id,
+            name: state.definitions.find((row) => row.id === body.definition_id)?.name,
+            revision: state.definitions.find((row) => row.id === body.definition_id)?.revision,
+          }
+        : {}),
       template: body.template || 'full',
       stages: [
         'analyze',
@@ -848,7 +882,10 @@ export const mockRequest = async <T>(path: string, init: RequestInit = {}): Prom
       state.videos.find((v) => v.asset_id === body.asset_id),
       '원본',
     );
-    state.jobs.unshift({ ...newJob(asset, body), job_id: ticket.id });
+    const job = { ...newJob(asset, body), job_id: ticket.id };
+    job.metadata.workflow!.stages = ticket.definition.nodes.map((node: Document) => node.type);
+    state.jobs.unshift(job);
+    ticket.ticket_number = job.ticket_number;
     value = ticket;
   } else if (
     parts[0] === 'settings' &&

@@ -1,14 +1,14 @@
 /* Mideagent consumer overrides only. Canonical Hangyeol sources/imports stay intact.
    Observed root = 16 CSS px. Override leaf roles once; aliases do not subtract again. */
 @theme {
-  --text-g-body: .875rem;
-  --text-g-small: .75rem;
-  --text-g-caption: .625rem;
+  --text-g-body: 0.875rem;
+  --text-g-small: 0.75rem;
+  --text-g-caption: 0.625rem;
   --text-g-title: 1.625rem;
-  --spacing-g-control: .75rem;
-  --radius-g-control: .375rem;
-  --radius-g-panel: .625rem;
-  --spacing: .21875rem;
+  --spacing-g-control: 0.75rem;
+  --radius-g-control: 0.375rem;
+  --radius-g-panel: 0.625rem;
+  --spacing: 0.21875rem;
 }
 :root {
   --m-space-4: 3px;
@@ -34,15 +34,15 @@
   --m-type-note: 11px;
   --m-type-label: 13px;
   --m-type-subtitle: 15px;
-  --m-type-emphasis: 16px;
-  --m-type-panel-title: 17px;
-  --m-type-section-title: 18px;
-  --m-type-card-title: 19px;
-  --m-type-heading: 20px;
-  --m-type-title: 21px;
-  --m-type-page-small: 22px;
-  --m-type-page-title: 23px;
-  --m-type-page-medium: 24px;
+  --m-type-emphasis: 14px;
+  --m-type-panel-title: 15px;
+  --m-type-section-title: 16px;
+  --m-type-card-title: 16px;
+  --m-type-heading: 18px;
+  --m-type-title: 19px;
+  --m-type-page-small: 20px;
+  --m-type-page-title: 20px;
+  --m-type-page-medium: 21px;
   --m-type-display: 28px;
   --m-type-display-large: 30px;
   --m-type-fine: 10.8px;
@@ -50,27 +50,45 @@
   --m-type-lead: 14.8px;
   --m-type-title-fraction: 23.6px;
   --m-type-helper: 11.6px;
-  --m-type-responsive-title: clamp(22px, calc(4vw - 2px), 30px);
-  --m-control-height: 36px;
+  --m-type-responsive-title: 20px;
+  --m-control-height: 32px;
   --m-control-line: 20px;
   --m-control-pad: 12px;
   --m-control-gap: 6px;
   --m-page-pad: 24px;
-  --m-card-pad: 18px;
-  --m-row-pad: 14px;
+  --m-content-width: 1440px;
+  --m-form-width: 640px;
+  --m-auth-width: 336px;
+  --m-auth-top: clamp(64px, 13vh, 140px);
+  --m-card-pad: 14px;
+  --m-row-pad: 10px;
   --m-row-gap: 12px;
-  --m-header-height: 60px;
-  --m-rail-width: 208px;
+  --m-header-height: 52px;
+  --m-rail-width: 184px;
   --m-rail-collapsed: 64px;
-  --m-nav-height: 40px;
-  --m-list-height: 68px;
+  --m-nav-height: 36px;
+  --m-list-height: 52px;
 }
-[data-hangyeol] { font-size: var(--text-g-body); }
-.workspace-theme :is(.min-h-11, input:not([type='checkbox']):not([type='radio']), select) { min-height: var(--m-control-height); }
-.workspace-theme .leading-6 { line-height: var(--m-control-line); }
-.workspace-theme .min-h-11 { padding-block: 7px; gap: var(--m-control-gap); }
-.workspace-theme :is(button, a):focus-visible { outline: 2px solid var(--g-focus); outline-offset: 3px; }
+[data-hangyeol] {
+  font-size: var(--text-g-body);
+}
+.workspace-theme :is(.min-h-11, input:not([type='checkbox']):not([type='radio']), select) {
+  min-height: var(--m-control-height);
+}
+.workspace-theme .leading-6 {
+  line-height: var(--m-control-line);
+}
+.workspace-theme .min-h-11 {
+  padding-block: 5px;
+  gap: var(--m-control-gap);
+}
+.workspace-theme :is(button, a):focus-visible {
+  outline: 2px solid var(--g-focus);
+  outline-offset: 3px;
+}
 @media (max-width: 55.999rem) {
-  .workspace-theme :is(.min-h-11, input:not([type='checkbox']):not([type='radio']), select) { min-height: 44px; }
+  .workspace-theme :is(.min-h-11, input:not([type='checkbox']):not([type='radio']), select) {
+    min-height: 44px;
+  }
 }
 /* Existing 10/11px noninteractive badges keep a 10px readability floor. */

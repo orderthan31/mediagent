@@ -14,9 +14,10 @@
   font-size: var(--m-type-page-medium);
 }
 .ticket-summary {
-  border: 1px solid var(--g-line);
-  border-radius: var(--radius-g-panel);
-  padding: var(--m-space-24);
+  border: 0;
+  border-bottom: 1px solid var(--g-line);
+  border-radius: 0;
+  padding: 0 0 var(--m-space-24);
   margin-bottom: var(--m-space-24);
   background: var(--g-surface);
 }
@@ -63,9 +64,9 @@
   padding: 0;
 }
 .ticket-plan li {
-  border: 1px solid var(--g-line);
-  border-radius: var(--radius-g-control);
-  padding: var(--m-space-10) var(--m-space-14);
+  border: 0;
+  border-radius: 0;
+  padding: var(--m-space-6) 0;
   font-size: var(--text-g-small);
 }
 .ticket-plan li[aria-current='step'] {
@@ -97,9 +98,9 @@
 .ticket-detail .media-panel,
 .ticket-detail .text-panel {
   background: var(--g-surface);
-  border: 1px solid var(--g-line);
-  border-radius: var(--radius-g-panel);
-  padding: var(--m-space-24);
+  border: 0;
+  border-radius: 0;
+  padding: 0;
 }
 .ticket-detail .panel-heading h2 {
   font-size: var(--m-type-emphasis);

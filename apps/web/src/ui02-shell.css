@@ -3,7 +3,7 @@
   padding-top: var(--m-header-height);
   padding-left: var(--ui02-rail, 0px);
   min-height: 100dvh;
-  background: #f7f8fa;
+  background: var(--g-surface);
 }
 .ui02-gnb {
   position: fixed;
@@ -127,7 +127,7 @@
   position: fixed;
   inset: var(--m-header-height) auto 0 0;
   width: var(--m-rail-width);
-  padding: var(--m-space-24) var(--m-space-14);
+  padding: 16px 10px;
   z-index: 30;
   background: white;
   border-right: 1px solid #e6e8ee;
@@ -143,7 +143,7 @@
   display: flex;
   align-items: center;
   gap: 13px;
-  padding: 13px var(--m-space-16);
+  padding: 9px 12px;
   border-radius: 9px;
   color: #6b7285;
   text-decoration: none;
@@ -388,10 +388,9 @@
   color: #9299a9;
 }
 .ui02-workflow-list {
-  border: 1px solid #e4e7ee;
-  background: white;
-  border-radius: 12px;
-  overflow: hidden;
+  border-top: 1px solid var(--g-line);
+  background: var(--g-surface);
+  border-radius: 0;
 }
 .ui02-workflow-row {
   display: flex;
@@ -431,10 +430,11 @@
   font-size: var(--text-g-small);
 }
 .ui02-definition-summary {
-  background: white;
-  border: 1px solid #e4e7ee;
-  border-radius: 12px;
-  padding: var(--m-space-24);
+  background: transparent;
+  border: 0;
+  border-top: 1px solid var(--g-line);
+  border-radius: 0;
+  padding: var(--m-space-24) 0;
 }
 .ui02-definition-summary dl {
   display: flex;
@@ -480,7 +480,8 @@
 .renewed-workspace .ui02-list,
 .renewed-workspace .storage-library {
   display: grid;
-  gap: var(--m-row-gap);
+  gap: 0;
+  border-top: 1px solid var(--g-line);
 }
 .renewed-workspace .ui02-list-item {
   display: grid;
@@ -490,17 +491,17 @@
   min-width: 0;
   min-height: var(--m-list-height);
   padding: var(--m-row-pad) var(--m-card-pad);
-  border: 1px solid var(--g-line);
-  border-radius: var(--radius-g-panel);
-  background: var(--g-surface);
+  border: 0;
+  border-bottom: 1px solid var(--g-line);
+  border-radius: 0;
+  background: transparent;
   color: var(--g-ink);
   text-decoration: none;
   box-sizing: border-box;
 }
 .renewed-workspace .ui02-list-item:hover,
 .renewed-workspace .ui02-list-item:focus-within {
-  border-color: var(--g-action);
-  background: color-mix(in srgb, var(--g-action) 3%, var(--g-surface));
+  background: color-mix(in srgb, var(--g-action) 2%, var(--g-surface));
 }
 .renewed-workspace .ui02-list-item[aria-selected='true'] {
   border-color: var(--g-action);
@@ -676,8 +677,8 @@
 }
 .ui02-workspace .ui02-gnb :is(.ui02-primary, .ui02-icon) {
   flex-shrink: 0;
-  height: 36px;
-  min-height: 36px;
+  height: var(--m-control-height);
+  min-height: var(--m-control-height);
   line-height: 20px;
   box-sizing: border-box;
 }

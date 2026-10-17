@@ -205,6 +205,7 @@ export const seedJobs = (): Job[] =>
     'AWAITING_REVIEW',
   ].map((status, i) => ({
     job_id: mockId(101 + i),
+    ticket_number: `T-${String(1001 + i).padStart(6, '0')}`,
     status,
     original_filename: [
       '제품 소개_인터뷰.mp4',
@@ -240,6 +241,9 @@ export const seedJobs = (): Job[] =>
       asset_id: mockId((i % 4) + 1),
       duration: 12,
       workflow: {
+        definition_id: mockId(i === 7 ? 204 : 201),
+        name: i === 7 ? '얼굴 합성 · 결과 확인' : '영상 전사 · 번역 자막',
+        revision: i === 7 ? 1 : 3,
         template: 'full',
         stages: [
           'analyze',

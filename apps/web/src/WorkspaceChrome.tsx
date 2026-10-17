@@ -15,6 +15,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { AccountMenu } from './AuthGate';
+import { PreviewAccountMenu } from './AccountPage';
 import { frontendOnly } from './preview';
 import './ui02-shell.css';
 const sections = [
@@ -60,33 +61,37 @@ export const WorkspaceChrome = ({
             : route === '#/' || route.startsWith('#/videos/')
               ? 1
               : 0;
-  const current = sections[group];
+  const accountView = route.startsWith('#/account');
+  const current = accountView ? { name: '계정', href: '#/account' } : sections[group];
   const child =
-    route === '#/serving/connections'
-      ? '공급자'
-      : route.startsWith('#/agents/')
-        ? agentLabel || '상세'
-        : route === '#/serving/roles'
-          ? '역할 설정'
-          : route === '#/start'
-            ? '추가'
-            : /\/new$/.test(route)
+    route === '#/account/new'
+      ? '발급'
+      : route === '#/serving/connections'
+        ? '공급자'
+        : route.startsWith('#/agents/')
+          ? agentLabel || '상세'
+          : route === '#/serving/roles'
+            ? '역할 설정'
+            : route === '#/start'
               ? '추가'
-              : /\/edit$/.test(route)
-                ? route.startsWith('#/workflows/')
-                  ? '상세'
-                  : '편집'
-                : route.startsWith('#/serving/') ||
-                    route.startsWith('#/videos/') ||
-                    /^#\/jobs\//.test(route) ||
-                    /^#\/workflows\//.test(route)
-                  ? '상세'
-                  : route.includes('tickets')
-                    ? '워크플로우 작업'
-                    : '';
+              : /\/new$/.test(route)
+                ? '추가'
+                : /\/edit$/.test(route)
+                  ? route.startsWith('#/workflows/')
+                    ? '상세'
+                    : '편집'
+                  : route.startsWith('#/serving/') ||
+                      route.startsWith('#/videos/') ||
+                      /^#\/jobs\//.test(route) ||
+                      /^#\/workflows\//.test(route)
+                    ? '상세'
+                    : route.includes('tickets')
+                      ? '워크플로우 작업'
+                      : '';
   const list = !child || route === '#/serving/connections';
-  const action =
-    group === 0
+  const action = accountView
+    ? null
+    : group === 0
       ? { label: '새 작업', href: '#/start' }
       : group === 1
         ? null
@@ -108,7 +113,7 @@ export const WorkspaceChrome = ({
         <a
           href={item.href}
           key={item.name}
-          aria-current={group === index ? 'page' : undefined}
+          aria-current={!accountView && group === index ? 'page' : undefined}
           title={item.name}
           onClick={() => setDrawer(false)}
         >
@@ -159,7 +164,7 @@ export const WorkspaceChrome = ({
           </a>
         </div>
         <div className="ui02-page-actions">
-          {list && group !== 5 && (
+          {list && group !== 5 && !accountView && (
             <div className="ui02-search">
               <Search size={17} aria-hidden="true" />
               <input
@@ -211,7 +216,7 @@ export const WorkspaceChrome = ({
               목업
             </button>
           )}
-          <AccountMenu />
+          {frontendOnly ? <PreviewAccountMenu /> : <AccountMenu />}
         </div>
       </header>
       {wide && (

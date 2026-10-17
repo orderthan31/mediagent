@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { mediaUrl, Job, request } from './api';
 import { frontendOnly } from './preview';
+import { ticketNumber, workflowName } from './job-identity';
 import { VideoAsset } from './video-api';
 import { StageProgress } from './StageProgress';
 import { failureMessage, isContentBlocked } from './job-failure';
@@ -184,8 +185,14 @@ export const JobDetail = ({
       <div className="detail-page-heading">
         <div>
           <h1 ref={heading} tabIndex={-1}>
-            {job?.original_filename || '작업 불러오는 중'}
+            {job ? ticketNumber(job) : '작업 불러오는 중'}
           </h1>
+          {job && (
+            <p className="job-heading-context">
+              <span>{job.original_filename}</span>
+              <span>{workflowName(job)}</span>
+            </p>
+          )}
         </div>
         {job?.status === 'COMPLETED' && !preview?.expired && downloadFiles.length > 0 && (
           <details className="result-downloads">
