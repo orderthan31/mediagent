@@ -3,7 +3,7 @@ import { ArrowLeft, FileVideo, FolderOpen, Plus, Search, Trash2, Upload, X } fro
 import { mediaUrl, Job, request, resumeUpload, uploadRequest } from './api';
 import { PageTitle } from './PageTitle';
 import { Pagination, usePagination } from './Pagination';
-import { frontendOnly } from './preview';
+import { frontendOnly, renewalBackend } from './preview';
 import { ticketNumber, workflowName } from './job-identity';
 import { AccountPage } from './AccountPage';
 import { PublishingAuth } from './PublishingAuth';
@@ -323,6 +323,9 @@ export const VideoWorkspace = () => {
     return () => window.removeEventListener('hashchange', navigate);
   }, []);
   useEffect(() => {
+    if (renewalBackend) {
+      return; // Foundation API must not poll or activate legacy upload/queue storage.
+    }
     queue.onChange = () => setUploads(queue.items.map((x) => ({ ...x })));
     queue.activate();
     const controller = new AbortController();
@@ -360,7 +363,7 @@ export const VideoWorkspace = () => {
     };
   }, [queue]);
   useEffect(() => {
-    if (!assetId) {
+    if (renewalBackend || !assetId) {
       return;
     }
     const controller = new AbortController();
@@ -447,7 +450,29 @@ export const VideoWorkspace = () => {
           hidden
           onChange={(e) => void attachSrt(e.target.files?.[0])}
         />
-        {frontendOnly && route.startsWith('#/account') ? (
+        {renewalBackend &&
+        !(route.startsWith('#/account') || (servingView && route !== '#/serving/roles')) ? (
+          <main className="serving-page">
+            <PageTitle>
+              {route.startsWith('#/workflows')
+                ? '워크플로우'
+                : route.startsWith('#/agents')
+                  ? '에이전트'
+                  : settingsView
+                    ? '시스템'
+                    : route === '#/' || assetId
+                      ? '원본'
+                      : '작업'}
+            </PageTitle>
+            <p role="status">
+              이 화면의 PostgreSQL 연동은 아직 준비 중입니다. 기존 데이터나 실행기는 연결하지
+              않았습니다.
+            </p>
+            <a className="ui02-text-action" href="#/serving">
+              서빙 관리
+            </a>
+          </main>
+        ) : (frontendOnly || renewalBackend) && route.startsWith('#/account') ? (
           <AccountPage key={route} create={route === '#/account/new'} />
         ) : startView ? (
           <WorkflowStart />
@@ -484,7 +509,7 @@ export const VideoWorkspace = () => {
         ) : editorView ? (
           <WorkflowEditor key={route} initialId={workflowIdentity} />
         ) : servingView ? (
-          frontendOnly && route.startsWith('#/serving/connections') ? (
+          (frontendOnly || renewalBackend) && route.startsWith('#/serving/connections') ? (
             <ProviderConnections key={route} route={route} query={query} />
           ) : route === '#/serving/roles' && !frontendOnly ? (
             <ServingPage />

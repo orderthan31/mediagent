@@ -3,6 +3,7 @@ export type RegisteredVersion = ModelReference & {
   name: string;
   provider: string;
   connection_id?: string;
+  connection_revision?: number;
   model: string;
   uses: string[];
   sha256: string;

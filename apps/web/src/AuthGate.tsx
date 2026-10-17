@@ -5,12 +5,16 @@ import { sessionEvents, setCsrfToken } from './auth-session';
 import { Theme } from './hangyeol/foundation/theme';
 import { TextField } from './hangyeol/components/text-field';
 import { Button } from './hangyeol/primitives/button';
+import { renewalBackend } from './preview';
 import './auth.css';
 type Session = {
   enabled: boolean;
+  setup_required?: boolean;
+  backend?: string;
   user: {
     id: string;
     username: string;
+    role?: 'admin' | 'user';
   } | null;
   csrf_token?: string;
 };
@@ -19,6 +23,7 @@ const AuthContext = createContext<{
   logout: () => void;
   busy: boolean;
 } | null>(null);
+export const useWorkspaceAuth = () => useContext(AuthContext);
 export const AccountMenu = () => {
   const auth = useContext(AuthContext);
   if (!auth?.session.user) {
@@ -46,6 +51,9 @@ export const AuthGate = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [username, setUsername] = useState(''),
     [password, setPassword] = useState('');
+  const [confirmation, setConfirmation] = useState('');
+  const [notice, setNotice] = useState('');
+  const setup = renewalBackend && session?.setup_required === true;
   const [error, setError] = useState(''),
     [busy, setBusy] = useState(false),
     [attempt, setAttempt] = useState(0);
@@ -60,6 +68,19 @@ export const AuthGate = ({ children }: { children: ReactNode }) => {
     setBusy(true);
     setError('');
     try {
+      if (setup) {
+        if (password !== confirmation) {
+          throw new Error('비밀번호 확인이 일치하지 않습니다.');
+        }
+        await request('/auth/bootstrap', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password }),
+        });
+        accept(await request<Session>('/auth/session'));
+        setNotice('관리자 계정을 생성했습니다. 로그인해 주세요.');
+        return;
+      }
       const result = await request<Session>('/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -67,10 +88,13 @@ export const AuthGate = ({ children }: { children: ReactNode }) => {
       });
       setPassword('');
       accept(result);
+      setNotice('');
     } catch (e) {
       setPassword('');
       setError(e instanceof Error ? e.message : '로그인에 실패했습니다.');
     } finally {
+      setPassword('');
+      setConfirmation('');
       setBusy(false);
     }
   };
@@ -146,16 +170,19 @@ export const AuthGate = ({ children }: { children: ReactNode }) => {
           <div className="auth-intro">
             <p className="auth-eyebrow">다시 이어가는 작업</p>
             <h1 id="auth-title" className="text-g-title leading-g-title font-semibold">
-              {session ? '작업 공간에 로그인' : '작업 공간 연결'}
+              {setup ? '최초 관리자 생성' : session ? '작업 공간에 로그인' : '작업 공간 연결'}
             </h1>
             <p className="auth-description">
-              {session
-                ? '영상과 자막 작업을 이어가세요.'
-                : error
-                  ? '서버 연결에 실패했어요. 연결 상태를 확인한 뒤 다시 시도해 주세요.'
-                  : '서버 연결과 로그인 상태를 확인하고 있어요.'}
+              {setup
+                ? '관리자 계정을 만든 뒤 로그인해 주세요.'
+                : session
+                  ? '영상과 자막 작업을 이어가세요.'
+                  : error
+                    ? '서버 연결에 실패했어요. 연결 상태를 확인한 뒤 다시 시도해 주세요.'
+                    : '서버 연결과 로그인 상태를 확인하고 있어요.'}
             </p>
           </div>
+          {notice && <p role="status">{notice}</p>}
           {error && (
             <div className="auth-error" role="alert">
               <strong>{session ? '로그인하지 못했어요' : '서버에 연결하지 못했어요'}</strong>
@@ -201,20 +228,39 @@ export const AuthGate = ({ children }: { children: ReactNode }) => {
                 <TextField
                   label="비밀번호"
                   type="password"
-                  autoComplete="current-password"
+                  autoComplete={setup ? 'new-password' : 'current-password'}
                   name="password"
                   required
                   maxLength={256}
+                  minLength={renewalBackend ? 12 : undefined}
                   value={password}
                   disabled={busy}
                   onChange={(e) => setPassword(e.target.value)}
                 />
+                {setup && (
+                  <TextField
+                    label="비밀번호 확인"
+                    name="confirmation"
+                    type="password"
+                    autoComplete="new-password"
+                    required
+                    minLength={12}
+                    maxLength={256}
+                    value={confirmation}
+                    disabled={busy}
+                    onChange={(event) => setConfirmation(event.target.value)}
+                  />
+                )}
               </div>
               <Button type="submit" className="w-full" loading={busy} disabled={busy}>
                 <LogIn size={18} aria-hidden="true" />
-                {busy ? '로그인 중...' : '로그인'}
+                {busy ? '처리 중...' : setup ? '관리자 생성' : '로그인'}
               </Button>
-              <p className="auth-form-note">이 작업 공간에 등록된 계정으로 로그인해 주세요.</p>
+              <p className="auth-form-note">
+                {setup
+                  ? '아이디 3~64자 · 비밀번호 12~256자'
+                  : '이 작업 공간에 등록된 계정으로 로그인해 주세요.'}
+              </p>
             </form>
           )}
         </section>

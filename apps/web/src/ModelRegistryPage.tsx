@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react';
 import { PageTitle } from './PageTitle';
 import { Pagination, usePagination } from './Pagination';
 import { request } from './api';
-import { frontendOnly } from './preview';
+import { frontendOnly, renewalBackend } from './preview';
 import { ServingTabs } from './ProviderConnections';
-import type { ServingConnection } from './serving-connection';
+import { connectionsEndpoint, type ServingConnection } from './serving-connection';
 import { jsonPost } from './video-api';
 import { Button } from './hangyeol/primitives/button';
 import { Input } from './hangyeol/primitives/input';
@@ -25,6 +25,7 @@ export const ModelRegistryPage = ({
   const [models, setModels] = useState<RegisteredModel[]>([]);
   const [connections, setConnections] = useState<ServingConnection[]>([]);
   const [connectionId, setConnectionId] = useState('');
+  const [connectionRevision, setConnectionRevision] = useState(0);
   const [providers, setProviders] = useState<Record<string, string>>({});
   const [editing, setEditing] = useState<RegisteredModel | null>(null);
   const [name, setName] = useState('');
@@ -45,10 +46,8 @@ export const ModelRegistryPage = ({
       const data = await request<{ models: RegisteredModel[]; providers: Record<string, string> }>(
         endpoint,
       );
-      if (frontendOnly) {
-        const linked = await request<{ connections: ServingConnection[] }>(
-          '/publishing/connections',
-        );
+      if (frontendOnly || renewalBackend) {
+        const linked = await request<{ connections: ServingConnection[] }>(connectionsEndpoint);
         setConnections(linked.connections);
       }
       setModels(data.models);
@@ -77,6 +76,9 @@ export const ModelRegistryPage = ({
       const data = await jsonPost<{ uses: string[]; reason: string }>(endpoint + '/compatibility', {
         provider,
         model,
+        ...(renewalBackend
+          ? { connection_id: connectionId, connection_revision: connectionRevision }
+          : {}),
       });
       setCompatible(data.uses);
       setUses((previous) => previous.filter((u) => data.uses.includes(u)));
@@ -94,6 +96,7 @@ export const ModelRegistryPage = ({
     setEditing(row);
     setName(version.name);
     setConnectionId(version.connection_id || '');
+    setConnectionRevision(version.connection_revision || 0);
     setProvider(version.provider);
     setModel(version.model);
     setUses(version.uses);
@@ -104,6 +107,12 @@ export const ModelRegistryPage = ({
       const data = await jsonPost<{ uses: string[] }>(endpoint + '/compatibility', {
         provider: version.provider,
         model: version.model,
+        ...(renewalBackend
+          ? {
+              connection_id: version.connection_id,
+              connection_revision: version.connection_revision,
+            }
+          : {}),
       });
       setCompatible(data.uses);
     } catch (e) {
@@ -113,6 +122,9 @@ export const ModelRegistryPage = ({
     }
   };
   const save = async () => {
+    if (busy || loading || (identity && !editing) || listError) {
+      return;
+    }
     setBusy(true);
     setError('');
     try {
@@ -126,12 +138,16 @@ export const ModelRegistryPage = ({
           provider,
           model,
           uses,
-          ...(frontendOnly ? { connection_id: connectionId } : {}),
+          ...(frontendOnly || renewalBackend ? { connection_id: connectionId } : {}),
+          ...(renewalBackend ? { connection_revision: connectionRevision } : {}),
         }),
       });
       setEditing(row);
       setStatus('저장됨');
       await load();
+      if (renewalBackend) {
+        location.hash = '/serving/' + row.id;
+      }
     } catch (e) {
       setError(
         e instanceof Error
@@ -162,13 +178,6 @@ export const ModelRegistryPage = ({
       setBusy(false);
     }
   };
-  useEffect(() => {
-    void load();
-  }, []);
-  useEffect(() => {
-    const row = models.find((item) => item.id === identity);
-    if (form && row && editing?.id !== row.id) void edit(row);
-  }, [form, identity, models, editing?.id]);
   const selectedModel = models.find((row) => row.id === identity);
   const selectedName = selectedModel?.versions[String(selectedModel.current_revision)]?.name;
   const shown = models.filter(
@@ -180,6 +189,15 @@ export const ModelRegistryPage = ({
           .includes(query.toLocaleLowerCase())),
   );
   const page = usePagination(shown, query);
+  useEffect(() => {
+    void load();
+  }, []);
+  useEffect(() => {
+    const row = models.find((item) => item.id === identity);
+    if (form && row && editing?.id !== row.id) {
+      void edit(row);
+    }
+  }, [form, identity, models, editing?.id]);
   return (
     <main className="serving-page workflow-tickets model-registry">
       <PageTitle>
@@ -189,7 +207,7 @@ export const ModelRegistryPage = ({
             ? '모델 추가'
             : '서빙'}
       </PageTitle>
-      {frontendOnly && !form && !identity && <ServingTabs />}
+      {(frontendOnly || renewalBackend) && !form && !identity && <ServingTabs />}
       {listError && (
         <p role="alert" className="alert list-query-error">
           목록 조회 실패 · {listError}
@@ -209,7 +227,7 @@ export const ModelRegistryPage = ({
       {form && (
         <>
           <section className="ticket-panel page-form">
-            <fieldset disabled={busy || loading}>
+            <fieldset disabled={busy || loading || (!!identity && !editing) || !!listError}>
               <div className="serving-grid">
                 <label>
                   등록 이름
@@ -221,14 +239,17 @@ export const ModelRegistryPage = ({
                   />
                 </label>
                 <label>
-                  {frontendOnly ? '공급자 연결' : '공급자'}
-                  {frontendOnly ? (
+                  {frontendOnly || renewalBackend ? '공급자 연결' : '공급자'}
+                  {frontendOnly || renewalBackend ? (
                     <select
                       aria-label="공급자 연결"
                       value={connectionId}
                       onChange={(event) => {
                         const selected = connections.find((row) => row.id === event.target.value);
                         setConnectionId(event.target.value);
+                        setConnectionRevision(
+                          selected?.current_revision || selected?.revision || 0,
+                        );
                         if (selected) {
                           setProvider(selected.provider);
                         }
@@ -240,6 +261,9 @@ export const ModelRegistryPage = ({
                       {connections.map((row) => (
                         <option key={row.id} value={row.id}>
                           {row.name}
+                          {renewalBackend
+                            ? ` · r${row.id === connectionId ? connectionRevision : row.current_revision}`
+                            : ''}
                         </option>
                       ))}
                     </select>
@@ -275,9 +299,31 @@ export const ModelRegistryPage = ({
                   />
                 </label>
               </div>
+              {renewalBackend && !!connectionRevision && (
+                <div className="serving-help">
+                  연결 고정 버전 r{connectionRevision}
+                  {connections.some(
+                    (row) => row.id === connectionId && row.current_revision !== connectionRevision,
+                  ) && (
+                    <Button
+                      variant="quiet"
+                      onClick={() => {
+                        const row = connections.find((row) => row.id === connectionId);
+                        if (row?.current_revision) {
+                          setConnectionRevision(row.current_revision);
+                          setUses([]);
+                          setCompatible([]);
+                        }
+                      }}
+                    >
+                      연결 최신 버전 적용
+                    </Button>
+                  )}
+                </div>
+              )}
               <Button
                 variant="secondary"
-                disabled={!model || (frontendOnly && !connectionId)}
+                disabled={!model || ((frontendOnly || renewalBackend) && !connectionId)}
                 onClick={() => void check()}
               >
                 호환 용도 확인
@@ -305,7 +351,7 @@ export const ModelRegistryPage = ({
                     !name.trim() ||
                     !uses.length ||
                     !compatible.length ||
-                    (frontendOnly && !connectionId)
+                    ((frontendOnly || renewalBackend) && !connectionId)
                   }
                   onClick={() => void save()}
                 >
@@ -389,7 +435,7 @@ export const ModelRegistryPage = ({
           )}
         </>
       )}
-      {!frontendOnly && !form && (
+      {!frontendOnly && !renewalBackend && !form && (
         <a className="ui02-text-action" href="#/serving/roles">
           역할 설정
         </a>

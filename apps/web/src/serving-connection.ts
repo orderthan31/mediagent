@@ -1,10 +1,17 @@
+import { renewalBackend } from './preview';
+export const connectionsEndpoint = renewalBackend
+  ? '/settings/serving-connections'
+  : '/publishing/connections';
 export type ServingConnection = {
   id: string;
   name: string;
   provider: string;
   endpoint: string;
   revision: number;
-  credential: 'not_set';
+  current_revision?: number;
+  protocol?: string;
+  active?: boolean;
+  credential: 'not_set' | 'reference_set';
 };
 export const seedConnections = (): ServingConnection[] => [
   {

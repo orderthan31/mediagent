@@ -16,7 +16,7 @@ import {
   UsersRound,
 } from 'lucide-react';
 import { AccountMenu } from './AuthGate';
-import { frontendOnly } from './preview';
+import { frontendOnly, renewalBackend } from './preview';
 import { PageTitleSlot } from './PageTitle';
 import './ui02-shell.css';
 const sections = [
@@ -26,7 +26,9 @@ const sections = [
   { name: '에이전트', href: '#/agents', icon: Boxes },
   { name: '서빙', href: '#/serving', icon: Layers },
   { name: '시스템', href: '#/settings', icon: Settings },
-  ...(frontendOnly ? [{ name: '계정 관리', href: '#/account', icon: UsersRound }] : []),
+  ...(frontendOnly || renewalBackend
+    ? [{ name: '계정 관리', href: '#/account', icon: UsersRound }]
+    : []),
 ];
 export const WorkspaceChrome = ({
   route,
@@ -91,24 +93,25 @@ export const WorkspaceChrome = ({
                       ? '워크플로우 작업'
                       : '';
   const list = !child || route === '#/serving/connections';
-  const action = accountView
-    ? null
-    : group === 0
-      ? { label: '새 작업', href: '#/start' }
-      : group === 1
-        ? null
-        : group === 2
-          ? child
-            ? null
-            : {
-                label: '새 워크플로우',
-                href: '#/workflows/new',
-              }
-          : group === 4
-            ? route.startsWith('#/serving/connections')
-              ? { label: '공급자 추가', href: '#/serving/connections/new' }
-              : { label: '모델 추가', href: '#/serving/new' }
-            : null;
+  const action =
+    accountView || (renewalBackend && group !== 4)
+      ? null
+      : group === 0
+        ? { label: '새 작업', href: '#/start' }
+        : group === 1
+          ? null
+          : group === 2
+            ? child
+              ? null
+              : {
+                  label: '새 워크플로우',
+                  href: '#/workflows/new',
+                }
+            : group === 4
+              ? route.startsWith('#/serving/connections')
+                ? { label: '공급자 추가', href: '#/serving/connections/new' }
+                : { label: '모델 추가', href: '#/serving/new' }
+              : null;
   const links = (
     <>
       <nav aria-label="주 메뉴">
@@ -150,8 +153,11 @@ export const WorkspaceChrome = ({
     );
   }, [wide, collapsed]);
   useEffect(() => {
-    if (drawer && !wide) dialog.current?.showModal();
-    else dialog.current?.close();
+    if (drawer && !wide) {
+      dialog.current?.showModal();
+    } else {
+      dialog.current?.close();
+    }
   }, [drawer, wide]);
   useEffect(() => {
     setDrawer(false);
@@ -184,7 +190,7 @@ export const WorkspaceChrome = ({
           </nav>
         </div>
         <div className="ui02-page-actions">
-          {list && group !== 5 && !accountView && (
+          {list && group !== 5 && !accountView && (!renewalBackend || group === 4) && (
             <div className="ui02-search">
               <Search size={20} aria-hidden="true" />
               <input
@@ -196,7 +202,7 @@ export const WorkspaceChrome = ({
               />
             </div>
           )}
-          {group === 1 && list && (
+          {group === 1 && list && !renewalBackend && (
             <button className="ui02-primary" aria-label="업로드" title="업로드" onClick={onUpload}>
               <Plus size={20} />
               <span>업로드</span>
@@ -213,15 +219,17 @@ export const WorkspaceChrome = ({
               <span>{action.label}</span>
             </a>
           )}
-          <button
-            className="ui02-icon ui02-upload-trigger"
-            aria-label="업로드 상태"
-            aria-expanded={uploads}
-            onClick={() => setUploads((value) => !value)}
-          >
-            <Upload size={21} />
-            {uploadCount > 0 && <span>{uploadCount}</span>}
-          </button>
+          {!renewalBackend && (
+            <button
+              className="ui02-icon ui02-upload-trigger"
+              aria-label="업로드 상태"
+              aria-expanded={uploads}
+              onClick={() => setUploads((value) => !value)}
+            >
+              <Upload size={21} />
+              {uploadCount > 0 && <span>{uploadCount}</span>}
+            </button>
+          )}
         </div>
       </header>
       {wide && (
@@ -238,7 +246,9 @@ export const WorkspaceChrome = ({
           toggle.current?.focus();
         }}
         onClick={(event) => {
-          if (event.target === event.currentTarget) setDrawer(false);
+          if (event.target === event.currentTarget) {
+            setDrawer(false);
+          }
         }}
       >
         <div className="ui02-drawer-heading">

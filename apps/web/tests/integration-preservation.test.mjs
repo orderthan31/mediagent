@@ -28,5 +28,7 @@ test('workflow confirmation and feature queue hooks coexist in the renewal shell
   assert.match(workspace, /hasConfirmedList/);
   assert.match(workspace, /<StorageUploads/);
   assert.match(workspace, /<FaceSwapDialog/);
-  assert.match(workspace, /<QueuePanel/);
+  assert.match(workspace, /<ExecutionPopover/);
+  const popover = await source('ExecutionPopover.tsx');
+  assert.match(popover, /open && <QueuePanel/);
 });

@@ -5,7 +5,8 @@ import { Pagination, usePagination } from './Pagination';
 import { request } from './api';
 import { Button } from './hangyeol/primitives/button';
 import { Input } from './hangyeol/primitives/input';
-import type { ServingConnection } from './serving-connection';
+import { connectionsEndpoint, type ServingConnection } from './serving-connection';
+import { renewalBackend } from './preview';
 import './serving-connections.css';
 
 export const ServingTabs = ({ connections = false }: { connections?: boolean }) => (
@@ -22,7 +23,8 @@ export const ProviderConnections = ({ route, query }: { route: string; query: st
   const [rows, setRows] = useState<ServingConnection[]>([]);
   const [providers, setProviders] = useState<Record<string, string>>({});
   const [name, setName] = useState('');
-  const [provider, setProvider] = useState('openai');
+  const [provider, setProvider] = useState(renewalBackend ? 'openai_compatible' : 'openai');
+  const [protocol, setProtocol] = useState('openai_compatible');
   const [endpoint, setEndpoint] = useState('');
   const [revision, setRevision] = useState(0);
   const [busy, setBusy] = useState('load');
@@ -43,10 +45,16 @@ export const ProviderConnections = ({ route, query }: { route: string; query: st
     setError('');
     try {
       const id = identity || crypto.randomUUID().replaceAll('-', '');
-      await request<ServingConnection>('/publishing/connections/' + id, {
+      await request<ServingConnection>(connectionsEndpoint + '/' + id, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim(), provider, endpoint: endpoint.trim(), revision }),
+        body: JSON.stringify({
+          name: name.trim(),
+          provider,
+          endpoint: endpoint.trim(),
+          revision,
+          ...(renewalBackend ? { protocol } : {}),
+        }),
       });
       location.hash = '/serving/connections';
     } catch (value) {
@@ -58,7 +66,7 @@ export const ProviderConnections = ({ route, query }: { route: string; query: st
   useEffect(() => {
     const controller = new AbortController();
     void request<{ connections: ServingConnection[]; providers: Record<string, string> }>(
-      '/publishing/connections',
+      connectionsEndpoint,
       { signal: controller.signal },
     )
       .then((result) => {
@@ -74,6 +82,7 @@ export const ProviderConnections = ({ route, query }: { route: string; query: st
           }
           setName(selected.name);
           setProvider(selected.provider);
+          setProtocol(selected.protocol || 'openai_compatible');
           setEndpoint(selected.endpoint);
           setRevision(selected.revision);
         }
@@ -131,12 +140,24 @@ export const ProviderConnections = ({ route, query }: { route: string; query: st
                 ))}
               </select>
             </label>
+            {renewalBackend && (
+              <label>
+                API 프로토콜
+                <select value={protocol} onChange={(event) => setProtocol(event.target.value)}>
+                  <option value="openai_compatible">OpenAI-compatible</option>
+                  <option value="openai">OpenAI</option>
+                  <option value="gemini">Gemini · 실행 연결 준비 중</option>
+                  <option value="anthropic">Anthropic · 실행 연결 준비 중</option>
+                </select>
+              </label>
+            )}
             <label>
-              접속 주소 · 선택
+              {renewalBackend ? 'API 기본 주소' : '접속 주소 · 선택'}
               <Input
                 value={endpoint}
-                maxLength={300}
-                placeholder="기본 주소 사용"
+                maxLength={2048}
+                required={renewalBackend}
+                placeholder={renewalBackend ? 'http://localhost:8000/v1' : '기본 주소 사용'}
                 onChange={(event) => setEndpoint(event.target.value)}
               />
             </label>
@@ -146,7 +167,11 @@ export const ProviderConnections = ({ route, query }: { route: string; query: st
                 type="password"
                 disabled
                 value=""
-                placeholder="목업 · 입력 불가"
+                placeholder={
+                  renewalBackend
+                    ? '보안 참조 연결 준비 중 · 현재 무키 연결만 등록'
+                    : '목업 · 입력 불가'
+                }
                 autoComplete="off"
               />
             </label>
@@ -167,7 +192,8 @@ export const ProviderConnections = ({ route, query }: { route: string; query: st
               <div className="ui02-list-copy">
                 <strong className="ui02-list-title">{row.name}</strong>
                 <p className="ui02-list-meta">
-                  {providers[row.provider] || row.provider} · 키 미설정
+                  {providers[row.provider] || row.provider} ·{' '}
+                  {row.credential === 'reference_set' ? '키 참조 설정' : '키 미설정'}
                 </p>
               </div>
               <ChevronRight size={18} />

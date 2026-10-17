@@ -6,8 +6,12 @@ import { Button } from './hangyeol/primitives/button';
 import { TextField } from './hangyeol/components/text-field';
 import { issuePreviewAccount, logoutPreview, usePreviewAccounts } from './publishing-accounts';
 import './account.css';
+import { renewalBackend } from './preview';
+import { LiveAccounts } from './LiveAccounts';
 
-export const AccountPage = ({ create = false }: { create?: boolean }) => {
+export const AccountPage = ({ create = false }: { create?: boolean }) =>
+  renewalBackend ? <LiveAccounts create={create} /> : <PreviewAccountPage create={create} />;
+const PreviewAccountPage = ({ create = false }: { create?: boolean }) => {
   const { accounts, currentId } = usePreviewAccounts();
   const page = usePagination(accounts, 'accounts');
   const [username, setUsername] = useState('');
