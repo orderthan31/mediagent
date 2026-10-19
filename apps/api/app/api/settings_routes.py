@@ -163,7 +163,7 @@ async def update_serving(request: Request):
     try:
         return save_serving(settings.storage_root, request.state.settings_owner, payload)
     except SettingsConflict:
-        raise HTTPException(409, '설정이 변경되었습니다. 새로 불러온 뒤 Worker 설정을 다시 선택하세요.') from None
+        raise HTTPException(409, '설정이 변경되었습니다. 새로 불러온 뒤 Agent 설정을 다시 선택하세요.') from None
     except (ValueError, TypeError):
         raise HTTPException(422, '지원 공급자·모델·서로 다른 폴백을 확인하세요. 전사 Anthropic·임의 STT 모델·키 변경은 지원하지 않습니다.') from None
     except Exception:

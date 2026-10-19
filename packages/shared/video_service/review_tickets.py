@@ -254,7 +254,7 @@ class ReviewTicketStore(GraphTicketStore):
                         if meta['type'] in {'transcript', 'subtitle'} and meta.get('clock', {}).get('basis') == 'original':
                             duration = getattr(execute, 'review_duration', None)
                             if duration is None:
-                                from media_worker.media import probe
+                                from media_agent.media import probe
                                 duration = probe(source, work, check)['duration']
                         doc = self.review_document(identity, step['id'])
                         view = doc.open(meta, content, duration=duration)

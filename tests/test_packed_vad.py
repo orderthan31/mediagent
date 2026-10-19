@@ -7,9 +7,9 @@ from unittest.mock import Mock, patch
 from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / "packages/shared"), str(ROOT / "workers/media")]
-from media_worker.nvidia_vad import retained_intervals, runtime, select_device, batch_size
-from media_worker.packed_timeline import restore_segments
+sys.path[:0] = [str(ROOT / "packages/shared"), str(ROOT / "agents/media")]
+from media_agent.nvidia_vad import retained_intervals, runtime, select_device, batch_size
+from media_agent.packed_timeline import restore_segments
 from video_service.timeline import build_timeline_from_kept_intervals, project_segment_to_original
 from video_service.transcript import TranscriptSegment
 

@@ -11,11 +11,11 @@ from uuid import uuid4
 import wave
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / 'packages/shared'), str(ROOT / 'apps/api'), str(ROOT / 'workers/media')]
+sys.path[:0] = [str(ROOT / 'packages/shared'), str(ROOT / 'apps/api'), str(ROOT / 'agents/media')]
 from fastapi.testclient import TestClient
 from app.api import routes, asset_routes, video_upload_routes, workflow_routes
 from app.main import app
-from media_worker.worker import Worker
+from media_agent.agent import Agent
 from video_service.models import JobStatus
 from video_service.repository import FilesystemJobRepository
 from video_service.transcript import TranscriptSegment
@@ -60,7 +60,7 @@ class WorkflowMediaE2E(unittest.TestCase):
         stack.enter_context(patch.dict('os.environ', {'PAID_LLM_ENABLED': 'false', 'VIDEO_ENCODER': 'libx264',
             'MIN_FREE_SPACE_BYTES': '0', 'VIDEO_SERVICE_QUOTA_BYTES': str(128*1024**2), 'VOCALIZATION_FILTER_ENABLED': 'false'}))
         # A regression that reaches a network-capable provider must fail this test.
-        stack.enter_context(patch('media_worker.providers.GeminiProvider._client', side_effect=AssertionError('Real LLM client forbidden')))
+        stack.enter_context(patch('media_agent.providers.GeminiProvider._client', side_effect=AssertionError('Real LLM client forbidden')))
         self.client = TestClient(app)
         self.provider = LocalProvider()
         source = self.root / 'fixture.mp4'
@@ -85,7 +85,7 @@ class WorkflowMediaE2E(unittest.TestCase):
             'request_id': str(uuid4()), 'template': template, 'options': options, **inputs})
         self.assertEqual(response.status_code, 201, response.text)
         job_id = response.json()['job_id']
-        Worker(self.repo, self.provider).process(job_id)
+        Agent(self.repo, self.provider).process(job_id)
         record = self.repo.read(job_id)
         self.assertEqual(record.status, JobStatus.COMPLETED, record.error)
         for filename in record.metadata['result_files']:
@@ -115,23 +115,23 @@ class WorkflowMediaE2E(unittest.TestCase):
         self.assertEqual((self.provider.transcriptions, self.provider.translations), (1, 1))
 
     def test_interrupted_validation_reuses_encoded_video_without_encoding_again(self):
-        from media_worker.shutdown import WorkerStopping
+        from media_agent.shutdown import AgentStopping
         response = self.client.post('/api/videos/' + self.asset['asset_id'] + '/jobs', json={
             'request_id': str(uuid4()), 'template': 'full',
             'options': {'video_codec': 'h264', 'subtitle_mode': 'burn', 'audio_filter': 'off',
                         'source_language': 'en', 'target_language': 'en'}})
         self.assertEqual(response.status_code, 201, response.text)
         identity = response.json()['job_id']
-        with patch('media_worker.worker.validate_decodable', side_effect=WorkerStopping()):
-            Worker(self.repo, self.provider).process(identity)
+        with patch('media_agent.agent.validate_decodable', side_effect=AgentStopping()):
+            Agent(self.repo, self.provider).process(identity)
         self.assertTrue(self.repo.read(identity).metadata['interrupted'])
         target = self.repo.job_dir(identity) / 'output/final.mp4'
         before = target.stat().st_mtime_ns
         with patch.dict('os.environ', {'AUTO_RESUME_INTERRUPTED': 'true'}):
-            Worker(self.repo, self.provider).collect(expire=False)
+            Agent(self.repo, self.provider).collect(expire=False)
         self.assertEqual(self.repo.read(identity).status, JobStatus.QUEUED)
-        with patch('media_worker.worker.run_process', side_effect=AssertionError('Must reuse encoded output')):
-            Worker(self.repo, self.provider).process(identity)
+        with patch('media_agent.agent.run_process', side_effect=AssertionError('Must reuse encoded output')):
+            Agent(self.repo, self.provider).process(identity)
         record = self.repo.read(identity)
         self.assertEqual(record.status, JobStatus.COMPLETED, record.error)
         self.assertEqual(target.stat().st_mtime_ns, before)

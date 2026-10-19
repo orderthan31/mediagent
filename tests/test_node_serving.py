@@ -104,7 +104,7 @@ class ServingAPITests(unittest.TestCase):
                 self.assertEqual(result.json()['outputs'], {'metadata':'media_metadata'})
 
     def test_role_settings_reach_existing_provider_without_inference(self):
-        from media_worker.providers import GeminiProvider
+        from media_agent.providers import GeminiProvider
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             initial = serving_settings(root)

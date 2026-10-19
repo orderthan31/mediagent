@@ -324,7 +324,7 @@ class DecisionAdapterTests(unittest.TestCase):
     def test_actual_cpu_selected_encode_uses_server_admitted_dynamic_plan(self):
         import subprocess, os, shutil
         from video_service.decision_tickets import DecisionTicketStore
-        from media_worker.parallel_nodes import ParallelMediaExecutor
+        from media_agent.parallel_nodes import ParallelMediaExecutor
         from decision_fixtures import ControlledProvider
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);source=root/'synthetic.mp4'

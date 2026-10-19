@@ -10,7 +10,7 @@ from app.api import settings_routes,routes,asset_routes,workflow_routes,executio
 from video_service.workflow_definitions import DefinitionStore
 from video_service.model_registry import ModelRegistry
 from video_service.repository import FilesystemJobRepository
-from media_worker.registered_nodes import RegisteredDecisionProvider
+from media_agent.registered_nodes import RegisteredDecisionProvider
 from test_workflow_decision import decision_graph
 
 r=json.load(sys.stdin);root=Path('/fixture')

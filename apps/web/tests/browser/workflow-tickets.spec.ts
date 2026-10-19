@@ -65,7 +65,7 @@ for (const width of [1440, 390]) {
               '-v',
               root + ':/fixture:rw',
               '-e',
-              'PYTHONPATH=/src/packages/shared:/src/apps/api:/src/workers/media',
+              'PYTHONPATH=/src/packages/shared:/src/apps/api:/src/agents/media',
               'video-subtitle-api:renewal-0616538b',
               'python',
               '/src/apps/web/tests/browser/ticket_bridge.py',

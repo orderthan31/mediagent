@@ -7,12 +7,12 @@ from unittest.mock import Mock, patch
 from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / 'packages/shared'), str(ROOT / 'apps/api'), str(ROOT / 'workers/media')]
+sys.path[:0] = [str(ROOT / 'packages/shared'), str(ROOT / 'apps/api'), str(ROOT / 'agents/media')]
 from fastapi.testclient import TestClient
 from approval_fixtures import approved_post
 from app.api import routes, asset_routes, workflow_routes
 from app.main import app
-from media_worker.worker import Worker
+from media_agent.agent import Agent
 from video_service.models import JobStatus, QualityProfile
 from video_service.repository import FilesystemJobRepository
 from video_service.timeline import build_timeline_from_kept_intervals
@@ -71,13 +71,13 @@ class WorkflowExecutionTests(unittest.TestCase):
         def encode(args, **kwargs):
             Path(args[-1]).write_bytes(b'encoded')
         with ExitStack() as stack:
-            stack.enter_context(patch('media_worker.worker.probe', return_value=self.media))
-            extraction = stack.enter_context(patch('media_worker.worker.extract_audio', side_effect=extract))
-            preprocessing = stack.enter_context(patch('media_worker.worker.preprocess_audio', side_effect=preprocess))
-            encoder = stack.enter_context(patch('media_worker.worker.select_encoder', return_value='libx265'))
-            encoding = stack.enter_context(patch('media_worker.worker.run_process', side_effect=encode))
-            stack.enter_context(patch('media_worker.worker.validate_decodable'))
-            Worker(self.repo, self.provider).process(job_id)
+            stack.enter_context(patch('media_agent.agent.probe', return_value=self.media))
+            extraction = stack.enter_context(patch('media_agent.agent.extract_audio', side_effect=extract))
+            preprocessing = stack.enter_context(patch('media_agent.agent.preprocess_audio', side_effect=preprocess))
+            encoder = stack.enter_context(patch('media_agent.agent.select_encoder', return_value='libx265'))
+            encoding = stack.enter_context(patch('media_agent.agent.run_process', side_effect=encode))
+            stack.enter_context(patch('media_agent.agent.validate_decodable'))
+            Agent(self.repo, self.provider).process(job_id)
         return self.repo.read(job_id), extraction, preprocessing, encoder, encoding
 
     def test_all_templates_execute_only_selected_stages(self):

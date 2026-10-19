@@ -19,11 +19,11 @@ def measured(function):
 
 def child(mode):
     if mode == 'candidate':
-        sys.path[:0] = ['/candidate/workers/media', '/candidate/packages/shared']
+        sys.path[:0] = ['/candidate/agents/media', '/candidate/packages/shared']
     from video_service.capacity import used_bytes
-    from media_worker.worker_storage import capacity_estimate, check_capacity
-    from media_worker.media import probe, extract_audio, preprocess_audio
-    from media_worker.validation import validate_decodable
+    from media_agent.agent_storage import capacity_estimate, check_capacity
+    from media_agent.media import probe, extract_audio, preprocess_audio
+    from media_agent.validation import validate_decodable
     root = Path('/library')
     work = Path('/tmp/pipeline-benchmark') / mode
     work.mkdir(parents=True, exist_ok=True)

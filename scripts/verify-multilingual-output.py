@@ -6,11 +6,11 @@ import sys
 from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / "packages/shared"), str(ROOT / "workers/media")]
+sys.path[:0] = [str(ROOT / "packages/shared"), str(ROOT / "agents/media")]
 from video_service.config import load_environment
 from video_service.models import JobRecord
-from media_worker.media import executable, probe
-from media_worker.process import run_process
+from media_agent.media import executable, probe
+from media_agent.process import run_process
 
 
 def main():

@@ -20,7 +20,8 @@ try {
         Start-Sleep -Seconds 5
     }
     if (-not $ready) { throw 'Docker did not become ready within five minutes.' }
-    & $docker start video-subtitle-api-1 video-subtitle-web-1 video-subtitle-worker-1
+    # Do not revive an existing legacy queue consumer from the renewal branch.
+    & $docker start video-subtitle-api-1 video-subtitle-web-1
     if ($LASTEXITCODE -ne 0) { throw 'Could not start existing video-subtitle containers.' }
 } catch {
     Write-Error $_

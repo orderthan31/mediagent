@@ -8,9 +8,9 @@ from uuid import uuid4
 import wave
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / 'workers/media'), str(ROOT / 'packages/shared')]
-from media_worker.providers import GeminiProvider
-from media_worker.content_block import ContentBlockedError, BLOCKED_TEXT
+sys.path[:0] = [str(ROOT / 'agents/media'), str(ROOT / 'packages/shared')]
+from media_agent.providers import GeminiProvider
+from media_agent.content_block import ContentBlockedError, BLOCKED_TEXT
 from video_service.transcript import TranscriptSegment
 
 

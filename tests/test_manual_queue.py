@@ -7,13 +7,13 @@ from urllib.parse import unquote
 from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / "packages/shared"), str(ROOT / "apps/api"), str(ROOT / "workers/media")]
+sys.path[:0] = [str(ROOT / "packages/shared"), str(ROOT / "apps/api"), str(ROOT / "agents/media")]
 from fastapi.testclient import TestClient
 from app.api import routes
 from app.main import app
 from app.services.upload_service import UploadService
 from app.services.result_response import ResultResponse
-from media_worker.worker import Worker
+from media_agent.agent import Agent
 from video_service.models import JobStatus, QualityProfile
 from video_service.repository import FilesystemJobRepository
 from video_service.locking import job_lock
@@ -42,7 +42,7 @@ class ManualQueueTests(unittest.TestCase):
 
     def test_upload_waits_for_explicit_start_and_survives_collection(self):
         job = self.upload()
-        worker = Worker(self.repo, None)
+        worker = Agent(self.repo, None)
         with patch.object(worker, "process") as process:
             worker.tick()
         process.assert_not_called()
@@ -58,7 +58,7 @@ class ManualQueueTests(unittest.TestCase):
         self.client.post(f"/api/jobs/{b}/start")
         self.client.post(f"/api/jobs/{a}/start")
         self.repo.heartbeat(b)
-        worker = Worker(FilesystemJobRepository(self.root), None)
+        worker = Agent(FilesystemJobRepository(self.root), None)
         with patch.object(worker, "process") as process:
             worker.tick()
         self.assertEqual([call.args[0] for call in process.call_args_list], [b, a])
@@ -66,7 +66,7 @@ class ManualQueueTests(unittest.TestCase):
     def test_second_worker_cannot_process_while_first_has_slot(self):
         job = self.upload()
         self.client.post(f"/api/jobs/{job}/start")
-        worker = Worker(self.repo, None)
+        worker = Agent(self.repo, None)
         with job_lock(self.repo, "f" * 32, "execution"), patch.object(worker, "process") as process:
             worker.tick()
         process.assert_not_called()

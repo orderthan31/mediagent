@@ -44,13 +44,17 @@ export const StorageAssetRow = ({
 export const StorageVideoInfo = ({ video, assetId }: { video: VideoAsset; assetId: string }) => (
   <section className="storage-video-info" aria-label="원본 영상 정보">
     <div className="storage-preview">
-      <video
-        controls
-        playsInline
-        preload="none"
-        poster={mediaUrl(`/videos/${assetId}/thumbnail`)}
-        src={mediaUrl(`/videos/${assetId}/stream`)}
-      />
+      {video.web_preview && video.web_preview.status !== 'ready' ? (
+        <p role="status">웹 전용 WebM을 준비하지 못했습니다. 원본은 그대로 받을 수 있습니다.</p>
+      ) : (
+        <video
+          controls
+          playsInline
+          preload="none"
+          poster={mediaUrl(`/videos/${assetId}/thumbnail`)}
+          src={mediaUrl(`/videos/${assetId}/stream`)}
+        />
+      )}
     </div>
     <div className="storage-info">
       <h2>영상 정보</h2>
@@ -89,6 +93,19 @@ export const StorageVideoInfo = ({ video, assetId }: { video: VideoAsset; assetI
           </dd>
         </div>
       </dl>
+      {video.web_preview && (
+        <nav className="storage-downloads" aria-label="영상 다운로드">
+          <a href={mediaUrl(`/videos/${assetId}/download`)} download>
+            원본 받기
+          </a>
+          {video.web_preview.status === 'ready' && (
+            <a href={mediaUrl(`/videos/${assetId}/stream?download=true`)} download>
+              WebM 받기
+            </a>
+          )}
+          <p>플레이어는 웹 전용 WebM을 재생하며 업로드 원본은 변경하지 않습니다.</p>
+        </nav>
+      )}
     </div>
   </section>
 );

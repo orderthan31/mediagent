@@ -6,7 +6,7 @@ import time
 from video_service.storage import read_json, write_json_atomic
 from video_service.capacity import StorageLimitError
 from .llm_diagnostics import attempt_context, new_context, emit, exception_details
-from .worker_storage import disk_call
+from .agent_storage import disk_call
 from .content_block import ContentBlockedError
 
 

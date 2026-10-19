@@ -11,7 +11,7 @@ import unittest
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / 'packages/shared'), str(ROOT / 'apps/api'), str(ROOT / 'workers/media')]
+sys.path[:0] = [str(ROOT / 'packages/shared'), str(ROOT / 'apps/api'), str(ROOT / 'agents/media')]
 from fastapi.testclient import TestClient
 from app.main import app
 from app.api import routes
@@ -20,10 +20,10 @@ from video_service.models import JobStatus, QualityProfile
 from video_service.queue_control import QueueControl, QueueConflict
 from video_service.locking import job_lock
 from video_service.job_index import indexed_jobs
-from media_worker.worker import Worker
-from media_worker.resources import job_resources, resource_slot
-from media_worker.process import Cancelled
-from media_worker.recovery import recover_interrupted
+from media_agent.agent import Agent
+from media_agent.resources import job_resources, resource_slot
+from media_agent.process import Cancelled
+from media_agent.recovery import recover_interrupted
 
 
 class QueueImprovementTests(unittest.TestCase):
@@ -63,8 +63,8 @@ class QueueImprovementTests(unittest.TestCase):
     def test_paused_queue_does_not_enter_worker_pipeline(self):
         job = self.job()
         self.controls.update(None, 0, paused=True)
-        with patch('media_worker.worker.probe') as probe:
-            Worker(self.repo, None).process(job.job_id)
+        with patch('media_agent.agent.probe') as probe:
+            Agent(self.repo, None).process(job.job_id)
         probe.assert_not_called()
         self.assertEqual(self.repo.read(job.job_id).status, JobStatus.QUEUED)
 
@@ -205,10 +205,10 @@ class QueueImprovementTests(unittest.TestCase):
                     entered.append(identity)
                 finish.wait(3)
                 worker.repository.update_status(identity, JobStatus.COMPLETED)
-        worker = Worker(self.repo, None)
+        worker = Agent(self.repo, None)
         with patch.dict(os.environ, {'MAX_CONCURRENT_JOBS': '2', 'MAX_LLM_JOBS': '2'}), \
-                patch('media_worker.faceswap.runner.refresh_capabilities'), \
-                patch.object(Worker, 'process', process):
+                patch('media_agent.faceswap.runner.refresh_capabilities'), \
+                patch.object(Agent, 'process', process):
             try:
                 worker.tick()
                 deadline = time.monotonic() + 2
@@ -225,14 +225,14 @@ class QueueImprovementTests(unittest.TestCase):
     def test_recovery_resumes_only_safe_interrupted_work_and_caps_attempts(self):
         job = self.job(status=JobStatus.ENCODING)
         with patch.dict(os.environ, {'AUTO_RESUME_INTERRUPTED': 'true', 'MAX_AUTO_RECOVERIES': '2'}):
-            Worker(self.repo, None).collect(expire=False)
+            Agent(self.repo, None).collect(expire=False)
             record = self.repo.read(job.job_id)
             self.assertEqual(record.status, JobStatus.QUEUED)
             self.assertEqual(record.metadata['auto_recovery_count'], 1)
             record.metadata.update(auto_recovery_count=2)
             self.repo.save(record)
             self.repo.update_status(job.job_id, JobStatus.ENCODING)
-            Worker(self.repo, None).collect(expire=False)
+            Agent(self.repo, None).collect(expire=False)
             self.assertTrue(self.repo.read(job.job_id).metadata['recovery_required'])
 
     def test_waiting_llm_jobs_do_not_block_independent_encode_admission(self):
@@ -246,9 +246,9 @@ class QueueImprovementTests(unittest.TestCase):
                 started.append(identity)
                 finish.wait(3)
                 worker.repository.update_status(identity, JobStatus.COMPLETED)
-        worker = Worker(self.repo, None)
+        worker = Agent(self.repo, None)
         with patch.dict(os.environ, {'MAX_CONCURRENT_JOBS': '2', 'MAX_LLM_JOBS': '1'}), \
-                patch('media_worker.faceswap.runner.refresh_capabilities'), patch.object(Worker, 'process', process):
+                patch('media_agent.faceswap.runner.refresh_capabilities'), patch.object(Agent, 'process', process):
             try:
                 worker.tick()
                 deadline = time.monotonic() + 2
@@ -269,7 +269,7 @@ class QueueImprovementTests(unittest.TestCase):
         old.metadata['interrupted'] = True
         self.repo.save(old)
         with patch.dict(os.environ, {'AUTO_RESUME_INTERRUPTED': 'true'}):
-            Worker(self.repo, None).collect(expire=False)
+            Agent(self.repo, None).collect(expire=False)
         self.assertEqual(self.repo.read(job.job_id).status, JobStatus.FAILED)
         self.assertTrue(self.repo.read(job.job_id).metadata['recovery_required'])
         self.assertEqual(self.repo.read(old.job_id).status, JobStatus.FAILED)
@@ -279,5 +279,5 @@ class QueueImprovementTests(unittest.TestCase):
         job.metadata['cancel_requested'] = True
         self.repo.save(job)
         with patch.dict(os.environ, {'AUTO_RESUME_INTERRUPTED': 'true'}):
-            Worker(self.repo, None).collect(expire=False)
+            Agent(self.repo, None).collect(expire=False)
         self.assertEqual(self.repo.read(job.job_id).status, JobStatus.CANCELLED)

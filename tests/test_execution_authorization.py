@@ -118,7 +118,7 @@ class AuthorizationTests(unittest.TestCase):
 class TransportAuthorizationTests(unittest.TestCase):
     def test_registered_invalid_response_remains_unknown_with_node_generation(self):
         from video_service.execution_authorization import AuthorizationStore, execution_scope, node_scope
-        from media_worker.registered_nodes import RegisteredDecisionProvider
+        from media_agent.registered_nodes import RegisteredDecisionProvider
         from work_fixtures import WorkHarness
         with tempfile.TemporaryDirectory() as root:
             h=WorkHarness(root);binding=h.registry.resolve({'model_id':'c'*32,'revision':1},'decision')
@@ -136,7 +136,7 @@ class TransportAuthorizationTests(unittest.TestCase):
     def test_guarded_gemini_request_does_not_fallback_or_retry(self):
         import asyncio
         from video_service.execution_authorization import AuthorizationStore, execution_scope, node_scope
-        from media_worker.providers import GeminiProvider
+        from media_agent.providers import GeminiProvider
         with tempfile.TemporaryDirectory() as root:
             prefs={'api_keys':{},'transcription_provider':'gemini','transcription_model':'fixed','transcription_fallback_provider':'gemini','transcription_fallback_model':'fallback','fallback_on_error':True}
             provider=GeminiProvider(prefs);calls=[]
@@ -152,7 +152,7 @@ class TransportAuthorizationTests(unittest.TestCase):
     def test_guarded_segment_queue_does_not_automatically_retry_unknown(self):
         import asyncio
         from video_service.execution_authorization import AuthorizationStore, execution_scope
-        from media_worker.transcription_queue import run_segment_queue, RetryableTranscriptionError, PartialTranscriptionError
+        from media_agent.transcription_queue import run_segment_queue, RetryableTranscriptionError, PartialTranscriptionError
         with tempfile.TemporaryDirectory() as root:
             store=AuthorizationStore(root);context={'target':'test','cost':{'state':'may_charge','amount':None}}
             grant=store.confirm('confirm',context,True);claim=store.claim(grant['id'],'run',context);calls=[]
@@ -165,7 +165,7 @@ class TransportAuthorizationTests(unittest.TestCase):
     def test_direct_transport_entry_keeps_unknown_attempt_even_when_dispatch_is_disabled(self):
         import asyncio
         from video_service.execution_authorization import AuthorizationStore, execution_scope, node_scope
-        from media_worker.translation_transport import request_provider
+        from media_agent.translation_transport import request_provider
         with tempfile.TemporaryDirectory() as root:
             store=AuthorizationStore(root);context={'target':'test','cost':{'state':'may_charge','amount':None}}
             grant=store.confirm('confirm',context,True);claim=store.claim(grant['id'],'run',context)
@@ -178,7 +178,7 @@ class TransportAuthorizationTests(unittest.TestCase):
     def test_guarded_segment_cache_cannot_be_changed_and_silently_reused(self):
         import asyncio,json
         from video_service.execution_authorization import AuthorizationStore,execution_scope,AuthorizationConflict
-        from media_worker.transcription_queue import run_segment_queue
+        from media_agent.transcription_queue import run_segment_queue
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);path=root/'queue.json';store=AuthorizationStore(root);context={'target':'test','options':{},'settings':{},'inputs':{'source':{'sha256':'a'*64}},'cost':{'state':'may_charge','amount':None}}
             grant=store.confirm('confirm',context,True);claim=store.claim(grant['id'],'run',context);calls=[]

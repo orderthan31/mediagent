@@ -7,13 +7,13 @@ from unittest.mock import Mock, patch
 from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / "workers/media"), str(ROOT / "packages/shared")]
-from media_worker.checkpoints import Checkpoints
-from media_worker.completed_transcript import transcript_identity, load_completed_transcript, save_completed_transcript
-from media_worker.sentence_transcription import transcription_prompt
-from media_worker.worker import Worker
-from media_worker.transcription_queue import PartialTranslationError
-from media_worker.content_block import BLOCKED_TEXT
+sys.path[:0] = [str(ROOT / "agents/media"), str(ROOT / "packages/shared")]
+from media_agent.checkpoints import Checkpoints
+from media_agent.completed_transcript import transcript_identity, load_completed_transcript, save_completed_transcript
+from media_agent.sentence_transcription import transcription_prompt
+from media_agent.agent import Agent
+from media_agent.transcription_queue import PartialTranslationError
+from media_agent.content_block import BLOCKED_TEXT
 from video_service.models import JobStatus, QualityProfile
 from video_service.repository import FilesystemJobRepository
 from video_service.storage import read_json, write_json_atomic
@@ -71,17 +71,17 @@ class CompletedTranscriptTests(unittest.TestCase):
             (self.work / name).write_bytes(b"test")
         metadata = {"duration": 20, "streams": [{"codec_type": "video"}, {"codec_type": "audio"}]}
         with patch.dict("os.environ", {"PAID_LLM_ENABLED": "false", "VOCALIZATION_FILTER_ENABLED": "false"}), \
-                patch("media_worker.worker.select_encoder", return_value="hevc_nvenc"), \
-                patch("media_worker.worker.probe", return_value=metadata), \
-                patch("media_worker.worker.extract_audio", return_value=self.work / "audio.wav") as extract, \
-                patch("media_worker.worker.preprocess_audio", return_value=(self.work / "processed-audio.wav",
+                patch("media_agent.agent.select_encoder", return_value="hevc_nvenc"), \
+                patch("media_agent.agent.probe", return_value=metadata), \
+                patch("media_agent.agent.extract_audio", return_value=self.work / "audio.wav") as extract, \
+                patch("media_agent.agent.preprocess_audio", return_value=(self.work / "processed-audio.wav",
                     build_timeline_from_kept_intervals([(12, 13)]))) as preprocess:
             self.repo.update_status(self.record.job_id, JobStatus.QUEUED)
-            Worker(self.repo, provider).process(self.record.job_id)
+            Agent(self.repo, provider).process(self.record.job_id)
             self.assertEqual(self.repo.read(self.record.job_id).metadata["failed_stage"], "TRANSLATING")
             provider.transcription_identity = provider.transcription_model = provider.translation_model = provider.translation_identity = provider.audio_filter_model = "new"
             self.repo.update_status(self.record.job_id, JobStatus.QUEUED)
-            Worker(self.repo, provider).process(self.record.job_id)
+            Agent(self.repo, provider).process(self.record.job_id)
         provider.transcribe.assert_called_once()
         extract.assert_called_once()
         preprocess.assert_called_once()
@@ -122,16 +122,16 @@ class CompletedTranscriptTests(unittest.TestCase):
         provider = Mock(transcription_model="new", transcription_identity="new", translation_model="new", translation_identity="new", audio_filter_model="new")
         provider.translate.side_effect = [error, RuntimeError("network failure")]
         metadata = {"duration": 20, "streams": [{"codec_type": "video"}, {"codec_type": "audio"}]}
-        with patch("media_worker.worker.select_encoder", return_value="hevc_nvenc"), \
-                patch("media_worker.worker.probe", return_value=metadata):
+        with patch("media_agent.agent.select_encoder", return_value="hevc_nvenc"), \
+                patch("media_agent.agent.probe", return_value=metadata):
             self.repo.update_status(self.record.job_id, JobStatus.QUEUED)
-            Worker(self.repo, provider).process(self.record.job_id)
+            Agent(self.repo, provider).process(self.record.job_id)
             job = self.repo.read(self.record.job_id)
             self.assertEqual(job.metadata["failure"], {"kind": "content_blocked", "provider": "Gemini",
                 "stage": "TRANSLATING", "blocks": error.content_blocks})
             self.assertIn("Gemini", job.error)
             self.repo.update_status(self.record.job_id, JobStatus.QUEUED)
-            Worker(self.repo, provider).process(self.record.job_id)
+            Agent(self.repo, provider).process(self.record.job_id)
             self.assertIsNone(self.repo.read(self.record.job_id).metadata["failure"])
         provider.transcribe.assert_not_called()
 
@@ -141,11 +141,11 @@ class CompletedTranscriptTests(unittest.TestCase):
         provider.translate.return_value = [TranscriptSegment(12, 13, BLOCKED_TEXT)]
         metadata = {"duration": 20, "streams": [{"codec_type": "video"}, {"codec_type": "audio"}]}
         self.assertFalse(self.record.options.review_subtitles)
-        with patch("media_worker.worker.select_encoder", return_value="hevc_nvenc"), \
-                patch("media_worker.worker.probe", return_value=metadata), \
-                patch("media_worker.worker.run_process") as encode:
+        with patch("media_agent.agent.select_encoder", return_value="hevc_nvenc"), \
+                patch("media_agent.agent.probe", return_value=metadata), \
+                patch("media_agent.agent.run_process") as encode:
             self.repo.update_status(self.record.job_id, JobStatus.QUEUED)
-            Worker(self.repo, provider).process(self.record.job_id)
+            Agent(self.repo, provider).process(self.record.job_id)
         job = self.repo.read(self.record.job_id)
         self.assertEqual(job.status, JobStatus.AWAITING_REVIEW, job.error)
         self.assertTrue(job.metadata['content_block_review'])

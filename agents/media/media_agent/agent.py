@@ -38,12 +38,12 @@ from .progress import encoding_progress
 from video_service.config import load_environment
 from video_service.llm_settings import LLMSettingsStore
 from video_service.capacity import reserve_workspace
-from .worker_storage import check_capacity as assert_capacity
-from .shutdown import shutdown_signals, WorkerStopping
+from .agent_storage import check_capacity as assert_capacity
+from .shutdown import shutdown_signals, AgentStopping
 from .validation import validate_cues, validate_output, validate_decodable
 
 
-class Worker:
+class Agent:
     def __init__(self, repository, provider, stop=None, provider_factory=None):
         self.repository = repository
         self.provider = provider
@@ -54,7 +54,7 @@ class Worker:
 
     def check_stopping(self):
         if self.stop.is_set():
-            raise WorkerStopping()
+            raise AgentStopping()
 
     def transition(self, job_id, status, **kwargs):
         def check_cancel():
@@ -91,7 +91,7 @@ class Worker:
                     return
                 if QueueControl(repo.storage_root).read(record.metadata.get('owner_id'))['paused']:
                     return
-                from video_service.execution_worker import legacy_execution
+                from video_service.execution_agent import legacy_execution
                 from video_service.execution_authorization import AuthorizationConflict
                 try:frozen_inputs=authorization_context.enter_context(legacy_execution(repo,record))
                 except (AuthorizationConflict,FileNotFoundError,KeyError):
@@ -211,7 +211,7 @@ class Worker:
                 if 'translate' not in stages and not ('encode' in stages and selected is not None):
                     languages = []
                 if record.metadata.get("review_ready"):
-                    from video_service.execution_worker import approved_review
+                    from video_service.execution_agent import approved_review
                     draft = approved_review(repo, record)
                     subtitle_sets = {name: [TranscriptSegment.from_dict(cue) for cue in cues]
                         for name, cues in draft["tracks"].items()}
@@ -418,7 +418,7 @@ class Worker:
                     repo.update_status(job_id, JobStatus.CANCELLED if cancelled else JobStatus.FAILED,
                         error=None if cancelled else f"{failure['provider']} 콘텐츠 정책에 의해 차단되었습니다. 자동 재시도를 중단했습니다." if failure else str(exc),
                         metadata={"stage_progress": None, "failure": failure,
-                            "interrupted": isinstance(exc, WorkerStopping) or self.stop.is_set(),
+                            "interrupted": isinstance(exc, AgentStopping) or self.stop.is_set(),
                             "failed_stage": current.status.value,
                             "wait_reason": None, "wait_started_at": None,
                             "cleanup_pending": False, "cleanup_error": None})
@@ -497,7 +497,7 @@ class Worker:
                         from .recovery import recover_interrupted
                         if recover_interrupted(self.repository, record):
                             continue
-                        self.repository.update_status(record.job_id, JobStatus.FAILED, error="Worker interrupted; retry to resume",
+                        self.repository.update_status(record.job_id, JobStatus.FAILED, error="Agent interrupted; retry to resume",
                             metadata={"interrupted": True, "failed_stage": record.status.value})
             except (JobBusyError, JobNotFoundError):
                 continue
@@ -583,7 +583,7 @@ class Worker:
                 continue
             # Each job owns a provider instance. ContextVars and resource leases are
             # scoped to the executing thread, not shared mutable provider settings.
-            child = Worker(self.repository, self.provider, self.stop, self.provider_factory)
+            child = Agent(self.repository, self.provider, self.stop, self.provider_factory)
             self._active[job.job_id] = self._pool.submit(child.process, job.job_id)
             occupied[resource] += 1
 
@@ -612,7 +612,7 @@ class Worker:
                 except KeyboardInterrupt:
                     self.stop.set()
                 except Exception:
-                    logging.exception("Worker iteration failed")
+                    logging.exception("Agent iteration failed")
                     self.stop.wait(5)
         finally:
             self.close()
@@ -624,11 +624,14 @@ def main():
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--collect-only", action="store_true", help="Delete expired artifacts once; do not process jobs")
+    parser.add_argument("--allow-legacy-queue", action="store_true", help="Explicit legacy filesystem queue/cleanup authorization; not renewal runtime")
     args = parser.parse_args()
+    if not args.allow_legacy_queue:
+        parser.error("Legacy queue and cleanup are disabled. Use video_service.cpu_agents or video_service.object_agent for one explicit command.")
     load_environment()
     logging.basicConfig(level=logging.INFO)
     repo = FilesystemJobRepository(Path(os.getenv("VIDEO_STORAGE_ROOT", "data/video-jobs")).resolve())
-    worker = Worker(repo, None, provider_factory=None if args.collect_only else
+    worker = Agent(repo, None, provider_factory=None if args.collect_only else
                     lambda owner: GeminiProvider(LLMSettingsStore(repo.storage_root).resolve(owner)))
     with shutdown_signals(worker.stop):
         if args.collect_only:

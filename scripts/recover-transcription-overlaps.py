@@ -4,7 +4,7 @@ import json
 import os
 from pathlib import Path
 
-from media_worker.transcription_recovery import recover_recorded_sentences
+from media_agent.transcription_recovery import recover_recorded_sentences
 from video_service.locking import job_lock
 from video_service.models import JobStatus
 from video_service.repository import FilesystemJobRepository

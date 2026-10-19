@@ -1,5 +1,5 @@
 # Development/testing overlay: this value intentionally cannot be enabled by .env.
 services:
-  worker:
+  agent:
     environment:
       PAID_LLM_ENABLED: "false"

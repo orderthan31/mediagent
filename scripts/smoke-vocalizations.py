@@ -8,13 +8,13 @@ from uuid import uuid4
 import wave
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / "packages/shared"), str(ROOT / "workers/media")]
+sys.path[:0] = [str(ROOT / "packages/shared"), str(ROOT / "agents/media")]
 from video_service.config import load_environment
 from video_service.storage import write_json_atomic
 from video_service.timeline import map_segment_to_original
-from media_worker.media import executable, preprocess_audio
-from media_worker.process import run_process
-from media_worker.providers import GeminiProvider
+from media_agent.media import executable, preprocess_audio
+from media_agent.process import run_process
+from media_agent.providers import GeminiProvider
 
 
 def main():

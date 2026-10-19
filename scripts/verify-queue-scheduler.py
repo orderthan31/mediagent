@@ -18,7 +18,7 @@ from video_service.repository import FilesystemJobRepository
 from video_service.models import JobStatus, QualityProfile
 from video_service.workflows import workflow_plan
 from video_service.transcript import TranscriptSegment
-from media_worker.worker import Worker
+from media_agent.agent import Agent
 
 root = Path('/tmp/queue-scheduler-jobs')
 if root.exists():
@@ -56,7 +56,7 @@ class LocalProvider:
                             'failed': 0, 'draining': False})
         return [TranscriptSegment(.1, 1.0, 'Synthetic speech.')]
 
-worker = Worker(repo, None, provider_factory=lambda owner: LocalProvider())
+worker = Agent(repo, None, provider_factory=lambda owner: LocalProvider())
 thread = Thread(target=worker.run, args=(.1,))
 start = time.monotonic()
 thread.start()
@@ -75,4 +75,4 @@ finally:
     worker.stop.set()
     thread.join(15)
     if thread.is_alive():
-        raise RuntimeError('Worker did not stop promptly')
+        raise RuntimeError('Agent did not stop promptly')

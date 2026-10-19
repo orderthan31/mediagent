@@ -8,12 +8,12 @@ from unittest.mock import patch
 from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / "packages/shared"), str(ROOT / "apps/api"), str(ROOT / "workers/media")]
+sys.path[:0] = [str(ROOT / "packages/shared"), str(ROOT / "apps/api"), str(ROOT / "agents/media")]
 from fastapi.testclient import TestClient
 from app.api import routes
 from app.main import app
 from app.services.result_response import ResultResponse
-from media_worker.worker import Worker
+from media_agent.agent import Agent
 from video_service.locking import download_lock, job_lock, JobBusyError
 from video_service.models import JobStatus, QualityProfile
 from video_service.repository import FilesystemJobRepository
@@ -31,7 +31,7 @@ class DownloadTests(unittest.IsolatedAsyncioTestCase):
         self.output = self.repo.job_dir(self.job) / "output/final.mp4"
         self.output.write_bytes(b"0123456789")
         self.repo.update_status(self.job, JobStatus.COMPLETED)
-        self.worker = Worker(self.repo, None)
+        self.worker = Agent(self.repo, None)
 
     def test_multiple_downloads_exclude_delete_and_gc(self):
         with download_lock(self.repo, self.job), download_lock(self.repo, self.job):

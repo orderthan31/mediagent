@@ -9,10 +9,10 @@ from uuid import uuid4
 import wave
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / "packages/shared"), str(ROOT / "workers/media")]
-from media_worker.media import preprocess_audio
-from media_worker.process import Cancelled
-from media_worker.vocalizations import detect_vocalizations, validated_events, candidates_without_speech, subtract_intervals, exclude_protected
+sys.path[:0] = [str(ROOT / "packages/shared"), str(ROOT / "agents/media")]
+from media_agent.media import preprocess_audio
+from media_agent.process import Cancelled
+from media_agent.vocalizations import detect_vocalizations, validated_events, candidates_without_speech, subtract_intervals, exclude_protected
 from video_service.timeline import map_segment_to_original
 
 
@@ -87,13 +87,13 @@ class VocalizationTests(unittest.TestCase):
     def test_pcm_samples_and_original_timestamp_mapping_after_removal(self):
         log = self.root / "silence.log"
         log.write_text("", encoding="utf-8")
-        with patch("media_worker.media.run_process", return_value=log):
+        with patch("media_agent.media.run_process", return_value=log):
             output, spans = preprocess_audio(self.audio, self.root, vocalizations=[event(1, 2)])
         with wave.open(str(output), "rb") as clip:
             self.assertEqual(clip.getnframes(), 48000)
             self.assertEqual(clip.readframes(48000), b"\x01\x00" * 48000)
         self.assertEqual(map_segment_to_original(1, 2, spans), (2, 3))
-        with patch("media_worker.media.run_process") as run:
+        with patch("media_agent.media.run_process") as run:
             _, spans = preprocess_audio(self.audio, self.root, audio_filter="off", vocalizations=[event(1, 2)])
         run.assert_not_called()
         self.assertEqual(map_segment_to_original(1, 2, spans), (1, 2))
@@ -114,7 +114,7 @@ class VocalizationTests(unittest.TestCase):
             output.writeframes(b"\x01\x00" * 16000 * 20)
         log = self.root / "silence.log"
         log.write_text("silence_start: 0\nsilence_end: 20\n", encoding="utf-8")
-        with patch("media_worker.media.run_process", return_value=log):
+        with patch("media_agent.media.run_process", return_value=log):
             _, spans = preprocess_audio(self.audio, self.root, protected_audio=[event(2, 18, "speech")])
         self.assertTrue(any(s.original_start <= 2 and s.original_end >= 18 for s in spans))
         self.assertAlmostEqual(sum(s.original_duration for s in spans), 17)
@@ -134,7 +134,7 @@ class VocalizationTests(unittest.TestCase):
     def test_pcm_layer_preserves_protected_audio_even_with_conflicting_removal(self):
         log = self.root / "silence.log"
         log.write_text("", encoding="utf-8")
-        with patch("media_worker.media.run_process", return_value=log):
+        with patch("media_agent.media.run_process", return_value=log):
             output, spans = preprocess_audio(self.audio, self.root,
                 vocalizations=[event(1, 2)], protected_audio=[event(1.5, 2.5, "speech")])
         with wave.open(str(output), "rb") as audio:

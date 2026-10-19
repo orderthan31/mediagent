@@ -4,11 +4,11 @@ import unittest
 from unittest.mock import AsyncMock
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / 'workers/media'), str(ROOT / 'packages/shared')]
-from media_worker.providers import GeminiProvider, ModelRequestError
-from media_worker.content_block import ContentBlockedError
-from media_worker.transcription_queue import RetryableTranscriptionError
-from media_worker.llm_diagnostics import attempt_context, new_context
+sys.path[:0] = [str(ROOT / 'agents/media'), str(ROOT / 'packages/shared')]
+from media_agent.providers import GeminiProvider, ModelRequestError
+from media_agent.content_block import ContentBlockedError
+from media_agent.transcription_queue import RetryableTranscriptionError
+from media_agent.llm_diagnostics import attempt_context, new_context
 
 
 class ModelFallbackTests(unittest.IsolatedAsyncioTestCase):

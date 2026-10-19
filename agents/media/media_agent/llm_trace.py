@@ -6,7 +6,7 @@ import hashlib
 import os
 from uuid import uuid4
 
-from .worker_storage import check_capacity as assert_capacity, capacity_estimate
+from .agent_storage import check_capacity as assert_capacity, capacity_estimate
 from video_service.storage import write_json_atomic
 from .llm_diagnostics import attempt_context
 

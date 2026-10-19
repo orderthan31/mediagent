@@ -5,9 +5,9 @@ import unittest
 from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / 'packages/shared'), str(ROOT / 'workers/media')]
-from media_worker.progress import encoding_progress
-from media_worker.worker import Worker
+sys.path[:0] = [str(ROOT / 'packages/shared'), str(ROOT / 'agents/media')]
+from media_agent.progress import encoding_progress
+from media_agent.agent import Agent
 from video_service.repository import FilesystemJobRepository
 from video_service.models import JobStatus, QualityProfile
 
@@ -38,7 +38,7 @@ class ProgressTests(unittest.TestCase):
         record = repo.create_job(original_filename='x.mp4', expected_size=1,
             source_language='en', target_language='ko', quality_profile=QualityProfile.BALANCED)
         repo.update_status(record.job_id, JobStatus.ENCODING, metadata={'stage_progress': 0.8})
-        Worker(repo, None).transition(record.job_id, JobStatus.VALIDATING)
+        Agent(repo, None).transition(record.job_id, JobStatus.VALIDATING)
         self.assertIsNone(repo.read(record.job_id).metadata['stage_progress'])
 
 

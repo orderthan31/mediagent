@@ -2,45 +2,56 @@
 
 ## 목적
 
-현재 개발에서 유지해야 하는 저장·실행·검수·복구의 기술 경계와 재현 진입점을 관리한다.
+격리 CPU 경로의 실제 책임·재현 진입점과 운영 전환 경계를 관리한다.
 
 ## 현재 상태
 
-신규 PG/원본/티켓/CPU 경로는 미커밋 WIP다. 격리 브라우저 동선과 다운로드 SHA 확인은 수행했으나 최신 재생 검사는 실패 상태이며 최종 회귀·공유는 남아 있다.
+검증 업로드·불변 workflow/티켓·PostgreSQL 상태·독립 CPU 프로세스·로컬/S3-compatible CAS·검수/승인/취소/복구·WebM 플레이어와 이중 다운로드를 구현했다. 실제 MinIO 제품·브로커·다중 머신·GPU/provider·운영 전환은 미검증이다.
 
 ## 주요 내용
 
-### 책임과 보호
+### 실행·데이터 보호
 
-- 계정/서빙 등록·원본·workflow revision·ticket snapshot·노드/검수/실행 승인은 소유자 범위 PostgreSQL에 저장한다. 미디어 바이트는 DB와 분리한다.
-- 정의/입력/설정·검수의 출처와 불변 hash를 고정한다. 등록 endpoint 설정 snapshot은 외부 모델 가중치 고정이나 추론 재현성을 보장하지 않는다.
-- 사람 검수는 draft 저장 → 확정 → 남은 계획 재확인 → 별도 이어 실행으로 분리한다. 에이전트는 웹 세션이나 후속 workflow를 알아서는 안 된다.
-- 실행 동의는 서버가 재계산한 남은 계획과 입력에 결속한다. 미사용 동의는 서버 시각 15분 후 만료되며 재요청이 만료 시간을 늘리거나 새 실행을 만들지 않는다.
-- 중복 실행 claim과 재전달을 구분한다. 결과 불명 요청을 자동 retry/fallback하지 않으며 늦거나 오래된 generation 결과는 정상 완료에 채택하지 않는다.
-- 취소는 진행 중 처리의 정리와 결과 격리를 고려한다. 복구는 원 작업·결과·승인을 덮어쓰지 않는 새 자식 작업이며, 검증된 완료 receipt와 의존성만 재사용한다.
-- 모델·제어 노드의 편집 지원과 실제 실행 지원을 구분한다. 현재 CPU 실행기가 미지원 모델·Loop/Fallback을 정상 완료처럼 실행하지 않도록 닫힌 상태를 유지한다.
+- API는 명시 DB/콘텐츠 저장소만 받는다. DSN fallback·startup migration·queue scan·실모델 import/call이 없다.
+- 작업 snapshot과 정의 revision은 불변이며 동의는 현재 입력/설정/검수와 결속한다. 동의 저장·실행 요청·사람 검수 저장/확정을 분리한다.
+- DB delivery reservation 뒤 지정 명령 하나만 실행한다. 독립 에이전트에는 DB/전체 workflow/후속 노드/세션을 보내지 않는다.
+- S3 attempt marker는 조건부 쓰기(If-None-Match)를 사용한다. 완료 receipt가 없는 중복은 결과 불명으로 막고 자동 재실행하지 않는다. 결과 ack는 애플리케이션 DB commit 뒤에만 호출한다.
+- 취소·lease 만료·이전 generation 결과는 격리한다. 복구는 새 draft 자식 작업이며 검증된 완료 결과만 재사용하고 새 실행 승인을 요구한다.
+- 미지원 모델·Loop/Fallback·추가 입력 binding은 편집 지원과 구분하여 실행 승인을 닫는다.
 
-### 현재 구현 한계
+### 저장소와 WebM
 
-- 원본/콘텐츠의 현재 상한은 256 MiB, 업로드 chunk는 4 MiB다. 과거 legacy의 1/5 GiB 검증을 신규 경로의 대용량 지원 증거로 재사용하지 않는다.
-- local `ContentStore`와 CPU subprocess는 실제 구현되어 있으나 원격 S3/브로커를 통한 에이전트 독립 운영은 미완이다.
-- 프론트의 실제 API는 `VITE_RENEWAL_BACKEND=1` opt-in이며 `DEV && VITE_FRONTEND_ONLY=1` 목업과 구분한다.
-- 최신 합성 MP4 재생은 `NotSupportedError`로 실패했다. 파일 다운로드 SHA·API 정상 응답만으로 플레이어 재생 성공을 주장하지 않는다. 코덱/응답/브라우저 중 원인은 미확정이다.
+- 원본 상한 256 MiB, chunk 4 MiB. `ContentStore`는 private local CAS, `S3ContentStore`는 기존 bucket의 명시 prefix/owner/CAS를 사용한다.
+- S3 adapter는 bucket 생성/나열/삭제·서명 URL 발급을 하지 않는다. 키는 프로세스의 명시 환경변수 이름으로만 읽으며 명령/정의/DB에 raw credential을 넣지 않는다. 원격 HTTPS(테스트 loopback HTTP 예외), 직접 SHA/byte 검증, 불변 참조를 사용한다.
+- private cache는 로컬 작업공간일 뿐 정본이 아니다. 앱/에이전트는 공유 볼륨 없이 별도 cache에서 S3 HTTP로 원본/결과를 교환한다.
+- 업로드 원본과 처리 결과 원본은 보존한다. 별도 `webm-vp9-opus-v1` 파생본(VP9/Opus, 최대 1280×720)을 생성하고 원본 SHA와 연결한다. 원본을 WebM으로 바꿔 저장하지 않는다.
+- `/api/videos/{id}/stream`은 WebM 재생, `/download`는 업로드 원본이다. `stream?download=true`는 WebM 첨부 다운로드다.
+- 작업 산출물 endpoint는 결과 원본이며 `/preview`가 WebM이다. 양쪽 `?download=true`는 해당 파일 첨부 다운로드다. 고정 영상 입력 플레이어도 `/preview`를 사용한다.
+- WebM 생성 실패 시 원본은 다운로드 가능하며 실패 상태를 보존한다. GET에서 변환하거나 지원 여부를 모르는 원본으로 플레이어를 자동 fallback하지 않는다. 현재 WebM은 bounded CPU 처리이며 장시간 미디어의 비동기 스케줄링은 잔여다.
 
-### 격리 검증
+### 독립 실행 진입점
 
-- Python 3.12+·FFmpeg/FFprobe·Node 22+와 설치한 web 의존성을 사용한다.
-- `MIDEAGENT_TEST_DSN`은 반드시 disposable PG여야 하며 `MIDEAGENT_TEST_DISPOSABLE=1`을 명시한다. 운영 DSN fallback은 없다. 테스트는 매번 임의 schema만 만들고 정리한다.
-- `PYTHONPATH=packages/shared:apps/api python -m pytest tests/renewal -q`로 검사한다. DB 설정 없이 건너뛴 검사는 PG 통과가 아니다.
-- production frontend build 후 `MIDEAGENT_EXECUTION_BROWSER=1`, 외부 증적 경로 `MIDEAGENT_EXECUTION_EVIDENCE`를 지정해 `tests/renewal/test_execution.py::test_production_cpu_browser_and_explicit_launcher`를 실행한다. 현재 이 확장 검사는 위 재생 오류로 실패하므로 all-green으로 보고하지 않는다.
-- 합성 API 세션 인증, loopback HTTP, 합성 미디어만 사용하고 테스트 서버는 종료한다. 이는 비밀번호 폼 수동 검증이나 운영 배포가 아니다.
+Python 3.12+와 FFmpeg/FFprobe가 필요하다. `packages/shared[postgres,models,objects]`, `apps/api`, `agents/cpu`를 격리 환경에 설치한다. CPU 에이전트 자체는 PostgreSQL 패키지나 API 연결 없이 동작한다.
+
+- `mideagent-analyze`, `mideagent-extract-audio`, `mideagent-generate-subtitle`, `mideagent-encode`, `mideagent-validate-video`: 각 고정 역할의 JSON stdin/stdout 명령. `--input-root`/`--output-root`는 명시 private root다.
+- `mideagent-object-agent --agent <role> --owner <owner-id> --config-env <explicit-name>`: 원격 CAS를 사용하는 단일 명령. 설정은 endpoint/bucket/region/prefix/cache_root와 access_key_env/secret_key_env 이름만 포함한다.
+- `python -m app.renewal_server --dsn-env <name> --origin http://127.0.0.1:<port> --content-root <root> --allow-cpu`: 로컬 전용 launcher.
+- S3 실행은 content-root 대신 `--object-config-env <app-config-name> --agent-config-env <agent-config-name>`을 사용한다. 앱과 agent config의 private cache_root를 다르게 지정한다. 이 launcher는 공개 production server가 아니다.
+- `agents/media/media_agent`는 기존 API 의존성을 위한 legacy 호환 코드다. CLI는 `--allow-legacy-queue` 없이는 queue/cleanup을 실행하지 않으며 이 플래그의 존재가 현재 운영 실행 승인은 아니다. 기존 WORKER_* 환경변수·과거 DB/protocol 식별자는 데이터 호환성을 위해 임의 변경하지 않는다.
+
+### 검증과 남은 부채
+
+- 전체 renewal 격리 회귀는 51개 통과(세 브라우저 경로 포함, skip 없음), web 단위 테스트는 42개 통과했다. 변경 Python lint/format, 변경 runtime 화면 lint/format, 타입/build, compose 정적 구성 검사를 별도로 통과했다. compose 검사는 스택 실행이 아니다.
+- 테스트는 명시 disposable PostgreSQL의 임의 schema와 합성 미디어만 사용한다. S3 테스트는 임시 loopback 프로토콜 에뮬레이터이며 종료 후 서버를 닫는다.
+- 코덱 지원 Chrome만 사용하는 우회와 구분한다. H.264/AAC 미지원 Chromium에서도 WebM 원본/산출물 재생, 재생 시간 진행·영상 크기, 원본/WebM 실제 다운로드와 SHA를 확인한다. FHD/cover/unfolded는 브라우저 에뮬레이션이지 실기기 수용이 아니다.
+- 이전 exact SHA `6035f763e896f23cccbaf249a5c13604748f82ff`와 동일 환경으로 legacy suite를 비교했다. 기존 실패 27개가 동일하며 신규 실패는 없었다. 주요 부채는 과거 fixture/실행 승인 계약, provider mock 설정과 download test 호환성이다. 전체 legacy suite는 all-green이 아니다.
+- 전체 web lint는 기존 오류 87개, format은 기존 파일 네 개 부채가 있다. 변경 runtime 화면 lint·web 단위 테스트·타입/build 검사와 분리한다. 검사를 삭제하거나 실행 승인 보호를 낮추지 않는다.
+- 실제 제품/다중 머신에서는 최소권한 bucket prefix 정책, 인증/허용 명령 범위, 브로커 topology, 장애/중복/취소 및 성능을 다시 수용해야 한다. 현재 S3 fixture는 IAM/실 MinIO 적합성을 증명하지 않는다.
 
 ## 미확정 사항
 
-실제 원격 저장소/브로커·GPU/모델 실행과 운영 전환은 아직 검증하지 않았다.
+실제 제품/배포 분할·인증/브로커·GPU/실모델·대용량 비동기 실행은 별도 단계다.
 
 ## 관련 문서
 
-- [현재 구조](../../plans/architect.md)
-- [구현 태스크](../../plans/tasks.md)
-- [배포 경계](../../rules/deploy.md)
+- [구조](../../plans/architect.md) · [태스크](../../plans/tasks.md) · [격리 테스트](../../../tests/renewal/README.md) · [배포 경계](../../rules/deploy.md)

@@ -11,8 +11,8 @@ from unittest.mock import Mock, patch
 from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "workers/media"))
-from media_worker.process import Cancelled, ProcessLogLimitError, run_process
+sys.path.insert(0, str(ROOT / "agents/media"))
+from media_agent.process import Cancelled, ProcessLogLimitError, run_process
 
 
 class ProcessLogTests(unittest.TestCase):
@@ -73,7 +73,7 @@ class ProcessLogTests(unittest.TestCase):
             children.append(child)
             return child
         started = time.monotonic()
-        with patch("media_worker.process.subprocess.Popen", side_effect=capture), self.assertRaises(ProcessLogLimitError):
+        with patch("media_agent.process.subprocess.Popen", side_effect=capture), self.assertRaises(ProcessLogLimitError):
             self.run_child("import os\nwhile True: os.write(1, b'x' * 65536)", max_log_bytes=4096)
         self.assertLess(time.monotonic() - started, 10)
         self.assertIsNotNone(children[0].poll())
@@ -85,7 +85,7 @@ class ProcessLogTests(unittest.TestCase):
 
     def test_invalid_limit_is_rejected_before_launch(self):
         for value in (0, 4095, 67108865, True, 8192.5):
-            with patch("media_worker.process.subprocess.Popen") as launch, self.assertRaises(ValueError):
+            with patch("media_agent.process.subprocess.Popen") as launch, self.assertRaises(ValueError):
                 self.run_child("pass", max_log_bytes=value)
             launch.assert_not_called()
 
@@ -96,8 +96,8 @@ class ProcessLogTests(unittest.TestCase):
             child = original(*args, **kwargs)
             children.append(child)
             return child
-        with patch("media_worker.process.subprocess.Popen", side_effect=capture), \
-                patch("media_worker.process.Thread.start", side_effect=RuntimeError("thread unavailable")), \
+        with patch("media_agent.process.subprocess.Popen", side_effect=capture), \
+                patch("media_agent.process.Thread.start", side_effect=RuntimeError("thread unavailable")), \
                 self.assertRaisesRegex(RuntimeError, "thread unavailable"):
             self.run_child("import time; time.sleep(30)")
         self.assertIsNotNone(children[0].poll())

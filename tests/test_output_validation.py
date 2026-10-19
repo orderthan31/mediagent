@@ -5,8 +5,8 @@ import unittest
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / "workers/media"), str(ROOT / "packages/shared")]
-from media_worker.validation import validate_cues, validate_output, display_dimensions, validate_decodable
+sys.path[:0] = [str(ROOT / "agents/media"), str(ROOT / "packages/shared")]
+from media_agent.validation import validate_cues, validate_output, display_dimensions, validate_decodable
 from video_service.transcript import TranscriptSegment
 
 
@@ -48,7 +48,7 @@ class OutputValidationTests(unittest.TestCase):
             validate_output(self.source, self.output, 100, subtitle_mode="soft")
 
     def test_soft_encoding_maps_only_translated_subtitles_without_burning(self):
-        from media_worker.media import encoding_args
+        from media_agent.media import encoding_args
         for codec in ("hevc", "h264"):
             args = encoding_args("source.mp4", "final.mp4", {"avg_frame_rate": "30/1"},
                 video_codec=codec, subtitle_mode="soft", target_language="ko")
@@ -69,7 +69,7 @@ class OutputValidationTests(unittest.TestCase):
 
     def test_decode_validation_propagates_failure_and_cancellation_check(self):
         check = lambda: None
-        with patch("media_worker.process.run_process", side_effect=RuntimeError("corrupt frame")) as run:
+        with patch("media_agent.process.run_process", side_effect=RuntimeError("corrupt frame")) as run:
             with self.assertRaisesRegex(RuntimeError, "corrupt frame"):
                 validate_decodable("final.mp4", Path("work"), check)
         self.assertIn("-xerror", run.call_args.args[0])

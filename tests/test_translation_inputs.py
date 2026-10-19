@@ -3,8 +3,8 @@ import sys
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / 'workers/media'), str(ROOT / 'packages/shared')]
-from media_worker.translation_inputs import translation_groups
+sys.path[:0] = [str(ROOT / 'agents/media'), str(ROOT / 'packages/shared')]
+from media_agent.translation_inputs import translation_groups
 from video_service.transcript import TranscriptSegment as Cue
 
 

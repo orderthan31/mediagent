@@ -10,10 +10,10 @@ from contextlib import ExitStack
 from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / "workers/media"), str(ROOT / "packages/shared")]
-from media_worker.worker import Worker
-from media_worker.process import Cancelled
-from media_worker.transcription_queue import PartialTranscriptionError
+sys.path[:0] = [str(ROOT / "agents/media"), str(ROOT / "packages/shared")]
+from media_agent.agent import Agent
+from media_agent.process import Cancelled
+from media_agent.transcription_queue import PartialTranscriptionError
 from video_service.storage import remove_path_inside
 from video_service.locking import job_lock
 from video_service.models import JobStatus, QualityProfile
@@ -31,12 +31,12 @@ class WorkerLifecycleTests(unittest.TestCase):
         self.record = self.repo.create_job(original_filename="clip.mp4", expected_size=1,
             source_language="en", target_language="ko", quality_profile=QualityProfile.BALANCED)
         self.job = self.record.job_id
-        self.worker = Worker(self.repo, None)
+        self.worker = Agent(self.repo, None)
         self.repo.source_path(self.record).write_bytes(b"x")
 
     def test_failed_process_preserves_all_media(self):
         self.repo.update_status(self.job, JobStatus.QUEUED)
-        with patch("media_worker.worker.select_encoder", side_effect=RuntimeError("encoder unavailable")):
+        with patch("media_agent.agent.select_encoder", side_effect=RuntimeError("encoder unavailable")):
             self.worker.process(self.job)
         self.assertEqual(self.repo.read(self.job).status, JobStatus.FAILED)
         self.assertIn("encoder unavailable", self.repo.read(self.job).error)
@@ -52,7 +52,7 @@ class WorkerLifecycleTests(unittest.TestCase):
         (work / "audio.wav").write_bytes(b"audio")
         (output / "translated.srt").write_text("subtitle")
         self.repo.update_status(self.job, JobStatus.QUEUED)
-        with patch("media_worker.worker.select_encoder", side_effect=RuntimeError("failure")):
+        with patch("media_agent.agent.select_encoder", side_effect=RuntimeError("failure")):
             self.worker.process(self.job)
         self.assertEqual(self.repo.read(self.job).status, JobStatus.FAILED)
         self.worker.collect(expire=False)
@@ -76,7 +76,7 @@ class WorkerLifecycleTests(unittest.TestCase):
                 self.assertEqual(self.repo.read(self.job).status, status)
                 self.assertTrue(self.repo.source_path(self.record).exists())
                 self.assertNotIn("results_expired_at", self.repo.read(self.job).metadata)
-        from media_worker.cleanup import collect_orphans
+        from media_agent.cleanup import collect_orphans
         self.assertEqual(collect_orphans(self.repo, now=10**12), [orphan.name])
         self.assertFalse(orphan.exists())
 
@@ -85,9 +85,9 @@ class WorkerLifecycleTests(unittest.TestCase):
         metadata = {"duration": 3600, "streams": [
             {"codec_type": "video", "avg_frame_rate": "30/1"}, {"codec_type": "audio"}]}
         with patch.dict("os.environ", {"VIDEO_SERVICE_QUOTA_BYTES": str(1024**2), "MIN_FREE_SPACE_BYTES": "0"}), \
-                patch("media_worker.worker.select_encoder", return_value="hevc_nvenc"), \
-                patch("media_worker.worker.probe", return_value=metadata), \
-                patch("media_worker.worker.extract_audio") as extract:
+                patch("media_agent.agent.select_encoder", return_value="hevc_nvenc"), \
+                patch("media_agent.agent.probe", return_value=metadata), \
+                patch("media_agent.agent.extract_audio") as extract:
             self.worker.process(self.job)
         extract.assert_not_called()
         self.assertEqual(self.repo.read(self.job).status, JobStatus.FAILED)
@@ -103,7 +103,7 @@ class WorkerLifecycleTests(unittest.TestCase):
             "protected": [{"start": 12, "end": 13}]}
         provider.transcribe.return_value = [TranscriptSegment(0, 1, "Original speech.")]
         provider.translate.side_effect = lambda segments, language, check, **kwargs: [s.with_text(f"Translated speech. {language}") for s in segments]
-        worker = Worker(self.repo, provider)
+        worker = Agent(self.repo, provider)
         audio = self.repo.job_dir(self.job) / "work/audio.wav"
         audio.write_bytes(b"audio")
         (audio.parent / "processed-audio.wav").write_bytes(b"processed")
@@ -116,13 +116,13 @@ class WorkerLifecycleTests(unittest.TestCase):
             Path(args[-1]).write_bytes(b"output")
         with ExitStack() as stack:
             stack.enter_context(patch.dict("os.environ", {"VOCALIZATION_FILTER_ENABLED": "true"}))
-            stack.enter_context(patch("media_worker.worker.select_encoder", return_value="hevc_nvenc"))
-            stack.enter_context(patch("media_worker.worker.probe", return_value=metadata))
-            stack.enter_context(patch("media_worker.worker.extract_audio", return_value=audio))
-            preprocess = stack.enter_context(patch("media_worker.worker.preprocess_audio", return_value=(audio,
+            stack.enter_context(patch("media_agent.agent.select_encoder", return_value="hevc_nvenc"))
+            stack.enter_context(patch("media_agent.agent.probe", return_value=metadata))
+            stack.enter_context(patch("media_agent.agent.extract_audio", return_value=audio))
+            preprocess = stack.enter_context(patch("media_agent.agent.preprocess_audio", return_value=(audio,
                 build_timeline_from_kept_intervals([(12, 13)]))))
-            stack.enter_context(patch("media_worker.worker.run_process", side_effect=encode))
-            decode = stack.enter_context(patch("media_worker.worker.validate_decodable"))
+            stack.enter_context(patch("media_agent.agent.run_process", side_effect=encode))
+            decode = stack.enter_context(patch("media_agent.agent.validate_decodable"))
             worker.process(self.job)
         decode.assert_called_once()
         record = self.repo.read(self.job)
@@ -162,7 +162,7 @@ class WorkerLifecycleTests(unittest.TestCase):
                 record.metadata["cancel_requested"] = True
                 self.repo.save(record)
             check()
-        with patch("media_worker.worker.select_encoder", side_effect=cancel), patch("media_worker.worker.extract_audio") as extraction:
+        with patch("media_agent.agent.select_encoder", side_effect=cancel), patch("media_agent.agent.extract_audio") as extraction:
             self.worker.process(self.job)
         extraction.assert_not_called()
         self.assertEqual(self.repo.read(self.job).status, JobStatus.CANCELLED)
@@ -181,13 +181,13 @@ class WorkerLifecycleTests(unittest.TestCase):
         (audio.parent / "timeline-map.json").write_text("[]")
         metadata = {"duration": 2, "streams": [{"codec_type": "video"}, {"codec_type": "audio"}]}
         with ExitStack() as stack:
-            stack.enter_context(patch("media_worker.worker.select_encoder", return_value="hevc_nvenc"))
-            stack.enter_context(patch("media_worker.worker.probe", return_value=metadata))
-            stack.enter_context(patch("media_worker.worker.extract_audio", return_value=audio))
-            stack.enter_context(patch("media_worker.worker.preprocess_audio", return_value=(audio,
+            stack.enter_context(patch("media_agent.agent.select_encoder", return_value="hevc_nvenc"))
+            stack.enter_context(patch("media_agent.agent.probe", return_value=metadata))
+            stack.enter_context(patch("media_agent.agent.extract_audio", return_value=audio))
+            stack.enter_context(patch("media_agent.agent.preprocess_audio", return_value=(audio,
                 build_timeline_from_kept_intervals([(0, 2)]))))
-            encode = stack.enter_context(patch("media_worker.worker.run_process"))
-            Worker(self.repo, provider).process(self.job)
+            encode = stack.enter_context(patch("media_agent.agent.run_process"))
+            Agent(self.repo, provider).process(self.job)
         encode.assert_not_called()
         record = self.repo.read(self.job)
         self.assertEqual(record.status, JobStatus.FAILED)
@@ -212,13 +212,13 @@ class WorkerLifecycleTests(unittest.TestCase):
         (audio.parent / "timeline-map.json").write_text("[]")
         metadata = {"duration": 5, "streams": [{"codec_type": "video"}, {"codec_type": "audio"}]}
         with ExitStack() as stack:
-            stack.enter_context(patch("media_worker.worker.select_encoder", return_value="hevc_nvenc"))
-            stack.enter_context(patch("media_worker.worker.probe", return_value=metadata))
-            stack.enter_context(patch("media_worker.worker.extract_audio", return_value=audio))
-            stack.enter_context(patch("media_worker.worker.preprocess_audio", return_value=(audio,
+            stack.enter_context(patch("media_agent.agent.select_encoder", return_value="hevc_nvenc"))
+            stack.enter_context(patch("media_agent.agent.probe", return_value=metadata))
+            stack.enter_context(patch("media_agent.agent.extract_audio", return_value=audio))
+            stack.enter_context(patch("media_agent.agent.preprocess_audio", return_value=(audio,
                 build_timeline_from_kept_intervals([(0, 5)]))))
-            encode = stack.enter_context(patch("media_worker.worker.run_process"))
-            Worker(self.repo, provider).process(self.job)
+            encode = stack.enter_context(patch("media_agent.agent.run_process"))
+            Agent(self.repo, provider).process(self.job)
         provider.translate.assert_not_called()
         encode.assert_not_called()
         record = self.repo.read(self.job)
@@ -253,7 +253,7 @@ class WorkerLifecycleTests(unittest.TestCase):
 
     def test_failure_never_invokes_cleanup_and_legacy_pending_does_not_delete(self):
         self.repo.update_status(self.job, JobStatus.QUEUED)
-        with patch("media_worker.worker.select_encoder", side_effect=RuntimeError("encoder failed")), \
+        with patch("media_agent.agent.select_encoder", side_effect=RuntimeError("encoder failed")), \
                 patch.object(self.worker, "cleanup") as cleanup:
             self.worker.process(self.job)
             cleanup.assert_not_called()
@@ -306,7 +306,7 @@ class WorkerLifecycleTests(unittest.TestCase):
                 patch("video_service.locking.time.sleep", side_effect=pause):
             with job_lock(self.repo, self.job):
                 future = pool.submit(self.worker.transition, self.job, JobStatus.TRANSLATING)
-                self.assertTrue(waiting.wait(1), "Worker did not retry the occupied lock")
+                self.assertTrue(waiting.wait(1), "Agent did not retry the occupied lock")
                 self.assertFalse(future.done())
             self.assertEqual(future.result(timeout=2).status, JobStatus.TRANSLATING)
 

@@ -5,8 +5,8 @@ import json
 import os
 from pathlib import Path
 
-from media_worker.completed_transcript import transcript_identity, save_completed_transcript
-from media_worker.sentence_transcription import transcription_prompt
+from media_agent.completed_transcript import transcript_identity, save_completed_transcript
+from media_agent.sentence_transcription import transcription_prompt
 from video_service.locking import job_lock
 from video_service.models import JobStatus
 from video_service.repository import FilesystemJobRepository

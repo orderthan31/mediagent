@@ -8,6 +8,7 @@ import { ticketNumber, workflowName } from './job-identity';
 import { AccountPage } from './AccountPage';
 import { PublishingAuth } from './PublishingAuth';
 import { JobDetail } from './JobDetail';
+import { RenewalJobDetail } from './RenewalJobDetail';
 import { SettingsPage } from './SettingsPage';
 import { ModelRegistryPage } from './ModelRegistryPage';
 import { ProviderConnections } from './ProviderConnections';
@@ -45,6 +46,7 @@ import './storage.css';
 import './feature-renewal.css';
 import './workspace-layout.css';
 export const VideoWorkspace = () => {
+  const [runtimeReady, setRuntimeReady] = useState(!renewalBackend);
   const [agentLabel, setAgentLabel] = useState('');
   const agentIdentity = location.hash.startsWith('#/agents/')
     ? decodeURIComponent(location.hash.slice('#/agents/'.length))
@@ -303,6 +305,7 @@ export const VideoWorkspace = () => {
   );
   useEffect(() => {
     const navigate = () => {
+      // Capability discovery below keeps foundation-only API media paths closed.
       const next = (location.hash || '#/jobs').replace(
         /^(#\/workflows\/[a-f0-9]{32})\/edit$/,
         '$1',
@@ -323,8 +326,24 @@ export const VideoWorkspace = () => {
     return () => window.removeEventListener('hashchange', navigate);
   }, []);
   useEffect(() => {
-    if (renewalBackend) {
-      return; // Foundation API must not poll or activate legacy upload/queue storage.
+    if (!renewalBackend) {
+      return;
+    }
+    const controller = new AbortController();
+    void request<{ features: string[] }>('/capabilities', { signal: controller.signal })
+      .then((value) => {
+        if (!controller.signal.aborted) {
+          setRuntimeReady(value.features.includes('verified_uploads'));
+        }
+      })
+      .catch(() => {
+        /* Existing foundation-only boundary remains closed. */
+      });
+    return () => controller.abort();
+  }, []);
+  useEffect(() => {
+    if (!runtimeReady) {
+      return; // Never activate media paths against a foundation-only API.
     }
     queue.onChange = () => setUploads(queue.items.map((x) => ({ ...x })));
     queue.activate();
@@ -361,9 +380,9 @@ export const VideoWorkspace = () => {
       document.removeEventListener('visibilitychange', visibility);
       window.removeEventListener('beforeunload', leave);
     };
-  }, [queue]);
+  }, [queue, runtimeReady]);
   useEffect(() => {
-    if (renewalBackend || !assetId) {
+    if (!runtimeReady || !assetId) {
       return;
     }
     const controller = new AbortController();
@@ -393,7 +412,7 @@ export const VideoWorkspace = () => {
       controller.abort();
       clearTimeout(timer);
     };
-  }, [assetId]);
+  }, [assetId, runtimeReady]);
   if (frontendOnly && (route === '#/setup' || route === '#/login')) {
     return <PublishingAuth key={route} setup={route === '#/setup'} />;
   }
@@ -451,6 +470,7 @@ export const VideoWorkspace = () => {
           onChange={(e) => void attachSrt(e.target.files?.[0])}
         />
         {renewalBackend &&
+        (!runtimeReady || workflowTicketsView || settingsView || route === '#/serving/roles') &&
         !(route.startsWith('#/account') || (servingView && route !== '#/serving/roles')) ? (
           <main className="serving-page">
             <PageTitle>
@@ -524,15 +544,19 @@ export const VideoWorkspace = () => {
         ) : settingsView ? (
           <SettingsPage />
         ) : jobId ? (
-          <JobDetail
-            id={jobId}
-            key={jobId}
-            labels={statusLabels}
-            promotedAssetId={
-              videos.find((v) => v.provenance.kind === 'result' && v.provenance.job_id === jobId)
-                ?.asset_id
-            }
-          />
+          renewalBackend ? (
+            <RenewalJobDetail id={jobId} key={jobId} />
+          ) : (
+            <JobDetail
+              id={jobId}
+              key={jobId}
+              labels={statusLabels}
+              promotedAssetId={
+                videos.find((v) => v.provenance.kind === 'result' && v.provenance.job_id === jobId)
+                  ?.asset_id
+              }
+            />
+          )
         ) : (
           <main className="video-main">
             {!online && (
@@ -568,7 +592,7 @@ export const VideoWorkspace = () => {
                     {jobRows(jobPage.items)}
                     {hasConfirmedList && (
                       <Pagination {...jobPage} disabled={!online}>
-                        <ExecutionPopover jobs={jobs} onChanged={refresh} />
+                        {!renewalBackend && <ExecutionPopover jobs={jobs} onChanged={refresh} />}
                       </Pagination>
                     )}
                   </>

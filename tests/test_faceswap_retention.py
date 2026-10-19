@@ -5,8 +5,8 @@ import unittest
 from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / p) for p in ('workers/media', 'packages/shared')]
-from media_worker.faceswap.retention import prune_previews
+sys.path[:0] = [str(ROOT / p) for p in ('agents/media', 'packages/shared')]
+from media_agent.faceswap.retention import prune_previews
 from video_service.repository import FilesystemJobRepository
 from video_service.models import JobStatus, QualityProfile
 from video_service.locking import job_lock

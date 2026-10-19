@@ -8,11 +8,11 @@ from unittest.mock import Mock, patch
 from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / "packages/shared"), str(ROOT / "workers/media"), str(ROOT / "apps/api")]
+sys.path[:0] = [str(ROOT / "packages/shared"), str(ROOT / "agents/media"), str(ROOT / "apps/api")]
 from fastapi.testclient import TestClient
 from app.api import routes
 from app.main import app
-from media_worker.worker import Worker
+from media_agent.agent import Agent
 from video_service.models import JobStatus, QualityProfile, ACTIVE_STATUSES
 from video_service.repository import FilesystemJobRepository
 from video_service.review import read_draft, write_draft
@@ -39,7 +39,7 @@ class SubtitleReviewTests(unittest.TestCase):
         self.addCleanup(p.stop)
         self.client = TestClient(app)
         self.url = f"/api/jobs/{self.job}/subtitles"
-        self.worker = Worker(self.repo, None)
+        self.worker = Agent(self.repo, None)
 
     def test_versioned_save_rejects_lost_update_and_render_queues(self):
         self.assertEqual(self.client.get(self.url).json()["revision"], 1)
@@ -133,7 +133,7 @@ class SubtitleReviewTests(unittest.TestCase):
         provider = Mock(transcription_model="test-stt", transcription_identity="test-stt", translation_model="test-translation", translation_identity="test-translation", audio_filter_model="test-filter")
         provider.transcribe.return_value = [TranscriptSegment(0, 1, "Original")]
         provider.translate.return_value = [TranscriptSegment(0, 1, "Translated")]
-        worker = Worker(self.repo, provider)
+        worker = Agent(self.repo, provider)
         metadata = {"duration": 3, "streams": [
             {"codec_type": "video", "width": 640, "height": 360, "avg_frame_rate": "30/1",
              "codec_name": "hevc", "codec_tag_string": "hvc1", "pix_fmt": "yuv420p"},
@@ -143,13 +143,13 @@ class SubtitleReviewTests(unittest.TestCase):
         (audio.parent / "processed-audio.wav").write_bytes(b"processed")
         (audio.parent / "timeline-map.json").write_text("[]")
         with ExitStack() as stack:
-            stack.enter_context(patch("media_worker.worker.select_encoder", return_value="hevc_nvenc"))
-            stack.enter_context(patch("media_worker.worker.probe", return_value=metadata))
-            extract = stack.enter_context(patch("media_worker.worker.extract_audio", return_value=audio))
-            stack.enter_context(patch("media_worker.worker.preprocess_audio", return_value=(audio,
+            stack.enter_context(patch("media_agent.agent.select_encoder", return_value="hevc_nvenc"))
+            stack.enter_context(patch("media_agent.agent.probe", return_value=metadata))
+            extract = stack.enter_context(patch("media_agent.agent.extract_audio", return_value=audio))
+            stack.enter_context(patch("media_agent.agent.preprocess_audio", return_value=(audio,
                 build_timeline_from_kept_intervals([(0, 3)]))))
-            encode = stack.enter_context(patch("media_worker.worker.run_process", side_effect=lambda args, **kw: Path(args[-1]).write_bytes(b"out")))
-            stack.enter_context(patch("media_worker.worker.validate_decodable"))
+            encode = stack.enter_context(patch("media_agent.agent.run_process", side_effect=lambda args, **kw: Path(args[-1]).write_bytes(b"out")))
+            stack.enter_context(patch("media_agent.agent.validate_decodable"))
             worker.process(self.job)
             self.assertEqual(self.repo.read(self.job).status, JobStatus.AWAITING_REVIEW)
             encode.assert_not_called()

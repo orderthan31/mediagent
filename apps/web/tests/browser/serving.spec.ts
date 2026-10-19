@@ -16,7 +16,7 @@ for (const width of [1440, 390]) {
     await page.addInitScript(() =>
       document.addEventListener('DOMContentLoaded', () => {
         const p = document.createElement('p');
-        p.textContent = '안전 API FIXTURE · 실제 설정·키·Worker·과금 변경 없음';
+        p.textContent = '안전 API FIXTURE · 실제 설정·키·Agent·과금 변경 없음';
         p.style.cssText = 'background:#fff3c4;color:#403214;padding:8px;text-align:center';
         document.body.prepend(p);
       }),
@@ -66,7 +66,7 @@ for (const width of [1440, 390]) {
           return route.fulfill({
             status,
             json: {
-              detail: '설정이 변경되었습니다. 새로 불러온 뒤 Worker 설정을 다시 선택하세요.',
+              detail: '설정이 변경되었습니다. 새로 불러온 뒤 Agent 설정을 다시 선택하세요.',
             },
           });
         }

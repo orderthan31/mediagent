@@ -13,11 +13,11 @@ import httpx
 from unittest.mock import Mock, AsyncMock, patch
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / "workers/media"), str(ROOT / "packages/shared")]
-from media_worker.providers import GeminiProvider, WordTimestampError, parse_word_transcriptions, transcription_windows
+sys.path[:0] = [str(ROOT / "agents/media"), str(ROOT / "packages/shared")]
+from media_agent.providers import GeminiProvider, WordTimestampError, parse_word_transcriptions, transcription_windows
 from video_service.timeline import build_timeline_from_kept_intervals, project_segment_to_original
 from sdk_fixture import sdk_fixture
-from media_worker.sentence_transcription import transcription_prompt
+from media_agent.sentence_transcription import transcription_prompt
 from video_service.storage import write_json_atomic
 
 

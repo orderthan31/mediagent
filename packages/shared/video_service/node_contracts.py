@@ -1,4 +1,4 @@
-"""Typed contracts for existing Worker stages, not a second DAG executor."""
+"""Typed contracts for existing Agent stages, not a second DAG executor."""
 from copy import deepcopy
 
 
@@ -6,7 +6,7 @@ def node(identity, label, inputs, outputs, role='media', optional=(), choices=No
     return {'id': identity, 'label': label, 'inputs': inputs, 'outputs': outputs,
             'optional_inputs': list(optional), 'worker_role': role, 'options': choices or {},
             'embedded_operations': list(embedded), 'execution': 'existing_fixed_workflow',
-            'entrypoint': 'media_worker.faceswap.runner:execute' if identity == 'faceswap' else 'media_worker.worker:Worker.process'}
+            'entrypoint': 'media_agent.faceswap.runner:execute' if identity == 'faceswap' else 'media_agent.agent:Agent.process'}
 
 
 NODES = [
@@ -66,7 +66,7 @@ def node_catalog():
             'scope': '고정 workflow 처리 단계와 명시 수동 분기/결과 목록 합류 계약입니다. 실행 가능 범위는 순차/병렬 티켓의 서버 검사로 구분하며 운영 실행기 연결과 모델 성공은 별도입니다.',
             'notes': ['번인은 encode의 subtitle_mode=burn이며 독립 실행 단계가 아닙니다.',
                       '전처리의 NVIDIA VAD·얼굴 합성은 해당 엔진과 모델 환경이 별도로 필요합니다.',
-                      '서빙 역할은 단일 media_worker의 논리 역할이며 분산 Worker 등록부가 아닙니다.']}
+                      '서빙 역할은 단일 media_agent의 논리 역할이며 분산 Agent 등록부가 아닙니다.']}
 
 
 def validate_node(payload):

@@ -3,7 +3,7 @@ from pathlib import Path
 from test_workflow_decision import decision_graph
 from video_service.model_registry import ModelRegistry
 from video_service.work_tickets import WorkTicketStore
-from media_worker.registered_nodes import RegisteredDecisionProvider
+from media_agent.registered_nodes import RegisteredDecisionProvider
 
 
 class WorkHarness:

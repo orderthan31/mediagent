@@ -4,8 +4,8 @@ import sys
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / "workers/media"), str(ROOT / "packages/shared")]
-from media_worker.translation_requests import requests, align_result
+sys.path[:0] = [str(ROOT / "agents/media"), str(ROOT / "packages/shared")]
+from media_agent.translation_requests import requests, align_result
 from video_service.transcript import TranscriptSegment
 
 

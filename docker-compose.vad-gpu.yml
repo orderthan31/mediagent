@@ -1,6 +1,6 @@
 # Apply after docker-compose.vad.yml. This does not change video encoding.
 services:
-  worker:
+  agent:
     build:
       args:
         VAD_TORCH_VERSION: ${VAD_TORCH_VERSION:-2.11.0+cu128}

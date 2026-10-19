@@ -2,7 +2,7 @@ import { blockSize, verifyUploadedPrefix } from './upload-verification';
 import { authenticatedFetch } from './auth-session';
 import { abortable } from './abortable';
 import { canRetryBusy, retryBusy } from './busy-retry';
-import { frontendOnly } from './preview';
+import { frontendOnly, renewalBackend } from './preview';
 export { mediaUrl } from './preview';
 export const base = import.meta.env.VITE_API_BASE_URL || '/api';
 export type Job = {
@@ -95,7 +95,18 @@ export const request = async <T>(path: string, init?: RequestInit): Promise<T> =
     const { mockRequest } = await import('./mock-api');
     return mockRequest<T>(path, init);
   }
-  const send = () => authenticatedFetch(base + path, init, path === '/auth/login');
+  let options = init;
+  if (
+    renewalBackend &&
+    init?.method &&
+    !['GET', 'HEAD', 'OPTIONS'].includes(init.method.toUpperCase()) &&
+    init.body == null
+  ) {
+    const headers = new Headers(init.headers);
+    headers.set('Content-Type', 'application/json');
+    options = { ...init, headers };
+  }
+  const send = () => authenticatedFetch(base + path, options, path === '/auth/login');
   const response = canRetryBusy(path, init) ? await retryBusy(send, init?.signal) : await send();
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));

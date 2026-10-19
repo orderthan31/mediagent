@@ -7,11 +7,11 @@ import sys
 from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / "workers/media"), str(ROOT / "packages/shared")]
+sys.path[:0] = [str(ROOT / "agents/media"), str(ROOT / "packages/shared")]
 from video_service.config import load_environment
-from media_worker.media import executable, probe, encoding_args, select_encoder
-from media_worker.process import run_process
-from media_worker.validation import validate_output
+from media_agent.media import executable, probe, encoding_args, select_encoder
+from media_agent.process import run_process
+from media_agent.validation import validate_output
 
 
 def main():

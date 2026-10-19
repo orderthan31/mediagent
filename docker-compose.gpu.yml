@@ -1,5 +1,5 @@
 services:
-  worker:
+  agent:
     environment:
       VIDEO_ENCODER: hevc_nvenc
       ALLOW_SOFTWARE_ENCODER_FALLBACK: "false"

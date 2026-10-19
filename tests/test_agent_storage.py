@@ -7,16 +7,16 @@ import unittest
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / "workers/media"), str(ROOT / "packages/shared")]
-from media_worker.worker_storage import CapacityEstimate, capacity_estimate, check_capacity, disk_call
-from media_worker.transcription_queue import run_segment_queue, PartialTranscriptionError
+sys.path[:0] = [str(ROOT / "agents/media"), str(ROOT / "packages/shared")]
+from media_agent.agent_storage import CapacityEstimate, capacity_estimate, check_capacity, disk_call
+from media_agent.transcription_queue import run_segment_queue, PartialTranscriptionError
 from video_service.capacity import StorageLimitError
 
 
 class StorageTests(unittest.IsolatedAsyncioTestCase):
     def test_writes_are_charged_without_repeated_scans(self):
-        with patch("media_worker.worker_storage.used_bytes", return_value=100) as scan, \
-                patch("media_worker.worker_storage.assert_free_space") as free:
+        with patch("media_agent.agent_storage.used_bytes", return_value=100) as scan, \
+                patch("media_agent.agent_storage.assert_free_space") as free:
             estimate = CapacityEstimate(ROOT)
             estimate.check(150, 0, 20)
             estimate.check(150, 0, 20)
@@ -26,9 +26,9 @@ class StorageTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(free.call_count, 2)
 
     def test_refresh_accounts_for_external_writes(self):
-        with patch("media_worker.worker_storage.used_bytes", side_effect=[100, 190]) as scan, \
-                patch("media_worker.worker_storage.assert_free_space"), \
-                patch("media_worker.worker_storage.time.monotonic", side_effect=[0, 0, 61, 61]):
+        with patch("media_agent.agent_storage.used_bytes", side_effect=[100, 190]) as scan, \
+                patch("media_agent.agent_storage.assert_free_space"), \
+                patch("media_agent.agent_storage.time.monotonic", side_effect=[0, 0, 61, 61]):
             estimate = CapacityEstimate(ROOT)
             estimate.check(200, 0, 20)
             with self.assertRaises(StorageLimitError):
@@ -36,8 +36,8 @@ class StorageTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(scan.call_count, 2)
 
     async def test_context_is_shared_across_io_threads(self):
-        with patch("media_worker.worker_storage.used_bytes", return_value=100) as scan, \
-                patch("media_worker.worker_storage.assert_free_space"), capacity_estimate(ROOT):
+        with patch("media_agent.agent_storage.used_bytes", return_value=100) as scan, \
+                patch("media_agent.agent_storage.assert_free_space"), capacity_estimate(ROOT):
             await asyncio.gather(*(disk_call(check_capacity, ROOT, 1000, 0, 10) for _ in range(3)))
             self.assertEqual(scan.call_count, 1)
 

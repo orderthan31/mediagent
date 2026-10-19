@@ -8,7 +8,7 @@ services:
         target: /data/video-jobs
         bind:
           create_host_path: false
-  worker:
+  agent:
     volumes:
       - type: bind
         source: ${VIDEO_HOST_JOBS_DIR:?Set VIDEO_HOST_JOBS_DIR to an existing absolute job directory}

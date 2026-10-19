@@ -7,8 +7,8 @@ import unittest
 from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / p) for p in ('packages/shared', 'workers/media')]
-from media_worker.faceswap.warm import WarmEngine
+sys.path[:0] = [str(ROOT / p) for p in ('packages/shared', 'agents/media')]
+from media_agent.faceswap.warm import WarmEngine
 from video_service.storage import read_json
 
 

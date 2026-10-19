@@ -5,8 +5,8 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / 'workers/media'), str(ROOT / 'packages/shared')]
-from media_worker.transcription_recovery import recover_recorded_sentences
+sys.path[:0] = [str(ROOT / 'agents/media'), str(ROOT / 'packages/shared')]
+from media_agent.transcription_recovery import recover_recorded_sentences
 
 
 class RecordedRecoveryTests(unittest.TestCase):

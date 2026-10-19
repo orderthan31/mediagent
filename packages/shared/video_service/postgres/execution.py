@@ -1,0 +1,1184 @@
+"""Durable opt-in CPU orchestration. All effects require an exact owner/job claim.
+
+No default DSN, legacy settings, background thread, queue scan or provider call.
+Agents receive immutable commands, never a workflow or downstream agent address.
+"""
+
+from __future__ import annotations
+
+import json
+import subprocess
+import sys
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
+from uuid import uuid4
+
+from psycopg.types.json import Jsonb
+
+from ..cpu_agents import CPU_AGENTS, canonical, digest
+from ..renewal_contracts import spec
+from . import Conflict, Missing
+from .intake import Intake, public_asset, request_id
+from .registry import resource_id
+
+CONTROL = frozenset({"select", "join", "review", "control_if", "control_switch"})
+TERMINAL = frozenset(
+    {"completed", "failed", "cancelled", "skipped", "blocked", "quarantined"}
+)
+
+
+def public(row):
+    return {k: v.isoformat() if isinstance(v, datetime) else v for k, v in row.items()}
+
+
+class Execution(Intake):
+    def __init__(self, database, store, *, agent_executor=None):
+        super().__init__(database, store)
+        self.agent_executor = agent_executor
+
+    def _job(self, db, owner, identity, *, lock=False):
+        row = db.execute(
+            "SELECT * FROM jobs WHERE owner_id=%s AND id=%s"
+            + (" FOR UPDATE" if lock else ""),
+            (owner, resource_id(identity)),
+        ).fetchone()
+        if not row:
+            raise Missing("작업을 찾을 수 없습니다.")
+        if digest(row["snapshot"]) != row["snapshot_sha256"]:
+            raise Conflict("작업 snapshot 무결성 오류")
+        return row
+
+    def _runs(self, db, owner, identity):
+        return db.execute(
+            "SELECT * FROM node_runs WHERE owner_id=%s AND job_id=%s ORDER BY started_at NULLS LAST,id",
+            (owner, identity),
+        ).fetchall()
+
+    def _view(self, db, job):
+        owner, identity = job["owner_id"], job["id"]
+        return {
+            **public(job),
+            "runs": [public(r) for r in self._runs(db, owner, identity)],
+            "reviews": [
+                public(r)
+                for r in db.execute(
+                    "SELECT * FROM review_tasks WHERE owner_id=%s AND job_id=%s ORDER BY id",
+                    (owner, identity),
+                )
+            ],
+        }
+
+    def get(self, owner, identity):
+        with self.database.connection() as db:
+            return self._view(db, self._job(db, owner, identity))
+
+    def jobs(self, owner):
+        with self.database.connection() as db:
+            return [
+                public(r)
+                for r in db.execute(
+                    "SELECT * FROM jobs WHERE owner_id=%s ORDER BY created_at DESC,id",
+                    (owner,),
+                )
+            ]
+
+    def inspect(self, owner, identity, revision):
+        definition = self.definition(owner, identity, revision)
+        reasons = []
+        for node in definition["nodes"]:
+            if node["type"] not in CPU_AGENTS | CONTROL:
+                reasons.append(
+                    {
+                        "node_id": node["id"],
+                        "message": "이 노드는 아직 승인된 CPU 실행 경로가 없습니다. GPU/모델·Loop/Fallback 정책 연결이 필요합니다.",
+                    }
+                )
+            if node.get("model_ref"):
+                reasons.append(
+                    {
+                        "node_id": node["id"],
+                        "message": "실모델 호출은 이 실행기에서 비활성입니다.",
+                    }
+                )
+        if definition["inputs"] != {"video": "video"}:
+            reasons.append(
+                {
+                    "node_id": None,
+                    "message": "현재 작업 입력은 검증된 원본 video 하나입니다. 추가 자료 binding이 필요합니다.",
+                }
+            )
+        return {
+            "supported": not reasons,
+            "definition_revision": revision,
+            "model_ready": not reasons,
+            "summary": [
+                {k: n[k] for k in ("id", "type", "options")}
+                for n in definition["nodes"]
+            ],
+            "reasons": reasons,
+            "notice": "CPU 독립 프로세스만 지원하며 실제 모델 호출은 비활성입니다.",
+        }
+
+    def create(
+        self,
+        owner,
+        asset_id,
+        definition_id,
+        definition_revision,
+        *,
+        request_id,
+        options=None,
+        parent_id=None,
+    ):
+        globals()["request_id"](request_id)
+        if type(definition_revision) is not int or definition_revision < 1:
+            raise ValueError("워크플로우 버전 오류")
+        options = options or {}
+        if not isinstance(options, dict) or set(options) - {
+            "source_language",
+            "target_language",
+            "video_description",
+            "branch_choices",
+        }:
+            raise ValueError("작업 옵션 오류")
+        if len(canonical(options)) > 4096:
+            raise ValueError("작업 옵션 크기 초과")
+        creation = {
+            "asset_id": asset_id,
+            "definition_id": definition_id,
+            "definition_revision": definition_revision,
+            "options": options,
+            "parent_id": parent_id,
+        }
+        with self.database.connection() as db:
+            previous = db.execute(
+                "SELECT * FROM jobs WHERE owner_id=%s AND creation_request_id=%s",
+                (owner, request_id),
+            ).fetchone()
+            if previous:
+                if previous["creation_sha256"] != digest(creation):
+                    raise Conflict("같은 생성 요청 ID에 다른 내용입니다.")
+                return self._view(db, previous)
+            asset = self._asset(db, owner, asset_id)
+            reference = self.asset_reference(asset)
+            self.store.path(owner, reference)
+            definition = self._definition(db, owner, definition_id, definition_revision)
+            bindings = self._bindings(db, owner, definition, active=False)
+            parent = self._job(db, owner, parent_id) if parent_id else None
+            if parent and parent["status"] not in ("failed", "cancelled"):
+                raise Conflict(
+                    "종료된 실패/취소 작업만 새 복구 작업으로 분리할 수 있습니다."
+                )
+            snapshot = {
+                "version": 1,
+                "asset": public_asset(asset),
+                "inputs": {"video": reference},
+                "definition": definition,
+                "options": options,
+                "model_bindings": bindings,
+                "recovery": {
+                    "parent_id": parent_id,
+                    "snapshot_sha256": parent["snapshot_sha256"],
+                }
+                if parent
+                else None,
+            }
+            # Serialize duplicate creation IDs without depending on a unique-error fallback.
+            db.execute(
+                "SELECT pg_advisory_xact_lock(hashtextextended(%s,0))",
+                (owner + ":create:" + request_id,),
+            )
+            previous = db.execute(
+                "SELECT * FROM jobs WHERE owner_id=%s AND creation_request_id=%s",
+                (owner, request_id),
+            ).fetchone()
+            if previous:
+                if previous["creation_sha256"] != digest(creation):
+                    raise Conflict("생성 요청 충돌")
+                return self._view(db, previous)
+            identity = uuid4().hex
+            row = db.execute(
+                "INSERT INTO jobs(owner_id,id,asset_id,workflow_id,workflow_revision,status,snapshot,snapshot_sha256,parent_id,creation_request_id,creation_sha256,recovery_ready) VALUES (%s,%s,%s,%s,%s,'draft',%s,%s,%s,%s,%s,%s) RETURNING *",
+                (
+                    owner,
+                    identity,
+                    asset_id,
+                    definition_id,
+                    definition_revision,
+                    Jsonb(snapshot),
+                    digest(snapshot),
+                    parent_id,
+                    request_id,
+                    digest(creation),
+                    parent_id is None,
+                ),
+            ).fetchone()
+            return self._view(db, row)
+
+    def _plan(self, db, job):
+        for ref in job["snapshot"]["inputs"].values():
+            self.store.path(job["owner_id"], ref)
+        runs = self._runs(db, job["owner_id"], job["id"])
+        for run in runs:
+            if run["status"] == "completed":
+                for ref in (run["result"] or {}).get("outputs", {}).values():
+                    self.store.path(job["owner_id"], ref)
+        reviews = db.execute(
+            "SELECT id,revision,status,confirmed_sha256 FROM review_tasks WHERE owner_id=%s AND job_id=%s ORDER BY id",
+            (job["owner_id"], job["id"]),
+        ).fetchall()
+        definition = job["snapshot"]["definition"]
+        reasons = []
+        if not job["recovery_ready"]:
+            reasons.append("복구 receipt 검증이 끝나지 않았습니다.")
+        if definition["inputs"] != {"video": "video"}:
+            reasons.append("추가 외부 입력 binding이 필요합니다.")
+        for node in definition["nodes"]:
+            if node["type"] not in CPU_AGENTS | CONTROL or node.get("model_ref"):
+                reasons.append("미지원 모델/제어 실행 경로: " + node["id"])
+        if job["status"] not in ("draft", "review_required") or job["cancel_requested"]:
+            reasons.append("현재 상태에서 새 실행 승인을 만들 수 없습니다.")
+        if any(r["status"] != "confirmed" for r in reviews):
+            reasons.append("검수 내용을 먼저 저장하고 확정하세요.")
+        plan = {
+            "snapshot_sha256": job["snapshot_sha256"],
+            "generation": job["generation"],
+            "revision": job["revision"],
+            "runs": [
+                {
+                    "id": r["id"],
+                    "status": r["status"],
+                    "input_sha256": r["input_sha256"],
+                    "settings_sha256": r["settings_sha256"],
+                    "result": r["result"],
+                }
+                for r in runs
+            ],
+            "reviews": reviews,
+            "cost": {"classification": "verified_no_external_calls", "amount": None},
+            "reasons": sorted(set(reasons)),
+        }
+        return {
+            "token": digest(plan),
+            "ready": not reasons,
+            "reasons": plan["reasons"],
+            "paid_roles": [],
+            "cost": plan["cost"],
+            "notice": "외부 호출 없는 CPU 실행입니다. 동의 저장과 실행 요청은 별개입니다.",
+            "snapshot_sha256": job["snapshot_sha256"],
+            "generation": job["generation"],
+        }
+
+    def plan(self, owner, identity):
+        with self.database.connection() as db:
+            return self._plan(db, self._job(db, owner, identity, lock=True))
+
+    def confirm(self, owner, identity, token, nonce):
+        request_id(nonce)
+        payload_sha = digest({"job": identity, "token": token})
+        with self.database.connection() as db:
+            job = self._job(db, owner, identity, lock=True)
+            previous = db.execute(
+                "SELECT * FROM execution_consents WHERE owner_id=%s AND job_id=%s AND request_id=%s",
+                (owner, identity, nonce),
+            ).fetchone()
+            if previous:
+                if previous["request_sha256"] != payload_sha:
+                    raise Conflict("같은 확인 요청의 내용이 다릅니다.")
+                return public(previous)
+            plan = self._plan(db, job)
+            if not plan["ready"] or plan["token"] != token:
+                raise Conflict("현재 입력/검수/계획을 다시 확인하세요.")
+            row = db.execute(
+                "INSERT INTO execution_consents(owner_id,job_id,id,request_id,plan_sha256,expires_at,request_sha256) VALUES (%s,%s,%s,%s,%s,now()+interval '15 minutes',%s) RETURNING *",
+                (owner, identity, uuid4().hex, nonce, token, payload_sha),
+            ).fetchone()
+            return public(row)
+
+    def admit(self, owner, identity, consent_id, nonce):
+        request_id(nonce)
+        resource_id(consent_id)
+        payload_sha = digest({"job": identity, "consent": consent_id})
+        with self.database.connection() as db:
+            job = self._job(db, owner, identity, lock=True)
+            previous = db.execute(
+                "SELECT * FROM execution_claims WHERE owner_id=%s AND request_id=%s",
+                (owner, nonce),
+            ).fetchone()
+            if previous:
+                if (
+                    previous["job_id"] != identity
+                    or previous["request_sha256"] != payload_sha
+                ):
+                    raise Conflict("같은 실행 요청의 대상/내용이 다릅니다.")
+                return self._view(db, job)
+            consent = db.execute(
+                "SELECT *,expires_at>now() AS valid FROM execution_consents WHERE owner_id=%s AND job_id=%s AND id=%s FOR UPDATE",
+                (owner, identity, consent_id),
+            ).fetchone()
+            if (
+                not consent
+                or not consent["valid"]
+                or consent["consumed_at"] is not None
+            ):
+                raise Conflict("승인이 없거나 이미 소비/만료됐습니다.")
+            plan = self._plan(db, job)
+            if not plan["ready"] or plan["token"] != consent["plan_sha256"]:
+                raise Conflict("입력/검수/계획이 바뀌었습니다. 새 확인이 필요합니다.")
+            claim = uuid4().hex
+            db.execute(
+                "INSERT INTO execution_claims(owner_id,job_id,id,consent_id,generation,request_id,request_sha256) VALUES (%s,%s,%s,%s,%s,%s,%s)",
+                (
+                    owner,
+                    identity,
+                    claim,
+                    consent_id,
+                    job["generation"],
+                    nonce,
+                    payload_sha,
+                ),
+            )
+            db.execute(
+                "UPDATE execution_consents SET consumed_at=now() WHERE owner_id=%s AND job_id=%s AND id=%s",
+                (owner, identity, consent_id),
+            )
+            job = db.execute(
+                "UPDATE jobs SET status='waiting',active_claim_id=%s,revision=revision+1,updated_at=now() WHERE owner_id=%s AND id=%s RETURNING *",
+                (claim, owner, identity),
+            ).fetchone()
+            return self._view(db, job)
+
+    def _result_for(self, job, indexed, edge):
+        source = edge["source"]
+        if source["node"] == "$input":
+            return "completed", job["snapshot"]["inputs"].get(source["port"])
+        run = indexed.get(source["node"])
+        if run is None:
+            return "waiting", None
+        return run["status"], (run["result"] or {}).get("outputs", {}).get(
+            source["port"]
+        )
+
+    def _write_outbox(self, db, owner, identity, kind, payload, message_id=None):
+        db.execute(
+            "INSERT INTO message_outbox(id,owner_id,aggregate_id,message_type,payload) VALUES (%s,%s,%s,%s,%s)",
+            (message_id or uuid4().hex, owner, identity, kind, Jsonb(payload)),
+        )
+
+    def _insert_run(self, db, job, node, inputs, status):
+        identity = uuid4().hex
+        command = {
+            "protocol_version": 1,
+            "run_id": job["id"],
+            "attempt_id": identity,
+            "generation": job["generation"],
+            "agent": {"id": node["type"], "revision": "1"},
+            "inputs": inputs,
+            "options": node["options"],
+        }
+        row = db.execute(
+            "INSERT INTO node_runs(owner_id,job_id,id,node_id,agent_revision,attempt,generation,status,input_sha256,settings_sha256,inputs,options,node_type,request,request_sha256,claim_id,lease_owner,lease_expires_at,started_at) VALUES (%s,%s,%s,%s,'1',1,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,now()+interval '120 seconds',now()) RETURNING *",
+            (
+                job["owner_id"],
+                job["id"],
+                identity,
+                node["id"],
+                job["generation"],
+                status,
+                digest(inputs),
+                digest(node["options"]),
+                Jsonb(inputs),
+                Jsonb(node["options"]),
+                node["type"],
+                Jsonb(command),
+                digest(command),
+                job["active_claim_id"],
+                "explicit-local" if status == "running" else None,
+            ),
+        ).fetchone()
+        return row, command
+
+    def _control_outputs(self, owner, kind, inputs, options):
+        if kind == "select":
+            selection = options.get("selection", "a")
+            return {p: inputs["value"] for p in ("a", "b") if selection in (p, "both")}
+        if kind == "join":
+            manifest = self.store.put(
+                owner,
+                [
+                    canonical(
+                        {
+                            "items": [
+                                {"port": p, "reference": r}
+                                for p, r in sorted(inputs.items())
+                            ]
+                        }
+                    )
+                ],
+                "artifact_manifest",
+            )
+            return {"manifest": manifest}
+        raw = json.loads(self.store.read(owner, inputs["value"]))
+        value = raw
+        field = options.get("field", "")
+        if len(field) > 200 or any(
+            not part or not part.replace("_", "").isalnum()
+            for part in field.split(".")
+            if field
+        ):
+            raise ValueError("조건 필드 오류")
+        for part in field.split(".") if field else []:
+            value = value.get(part) if isinstance(value, dict) else None
+        if kind == "control_switch":
+            cases = options.get("cases", "case_1\ncase_2").splitlines()
+            port = next(
+                (
+                    "case_" + str(i + 1)
+                    for i, case in enumerate(cases)
+                    if str(value) == case
+                ),
+                "default",
+            )
+        else:
+            operator = options.get("operator", "equals")
+            compare = options.get("compare_value", "")
+            if operator in ("greater_than", "less_than"):
+                passed = (
+                    float(value) > float(compare)
+                    if operator == "greater_than"
+                    else float(value) < float(compare)
+                )
+            elif operator == "exists":
+                passed = value is not None
+            elif operator == "contains":
+                passed = compare in str(value)
+            else:
+                passed = str(value) == compare
+                if operator == "not_equals":
+                    passed = not passed
+            port = "true" if passed else "false"
+        return {port: inputs["value"]}
+
+    def claim_next(self, owner, identity):
+        with self.database.connection() as db:
+            job = self._job(db, owner, identity, lock=True)
+            if (
+                job["status"] not in ("waiting", "running")
+                or job["cancel_requested"]
+                or not job["active_claim_id"]
+            ):
+                return None
+            runs = self._runs(db, owner, identity)
+            if sum(r["status"] == "running" for r in runs) >= 2:
+                return None
+            indexed = {r["node_id"]: r for r in runs}
+            definition = job["snapshot"]["definition"]
+            for node in definition["nodes"]:
+                if node["id"] in indexed:
+                    continue
+                edges = [
+                    e for e in definition["edges"] if e["target"]["node"] == node["id"]
+                ]
+                states = [(e, *self._result_for(job, indexed, e)) for e in edges]
+                if any(status not in TERMINAL for _, status, _ in states):
+                    continue
+                inputs = {
+                    e["target"]["port"]: ref
+                    for e, status, ref in states
+                    if status == "completed" and ref is not None
+                }
+                selected = spec(node["type"], node["options"])
+                required = set(selected["inputs"]) - set(selected["optional_inputs"])
+                missing = required - set(inputs)
+                if missing and not (node["type"] == "join" and inputs):
+                    status = (
+                        "blocked"
+                        if any(
+                            s in ("failed", "blocked", "quarantined", "cancelled")
+                            for _, s, _ in states
+                        )
+                        else "skipped"
+                    )
+                    row, _ = self._insert_run(db, job, node, {}, status)
+                    indexed[node["id"]] = row
+                    continue
+                for ref in inputs.values():
+                    self.store.path(owner, ref)
+                row, command = self._insert_run(
+                    db,
+                    job,
+                    node,
+                    inputs,
+                    "review_required" if node["type"] == "review" else "running",
+                )
+                if node["type"] == "review":
+                    review_id = uuid4().hex
+                    contract = {
+                        "version": 1,
+                        "type": inputs["value"]["type"],
+                        "source": inputs["value"],
+                        "phase": "gate",
+                        "fields": {
+                            "type": "object",
+                            "properties": {
+                                "approved": {
+                                    "type": "boolean",
+                                    "title": "자료를 확인했음",
+                                }
+                            },
+                            "required": ["approved"],
+                        },
+                    }
+                    db.execute(
+                        "INSERT INTO review_tasks(owner_id,job_id,node_run_id,id,revision,contract,draft,status) VALUES (%s,%s,%s,%s,1,%s,%s,'draft')",
+                        (
+                            owner,
+                            identity,
+                            row["id"],
+                            review_id,
+                            Jsonb(contract),
+                            Jsonb({"approved": False}),
+                        ),
+                    )
+                    db.execute(
+                        "INSERT INTO review_revisions VALUES (%s,%s,1,%s,%s,now())",
+                        (
+                            owner,
+                            review_id,
+                            Jsonb({"approved": False}),
+                            digest({"approved": False}),
+                        ),
+                    )
+                    indexed[node["id"]] = row
+                    continue
+                if node["type"] in CONTROL:
+                    try:
+                        outputs = self._control_outputs(
+                            owner, node["type"], inputs, node["options"]
+                        )
+                        db.execute(
+                            "UPDATE node_runs SET status='completed',result=%s,completed_at=now() WHERE owner_id=%s AND job_id=%s AND id=%s",
+                            (
+                                Jsonb(
+                                    {
+                                        "outputs": outputs,
+                                        "transport": "application_control",
+                                    }
+                                ),
+                                owner,
+                                identity,
+                                row["id"],
+                            ),
+                        )
+                        indexed[node["id"]] = {
+                            **row,
+                            "status": "completed",
+                            "result": {"outputs": outputs},
+                        }
+                    except (ValueError, KeyError, TypeError):
+                        db.execute(
+                            "UPDATE node_runs SET status='failed',error_code='control_input_invalid',completed_at=now() WHERE owner_id=%s AND job_id=%s AND id=%s",
+                            (owner, identity, row["id"]),
+                        )
+                        indexed[node["id"]] = {**row, "status": "failed"}
+                    continue
+                if node["type"] not in CPU_AGENTS or node.get("model_ref"):
+                    raise Conflict("비활성 실행 경로")
+                self._write_outbox(
+                    db, owner, identity, "agent.command.v1", command, row["id"]
+                )
+                db.execute(
+                    "UPDATE jobs SET status='running',revision=revision+1,updated_at=now() WHERE owner_id=%s AND id=%s",
+                    (owner, identity),
+                )
+                return command
+            # Application controls are materialized in the same transaction; settle
+            # only once no independent runnable command remains in this sweep.
+            if not any(r["status"] == "running" for r in indexed.values()):
+                if any(r["status"] == "review_required" for r in indexed.values()):
+                    status = "review_required"
+                elif len(indexed) == len(definition["nodes"]):
+                    status = (
+                        "failed"
+                        if any(
+                            r["status"] in ("failed", "blocked", "quarantined")
+                            for r in indexed.values()
+                        )
+                        else "completed"
+                    )
+                else:
+                    status = "waiting"
+                if status != job["status"]:
+                    db.execute(
+                        "UPDATE jobs SET status=%s,revision=revision+1,updated_at=now() WHERE owner_id=%s AND id=%s",
+                        (status, owner, identity),
+                    )
+            return None
+
+    def execute_command(self, owner, command):
+        # Reserve the exact delivery before starting a process. A duplicate whose
+        # outcome is unknown never automatically launches a second process.
+        with self.database.connection() as db:
+            job = self._job(db, owner, command["run_id"], lock=True)
+            run = db.execute(
+                "SELECT *,lease_expires_at>now() AS lease_valid FROM node_runs WHERE owner_id=%s AND job_id=%s AND id=%s",
+                (owner, command["run_id"], command["attempt_id"]),
+            ).fetchone()
+            if not run or run["request_sha256"] != digest(command):
+                raise Conflict("실행 요청 무결성 오류")
+            previous = db.execute(
+                "SELECT * FROM agent_deliveries WHERE owner_id=%s AND job_id=%s AND node_run_id=%s",
+                (owner, command["run_id"], command["attempt_id"]),
+            ).fetchone()
+            if previous:
+                if (
+                    previous["command_sha256"] != digest(command)
+                    or previous["status"] != "completed"
+                ):
+                    raise Conflict(
+                        "동일 시도가 처리 중이거나 결과 불명입니다. 자동 재실행하지 않습니다."
+                    )
+                return previous["result"]
+            if (
+                job["cancel_requested"]
+                or job["generation"] != run["generation"]
+                or run["status"] != "running"
+                or not run["lease_valid"]
+            ):
+                raise Conflict("취소/만료/이전 세대 명령은 새로 실행하지 않습니다.")
+            db.execute(
+                "INSERT INTO agent_deliveries(owner_id,job_id,node_run_id,command_sha256,status) VALUES (%s,%s,%s,%s,'started')",
+                (owner, command["run_id"], command["attempt_id"], digest(command)),
+            )
+        root = self.store.owner_root(owner)
+        if self.agent_executor is not None:
+            try:
+                result = self.agent_executor(owner, command)
+                if result.get("transport") != "s3_subprocess":
+                    raise ValueError("Unexpected object agent transport")
+            except (ValueError, OSError, subprocess.TimeoutExpired):
+                result = {
+                    "protocol_version": 1,
+                    "run_id": command["run_id"],
+                    "attempt_id": command["attempt_id"],
+                    "generation": command["generation"],
+                    "agent": command["agent"],
+                    "request_sha256": digest(command),
+                    "status": "failed",
+                    "outputs": {},
+                    "transport": "s3_subprocess",
+                    "error": {"code": "object_result_unknown", "retryable": False},
+                }
+            with self.database.connection() as db:
+                db.execute(
+                    "UPDATE agent_deliveries SET status='completed',result=%s WHERE owner_id=%s AND job_id=%s AND node_run_id=%s AND status='started'",
+                    (Jsonb(result), owner, command["run_id"], command["attempt_id"]),
+                )
+            return result
+        attempts = root / "attempts"
+        if attempts.is_symlink():
+            raise ValueError("Symlink attempt root denied")
+        attempts.mkdir(mode=0o700, exist_ok=True)
+        args = [
+            sys.executable,
+            "-m",
+            "video_service.cpu_agents",
+            "--agent",
+            command["agent"]["id"],
+            "--input-root",
+            str(root),
+            "--output-root",
+            str(attempts),
+        ]
+        try:
+            completed = subprocess.run(
+                args,
+                check=False,
+                input=canonical(command),
+                capture_output=True,
+                timeout=90,
+                env={
+                    k: v
+                    for k, v in __import__("os").environ.items()
+                    if k
+                    in (
+                        "PATH",
+                        "LANG",
+                        "HOME",
+                        "TMPDIR",
+                        "PYTHONPATH",
+                        "FONTCONFIG_PATH",
+                    )
+                },
+            )
+            if len(completed.stdout) > 65536:
+                raise ValueError("Agent response size exceeded")
+            result = json.loads(completed.stdout)
+            result["transport"] = "subprocess"
+            result["process_exit_code"] = completed.returncode
+            if any(
+                result.get(k) != command[k]
+                for k in (
+                    "protocol_version",
+                    "run_id",
+                    "attempt_id",
+                    "generation",
+                    "agent",
+                )
+            ):
+                raise ValueError("Invalid agent response envelope")
+        except (subprocess.TimeoutExpired, ValueError):
+            # CPU timeout is still an unknown attempt. Do not automatically replay.
+            result = {
+                "protocol_version": 1,
+                "run_id": command["run_id"],
+                "attempt_id": command["attempt_id"],
+                "generation": command["generation"],
+                "agent": command["agent"],
+                "request_sha256": digest(command),
+                "status": "failed",
+                "outputs": {},
+                "transport": "subprocess",
+                "error": {"code": "cpu_result_unknown", "retryable": False},
+            }
+        with self.database.connection() as db:
+            db.execute(
+                "UPDATE agent_deliveries SET status='completed',result=%s WHERE owner_id=%s AND job_id=%s AND node_run_id=%s AND status='started'",
+                (Jsonb(result), owner, command["run_id"], command["attempt_id"]),
+            )
+        return result
+
+    def _import_outputs(self, owner, command, result):
+        expected = spec(command["agent"]["id"], command["options"])["outputs"]
+        values = result.get("outputs")
+        if not isinstance(values, dict) or set(values) != set(expected):
+            raise ValueError("Agent output ports differ")
+        if result.get("transport") == "s3_subprocess":
+            if getattr(self.store, "storage_kind", None) != "s3":
+                raise ValueError("Object results require an explicit object store")
+            for port, reference in values.items():
+                if reference.get("type") != expected[port]:
+                    raise ValueError("Object output type differs")
+                self.store.path(owner, reference)
+            return values
+        root = self.store.owner_root(owner) / "attempts"
+        outputs = {}
+        for port, ref in values.items():
+            key = ref.get("storage_key", "")
+            prefix = command["run_id"] + "-" + command["attempt_id"] + "/"
+            if (
+                not isinstance(key, str)
+                or not key.startswith(prefix)
+                or len(key.split("/")) != 2
+                or not key.split("/")[1].replace(".", "").replace("-", "").isalnum()
+                or ref["type"] != expected[port]
+            ):
+                raise ValueError("Agent output reference differs")
+            directory, path = root / key.split("/")[0], root / key
+            if directory.is_symlink() or path.is_symlink() or not path.is_file():
+                raise ValueError("Output file unavailable")
+            if path.stat().st_size != ref["bytes"]:
+                raise ValueError("Output size differs")
+            with path.open("rb") as stream:
+                stored = self.store.put(
+                    owner, iter(lambda: stream.read(1024 * 1024), b""), ref["type"]
+                )
+            if stored["sha256"] != ref["sha256"] or stored["bytes"] != ref["bytes"]:
+                raise ValueError("Output integrity differs")
+            outputs[port] = stored
+        return outputs
+
+    def video_preview(self, owner, identity, reference):
+        state = self.get(owner, identity)
+        with self.database.connection() as db:
+            asset = self._asset(db, owner, state["asset_id"])
+        candidates = [asset["metadata"].get("web_preview", {})]
+        for run in state["runs"]:
+            if run["status"] == "completed":
+                candidates.extend((run["result"] or {}).get("previews", {}).values())
+        for preview in candidates:
+            if (
+                preview.get("source_sha256") == reference["sha256"]
+                and preview.get("status") == "ready"
+            ):
+                return self.store.path(owner, preview["reference"])
+        raise Missing(
+            "웹 전용 WebM이 준비되지 않았습니다. 원본은 다운로드할 수 있습니다."
+        )
+
+    def accept(self, owner, command, result):
+        response_sha = digest(result)
+        identity, run_id = command["run_id"], command["attempt_id"]
+        with self.database.connection() as db:
+            job = self._job(db, owner, identity, lock=True)
+            run = db.execute(
+                "SELECT * FROM node_runs WHERE owner_id=%s AND job_id=%s AND id=%s FOR UPDATE",
+                (owner, identity, run_id),
+            ).fetchone()
+            if not run or run["request_sha256"] != digest(command):
+                raise Conflict("알 수 없는 실행 요청")
+            received = db.execute(
+                "SELECT payload_sha256 FROM message_inbox WHERE consumer=%s AND message_id=%s",
+                ("result:" + owner, run_id),
+            ).fetchone()
+            if received:
+                if received["payload_sha256"] != response_sha:
+                    raise Conflict("같은 결과 ID의 내용이 다릅니다.")
+                return self._view(db, job)
+            valid = (
+                all(
+                    result.get(k) == command[k]
+                    for k in (
+                        "protocol_version",
+                        "run_id",
+                        "attempt_id",
+                        "generation",
+                        "agent",
+                    )
+                )
+                and result.get("request_sha256") == run["request_sha256"]
+            )
+            if not valid:
+                raise Conflict("결과가 실행 요청과 다릅니다.")
+            lease = db.execute(
+                "SELECT lease_expires_at>now() AS valid FROM node_runs WHERE owner_id=%s AND job_id=%s AND id=%s",
+                (owner, identity, run_id),
+            ).fetchone()
+            stale = (
+                job["cancel_requested"]
+                or job["generation"] != run["generation"]
+                or job["active_claim_id"] != run["claim_id"]
+                or run["status"] != "running"
+                or not lease["valid"]
+            )
+            if stale:
+                db.execute(
+                    "INSERT INTO result_quarantine(owner_id,job_id,node_run_id,message_sha256,reason,result) VALUES (%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING",
+                    (
+                        owner,
+                        identity,
+                        run_id,
+                        response_sha,
+                        "stale_or_cancelled",
+                        Jsonb(result),
+                    ),
+                )
+                db.execute(
+                    "UPDATE node_runs SET status='quarantined',completed_at=now() WHERE owner_id=%s AND job_id=%s AND id=%s AND status='running'",
+                    (owner, identity, run_id),
+                )
+                remaining = db.execute(
+                    "SELECT count(*) n FROM node_runs WHERE owner_id=%s AND job_id=%s AND status='running'",
+                    (owner, identity),
+                ).fetchone()["n"]
+                if not remaining:
+                    db.execute(
+                        "UPDATE jobs SET status=%s,active_claim_id=NULL WHERE owner_id=%s AND id=%s",
+                        (
+                            "cancelled" if job["cancel_requested"] else "failed",
+                            owner,
+                            identity,
+                        ),
+                    )
+            else:
+                try:
+                    for ref in command["inputs"].values():
+                        self.store.path(owner, ref)
+                    status = result.get("status")
+                    if status != "completed":
+                        raise ValueError("Agent did not complete")
+                    outputs = self._import_outputs(owner, command, result)
+                    # Preserve transport/attempt evidence but replace machine paths with CAS refs.
+                    receipt = {
+                        k: v
+                        for k, v in result.items()
+                        if k
+                        in (
+                            "protocol_version",
+                            "run_id",
+                            "attempt_id",
+                            "generation",
+                            "agent",
+                            "request_sha256",
+                            "status",
+                            "transport",
+                            "process_exit_code",
+                        )
+                    }
+                    receipt["outputs"] = outputs
+                    from ..web_preview import create_preview
+
+                    receipt["previews"] = {
+                        port: create_preview(self.store, owner, ref)
+                        for port, ref in outputs.items()
+                        if ref["type"] == "video"
+                    }
+                    db.execute(
+                        "UPDATE node_runs SET status='completed',result=%s,completed_at=now(),lease_owner=NULL,lease_expires_at=NULL WHERE owner_id=%s AND job_id=%s AND id=%s",
+                        (Jsonb(receipt), owner, identity, run_id),
+                    )
+                    for ref in outputs.values():
+                        db.execute(
+                            "INSERT INTO artifacts(owner_id,job_id,node_run_id,id,type,storage_key,bytes,sha256) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
+                            (
+                                owner,
+                                identity,
+                                run_id,
+                                uuid4().hex,
+                                ref["type"],
+                                ref["storage_key"],
+                                ref["bytes"],
+                                ref["sha256"],
+                            ),
+                        )
+                except (ValueError, KeyError, TypeError, OSError):
+                    db.execute(
+                        "UPDATE node_runs SET status='failed',error_code='agent_failed_or_unknown',result=%s,completed_at=now(),lease_owner=NULL,lease_expires_at=NULL WHERE owner_id=%s AND job_id=%s AND id=%s",
+                        (
+                            Jsonb(
+                                {
+                                    "outputs": {},
+                                    "transport": "subprocess",
+                                    "error": "agent_failed_or_unknown",
+                                    "retryable": False,
+                                }
+                            ),
+                            owner,
+                            identity,
+                            run_id,
+                        ),
+                    )
+            db.execute(
+                "INSERT INTO message_inbox(consumer,message_id,payload_sha256) VALUES (%s,%s,%s)",
+                ("result:" + owner, run_id, response_sha),
+            )
+            self._write_outbox(
+                db,
+                owner,
+                identity,
+                "agent.result.accepted.v1",
+                {
+                    "job_id": identity,
+                    "node_run_id": run_id,
+                    "generation": run["generation"],
+                    "quarantined": stale,
+                },
+            )
+            db.execute(
+                "UPDATE jobs SET revision=revision+1,updated_at=now() WHERE owner_id=%s AND id=%s",
+                (owner, identity),
+            )
+            return self._view(db, self._job(db, owner, identity))
+
+    def run_local(self, owner, identity):
+        # One explicit job only. Never scans/consumes pending jobs or any broker.
+        for _ in range(110):
+            before = self.get(owner, identity)
+            commands = []
+            for _ in range(2):
+                command = self.claim_next(owner, identity)
+                if command:
+                    commands.append(command)
+            if not commands:
+                state = self.get(owner, identity)
+                if state["status"] == "waiting" and len(state["runs"]) > len(
+                    before["runs"]
+                ):
+                    continue
+                return state
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                results = list(
+                    pool.map(lambda c: self.execute_command(owner, c), commands)
+                )
+            for command, result in zip(commands, results):
+                self.accept(owner, command, result)
+        raise Conflict("실행 상한을 넘었습니다. 상태를 보존했습니다.")
+
+    def recover(self, owner, identity, nonce, *, acknowledge_duplicate_risk):
+        if acknowledge_duplicate_risk is not True:
+            raise ValueError("미확정 실행의 중복 처리 위험을 별도로 확인하세요.")
+        original = self.get(owner, identity)
+        if original["status"] not in ("failed", "cancelled"):
+            raise Conflict("종료된 실패/취소 작업만 새 복구 작업을 만들 수 있습니다.")
+        definition = original["snapshot"]["definition"]
+        # Creation is idempotent and does not admit or start the child.
+        child = self.create(
+            owner,
+            original["asset_id"],
+            original["workflow_id"],
+            original["workflow_revision"],
+            request_id=nonce,
+            options=original["snapshot"]["options"],
+            parent_id=identity,
+        )
+        with self.database.connection() as db:
+            child_row = self._job(db, owner, child["id"], lock=True)
+            if self._runs(db, owner, child["id"]) or child_row["status"] != "draft":
+                return self._view(db, child_row)
+            if (
+                original["snapshot"]["model_bindings"]
+                != child_row["snapshot"]["model_bindings"]
+            ):
+                raise Conflict("고정 모델 근거가 다릅니다. 자동 재사용하지 않습니다.")
+            indexed = {}
+            remaining = {n["id"]: n for n in definition["nodes"]}
+            old_runs = {r["node_id"]: r for r in original["runs"]}
+            for _ in range(len(remaining)):
+                progress = False
+                for node_id, node in list(remaining.items()):
+                    old = old_runs.get(node_id)
+                    if not old or old["status"] != "completed":
+                        continue
+                    edges = [
+                        e for e in definition["edges"] if e["target"]["node"] == node_id
+                    ]
+                    states = [
+                        (e, *self._result_for(child_row, indexed, e)) for e in edges
+                    ]
+                    if any(s != "completed" for _, s, _ in states):
+                        continue
+                    inputs = {
+                        e["target"]["port"]: ref
+                        for e, _, ref in states
+                        if ref is not None
+                    }
+                    if (
+                        old["input_sha256"] != digest(inputs)
+                        or old["settings_sha256"] != digest(node["options"])
+                        or old["inputs"] != inputs
+                        or not old["result"]
+                    ):
+                        raise Conflict("완료 단계 입력/설정 receipt 무결성 오류")
+                    if (
+                        old.get("request")
+                        and digest(old["request"]) != old["request_sha256"]
+                    ):
+                        raise Conflict("완료 요청 receipt 무결성 오류")
+                    for ref in [
+                        *inputs.values(),
+                        *old["result"].get("outputs", {}).values(),
+                    ]:
+                        self.store.path(owner, ref)
+                    receipt = {
+                        **old["result"],
+                        "reused_from": {
+                            "job_id": identity,
+                            "node_run_id": old["id"],
+                            "generation": old["generation"],
+                            "receipt_sha256": digest(old["result"]),
+                        },
+                    }
+                    row, _ = self._insert_run(db, child_row, node, inputs, "completed")
+                    db.execute(
+                        "UPDATE node_runs SET result=%s,completed_at=now() WHERE owner_id=%s AND job_id=%s AND id=%s",
+                        (Jsonb(receipt), owner, child["id"], row["id"]),
+                    )
+                    indexed[node_id] = {**row, "result": receipt}
+                    del remaining[node_id]
+                    progress = True
+                if not progress:
+                    break
+            child_row = db.execute(
+                "UPDATE jobs SET recovery_ready=true WHERE owner_id=%s AND id=%s RETURNING *",
+                (owner, child["id"]),
+            ).fetchone()
+            return self._view(db, child_row)
+
+    def cancel(self, owner, identity, revision):
+        with self.database.connection() as db:
+            job = self._job(db, owner, identity, lock=True)
+            if job["status"] in ("completed", "failed", "cancelled"):
+                return self._view(db, job)
+            if job["revision"] != revision:
+                raise Conflict("작업 상태가 변경됐습니다.")
+            running = db.execute(
+                "SELECT count(*) n FROM node_runs WHERE owner_id=%s AND job_id=%s AND status='running'",
+                (owner, identity),
+            ).fetchone()["n"]
+            job = db.execute(
+                "UPDATE jobs SET cancel_requested=true,status=%s,generation=generation+1,revision=revision+1,updated_at=now() WHERE owner_id=%s AND id=%s RETURNING *",
+                ("cancelling" if running else "cancelled", owner, identity),
+            ).fetchone()
+            return self._view(db, job)
+
+    def _review(self, db, owner, identity, lock=False):
+        row = db.execute(
+            "SELECT * FROM review_tasks WHERE owner_id=%s AND id=%s"
+            + (" FOR UPDATE" if lock else ""),
+            (owner, resource_id(identity)),
+        ).fetchone()
+        if not row:
+            raise Missing("검수 자료를 찾을 수 없습니다.")
+        return row
+
+    def review_save(self, owner, identity, revision, draft):
+        if draft != {"approved": True} and draft != {"approved": False}:
+            raise ValueError("검수 확인 필드 오류")
+        with self.database.connection() as db:
+            # All review/cancel/admission writes take the job lock before review lock.
+            hint = self._review(db, owner, identity)
+            job = self._job(db, owner, hint["job_id"], lock=True)
+            row = self._review(db, owner, identity, lock=True)
+            if (
+                row["revision"] != revision
+                or row["status"] == "confirmed"
+                or job["status"] != "review_required"
+            ):
+                raise Conflict("검수 상태가 바뀌었습니다. 편집은 보존하세요.")
+            next_revision = revision + 1
+            db.execute(
+                "INSERT INTO review_revisions VALUES (%s,%s,%s,%s,%s,now())",
+                (owner, identity, next_revision, Jsonb(draft), digest(draft)),
+            )
+            row = db.execute(
+                "UPDATE review_tasks SET revision=%s,draft=%s,status='draft' WHERE owner_id=%s AND id=%s RETURNING *",
+                (next_revision, Jsonb(draft), owner, identity),
+            ).fetchone()
+            db.execute(
+                "UPDATE jobs SET revision=revision+1 WHERE owner_id=%s AND id=%s",
+                (owner, row["job_id"]),
+            )
+            return public(row)
+
+    def review_confirm(self, owner, identity, revision):
+        with self.database.connection() as db:
+            hint = self._review(db, owner, identity)
+            job = self._job(db, owner, hint["job_id"], lock=True)
+            row = self._review(db, owner, identity, lock=True)
+            if (
+                row["revision"] != revision
+                or row["draft"] != {"approved": True}
+                or job["status"] != "review_required"
+            ):
+                raise Conflict("저장된 최신 검수 자료를 확인하세요.")
+            source = row["contract"]["source"]
+            self.store.path(owner, source)
+            confirmed_sha = digest(
+                {"draft": row["draft"], "source": source, "revision": revision}
+            )
+            db.execute(
+                "UPDATE review_tasks SET status='confirmed',confirmed_sha256=%s WHERE owner_id=%s AND id=%s",
+                (confirmed_sha, owner, identity),
+            )
+            db.execute(
+                "UPDATE node_runs SET status='completed',result=%s,completed_at=now() WHERE owner_id=%s AND job_id=%s AND id=%s",
+                (
+                    Jsonb(
+                        {
+                            "outputs": {"value": source},
+                            "transport": "human_gate",
+                            "review_id": identity,
+                            "review_revision": revision,
+                            "confirmed_sha256": confirmed_sha,
+                        }
+                    ),
+                    owner,
+                    row["job_id"],
+                    row["node_run_id"],
+                ),
+            )
+            db.execute(
+                "UPDATE jobs SET active_claim_id=NULL,revision=revision+1 WHERE owner_id=%s AND id=%s",
+                (owner, row["job_id"]),
+            )
+            return public(self._review(db, owner, identity))

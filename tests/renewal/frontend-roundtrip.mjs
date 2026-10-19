@@ -163,7 +163,7 @@ try {
   assert.deepEqual(badResponses, []);
   assert(
     [...apiPaths].every((path) =>
-      /^\/api\/(auth\/|accounts$|settings\/(serving-connections|registered-models))/.test(
+      /^\/api\/(auth\/|capabilities$|accounts$|settings\/(serving-connections|registered-models))/.test(
         path,
       ),
     ),

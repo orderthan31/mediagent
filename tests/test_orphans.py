@@ -6,11 +6,11 @@ import unittest
 from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / "packages/shared"), str(ROOT / "workers/media")]
+sys.path[:0] = [str(ROOT / "packages/shared"), str(ROOT / "agents/media")]
 from video_service.repository import FilesystemJobRepository
 from video_service.locking import job_lock
 from video_service.models import QualityProfile
-from media_worker.cleanup import collect_orphans
+from media_agent.cleanup import collect_orphans
 
 
 class OrphanTests(unittest.TestCase):

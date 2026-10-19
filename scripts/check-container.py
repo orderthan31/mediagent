@@ -18,7 +18,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--gpu", action="store_true", help="Also require real HEVC NVENC encoding")
     args = parser.parse_args()
-    for module in ("app.main", "media_worker.worker", "video_service.models", "google.genai"):
+    for module in ("app.main", "media_agent.agent", "video_service.models", "google.genai"):
         importlib.import_module(module)
     encoders = run("ffmpeg", "-hide_banner", "-encoders")
     for name in ("libx264", "libx265", "aac"):

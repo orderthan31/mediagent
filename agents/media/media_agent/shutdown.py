@@ -2,9 +2,9 @@ from contextlib import contextmanager
 import signal
 
 
-class WorkerStopping(Exception):
+class AgentStopping(Exception):
     def __init__(self):
-        super().__init__("Worker shutting down; upload again")
+        super().__init__("Agent shutting down; upload again")
 
 
 @contextmanager

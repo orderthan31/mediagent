@@ -1,0 +1,19 @@
+.renewal-node-results {
+  overflow-wrap: anywhere;
+}
+.storage-downloads {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--m-space-8);
+}
+.storage-downloads p {
+  flex-basis: 100%;
+}
+.renewal-node-results .execution-artifact > a {
+  display: block;
+  margin-top: var(--m-space-8);
+}
+.renewal-node-results .execution-artifact > p {
+  color: var(--g-soft);
+  font-size: var(--m-type-label);
+}

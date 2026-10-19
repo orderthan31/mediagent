@@ -40,12 +40,13 @@ services:
       interval: 10s
       timeout: 6s
       retries: 5
-  worker:
+  agent:
+    profiles: ["legacy-manual"]
     build: .
     logging: *bounded-logs
     init: true
     restart: unless-stopped
-    command: ["python", "-m", "media_worker.worker"]
+    command: ["python", "-m", "media_agent.agent"]
     stop_grace_period: 60s
     environment:
       <<: *storage

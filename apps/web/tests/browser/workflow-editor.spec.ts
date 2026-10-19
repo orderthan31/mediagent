@@ -61,7 +61,7 @@ for (const width of [1440, 390]) {
               '-v',
               fixture + ':/fixture:rw',
               '-e',
-              'PYTHONPATH=/src/packages/shared:/src/apps/api:/src/workers/media',
+              'PYTHONPATH=/src/packages/shared:/src/apps/api:/src/agents/media',
               process.env.WF02_API_IMAGE || 'video-subtitle-api:renewal-a6083229',
               'python',
               '/src/apps/web/tests/browser/workflow_bridge.py',

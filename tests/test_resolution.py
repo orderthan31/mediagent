@@ -3,9 +3,9 @@ import sys
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / "workers/media"), str(ROOT / "packages/shared")]
-from media_worker.media import encoding_args
-from media_worker.validation import output_dimensions, validate_output
+sys.path[:0] = [str(ROOT / "agents/media"), str(ROOT / "packages/shared")]
+from media_agent.media import encoding_args
+from media_agent.validation import output_dimensions, validate_output
 
 
 class ResolutionTests(unittest.TestCase):

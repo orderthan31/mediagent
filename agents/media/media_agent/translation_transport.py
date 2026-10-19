@@ -12,7 +12,7 @@ from .content_block import ContentBlockedError
 from .llm_diagnostics import emit, exception_details
 from .llm_trace import begin_call, finish_call
 from .transcription_queue import RetryableTranscriptionError
-from .worker_storage import disk_call
+from .agent_storage import disk_call
 
 
 class ModelRequestError(RuntimeError):

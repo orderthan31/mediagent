@@ -62,9 +62,9 @@
       ]
     },
     "runtime": {
-      "process": "media_worker.worker:Worker",
+      "process": "media_agent.agent:Agent",
       "connection": "unverified",
-      "notice": "논리 처리 역할별 설정입니다. 저장·키 보유·지원 모델은 Worker 연결이나 추론 성공을 뜻하지 않습니다."
+      "notice": "논리 처리 역할별 설정입니다. 저장·키 보유·지원 모델은 Agent 연결이나 추론 성공을 뜻하지 않습니다."
     },
     "fixed_workers": [
       {
@@ -79,7 +79,7 @@
         "provider": "FaceFusion",
         "model": null,
         "editable": false,
-        "reason": "엔진/모델은 Worker 실행 환경에서 지정합니다. 이 화면은 모델을 내려받거나 Worker를 시작하지 않습니다."
+        "reason": "엔진/모델은 Agent 실행 환경에서 지정합니다. 이 화면은 모델을 내려받거나 Worker를 시작하지 않습니다."
       }
     ]
   },
@@ -100,7 +100,7 @@
         "options": {},
         "embedded_operations": [],
         "execution": "existing_fixed_workflow",
-        "entrypoint": "media_worker.worker:Worker.process"
+        "entrypoint": "media_agent.agent:Agent.process"
       },
       {
         "id": "extract_audio",
@@ -116,7 +116,7 @@
         "options": {},
         "embedded_operations": [],
         "execution": "existing_fixed_workflow",
-        "entrypoint": "media_worker.worker:Worker.process"
+        "entrypoint": "media_agent.agent:Agent.process"
       },
       {
         "id": "preprocess_audio",
@@ -144,7 +144,7 @@
         },
         "embedded_operations": [],
         "execution": "existing_fixed_workflow",
-        "entrypoint": "media_worker.worker:Worker.process"
+        "entrypoint": "media_agent.agent:Agent.process"
       },
       {
         "id": "transcribe",
@@ -164,7 +164,7 @@
           "restore_timeline"
         ],
         "execution": "existing_fixed_workflow",
-        "entrypoint": "media_worker.worker:Worker.process"
+        "entrypoint": "media_agent.agent:Agent.process"
       },
       {
         "id": "translate",
@@ -180,7 +180,7 @@
         "options": {},
         "embedded_operations": [],
         "execution": "existing_fixed_workflow",
-        "entrypoint": "media_worker.worker:Worker.process"
+        "entrypoint": "media_agent.agent:Agent.process"
       },
       {
         "id": "generate_subtitle",
@@ -196,7 +196,7 @@
         "options": {},
         "embedded_operations": [],
         "execution": "existing_fixed_workflow",
-        "entrypoint": "media_worker.worker:Worker.process"
+        "entrypoint": "media_agent.agent:Agent.process"
       },
       {
         "id": "encode",
@@ -237,7 +237,7 @@
           "burn_subtitles"
         ],
         "execution": "existing_fixed_workflow",
-        "entrypoint": "media_worker.worker:Worker.process"
+        "entrypoint": "media_agent.agent:Agent.process"
       },
       {
         "id": "validate_video",
@@ -253,7 +253,7 @@
         "options": {},
         "embedded_operations": [],
         "execution": "existing_fixed_workflow",
-        "entrypoint": "media_worker.worker:Worker.process"
+        "entrypoint": "media_agent.agent:Agent.process"
       },
       {
         "id": "faceswap",
@@ -281,7 +281,7 @@
         },
         "embedded_operations": [],
         "execution": "existing_fixed_workflow",
-        "entrypoint": "media_worker.faceswap.runner:execute"
+        "entrypoint": "media_agent.faceswap.runner:execute"
       }
     ],
     "standalone_execution": false,
@@ -289,7 +289,7 @@
     "notes": [
       "번인은 encode의 subtitle_mode=burn이며 독립 실행 단계가 아닙니다.",
       "전처리의 NVIDIA VAD·얼굴 합성은 해당 엔진과 모델 환경이 별도로 필요합니다.",
-      "서빙 역할은 단일 media_worker의 논리 역할이며 분산 Worker 등록부가 아닙니다."
+      "서빙 역할은 단일 media_agent의 논리 역할이며 분산 Agent 등록부가 아닙니다."
     ]
   }
 }

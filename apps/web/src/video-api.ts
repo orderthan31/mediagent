@@ -1,5 +1,6 @@
 import { Job, request } from './api';
 export type VideoAsset = {
+  web_preview?: { status: 'ready' | 'failed' | 'unavailable' };
   asset_id: string;
   original_filename: string;
   size_bytes: number;

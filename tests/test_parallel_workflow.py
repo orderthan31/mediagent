@@ -148,11 +148,11 @@ class ParallelSchedulingTests(unittest.TestCase):
         self.assertEqual(definition, before)
 
     def test_real_cpu_parallel_encodes_have_isolated_node_contexts(self):
-        self.assertIsNotNone(importlib.util.find_spec('media_worker.parallel_nodes'),
+        self.assertIsNotNone(importlib.util.find_spec('media_agent.parallel_nodes'),
                              'Branch-isolated native node adapter is missing')
         import hashlib
         import subprocess
-        from media_worker.parallel_nodes import ParallelMediaExecutor
+        from media_agent.parallel_nodes import ParallelMediaExecutor
         from video_service.parallel_workflow import compile_parallel
         from video_service.parallel_scheduler import run_ready
         from video_service.storage import write_json_atomic, read_json
@@ -429,7 +429,7 @@ class ParallelSchedulingTests(unittest.TestCase):
     def test_graph_ticket_real_cpu_native_join_preserves_both_output_names(self):
         import subprocess
         from video_service.graph_tickets import GraphTicketStore
-        from media_worker.parallel_nodes import ParallelMediaExecutor
+        from media_agent.parallel_nodes import ParallelMediaExecutor
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             source = root / 'synthetic.mp4'

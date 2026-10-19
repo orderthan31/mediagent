@@ -97,8 +97,8 @@ class BoundWorkTests(unittest.TestCase):
                 self.assertEqual(client.get('/api/settings/work-tickets/'+created.json()['id']).status_code,200)
 
     def test_registered_transport_receives_pinned_provider_model_not_global_role(self):
-        self.assertIsNotNone(importlib.util.find_spec('media_worker.registered_nodes'),'Registered native/client adapter missing')
-        from media_worker.registered_nodes import RegisteredDecisionProvider
+        self.assertIsNotNone(importlib.util.find_spec('media_agent.registered_nodes'),'Registered native/client adapter missing')
+        from media_agent.registered_nodes import RegisteredDecisionProvider
         from video_service.model_registry import ModelRegistry
         with tempfile.TemporaryDirectory() as directory:
             registry=ModelRegistry(directory)
@@ -164,7 +164,7 @@ class BoundWorkTests(unittest.TestCase):
     def test_registered_executor_uses_real_synthetic_cpu_output_not_media_fixture(self):
         import subprocess
         from work_fixtures import WorkHarness
-        from media_worker.registered_nodes import RegisteredMediaExecutor
+        from media_agent.registered_nodes import RegisteredMediaExecutor
         with tempfile.TemporaryDirectory() as directory:
             source=Path(directory)/'synthetic.mp4'
             subprocess.run(['ffmpeg','-v','error','-f','lavfi','-i','color=c=blue:s=64x64:r=10:d=0.4','-c:v','libx264','-threads','1','-pix_fmt','yuv420p',str(source)],check=True)

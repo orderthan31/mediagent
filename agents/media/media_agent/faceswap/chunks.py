@@ -84,7 +84,7 @@ def render_chunks(worker, record, payload, work, check, invoke):
     key = digest({'pipeline': PIPELINE_VERSION, 'input': record.metadata['faceswap_key'], 'chunks': chunks})
     cache = repo.job_dir(record.job_id) / 'work' / ('faceswap-chunks-' + key)
     cache.mkdir(exist_ok=True)
-    # A previous Worker crash may have left extraction frames. The execution lock
+    # A previous Agent crash may have left extraction frames. The execution lock
     # and engine process-tree lifetime guarantee that these attempts are inactive.
     for old_attempt in cache.glob('attempt-*'):
         remove_path_inside(cache, old_attempt / 'temp')

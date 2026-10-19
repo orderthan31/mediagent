@@ -58,7 +58,7 @@ def factory(preferences, options, admitted, bindings):
                 output.write_text(json.dumps({'mode': 'explicit_deterministic_fixture', 'node': step['id'], 'fixture_metadata': {'reviewable': True}}))
             outputs[port] = output
         return outputs
-    from media_worker.registered_nodes import RegisteredDecisionProvider
+    from media_agent.registered_nodes import RegisteredDecisionProvider
     def transport(provider, model, key, context):
         event({'registered_model_call': {'provider':provider,'model':model,'reference':preferences['model_binding']},'input_sha256':context['input']['sha256'],'mode':'controlled_json_transport_NOT_external_inference'})
         return {'version':1,'label':'pass' if model=='gpt-4o-mini' else 'reject','confidence':.9,'reason':'통제 request transport에서 실제 등록/pin 설정 사용 · 실추론 아님'}

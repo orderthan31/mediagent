@@ -1,0 +1,17 @@
+[project]
+name = "mideagent-cpu-agents"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = ["video-service-shared[objects]"]
+
+[project.scripts]
+mideagent-analyze = "mideagent_cpu.cli:analyze"
+mideagent-extract-audio = "mideagent_cpu.cli:extract_audio"
+mideagent-generate-subtitle = "mideagent_cpu.cli:generate_subtitle"
+mideagent-encode = "mideagent_cpu.cli:encode"
+mideagent-validate-video = "mideagent_cpu.cli:validate_video"
+mideagent-object-agent = "video_service.object_agent:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["mideagent_cpu*"]

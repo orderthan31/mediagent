@@ -58,4 +58,4 @@ def compile_sequence(definition):
     by_id={n['id']:n for n in steps}
     return {'supported':not reasons,'reasons':reasons,'steps':[by_id[n] for n in order] if not reasons else [],
             'paid_roles':sorted({{'transcribe':'transcription','translate':'translation'}[n['type']] for n in steps if n['type'] in {'transcribe','translate'}}),
-            'notice':'정의 기반 순차 경로입니다. 파일/엔진·서빙/유료 확인과 실제 Worker 실행은 별도입니다.'}
+            'notice':'정의 기반 순차 경로입니다. 파일/엔진·서빙/유료 확인과 실제 Agent 실행은 별도입니다.'}

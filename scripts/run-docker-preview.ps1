@@ -18,7 +18,7 @@ if ($WebPort -lt 1 -or $WebPort -gt 65535) { throw 'Invalid web port.' }
 if ($WebOrigin -and $WebOrigin -notmatch '^https?://[^/]+$') { throw 'WebOrigin must be an HTTP(S) origin without a trailing slash.' }
 if ($Action -eq 'start') {
     $native = Get-CimInstance Win32_Process | Where-Object {
-        $_.Name -match '^python(w)?\.exe$' -and $_.CommandLine -match 'media_worker\.worker|uvicorn app\.main:app'
+        $_.Name -match '^python(w)?\.exe$' -and $_.CommandLine -match 'media_agent\.agent|uvicorn app\.main:app'
     }
     if ($native) { throw 'Stop native API/worker processes before sharing their job directory with Docker.' }
 }
@@ -45,8 +45,8 @@ try {
         'start' { @('up', '-d', '--no-build', '--wait') }
         'build' { @('build') }
         'status' { @('ps') }
-        'logs' { @('logs', '--tail=100', 'worker') }
-        'check' { @('exec', '-T', 'worker', 'python', 'scripts/check-container.py', '--gpu') }
+        'logs' { @('logs', '--tail=100', 'agent') }
+        'check' { @('exec', '-T', 'agent', 'python', 'scripts/check-container.py', '--gpu') }
     })
     & $docker @compose @operation
     if ($LASTEXITCODE -ne 0) { throw "Docker command failed with exit code $LASTEXITCODE" }

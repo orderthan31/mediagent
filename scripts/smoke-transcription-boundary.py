@@ -8,8 +8,8 @@ from uuid import uuid4
 import wave
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / "workers/media"), str(ROOT / "packages/shared")]
-from media_worker.providers import GeminiProvider
+sys.path[:0] = [str(ROOT / "agents/media"), str(ROOT / "packages/shared")]
+from media_agent.providers import GeminiProvider
 
 
 def main():

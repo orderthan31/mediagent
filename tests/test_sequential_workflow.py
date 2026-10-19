@@ -82,8 +82,8 @@ class SequentialTests(unittest.TestCase):
     def test_real_node_adapter_with_isolated_synthetic_cpu_media(self):
         import tempfile,subprocess,json
         from pathlib import Path
-        self.assertIsNotNone(importlib.util.find_spec('media_worker.sequential_nodes'),'Real node adapter missing')
-        from media_worker.sequential_nodes import MediaNodeExecutor
+        self.assertIsNotNone(importlib.util.find_spec('media_agent.sequential_nodes'),'Real node adapter missing')
+        from media_agent.sequential_nodes import MediaNodeExecutor
         from video_service.workflow_tickets import TicketStore
         from video_service.llm_settings import LLMSettingsStore
         with tempfile.TemporaryDirectory() as directory:
@@ -191,7 +191,7 @@ class SequentialTests(unittest.TestCase):
     def test_node_transcript_original_clock_reuse_and_corruption_refusal(self):
         import tempfile,json
         from pathlib import Path
-        from media_worker.sequential_nodes import MediaNodeExecutor
+        from media_agent.sequential_nodes import MediaNodeExecutor
         from video_service.transcript import TranscriptSegment
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);audio=root/'packed.wav';audio.write_bytes(b'isolated fixture packed audio');timeline=root/'timeline.json'

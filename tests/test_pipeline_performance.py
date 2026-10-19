@@ -8,13 +8,13 @@ import unittest
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / 'packages/shared'), str(ROOT / 'workers/media')]
+sys.path[:0] = [str(ROOT / 'packages/shared'), str(ROOT / 'agents/media')]
 from video_service.capacity import audited_usage, used_bytes, reserve_workspace, StorageLimitError
 from video_service.repository import FilesystemJobRepository
 from video_service.models import JobStatus, QualityProfile
 from video_service.storage import write_json_atomic
-from media_worker.worker_storage import CapacityEstimate
-from media_worker.process import run_process
+from media_agent.agent_storage import CapacityEstimate
+from media_agent.process import run_process
 
 
 class PipelinePerformanceTests(unittest.TestCase):
@@ -36,7 +36,7 @@ class PipelinePerformanceTests(unittest.TestCase):
         self.audit()
         job = self.job()
         with patch('video_service.capacity.used_bytes', side_effect=AssertionError('media walk')), \
-                patch('media_worker.worker_storage.used_bytes', side_effect=AssertionError('media walk')):
+                patch('media_agent.agent_storage.used_bytes', side_effect=AssertionError('media walk')):
             self.assertGreaterEqual(audited_usage(self.root), 4100)
             estimate = CapacityEstimate(self.root)
             estimate.check(10**9, 0)
@@ -50,7 +50,7 @@ class PipelinePerformanceTests(unittest.TestCase):
         for age in (601, -60):
             self.audit(age)
             self.assertIsNone(audited_usage(self.root))
-            with patch('media_worker.worker_storage.used_bytes', return_value=1000) as scan:
+            with patch('media_agent.agent_storage.used_bytes', return_value=1000) as scan:
                 CapacityEstimate(self.root).check(2000, 0)
                 scan.assert_called_once()
 

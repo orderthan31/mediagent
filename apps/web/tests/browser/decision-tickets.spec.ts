@@ -73,7 +73,7 @@ for (const width of [1440, 390]) {
           '-e',
           'PYTHONDONTWRITEBYTECODE=1',
           '-e',
-          'PYTHONPATH=/src/packages/shared:/src/apps/api:/src/workers/media',
+          'PYTHONPATH=/src/packages/shared:/src/apps/api:/src/agents/media',
           'video-subtitle-api:renewal-dfa7a496',
           'python',
           '/src/apps/web/tests/browser/decision_bridge.py',

@@ -7,10 +7,10 @@ import sys
 from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / "packages/shared"), str(ROOT / "workers/media")]
+sys.path[:0] = [str(ROOT / "packages/shared"), str(ROOT / "agents/media")]
 from video_service.models import JobStatus, QualityProfile
 from video_service.repository import FilesystemJobRepository
-from media_worker.worker import Worker
+from media_agent.agent import Agent
 
 
 def main():
@@ -35,7 +35,7 @@ def main():
             repo.save(record)
         jobs[name] = record.job_id
     os.environ.update(RESULT_TTL_HOURS="24", HISTORY_TTL_DAYS="90")
-    Worker(repo, None).collect()
+    Agent(repo, None).collect()
     expired = repo.read(jobs["expired-history.mp4"])
     if not expired.metadata.get("results_expired_at") or (repo.job_dir(expired.job_id) / "output").exists():
         raise RuntimeError("Fixture history expiration failed")

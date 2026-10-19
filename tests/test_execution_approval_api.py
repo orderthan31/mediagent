@@ -74,7 +74,7 @@ class LegacyApprovalApiTests(unittest.TestCase):
     def test_render_admission_binds_normalized_review_input_not_later_live_edits(self):
         from app.api.execution_approval_routes import router
         from video_service.execution_authorization import AuthorizationStore,AuthorizationConflict
-        from video_service.execution_worker import legacy_execution,approved_review
+        from video_service.execution_agent import legacy_execution,approved_review
         from video_service.models import JobStatus,QualityProfile
         from video_service.review import write_draft,draft_path
         from video_service.storage import write_json_atomic

@@ -11,14 +11,14 @@ from uuid import uuid4
 import httpx
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / 'workers/media'), str(ROOT / 'packages/shared')]
-from media_worker import translation_transport as transport
-from media_worker.providers import GeminiProvider, retry_delay
-from media_worker.translation_requests import SCHEMA, align_result
-from media_worker.content_block import ContentBlockedError
-from media_worker.transcription_queue import RetryableTranscriptionError
-from media_worker.llm_diagnostics import attempt_context, new_context
-from media_worker.llm_trace import capture_calls
+sys.path[:0] = [str(ROOT / 'agents/media'), str(ROOT / 'packages/shared')]
+from media_agent import translation_transport as transport
+from media_agent.providers import GeminiProvider, retry_delay
+from media_agent.translation_requests import SCHEMA, align_result
+from media_agent.content_block import ContentBlockedError
+from media_agent.transcription_queue import RetryableTranscriptionError
+from media_agent.llm_diagnostics import attempt_context, new_context
+from media_agent.llm_trace import capture_calls
 from video_service.llm_settings import LLMSettingsStore
 from video_service.transcript import TranscriptSegment
 
@@ -154,7 +154,7 @@ class MultiProviderRoutingTests(unittest.IsolatedAsyncioTestCase):
             'api_keys': {'xai': 'xai-test-secret'}}
         self.provider._request_once = AsyncMock(side_effect=RetryableTranscriptionError('busy'))
         self.external = AsyncMock(side_effect=[RetryableTranscriptionError('busy'), VALUES])
-        self.patcher = patch('media_worker.providers.request_translation', self.external)
+        self.patcher = patch('media_agent.providers.request_translation', self.external)
         self.patcher.start()
         self.addCleanup(self.patcher.stop)
         token = attempt_context.set(new_context(stage='translation', segment=1, queue_id='test'))
@@ -228,14 +228,14 @@ class MultiProviderSettingsTests(unittest.TestCase):
             'openrouter': {'api_key': 'router-test-not-real-12345'}, 'anthropic': {'api_key': 'anthropic-test-not-real-12345'}}})
         preferences = self.store.resolve()
         preferences['api_key'] = ''
-        with patch('media_worker.providers.load_environment'):
+        with patch('media_agent.providers.load_environment'):
             provider = GeminiProvider(preferences)
         provider.validate_for_stages(['translate'])
         with self.assertRaisesRegex(RuntimeError, 'gemini API key'):
             provider.validate_for_stages(['transcribe'])
 
     def test_primary_cache_identity_separates_providers(self):
-        with patch('media_worker.providers.load_environment'):
+        with patch('media_agent.providers.load_environment'):
             a = GeminiProvider({'translation_provider': 'gemini', 'translation_model': 'same-model'})
             b = GeminiProvider({'translation_provider': 'openai', 'translation_model': 'same-model'})
         self.assertEqual(a.translation_identity, 'same-model')
@@ -250,7 +250,7 @@ class MultiProviderSettingsTests(unittest.TestCase):
         work.mkdir(parents=True)
         segments = [TranscriptSegment(1, 2, 'Original')]
         progress = []
-        with patch('media_worker.providers.request_translation', AsyncMock(return_value=VALUES)) as call:
+        with patch('media_agent.providers.request_translation', AsyncMock(return_value=VALUES)) as call:
             translated = provider.translate(segments, 'ko', lambda: None, work=work, progress=progress.append)
             again = provider.translate(segments, 'ko', lambda: None, work=work)
         self.assertEqual(call.call_count, 1)

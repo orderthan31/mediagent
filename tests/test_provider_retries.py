@@ -12,14 +12,14 @@ from uuid import uuid4
 import httpx
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / "workers/media"), str(ROOT / "packages/shared")]
-from media_worker.providers import GeminiProvider, retry_delay
-from media_worker.transcription_queue import RetryableTranscriptionError
-from media_worker.content_block import ContentBlockedError
-from media_worker.process import Cancelled
-from media_worker.llm_trace import capture_calls, audio_window
+sys.path[:0] = [str(ROOT / "agents/media"), str(ROOT / "packages/shared")]
+from media_agent.providers import GeminiProvider, retry_delay
+from media_agent.transcription_queue import RetryableTranscriptionError
+from media_agent.content_block import ContentBlockedError
+from media_agent.process import Cancelled
+from media_agent.llm_trace import capture_calls, audio_window
 from sdk_fixture import sdk_fixture
-from media_worker.translation_requests import SCHEMA as TRANSLATION_SCHEMA
+from media_agent.translation_requests import SCHEMA as TRANSLATION_SCHEMA
 
 
 class ProviderRetryTests(unittest.IsolatedAsyncioTestCase):
@@ -39,15 +39,15 @@ class ProviderRetryTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_transient_connections_retry_and_succeed(self):
         self.client.post.side_effect = [httpx.ConnectError("offline"), httpx.ReadTimeout("timeout"), self.success]
-        with patch("media_worker.providers.asyncio.sleep", new_callable=AsyncMock) as sleep:
+        with patch("media_agent.providers.asyncio.sleep", new_callable=AsyncMock) as sleep:
             self.assertEqual(await self.request(), ["Translated"])
         self.assertEqual(self.client.post.call_count, 3)
         self.assertEqual(sum(call.args[0] for call in sleep.call_args_list), 3)
 
     async def test_slow_trace_write_is_outside_network_deadline(self):
         self.client.post.return_value = self.success
-        with patch("media_worker.providers.REQUEST_DEADLINE_SECONDS", .05), \
-                patch("media_worker.providers.finish_call", side_effect=lambda *a, **kw: time.sleep(.1)):
+        with patch("media_agent.providers.REQUEST_DEADLINE_SECONDS", .05), \
+                patch("media_agent.providers.finish_call", side_effect=lambda *a, **kw: time.sleep(.1)):
             self.assertEqual(await self.request(), ["Translated"])
         self.assertEqual(self.client.post.call_count, 1)
 
@@ -55,7 +55,7 @@ class ProviderRetryTests(unittest.IsolatedAsyncioTestCase):
         async def never(*args, **kwargs):
             await asyncio.Event().wait()
         self.client.post.side_effect = never
-        with patch("media_worker.providers.REQUEST_DEADLINE_SECONDS", .03):
+        with patch("media_agent.providers.REQUEST_DEADLINE_SECONDS", .03):
             with self.assertRaises(TimeoutError):
                 await self.request()
         self.assertEqual(self.client.post.call_count, 1)
@@ -72,7 +72,7 @@ class ProviderRetryTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_exhausted_transport_does_not_expose_error_details(self):
         self.client.post.side_effect = httpx.ConnectError("sensitive diagnostic")
-        with patch("media_worker.providers.asyncio.sleep", new_callable=AsyncMock):
+        with patch("media_agent.providers.asyncio.sleep", new_callable=AsyncMock):
             with self.assertRaisesRegex(RuntimeError, "connection failed after 3 attempts") as error:
                 await self.request()
         self.assertNotIn("sensitive", str(error.exception))
@@ -80,7 +80,7 @@ class ProviderRetryTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_rate_limit_respects_retry_after(self):
         self.client.post.side_effect = [httpx.Response(429, headers={"Retry-After": "2.5"}), self.success]
-        with patch("media_worker.providers.asyncio.sleep", new_callable=AsyncMock) as sleep:
+        with patch("media_agent.providers.asyncio.sleep", new_callable=AsyncMock) as sleep:
             await self.request()
         self.assertEqual(sum(call.args[0] for call in sleep.call_args_list), 2.5)
 
@@ -123,7 +123,7 @@ class ProviderRetryTests(unittest.IsolatedAsyncioTestCase):
     async def test_invalid_word_timing_retries_same_audio_without_dropping_speech(self):
         self.client.post.side_effect = [self.transcription_response("1s", "1s"),
             self.transcription_response("1s", "0.5s"), self.transcription_response("1s", "2s")]
-        with patch("media_worker.providers.asyncio.sleep", new_callable=AsyncMock):
+        with patch("media_agent.providers.asyncio.sleep", new_callable=AsyncMock):
             result = await self.provider._request([{"text": "audio placeholder"}], None,
                 lambda: None, "test-model", {"wordTimestamp": True})
         self.assertEqual(result[0]["text"], "Private speech.")
@@ -152,7 +152,7 @@ class ProviderRetryTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_persistent_invalid_timing_fails_bounded_without_private_text(self):
         self.client.post.return_value = self.transcription_response("1s", "1s")
-        with patch("media_worker.providers.asyncio.sleep", new_callable=AsyncMock):
+        with patch("media_agent.providers.asyncio.sleep", new_callable=AsyncMock):
             with self.assertRaisesRegex(ValueError, "after 3 attempts:.*zero-duration") as error:
                 await self.provider._request([], None, lambda: None, "test-model", {"wordTimestamp": True})
         self.assertNotIn("Private speech", str(error.exception))
@@ -160,7 +160,7 @@ class ProviderRetryTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_invalid_timing_retry_can_be_cancelled(self):
         self.client.post.return_value = self.transcription_response("1s", "1s")
-        with patch("media_worker.providers.wait_for_retry", side_effect=Cancelled):
+        with patch("media_agent.providers.wait_for_retry", side_effect=Cancelled):
             with self.assertRaises(Cancelled):
                 await self.provider._request([], None, lambda: None, "test-model", {"wordTimestamp": True})
         self.assertEqual(self.client.post.call_count, 1)
@@ -171,7 +171,7 @@ class ProviderRetryTests(unittest.IsolatedAsyncioTestCase):
         self.addCleanup(shutil.rmtree, root)
         self.client.post.return_value = self.transcription_response("2s", "1s")
         with capture_calls(root, root / "llm"), audio_window(100, 200, 100, 2), \
-                patch("media_worker.providers.asyncio.sleep", new_callable=AsyncMock):
+                patch("media_agent.providers.asyncio.sleep", new_callable=AsyncMock):
             with self.assertRaises(ValueError):
                 await self.provider._request([{"text": "prompt test-only"}], None,
                     lambda: None, "test-model", {"wordTimestamp": True})
@@ -205,12 +205,12 @@ class ProviderRetryTests(unittest.IsolatedAsyncioTestCase):
             nonlocal cancelled
             cancelled = True
         self.client.post.return_value = httpx.Response(503)
-        with patch("media_worker.providers.asyncio.sleep", side_effect=stop), self.assertRaises(Cancelled):
+        with patch("media_agent.providers.asyncio.sleep", side_effect=stop), self.assertRaises(Cancelled):
             await self.request(check)
         self.assertEqual(self.client.post.call_count, 1)
 
     def test_retry_after_date_invalid_and_excessive_values(self):
-        with patch("media_worker.providers.time.time", return_value=0):
+        with patch("media_agent.providers.time.time", return_value=0):
             self.assertEqual(retry_delay(httpx.Response(503, headers={
                 "retry-after": "Thu, 01 Jan 1970 00:00:10 GMT"}), 0), 10)
         for value in ("invalid", "NaN", "-1"):

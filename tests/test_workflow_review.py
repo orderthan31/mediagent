@@ -70,7 +70,7 @@ class ReviewWaitTests(unittest.TestCase):
         from video_service.review_documents import ReviewDocuments
         from video_service.workflow_tickets import TicketConflict
         from video_service.review import BLOCKED_TEXT
-        from media_worker.content_block import BLOCKED_TEXT as existing_marker
+        from media_agent.content_block import BLOCKED_TEXT as existing_marker
         self.assertEqual(BLOCKED_TEXT, existing_marker)
         import hashlib
         raw = json.dumps([{'start': 0, 'end': 1, 'text': BLOCKED_TEXT}]).encode()
@@ -422,7 +422,7 @@ class ReviewWaitTests(unittest.TestCase):
         import subprocess, os, shutil, hashlib
         from review_fixtures import review_graph
         from video_service.review_tickets import ReviewTicketStore
-        from media_worker.parallel_nodes import ParallelMediaExecutor
+        from media_agent.parallel_nodes import ParallelMediaExecutor
         from video_service.transcript import TranscriptSegment
         from video_service.review import BLOCKED_TEXT
         definition = review_graph()

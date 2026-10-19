@@ -7,11 +7,11 @@ from unittest.mock import Mock, patch
 from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / "workers/media"), str(ROOT / "packages/shared")]
-from media_worker.transcription_queue import run_transcription_queue, PartialTranscriptionError, RetryableTranscriptionError
+sys.path[:0] = [str(ROOT / "agents/media"), str(ROOT / "packages/shared")]
+from media_agent.transcription_queue import run_transcription_queue, PartialTranscriptionError, RetryableTranscriptionError
 from video_service.storage import read_json
-from media_worker.content_block import ContentBlockedError
-from media_worker.transcription_queue import PartialTranslationError
+from media_agent.content_block import ContentBlockedError
+from media_agent.transcription_queue import PartialTranslationError
 
 
 class TranscriptionQueueTests(unittest.IsolatedAsyncioTestCase):

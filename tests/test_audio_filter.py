@@ -7,8 +7,8 @@ from uuid import uuid4
 import wave
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / "packages/shared"), str(ROOT / "workers/media")]
-from media_worker.media import preprocess_audio
+sys.path[:0] = [str(ROOT / "packages/shared"), str(ROOT / "agents/media")]
+from media_agent.media import preprocess_audio
 from video_service.transcript import TranscriptSegment, filter_transcript_segments
 from video_service.timeline import map_segment_to_original
 
@@ -25,7 +25,7 @@ class AudioFilterTests(unittest.TestCase):
             audio.writeframes(self.pcm)
 
     def test_off_preserves_every_sample_without_silence_detector(self):
-        with patch("media_worker.media.run_process") as run:
+        with patch("media_agent.media.run_process") as run:
             output, spans = preprocess_audio(self.source, self.work, audio_filter="off")
         run.assert_not_called()
         with wave.open(str(output), "rb") as audio:
@@ -36,7 +36,7 @@ class AudioFilterTests(unittest.TestCase):
         log = self.work / "silence.log"
         log.write_text("silence_start: 2\nsilence_end: 8\n", encoding="utf-8")
         for mode, expected_frames, minimum in (("conservative", 20000, 10), ("strong", 14400, 5)):
-            with patch("media_worker.media.run_process", return_value=log) as run:
+            with patch("media_agent.media.run_process", return_value=log) as run:
                 output, spans = preprocess_audio(self.source, self.work, audio_filter=mode)
             self.assertIn(f"silencedetect=noise=-45dB:d={minimum}", run.call_args.args[0])
             with wave.open(str(output), "rb") as audio:
@@ -60,15 +60,15 @@ class AudioFilterTests(unittest.TestCase):
             filter_transcript_segments([], "invalid")
 
     def test_vad_off_never_loads_ml(self):
-        with patch("media_worker.nvidia_vad.detect_intervals") as detect:
+        with patch("media_agent.nvidia_vad.detect_intervals") as detect:
             preprocess_audio(self.source, self.work, audio_filter="off")
         detect.assert_not_called()
 
     def test_vad_intersects_silence_in_original_clock(self):
         log = self.work / "silence.log"
         log.write_text("silence_start: 2\nsilence_end: 6\n", encoding="utf-8")
-        with patch("media_worker.media.run_process", return_value=log), patch(
-                "media_worker.nvidia_vad.detect_intervals", return_value=[(1, 3), (10, 12)]) as detect:
+        with patch("media_agent.media.run_process", return_value=log), patch(
+                "media_agent.nvidia_vad.detect_intervals", return_value=[(1, 3), (10, 12)]) as detect:
             output, spans = preprocess_audio(self.source, self.work, audio_filter="silence3", vad_mode="nvidia")
         self.assertEqual(detect.call_args.args[0], self.source)
         self.assertEqual([(s.original_start, s.original_end) for s in spans], [(1, 2.2), (10, 12)])
@@ -77,14 +77,14 @@ class AudioFilterTests(unittest.TestCase):
         self.assertEqual(self.source.stat().st_size, len(self.pcm) + 44)
 
     def test_vad_errors_do_not_silently_fall_back(self):
-        with patch("media_worker.nvidia_vad.detect_intervals", side_effect=RuntimeError("missing model")):
+        with patch("media_agent.nvidia_vad.detect_intervals", side_effect=RuntimeError("missing model")):
             with self.assertRaisesRegex(RuntimeError, "missing model"):
                 preprocess_audio(self.source, self.work, audio_filter="off", vad_mode="nvidia")
 
     def test_three_second_filter_removes_four_second_pause(self):
         log = self.work / "silence.log"
         log.write_text("silence_start: 2\nsilence_end: 6\n", encoding="utf-8")
-        with patch("media_worker.media.run_process", return_value=log) as run:
+        with patch("media_agent.media.run_process", return_value=log) as run:
             output, spans = preprocess_audio(self.source, self.work, audio_filter="silence3")
         self.assertIn("silencedetect=noise=-45dB:d=3", run.call_args.args[0])
         with wave.open(str(output), "rb") as audio:

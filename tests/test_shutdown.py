@@ -11,12 +11,12 @@ from unittest.mock import patch, AsyncMock
 from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / "workers/media"), str(ROOT / "packages/shared")]
-from media_worker.process import run_process
-from media_worker.shutdown import shutdown_signals, WorkerStopping
-from media_worker.providers import GeminiProvider
+sys.path[:0] = [str(ROOT / "agents/media"), str(ROOT / "packages/shared")]
+from media_agent.process import run_process
+from media_agent.shutdown import shutdown_signals, AgentStopping
+from media_agent.providers import GeminiProvider
 from sdk_fixture import sdk_fixture
-from media_worker.worker import Worker
+from media_agent.agent import Agent
 from video_service.locking import job_lock
 from video_service.models import JobStatus, QualityProfile
 from video_service.repository import FilesystemJobRepository
@@ -28,7 +28,7 @@ class ShutdownTests(unittest.TestCase):
         self.root.mkdir(parents=True)
         self.addCleanup(shutil.rmtree, self.root)
         self.repo = FilesystemJobRepository(self.root)
-        self.worker = Worker(self.repo, None)
+        self.worker = Agent(self.repo, None)
 
     def create_job(self):
         record = self.repo.create_job(original_filename="test.mp4", expected_size=1,
@@ -45,7 +45,7 @@ class ShutdownTests(unittest.TestCase):
             signal.raise_signal(signal.SIGTERM)
             check()
         with shutdown_signals(self.worker.stop), \
-                patch("media_worker.worker.select_encoder", side_effect=stop_during_probe) as encoder, \
+                patch("media_agent.agent.select_encoder", side_effect=stop_during_probe) as encoder, \
                 patch.object(self.repo, "find_by_statuses", return_value=[queued, current]):
             self.worker.tick()
         self.assertIs(signal.getsignal(signal.SIGTERM), before)
@@ -89,8 +89,8 @@ class ShutdownTests(unittest.TestCase):
         def encoder(work, check, **kwargs):
             run_process([sys.executable, "-c", "import time; time.sleep(60)"],
                 cwd=work, log_name="child.log", check=check)
-        with patch("media_worker.worker.select_encoder", side_effect=encoder), \
-                patch("media_worker.process.subprocess.Popen", side_effect=capture):
+        with patch("media_agent.agent.select_encoder", side_effect=encoder), \
+                patch("media_agent.process.subprocess.Popen", side_effect=capture):
             self.worker.process(record.job_id)
         self.assertEqual(len(children), 1)
         self.assertIsNotNone(children[0].poll())
@@ -118,6 +118,6 @@ class ShutdownTests(unittest.TestCase):
         client.__aenter__.return_value = client
         client.post.side_effect = pending
         with patch.object(provider, "_client", sdk_fixture(client.post)), \
-                self.assertRaises(WorkerStopping):
+                self.assertRaises(AgentStopping):
             asyncio.run(provider._request([], {}, self.worker.check_stopping, "test-model"))
         self.assertEqual(ended, [True])

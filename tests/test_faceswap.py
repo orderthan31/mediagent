@@ -11,7 +11,7 @@ from unittest.mock import Mock, patch
 from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / p) for p in ('apps/api', 'workers/media', 'packages/shared')]
+sys.path[:0] = [str(ROOT / p) for p in ('apps/api', 'agents/media', 'packages/shared')]
 from PIL import Image
 from fastapi.testclient import TestClient
 from app.main import app
@@ -20,7 +20,7 @@ from video_service.repository import FilesystemJobRepository
 from video_service.models import JobStatus, QualityProfile, utc_now_iso
 from video_service.storage import write_json_atomic
 from video_service.faceswap import FaceSwapSessions, reservation
-from media_worker.worker import Worker
+from media_agent.agent import Agent
 
 
 class FaceSwapTests(unittest.TestCase):
@@ -153,9 +153,9 @@ class FaceSwapTests(unittest.TestCase):
             (output / 'preview.png').write_bytes(self.image)
             (output / 'original.png').write_bytes(self.image)
             write_json_atomic(output / 'result.json', {'matched_faces': 1})
-        with patch('media_worker.faceswap.runner.invoke', side_effect=fake), patch.dict(os.environ, {'FACEFUSION_ENABLED': 'true'}), \
-                patch('media_worker.worker.assert_capacity', side_effect=AssertionError('Preview must not scan the library')):
-            Worker(self.repo, None, provider_factory=factory).process(job_id)
+        with patch('media_agent.faceswap.runner.invoke', side_effect=fake), patch.dict(os.environ, {'FACEFUSION_ENABLED': 'true'}), \
+                patch('media_agent.agent.assert_capacity', side_effect=AssertionError('Preview must not scan the library')):
+            Agent(self.repo, None, provider_factory=factory).process(job_id)
         self.assertEqual(self.repo.read(job_id).status, JobStatus.COMPLETED)
         factory.assert_not_called()
         self.assertEqual(self.client.get(f'/api/faceswap/jobs/{job_id}/files/preview.png').status_code, 200)
@@ -170,10 +170,10 @@ class FaceSwapTests(unittest.TestCase):
         job_id = self.execute('analyze_reference').json()['job_id']
         self.assertEqual(self.client.delete(self.base).status_code, 409)
         self.client.post(f'/api/jobs/{job_id}/cancel')
-        Worker(self.repo, None).process(job_id)
+        Agent(self.repo, None).process(job_id)
         self.assertEqual(self.repo.read(job_id).status, JobStatus.CANCELLED)
         self.repo.update_status(job_id, JobStatus.FACE_SWAPPING)
-        Worker(self.repo, None).collect(expire=False)
+        Agent(self.repo, None).collect(expire=False)
         self.assertEqual(self.repo.read(job_id).status, JobStatus.FAILED)
         self.assertTrue(self.repo.read(job_id).metadata['interrupted'])
         self.assertEqual(self.client.delete(self.base).status_code, 204)
@@ -244,7 +244,7 @@ class FaceSwapProcessTests(unittest.TestCase):
             self.fail('Engine grandchild remained alive')
 
     def test_cancel_and_timeout_stop_process_tree(self):
-        from media_worker.faceswap.process import run
+        from media_agent.faceswap.process import run
         for cancel in (True, False):
             with self.subTest(cancel=cancel):
                 self.pid_file.unlink(missing_ok=True)
@@ -262,8 +262,8 @@ class FaceSwapProcessTests(unittest.TestCase):
         wrapper = self.root / 'worker.py'
         wrapper.write_text(
             'import os,sys\nfrom pathlib import Path\n'
-            f'sys.path.insert(0, {str(ROOT / "workers/media")!r})\n'
-            'from media_worker.faceswap.process import run\n'
+            f'sys.path.insert(0, {str(ROOT / "agents/media")!r})\n'
+            'from media_agent.faceswap.process import run\n'
             f'run([sys.executable,{str(self.script)!r}],cwd=Path({str(self.root)!r}),'
             f'env=os.environ.copy(),log=Path({str(self.root / "parent.log")!r}),'
             'check=lambda:None,timeout=60)\n', encoding='utf-8')

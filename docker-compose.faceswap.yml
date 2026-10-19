@@ -4,7 +4,7 @@ services:
   api:
     environment:
       FACEFUSION_CHUNK_SECONDS: ${FACEFUSION_CHUNK_SECONDS:-600}
-  worker:
+  agent:
     build:
       args:
         WITH_FACEFUSION: "1"

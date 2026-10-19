@@ -1,7 +1,7 @@
 """Explicit WF08 approval for existing *positive* isolated API fixtures only.
 
 Negative tests use raw TestClient.post and never receive this helper's consent.
-No operating app, provider, Worker or pricing endpoint is accessed.
+No operating app, provider, Agent or pricing endpoint is accessed.
 """
 from uuid import uuid4
 from video_service.workflow_tickets import digest

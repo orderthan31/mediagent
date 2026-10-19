@@ -175,7 +175,7 @@ def describe(request,path,payload):
         for role in roles:
             provider='gemini' if role=='vocalization' else preferences.get(role+'_provider','gemini')
             if role=='vocalization':
-                from media_worker.providers import GeminiProvider
+                from media_agent.providers import GeminiProvider
                 model=GeminiProvider(preferences).audio_filter_model
             else:model=preferences.get(role+'_model')
             allowed.append({'node':'*','role':role,'provider':provider,'model':model})
@@ -185,7 +185,7 @@ def describe(request,path,payload):
     from video_service.execution_authorization import serving_environment
     context['execution_environment']=serving_environment()
     if LEGACY_RUN.fullmatch(path):
-        from media_worker.checkpoints import checkpoint_binding
+        from media_agent.checkpoints import checkpoint_binding
         from video_service.storage import read_json,resolve_under
         binding=checkpoint_binding(context);completed=[]
         for filename,sha in context['checkpoints'].items():

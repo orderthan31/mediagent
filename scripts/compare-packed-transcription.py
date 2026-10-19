@@ -13,9 +13,9 @@ import unicodedata
 import wave
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT/'workers/media'),str(ROOT/'packages/shared')]
-from media_worker.providers import GeminiProvider
-from media_worker.llm_trace import capture_calls
+sys.path[:0] = [str(ROOT/'agents/media'),str(ROOT/'packages/shared')]
+from media_agent.providers import GeminiProvider
+from media_agent.llm_trace import capture_calls
 from video_service.storage import read_json, write_json_atomic
 from video_service.subtitles import segments_to_srt, segment_subtitles
 from video_service.transcript import TranscriptSegment, filter_transcript_segments

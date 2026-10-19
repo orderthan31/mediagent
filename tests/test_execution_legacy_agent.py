@@ -1,4 +1,4 @@
-"""Real Worker.process with isolated storage and a stopping CPU probe, no daemon/GPU/provider."""
+"""Real Agent.process with isolated storage and a stopping CPU probe, no daemon/GPU/provider."""
 from contextlib import nullcontext
 import json
 from pathlib import Path
@@ -15,7 +15,7 @@ from video_service.repository import FilesystemJobRepository
 from video_service.llm_settings import LLMSettingsStore
 from video_service.models import JobStatus
 from video_service.execution_authorization import AuthorizationStore
-from media_worker.worker import Worker
+from media_agent.agent import Agent
 
 
 class LegacyWorkerAuthorizationTests(unittest.TestCase):
@@ -36,8 +36,8 @@ class LegacyWorkerAuthorizationTests(unittest.TestCase):
             seen=[]
             def probe(path,*args):seen.append(Path(path).read_bytes());raise RuntimeError('controlled stop before media processing')
             provider=SimpleNamespace(preferences=LLMSettingsStore(root).resolve(None))
-            worker=Worker(repo,provider)
-            with patch('media_worker.worker.probe',probe),patch('media_worker.worker.job_resources',lambda *args:nullcontext()):
+            worker=Agent(repo,provider)
+            with patch('media_agent.agent.probe',probe),patch('media_agent.agent.job_resources',lambda *args:nullcontext()):
                 worker.process(job_id)
                 self.assertEqual(seen,[b'v'])
                 grant=AuthorizationStore(root).get(approval.json()['id']);execution=AuthorizationStore(root).execution(grant['execution_id'])
@@ -50,7 +50,7 @@ class LegacyWorkerAuthorizationTests(unittest.TestCase):
 
 
     def test_guarded_interrupted_job_is_not_automatically_requeued_even_if_auto_resume_is_enabled(self):
-        from media_worker.recovery import recover_interrupted
+        from media_agent.recovery import recover_interrupted
         from video_service.models import QualityProfile
         with tempfile.TemporaryDirectory() as directory:
             repo=FilesystemJobRepository(Path(directory));job=repo.create_job(original_filename='fixture.mp4',expected_size=1,source_language='en',target_language='ko',quality_profile=QualityProfile.BALANCED)
@@ -63,7 +63,7 @@ class LegacyWorkerAuthorizationTests(unittest.TestCase):
     def test_guarded_checkpoint_same_size_mtime_corruption_is_blocked_not_reexecuted(self):
         import os
         from video_service.execution_authorization import AuthorizationStore,execution_scope,AuthorizationConflict
-        from media_worker.checkpoints import Checkpoints
+        from media_agent.checkpoints import Checkpoints
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);work=root/'work';work.mkdir();calls=[]
             store=AuthorizationStore(root);context={'target':'legacy','options':{},'settings':{},'inputs':{'source':{'sha256':'a'*64}},'cost':{'state':'no_external_call','amount':None}}

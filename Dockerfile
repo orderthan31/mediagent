@@ -28,14 +28,15 @@ RUN if [ "$WITH_NVIDIA_VAD" = "1" ]; then \
     fi
 COPY packages/shared /app/packages/shared
 COPY apps/api /app/apps/api
-COPY workers/media /app/workers/media
+COPY agents/media /app/agents/media
+COPY agents/cpu /app/agents/cpu
 COPY scripts/manage-account.py /app/scripts/manage-account.py
 COPY scripts/check-container.py /app/scripts/check-container.py
 COPY scripts/migrate-video-assets.py /app/scripts/migrate-video-assets.py
 COPY scripts/backfill-thumbnails.py /app/scripts/backfill-thumbnails.py
 COPY scripts/recover-transcription-overlaps.py /app/scripts/recover-transcription-overlaps.py
 COPY scripts/recover-completed-transcript.py /app/scripts/recover-completed-transcript.py
-RUN pip install --no-cache-dir /app/packages/shared /app/apps/api /app/workers/media \
+RUN pip install --no-cache-dir /app/packages/shared /app/apps/api /app/agents/media /app/agents/cpu \
     && useradd --uid 10001 --create-home media \
     && mkdir -p /data/video-jobs /data/job-databases && chown -R media:media /data
 USER media

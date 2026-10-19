@@ -12,11 +12,11 @@ from uuid import uuid4
 import httpx
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / "workers/media"), str(ROOT / "packages/shared")]
-from media_worker.llm_diagnostics import attempt_context, new_context, exception_details, emit
-from media_worker.llm_trace import capture_calls
-from media_worker.providers import GeminiProvider
-from media_worker.transcription_queue import run_segment_queue, PartialTranscriptionError, PartialTranslationError
+sys.path[:0] = [str(ROOT / "agents/media"), str(ROOT / "packages/shared")]
+from media_agent.llm_diagnostics import attempt_context, new_context, exception_details, emit
+from media_agent.llm_trace import capture_calls
+from media_agent.providers import GeminiProvider
+from media_agent.transcription_queue import run_segment_queue, PartialTranscriptionError, PartialTranslationError
 from sdk_fixture import sdk_fixture
 
 
@@ -129,7 +129,7 @@ class DiagnosticTests(unittest.IsolatedAsyncioTestCase):
             return await wait_for(task, .01)
         async def operation(index, attempt):
             await asyncio.Event().wait()
-        with patch("media_worker.transcription_queue.asyncio.wait_for", short_wait):
+        with patch("media_agent.transcription_queue.asyncio.wait_for", short_wait):
             with self.assertRaises(PartialTranscriptionError):
                 await run_segment_queue(1, operation, lambda: None, lambda _: None, path=self.path, attempts=1)
         events = json.loads(self.path.read_text())["history"][0]["diagnostics"]["events"]
@@ -156,6 +156,6 @@ class DiagnosticTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_logging_failure_does_not_fail_successful_request(self):
         self.post.return_value = self.success()
-        with patch("media_worker.llm_diagnostics.logging.getLogger", side_effect=OSError("disk full")):
+        with patch("media_agent.llm_diagnostics.logging.getLogger", side_effect=OSError("disk full")):
             self.assertEqual(await self.request(), ["private dialogue"])
         self.assertEqual(self.post.call_count, 1)

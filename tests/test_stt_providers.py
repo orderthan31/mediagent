@@ -14,14 +14,14 @@ import wave
 import httpx
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / 'workers/media'), str(ROOT / 'packages/shared')]
-from media_worker import translation_transport as transport
-from media_worker.stt_transport import request_fields, parse_transcription, request_transcription
-from media_worker.providers import GeminiProvider, retry_delay
-from media_worker.content_block import ContentBlockedError
-from media_worker.llm_diagnostics import attempt_context, new_context
-from media_worker.llm_trace import capture_calls
-from media_worker.transcription_queue import RetryableTranscriptionError
+sys.path[:0] = [str(ROOT / 'agents/media'), str(ROOT / 'packages/shared')]
+from media_agent import translation_transport as transport
+from media_agent.stt_transport import request_fields, parse_transcription, request_transcription
+from media_agent.providers import GeminiProvider, retry_delay
+from media_agent.content_block import ContentBlockedError
+from media_agent.llm_diagnostics import attempt_context, new_context
+from media_agent.llm_trace import capture_calls
+from media_agent.transcription_queue import RetryableTranscriptionError
 from video_service.llm_settings import LLMSettingsStore
 from video_service.llm_providers import STT_MODELS
 

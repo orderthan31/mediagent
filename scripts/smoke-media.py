@@ -7,14 +7,14 @@ import sys
 from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / "packages/shared"), str(ROOT / "workers/media")]
+sys.path[:0] = [str(ROOT / "packages/shared"), str(ROOT / "agents/media")]
 from video_service.config import load_environment
 from video_service.models import JobStatus, QualityProfile
 from video_service.repository import FilesystemJobRepository
-from media_worker.media import executable
-from media_worker.process import run_process
-from media_worker.providers import GeminiProvider
-from media_worker.worker import Worker
+from media_agent.media import executable
+from media_agent.process import run_process
+from media_agent.providers import GeminiProvider
+from media_agent.agent import Agent
 
 
 def main():
@@ -46,7 +46,7 @@ def main():
     shutil.copyfile(source, repo.source_path(record))
     repo.update_upload_progress(record.job_id, record.expected_size)
     repo.update_status(record.job_id, JobStatus.QUEUED)
-    Worker(repo, GeminiProvider()).process(record.job_id)
+    Agent(repo, GeminiProvider()).process(record.job_id)
     record = repo.read(record.job_id)
     report = {"job_id": record.job_id, "status": record.status.value, "error": record.error,
         "output": str(repo.job_dir(record.job_id) / "output"), "metadata": record.metadata}

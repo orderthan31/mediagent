@@ -7,9 +7,9 @@ import wave
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / "workers/media"), str(ROOT / "packages/shared")]
-from media_worker.media import kept_intervals, copy_audio_intervals, encoding_args, select_encoder, probe
-from media_worker.process import run_process, Cancelled
+sys.path[:0] = [str(ROOT / "agents/media"), str(ROOT / "packages/shared")]
+from media_agent.media import kept_intervals, copy_audio_intervals, encoding_args, select_encoder, probe
+from media_agent.process import run_process, Cancelled
 
 
 class MediaTests(unittest.TestCase):
@@ -23,7 +23,7 @@ class MediaTests(unittest.TestCase):
             return run_process([sys.executable, '-c',
                 'import sys; print("[mov] Referenced QT chapter track not found", file=sys.stderr); '
                 'print(\'{"format":{"duration":"12.5"},"streams":[{"codec_type":"video"}]}\')'], **kwargs)
-        with patch('media_worker.media.run_process', side_effect=fake_ffprobe):
+        with patch('media_agent.media.run_process', side_effect=fake_ffprobe):
             self.assertEqual(probe(self.work / 'source.mp4', self.work)['duration'], 12.5)
         self.assertIn('QT chapter', (self.work / 'probe.stderr.log').read_text())
         self.assertTrue((self.work / 'probe.json').read_text().startswith('{'))
@@ -60,15 +60,15 @@ class MediaTests(unittest.TestCase):
             run_process([sys.executable, "-c", "raise SystemExit(3)"], cwd=self.work, log_name="failed.log")
 
     def test_encoder_fallback_requires_configuration(self):
-        with patch.dict("os.environ", {"VIDEO_ENCODER": "hevc_nvenc", "ALLOW_SOFTWARE_ENCODER_FALLBACK": "false"}), patch("media_worker.media.run_process", side_effect=RuntimeError("driver")):
+        with patch.dict("os.environ", {"VIDEO_ENCODER": "hevc_nvenc", "ALLOW_SOFTWARE_ENCODER_FALLBACK": "false"}), patch("media_agent.media.run_process", side_effect=RuntimeError("driver")):
             with self.assertRaises(RuntimeError):
                 select_encoder(self.work)
-        with patch.dict("os.environ", {"VIDEO_ENCODER": "hevc_nvenc", "ALLOW_SOFTWARE_ENCODER_FALLBACK": "true"}), patch("media_worker.media.run_process", side_effect=RuntimeError("driver")):
+        with patch.dict("os.environ", {"VIDEO_ENCODER": "hevc_nvenc", "ALLOW_SOFTWARE_ENCODER_FALLBACK": "true"}), patch("media_agent.media.run_process", side_effect=RuntimeError("driver")):
             self.assertEqual(select_encoder(self.work), "libx265")
 
     def test_encoder_preflight_uses_supported_frame_size(self):
         with patch.dict("os.environ", {"VIDEO_ENCODER": "hevc_nvenc"}), \
-                patch("media_worker.media.run_process") as run:
+                patch("media_agent.media.run_process") as run:
             self.assertEqual(select_encoder(self.work), "hevc_nvenc")
         args = run.call_args.args[0]
         self.assertEqual(args[args.index("-i") + 1], "color=size=640x360:rate=30")
@@ -85,11 +85,11 @@ class MediaTests(unittest.TestCase):
 
     def test_h264_preflight_and_fallback_match_requested_codec(self):
         with patch.dict("os.environ", {"VIDEO_ENCODER": "hevc_nvenc"}), \
-                patch("media_worker.media.run_process") as run:
+                patch("media_agent.media.run_process") as run:
             self.assertEqual(select_encoder(self.work, video_codec="h264"), "h264_nvenc")
         self.assertIn("h264_nvenc", run.call_args.args[0])
         with patch.dict("os.environ", {"VIDEO_ENCODER": "hevc_nvenc", "ALLOW_SOFTWARE_ENCODER_FALLBACK": "true"}), \
-                patch("media_worker.media.run_process", side_effect=RuntimeError("unavailable")):
+                patch("media_agent.media.run_process", side_effect=RuntimeError("unavailable")):
             self.assertEqual(select_encoder(self.work, video_codec="h264"), "libx264")
 
     def test_process_cancel_terminates_child(self):

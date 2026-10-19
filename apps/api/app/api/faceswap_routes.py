@@ -183,7 +183,7 @@ def execute(session_id: str, payload: Execute, request: Request):
             raise HTTPException(409, '설정이 변경되었습니다. 다시 불러오세요.')
         cap = public_capabilities(repo.storage_root)
         if not cap.get('ready'):
-            raise HTTPException(503, cap.get('reason', '얼굴 합성 Worker 준비 중'))
+            raise HTTPException(503, cap.get('reason', '얼굴 합성 Agent 준비 중'))
         if payload.operation != 'analyze_reference' and not record['source_file']:
             raise HTTPException(422, 'Source 이미지를 먼저 등록하세요.')
         if payload.operation in {'preview', 'render'} and min(record['settings']['source_position'], record['settings']['face_position']) < 0:

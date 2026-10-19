@@ -9,9 +9,9 @@ from uuid import uuid4
 import wave
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / "packages/shared"), str(ROOT / "workers/media")]
+sys.path[:0] = [str(ROOT / "packages/shared"), str(ROOT / "agents/media")]
 from video_service.config import load_environment
-from media_worker.media import preprocess_audio, extract_audio
+from media_agent.media import preprocess_audio, extract_audio
 
 
 def main():

@@ -7,11 +7,11 @@ from unittest.mock import patch
 from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / "packages/shared"), str(ROOT / "apps/api"), str(ROOT / "workers/media")]
+sys.path[:0] = [str(ROOT / "packages/shared"), str(ROOT / "apps/api"), str(ROOT / "agents/media")]
 from fastapi.testclient import TestClient
 from app.api import routes
 from app.main import app
-from media_worker.worker import Worker
+from media_agent.agent import Agent
 from video_service.locking import download_lock
 from video_service.models import JobStatus, QualityProfile
 from video_service.repository import FilesystemJobRepository
@@ -30,7 +30,7 @@ class HistoryTests(unittest.TestCase):
         self.output.write_bytes(b"mp4")
         self.repo.source_path(job).write_bytes(b"src")
         self.repo.update_status(job.job_id, JobStatus.COMPLETED, metadata={"result_files": ["final.mp4"]})
-        self.worker = Worker(self.repo, None)
+        self.worker = Agent(self.repo, None)
         for p in (patch.dict("os.environ", {"RESULT_TTL_HOURS": "24", "HISTORY_TTL_DAYS": "90", "UPLOAD_TTL_HOURS": "6"}),
                   patch.object(routes, "repository", self.repo)):
             p.start()

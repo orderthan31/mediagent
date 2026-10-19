@@ -9,10 +9,10 @@ from unittest.mock import Mock, patch
 from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / p) for p in ('apps/api', 'workers/media', 'packages/shared')]
-from media_worker.faceswap.chunks import plan_chunks, assert_cfr, checksum, reusable
-from media_worker.media import executable, probe
-from media_worker.worker import Worker
+sys.path[:0] = [str(ROOT / p) for p in ('apps/api', 'agents/media', 'packages/shared')]
+from media_agent.faceswap.chunks import plan_chunks, assert_cfr, checksum, reusable
+from media_agent.media import executable, probe
+from media_agent.agent import Agent
 from video_service.faceswap import digest, reservation
 from video_service.models import JobStatus, QualityProfile
 from video_service.repository import FilesystemJobRepository
@@ -105,8 +105,8 @@ class ChunkMediaTests(unittest.TestCase):
                 '-c:v', 'libx264', str(output / 'final.mp4')], check=True)
             write_json_atomic(output / 'result.json', {'file': 'final.mp4'})
         factory = Mock(side_effect=AssertionError('No LLM calls'))
-        with patch('media_worker.faceswap.runner.invoke', side_effect=engine):
-            worker = Worker(self.repo, None, provider_factory=factory)
+        with patch('media_agent.faceswap.runner.invoke', side_effect=engine):
+            worker = Agent(self.repo, None, provider_factory=factory)
             worker.process(job.job_id)
             self.assertEqual(self.repo.read(job.job_id).status, JobStatus.FAILED)
             cache = next((self.repo.job_dir(job.job_id) / 'work').glob('faceswap-chunks-*'))
@@ -170,8 +170,8 @@ class ChunkMediaTests(unittest.TestCase):
                 f"trim=start_frame={chunk['start']}:end_frame={chunk['end']},setpts=PTS-STARTPTS",
                 '-c:v', 'libx264', str(output / 'final.mp4')], check=True)
             write_json_atomic(output / 'result.json', {'file': 'final.mp4'})
-        with patch('media_worker.faceswap.runner.invoke', side_effect=engine):
-            Worker(self.repo, None).process(job.job_id)
+        with patch('media_agent.faceswap.runner.invoke', side_effect=engine):
+            Agent(self.repo, None).process(job.job_id)
         finished = self.repo.read(job.job_id)
         self.assertEqual(finished.status, JobStatus.COMPLETED, finished.error)
         target = self.repo.job_dir(job.job_id) / 'output/final.mp4'

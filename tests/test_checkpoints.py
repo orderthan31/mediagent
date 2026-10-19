@@ -6,9 +6,9 @@ from unittest.mock import Mock
 from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / "workers/media"), str(ROOT / "packages/shared")]
-from media_worker.checkpoints import Checkpoints
-from media_worker.llm_trace import capture_calls, cached_result
+sys.path[:0] = [str(ROOT / "agents/media"), str(ROOT / "packages/shared")]
+from media_agent.checkpoints import Checkpoints
+from media_agent.llm_trace import capture_calls, cached_result
 
 
 class CheckpointTests(unittest.TestCase):

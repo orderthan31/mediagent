@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { PageTitle } from './PageTitle';
 import { mediaUrl, request } from './api';
-import { frontendOnly } from './preview';
+import { frontendOnly, renewalBackend } from './preview';
 import { jsonPost, type VideoAsset } from './video-api';
 import { Button } from './hangyeol/primitives/button';
 import { WorkflowTickets } from './WorkflowTickets';
@@ -165,7 +165,7 @@ export const WorkflowStart = () => {
         token: plan.token,
         paid_confirmed: paid,
       });
-      if (frontendOnly) {
+      if (frontendOnly || renewalBackend) {
         location.hash = `/jobs/${ticket.id}`;
       } else {
         setTicketId(ticket.id);

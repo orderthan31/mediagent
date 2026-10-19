@@ -7,12 +7,12 @@ from unittest.mock import patch
 from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / "workers/media"), str(ROOT / "packages/shared"), str(ROOT / "apps/api")]
+sys.path[:0] = [str(ROOT / "agents/media"), str(ROOT / "packages/shared"), str(ROOT / "apps/api")]
 from fastapi.testclient import TestClient
 from app.api import routes
 from app.main import app
-from media_worker.media import encoding_args
-from media_worker.validation import validate_output
+from media_agent.media import encoding_args
+from media_agent.validation import validate_output
 from video_service.repository import FilesystemJobRepository
 from video_service.models import JobStatus, QualityProfile
 

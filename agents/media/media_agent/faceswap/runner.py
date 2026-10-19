@@ -59,7 +59,7 @@ def refresh_capabilities(repo, stop, *, force=False):
         work.mkdir(parents=True)
         def check():
             if stop.is_set():
-                raise RuntimeError('Worker stopping')
+                raise RuntimeError('Agent stopping')
         try:
             invoke({'operation': 'capabilities', 'output': str(work / 'output')}, work, check, 180)
             result = read_json(work / 'output/result.json')

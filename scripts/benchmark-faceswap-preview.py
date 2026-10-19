@@ -8,9 +8,9 @@ import time
 
 from video_service.faceswap import DEFAULTS
 from video_service.storage import read_json, write_json_atomic
-from media_worker.faceswap import runner
-from media_worker.faceswap.process import run
-from media_worker.faceswap.warm import release
+from media_agent.faceswap import runner
+from media_agent.faceswap.process import run
+from media_agent.faceswap.warm import release
 
 
 def main():

@@ -33,7 +33,7 @@ for (const width of [1440, 390]) {
       if (advance) advanceNext = false;
       const headers = Object.fromEntries(Object.entries(request.headers()).filter(([name]) => name.startsWith('x-execution-')));
       const data = await new Promise<{status:number;body:any;binary?:string;content_type?:string}>((resolve,reject) => {
-        const child = spawn('docker', ['run','--rm','-i','--network','none','--read-only','--tmpfs','/tmp:rw,size=256m','-v',path.resolve('../..')+':/src:ro','-v',root+':/fixture:rw','-e','PYTHONDONTWRITEBYTECODE=1','-e','MIN_FREE_SPACE_BYTES=0','-e','AUTH_ENABLED=false','-e','PAID_LLM_ENABLED=false','-e','VIDEO_STORAGE_ROOT=/tmp/runtime','-e','JOB_DATABASE_DIR=/tmp/db','-e','PYTHONPATH=/src/packages/shared:/src/apps/api:/src/workers/media',process.env.WF08_TEST_IMAGE || 'video-subtitle-api:renewal-ad1eaa82','python','/src/apps/web/tests/browser/wf08_bridge.py']);
+        const child = spawn('docker', ['run','--rm','-i','--network','none','--read-only','--tmpfs','/tmp:rw,size=256m','-v',path.resolve('../..')+':/src:ro','-v',root+':/fixture:rw','-e','PYTHONDONTWRITEBYTECODE=1','-e','MIN_FREE_SPACE_BYTES=0','-e','AUTH_ENABLED=false','-e','PAID_LLM_ENABLED=false','-e','VIDEO_STORAGE_ROOT=/tmp/runtime','-e','JOB_DATABASE_DIR=/tmp/db','-e','PYTHONPATH=/src/packages/shared:/src/apps/api:/src/agents/media',process.env.WF08_TEST_IMAGE || 'video-subtitle-api:renewal-ad1eaa82','python','/src/apps/web/tests/browser/wf08_bridge.py']);
         let output='', error='';
         child.stdout.on('data', v => output+=v); child.stderr.on('data', v => error+=v);
         child.on('error',reject); child.on('close',code => { if(code) reject(new Error(error)); else { try {resolve(JSON.parse(output));} catch(e) {reject(e);} } });

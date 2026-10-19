@@ -21,7 +21,7 @@ from video_service.timeline import identity_timeline
 from .llm_trace import begin_call, finish_call, audio_window, cached_result
 from .sentence_transcription import SCHEMA as SENTENCE_SCHEMA, transcription_prompt, validate_sentences
 from .transcription_queue import run_transcription_queue, run_segment_queue, RetryableTranscriptionError, PartialTranscriptionError, PartialTranslationError
-from .worker_storage import check_capacity as assert_capacity, disk_call
+from .agent_storage import check_capacity as assert_capacity, disk_call
 from video_service.storage import read_json, write_json_atomic
 from .translation_inputs import translation_groups
 from .translation_requests import requests as translation_requests, align_result, SCHEMA as TRANSLATION_SCHEMA

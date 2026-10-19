@@ -4,6 +4,7 @@ Construct create_app(database, allowed_origins=(...), secure_cookies=True) expli
 There is deliberately no module-level app or implicit DATABASE_URL discovery.
 """
 import hmac
+import re
 from urllib.parse import urlsplit
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
@@ -73,19 +74,22 @@ class SourceMetadata(Body):
 
 
 class JsonBodyLimit:
-    def __init__(self, app):
+    def __init__(self, app, *, uploads=False):
         self.app = app
+        self.uploads = uploads
 
     async def __call__(self, scope, receive, send):
         if scope['type'] != 'http' or scope['method'] in ('GET', 'HEAD', 'OPTIONS'):
             return await self.app(scope, receive, send)
+        binary = self.uploads and scope['method'] == 'PUT' and re.fullmatch(r'/api/video-uploads/[a-f0-9]{32}/chunks', scope['path'])
+        limit = 4194304 if binary else 65536
         size, messages = 0, []
         while True:
             message = await receive()
             if message['type'] == 'http.disconnect':
                 return
             size += len(message.get('body', b''))
-            if size > 65536:
+            if size > limit:
                 return await JSONResponse({'detail': '요청 크기 초과'}, status_code=413,
                                           headers={'Cache-Control': 'no-store'})(scope, receive, send)
             messages.append(message)
@@ -96,7 +100,7 @@ class JsonBodyLimit:
         await self.app(scope, replay, send)
 
 
-def create_app(database, *, allowed_origins, secure_cookies=True):
+def create_app(database, *, allowed_origins, secure_cookies=True, content_store=None, local_execution=False, agent_executor=None):
     origins = frozenset(allowed_origins)
     if not origins or any(urlsplit(value).scheme not in ('http', 'https') or
                           not urlsplit(value).hostname or urlsplit(value).path or
@@ -105,7 +109,7 @@ def create_app(database, *, allowed_origins, secure_cookies=True):
         raise ValueError('명시적인 same-origin 주소가 필요합니다.')
     app = FastAPI(title='mideagent renewal API', version='0.1.0', docs_url=None, redoc_url=None)
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=list({urlsplit(value).hostname for value in origins}))
-    app.add_middleware(JsonBodyLimit)
+    app.add_middleware(JsonBodyLimit, uploads=content_store is not None)
     accounts, registry, sources = Accounts(database), Registry(database), Sources(database)
     cookie = '__Host-mideagent_session' if secure_cookies else 'mideagent_session_dev'
 
@@ -115,7 +119,9 @@ def create_app(database, *, allowed_origins, secure_cookies=True):
         if origin is not None and origin not in origins:
             return JSONResponse({'detail': '허용되지 않은 요청 origin'}, status_code=403,
                                 headers={'Cache-Control': 'no-store'})
-        if request.method not in ('GET', 'HEAD', 'OPTIONS') and request.headers.get('content-type', '').split(';')[0].lower() != 'application/json':
+        content_type = request.headers.get('content-type', '').split(';')[0].lower()
+        binary = content_store is not None and request.method == 'PUT' and re.fullmatch(r'/api/video-uploads/[a-f0-9]{32}/chunks', request.url.path) and content_type == 'application/octet-stream'
+        if request.method not in ('GET', 'HEAD', 'OPTIONS') and content_type != 'application/json' and not binary:
             # Logout has no request body in the existing client; session CSRF still applies.
             if request.url.path != '/api/auth/logout':
                 return JSONResponse({'detail': 'JSON 요청이 필요합니다.'}, status_code=415,
@@ -208,8 +214,12 @@ def create_app(database, *, allowed_origins, secure_cookies=True):
 
     @app.get('/api/capabilities')
     def capabilities(value=Depends(session)):
-        return {'backend': 'postgres', 'features': ['accounts', 'serving_connections', 'registered_models', 'source_metadata'],
-                'execution_enabled': False, 'model_network_enabled': False}
+        features = ['accounts', 'serving_connections', 'registered_models', 'source_metadata']
+        if content_store is not None:
+            features += ['verified_uploads', 'workflows', 'jobs', 'node_runs', 'review_gates', 'execution_consent']
+        return {'backend': 'postgres', 'features': features,
+                'execution_enabled': content_store is not None and local_execution,
+                'model_network_enabled': False, 'transport': 'explicit_cpu_subprocess' if content_store is not None else None}
 
     @app.get('/api/settings/serving-connections')
     def connections(value=Depends(session)):
@@ -249,4 +259,10 @@ def create_app(database, *, allowed_origins, secure_cookies=True):
     def source_register(identity: str, body: SourceMetadata, value=Depends(session)):
         return sources.register(value['user']['id'], identity, **body.model_dump())
 
+    if content_store is not None:
+        from video_service.postgres.execution import Execution
+        from .renewal_routes import mount_runtime
+        mount_runtime(app, Execution(database, content_store, agent_executor=agent_executor), session, local_execution=local_execution)
+    elif local_execution:
+        raise ValueError('CPU execution requires an explicit private content store')
     return app

@@ -14,16 +14,16 @@ from unittest.mock import patch
 from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / p) for p in ('apps/api', 'workers/media', 'packages/shared')]
+sys.path[:0] = [str(ROOT / p) for p in ('apps/api', 'agents/media', 'packages/shared')]
 from fastapi.testclient import TestClient
 from app.main import app
 from app.api import routes
 from video_service.repository import FilesystemJobRepository
 from video_service.models import JobStatus, QualityProfile
 from video_service.faceswap import public_capabilities
-from media_worker.worker import Worker
-from media_worker.faceswap.runner import refresh_capabilities
-from media_worker.media import executable
+from media_agent.agent import Agent
+from media_agent.faceswap.runner import refresh_capabilities
+from media_agent.media import executable
 
 
 def main():
@@ -81,7 +81,7 @@ def main():
                       'settings': {**session['settings'], **advanced, 'preset': 'fast', 'source_position': 0, 'face_position': 1 if args.multi else 0}})
         def no_llm(_):
             raise AssertionError('Face-swap must not initialize LLM providers')
-        worker = Worker(repo, None, provider_factory=no_llm)
+        worker = Agent(repo, None, provider_factory=no_llm)
         ids = {}
         for operation in ('analyze_source', 'analyze_reference', 'preview', 'render'):
             print('RUN', operation, flush=True)
