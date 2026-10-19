@@ -1,0 +1,45 @@
+# Standalone, explicit stdin-transport CPU image definitions. Never auto-started.
+# These services are NOT wired to the web fleet controller; it currently owns CPU
+# subprocesses only. Do not mount a Docker socket into the API to bridge the gap.
+x-cpu: &cpu
+  build:
+    context: ../..
+    dockerfile: agents/cpu/Dockerfile
+  image: mideagent-cpu:local
+  init: true
+  stdin_open: true
+  restart: "no"
+  read_only: true
+  tmpfs:
+    - /tmp:size=512m,mode=1777
+  volumes:
+    - type: bind
+      source: ${MIDEAGENT_AGENT_CONTENT_ROOT:?Set an isolated private CPU content root}
+      target: /data/content
+  network_mode: none
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  pids_limit: 64
+  cpus: 1
+  mem_limit: 512m
+services:
+  analyze:
+    <<: *cpu
+    profiles: [analyze]
+    command: [--agent, analyze, --content-root, /data/content]
+  extract-audio:
+    <<: *cpu
+    profiles: [extract-audio]
+    command: [--agent, extract_audio, --content-root, /data/content]
+  generate-subtitle:
+    <<: *cpu
+    profiles: [generate-subtitle]
+    command: [--agent, generate_subtitle, --content-root, /data/content]
+  encode:
+    <<: *cpu
+    profiles: [encode]
+    command: [--agent, encode, --content-root, /data/content]
+  validate-video:
+    <<: *cpu
+    profiles: [validate-video]
+    command: [--agent, validate_video, --content-root, /data/content]

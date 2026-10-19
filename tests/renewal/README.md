@@ -59,3 +59,22 @@ DEV geometry scripts remain available: `frontend-responsive.mjs`,
 `frontend-list-containment.mjs`, and `frontend-preview.mjs`. Set an explicit private
 `MIDEAGENT_PREVIEW_ORIGIN` and external `MIDEAGENT_PREVIEW_EVIDENCE_DIR`. Mock-backed
 DEV layout evidence is not evidence of real API or GPU execution.
+
+## Administrator fleet and ordinary-user browser acceptance
+
+`test_fleet.py` starts real private CPU subprocesses only after administrator
+configuration. It covers replica changes, concurrent routing, drain-before-stop,
+CAS conflicts, ownership fencing, CSRF/admin denial, and ordinary work selection
+without administrative API access. It does not start Compose agents.
+
+Build the production bundle above, then add `MIDEAGENT_FLEET_BROWSER=1` and an
+absolute private `MIDEAGENT_FLEET_EVIDENCE` directory to the same disposable test
+environment. `test_fleet_browser.py` launches a temporary loopback server with
+`--allow-cpu --manage-cpu`, exercises actual administrator start/scale/stop and
+ordinary upload/create/consent/completion, and closes all owned processes.
+
+The isolated Node runtime must be available on the test subprocess PATH. The
+fleet driver requires installed `agents/cpu` in the same explicit environment;
+it does not infer deployment configuration. Container images are source recipes
+with static Compose validation only, and unconnected model/GPU adapters remain
+unavailable rather than falsely enabled.

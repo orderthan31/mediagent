@@ -15,6 +15,11 @@ def main():
     parser.add_argument("--agent-config-env")
     parser.add_argument("--origin", required=True)
     parser.add_argument("--allow-cpu", action="store_true")
+    parser.add_argument(
+        "--manage-cpu",
+        action="store_true",
+        help="Allow administrator-owned CPU instances; starts none at startup",
+    )
     args = parser.parse_args()
     origin = urlsplit(args.origin)
     if (
@@ -58,6 +63,13 @@ def main():
         if args.agent_config_env:
             parser.error("Object agent config requires object storage")
         store = ContentStore(args.content_root)
+    cpu_driver = None
+    if args.manage_cpu:
+        if not args.allow_cpu or not args.content_root:
+            parser.error("--manage-cpu requires --allow-cpu and local --content-root")
+        from app.cpu_fleet import CpuProcesses
+
+        cpu_driver = CpuProcesses(store)
     app = create_app(
         Database(dsn),
         allowed_origins=(args.origin,),
@@ -65,6 +77,7 @@ def main():
         content_store=store,
         local_execution=args.allow_cpu,
         agent_executor=executor,
+        cpu_driver=cpu_driver,
     )
     bundle = Path(__file__).resolve().parents[2] / "web" / "dist"
     if bundle.is_dir():

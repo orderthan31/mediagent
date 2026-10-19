@@ -32,9 +32,10 @@ def public(row):
 
 
 class Execution(Intake):
-    def __init__(self, database, store, *, agent_executor=None):
+    def __init__(self, database, store, *, agent_executor=None, fleet=None):
         super().__init__(database, store)
         self.agent_executor = agent_executor
+        self.fleet = fleet
 
     def _job(self, db, owner, identity, *, lock=False):
         row = db.execute(
@@ -83,7 +84,7 @@ class Execution(Intake):
             ]
 
     def inspect(self, owner, identity, revision):
-        definition = self.definition(owner, identity, revision)
+        definition = self.job_definition(owner, identity, revision)
         reasons = []
         for node in definition["nodes"]:
             if node["type"] not in CPU_AGENTS | CONTROL:
@@ -107,6 +108,14 @@ class Execution(Intake):
                     "message": "현재 작업 입력은 검증된 원본 video 하나입니다. 추가 자료 binding이 필요합니다.",
                 }
             )
+        if self.fleet is not None:
+            with self.database.connection() as db:
+                reasons += [
+                    {"node_id": None, "message": message}
+                    for message in self.fleet.reasons(
+                        db, [n["type"] for n in definition["nodes"]]
+                    )
+                ]
         return {
             "supported": not reasons,
             "definition_revision": revision,
@@ -162,8 +171,10 @@ class Execution(Intake):
             asset = self._asset(db, owner, asset_id)
             reference = self.asset_reference(asset)
             self.store.path(owner, reference)
-            definition = self._definition(db, owner, definition_id, definition_revision)
-            bindings = self._bindings(db, owner, definition, active=False)
+            workflow_owner, definition = self._job_definition(
+                db, owner, definition_id, definition_revision
+            )
+            bindings = self._bindings(db, workflow_owner, definition, active=False)
             parent = self._job(db, owner, parent_id) if parent_id else None
             if parent and parent["status"] not in ("failed", "cancelled"):
                 raise Conflict(
@@ -198,7 +209,7 @@ class Execution(Intake):
                 return self._view(db, previous)
             identity = uuid4().hex
             row = db.execute(
-                "INSERT INTO jobs(owner_id,id,asset_id,workflow_id,workflow_revision,status,snapshot,snapshot_sha256,parent_id,creation_request_id,creation_sha256,recovery_ready) VALUES (%s,%s,%s,%s,%s,'draft',%s,%s,%s,%s,%s,%s) RETURNING *",
+                "INSERT INTO jobs(owner_id,id,asset_id,workflow_id,workflow_revision,status,snapshot,snapshot_sha256,parent_id,creation_request_id,creation_sha256,recovery_ready,workflow_owner_id) VALUES (%s,%s,%s,%s,%s,'draft',%s,%s,%s,%s,%s,%s,%s) RETURNING *",
                 (
                     owner,
                     identity,
@@ -211,6 +222,7 @@ class Execution(Intake):
                     request_id,
                     digest(creation),
                     parent_id is None,
+                    workflow_owner,
                 ),
             ).fetchone()
             return self._view(db, row)
@@ -236,6 +248,14 @@ class Execution(Intake):
         for node in definition["nodes"]:
             if node["type"] not in CPU_AGENTS | CONTROL or node.get("model_ref"):
                 reasons.append("미지원 모델/제어 실행 경로: " + node["id"])
+        if self.fleet is not None:
+            done_nodes = {
+                r["node_id"] for r in runs if r["status"] in ("completed", "skipped")
+            }
+            reasons += self.fleet.reasons(
+                db,
+                [n["type"] for n in definition["nodes"] if n["id"] not in done_nodes],
+            )
         if job["status"] not in ("draft", "review_required") or job["cancel_requested"]:
             reasons.append("현재 상태에서 새 실행 승인을 만들 수 없습니다.")
         if any(r["status"] != "confirmed" for r in reviews):
@@ -504,6 +524,11 @@ class Execution(Intake):
                     continue
                 for ref in inputs.values():
                     self.store.path(owner, ref)
+                instance = None
+                if self.fleet is not None and node["type"] in CPU_AGENTS:
+                    instance = self.fleet.reserve(db, node["type"])
+                    if instance is None:
+                        continue
                 row, command = self._insert_run(
                     db,
                     job,
@@ -511,6 +536,11 @@ class Execution(Intake):
                     inputs,
                     "review_required" if node["type"] == "review" else "running",
                 )
+                if instance is not None:
+                    db.execute(
+                        "UPDATE node_runs SET agent_instance_id=%s WHERE owner_id=%s AND job_id=%s AND id=%s",
+                        (instance, owner, identity, row["id"]),
+                    )
                 if node["type"] == "review":
                     review_id = uuid4().hex
                     contract = {
@@ -651,6 +681,36 @@ class Execution(Intake):
                 (owner, command["run_id"], command["attempt_id"], digest(command)),
             )
         root = self.store.owner_root(owner)
+        if self.fleet is not None:
+            try:
+                if run["agent_instance_id"] is None:
+                    raise ValueError("No reserved CPU instance")
+                result = self.fleet.execute(run["agent_instance_id"], owner, command)
+            except (ValueError, OSError, TimeoutError, KeyError):
+                result = {
+                    **{
+                        k: command[k]
+                        for k in (
+                            "protocol_version",
+                            "run_id",
+                            "attempt_id",
+                            "generation",
+                            "agent",
+                        )
+                    },
+                    "request_sha256": digest(command),
+                    "status": "failed",
+                    "outputs": {},
+                    "transport": "subprocess",
+                    "agent_instance_id": run["agent_instance_id"],
+                    "error": {"code": "cpu_result_unknown", "retryable": False},
+                }
+            with self.database.connection() as db:
+                db.execute(
+                    "UPDATE agent_deliveries SET status='completed',result=%s WHERE owner_id=%s AND job_id=%s AND node_run_id=%s AND status='started'",
+                    (Jsonb(result), owner, command["run_id"], command["attempt_id"]),
+                )
+            return result
         if self.agent_executor is not None:
             try:
                 result = self.agent_executor(owner, command)
@@ -903,6 +963,7 @@ class Execution(Intake):
                             "status",
                             "transport",
                             "process_exit_code",
+                            "agent_instance_id",
                         )
                     }
                     receipt["outputs"] = outputs

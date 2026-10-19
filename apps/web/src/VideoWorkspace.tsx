@@ -35,6 +35,8 @@ import { Theme } from './hangyeol/foundation/theme';
 import { WorkspaceChrome } from './WorkspaceChrome';
 import { WorkflowCatalog } from './WorkflowCatalog';
 import { AgentCatalog } from './AgentCatalog';
+import { useWorkspaceAuth } from './AuthGate';
+import { isOrdinaryRoute } from './workspace-access';
 import { Button } from './hangyeol/primitives/button';
 import { EmptyState } from './hangyeol/components/empty-state';
 import { StorageAssetRow, StorageVideoInfo } from './StorageVideo';
@@ -46,6 +48,8 @@ import './storage.css';
 import './feature-renewal.css';
 import './workspace-layout.css';
 export const VideoWorkspace = () => {
+  const auth = useWorkspaceAuth();
+  const administrator = frontendOnly || auth?.session.user?.role === 'admin';
   const [runtimeReady, setRuntimeReady] = useState(!renewalBackend);
   const [agentLabel, setAgentLabel] = useState('');
   const agentIdentity = location.hash.startsWith('#/agents/')
@@ -469,9 +473,15 @@ export const VideoWorkspace = () => {
           hidden
           onChange={(e) => void attachSrt(e.target.files?.[0])}
         />
-        {renewalBackend &&
-        (!runtimeReady || workflowTicketsView || settingsView || route === '#/serving/roles') &&
-        !(route.startsWith('#/account') || (servingView && route !== '#/serving/roles')) ? (
+        {!administrator && !isOrdinaryRoute(route) ? (
+          <main className="serving-page">
+            <PageTitle>접근 권한 없음</PageTitle>
+            <p role="alert">관리자만 이용할 수 있는 화면입니다.</p>
+            <a href="#/jobs">작업으로 돌아가기</a>
+          </main>
+        ) : renewalBackend &&
+          (!runtimeReady || workflowTicketsView || settingsView || route === '#/serving/roles') &&
+          !(route.startsWith('#/account') || (servingView && route !== '#/serving/roles')) ? (
           <main className="serving-page">
             <PageTitle>
               {route.startsWith('#/workflows')
@@ -488,9 +498,11 @@ export const VideoWorkspace = () => {
               이 화면의 PostgreSQL 연동은 아직 준비 중입니다. 기존 데이터나 실행기는 연결하지
               않았습니다.
             </p>
-            <a className="ui02-text-action" href="#/serving">
-              서빙 관리
-            </a>
+            {administrator && (
+              <a className="ui02-text-action" href="#/serving">
+                서빙 관리
+              </a>
+            )}
           </main>
         ) : (frontendOnly || renewalBackend) && route.startsWith('#/account') ? (
           <AccountPage key={route} create={route === '#/account/new'} />

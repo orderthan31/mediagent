@@ -122,7 +122,7 @@ def ledger(job):
     }
 
 
-def mount_runtime(app, runtime, session, *, local_execution):
+def mount_runtime(app, runtime, session, administrator, *, local_execution):
     session_dependency = Depends(session)
 
     def owner(value=session_dependency):
@@ -130,8 +130,15 @@ def mount_runtime(app, runtime, session, *, local_execution):
 
     owner_dependency = Depends(owner)
 
+    administrator_dependency = Depends(administrator)
+
+    def admin_owner(value=administrator_dependency):
+        return value["user"]["id"]
+
+    admin_dependency = Depends(admin_owner)
+
     @app.get("/api/settings/node-catalog")
-    def nodes(owned=owner_dependency):
+    def nodes(owned=admin_dependency):
         return catalog()
 
     @app.get("/api/video-uploads")
@@ -202,34 +209,47 @@ def mount_runtime(app, runtime, session, *, local_execution):
         )
 
     @app.get("/api/settings/workflow-definitions")
-    def definitions(owned=owner_dependency):
+    def definitions(owned=admin_dependency):
         return {"definitions": runtime.definitions(owned)}
 
     @app.post("/api/settings/workflow-definitions/validate")
-    def validation(body: Definition, owned=owner_dependency):
+    def validation(body: Definition, owned=admin_dependency):
         return validate(body.model_dump())
 
     @app.get("/api/settings/workflow-definitions/{identity}")
-    def definition(identity: str, owned=owner_dependency):
+    def definition(identity: str, owned=admin_dependency):
         return runtime.definition(owned, identity)
 
     @app.put("/api/settings/workflow-definitions/{identity}")
-    def save_definition(identity: str, body: Definition, owned=owner_dependency):
+    def save_definition(identity: str, body: Definition, owned=admin_dependency):
         return runtime.save_definition(owned, identity, body.model_dump())
 
     @app.get("/api/settings/workflow-definitions/{identity}/versions")
-    def versions(identity: str, owned=owner_dependency):
+    def versions(identity: str, owned=admin_dependency):
         return {"versions": runtime.versions(owned, identity)}
 
     @app.post("/api/settings/workflow-definitions/{identity}/restore")
-    def restore(identity: str, body: Restore, owned=owner_dependency):
+    def restore(identity: str, body: Restore, owned=admin_dependency):
         if body.source.kind != "definition_revision":
             raise ValueError("저장된 정의 이력만 복원할 수 있습니다.")
         return runtime.restore_definition(
             owned, identity, body.revision, body.source.revision
         )
 
-    @app.post("/api/settings/work-entry/inspect")
+    @app.get("/api/work-entry/workflows")
+    def job_choices(owned=owner_dependency):
+        return {"definitions": runtime.job_definitions(owned)}
+
+    @app.get("/api/work-entry/catalog")
+    def job_catalog(owned=owner_dependency):
+        return catalog()
+
+    @app.get("/api/work-entry/workflows/{identity}")
+    def job_graph(identity: str, revision: int = Query(ge=1), owned=owner_dependency):
+        return runtime.job_definition(owned, identity, revision)
+
+    @app.post("/api/settings/work-entry/inspect", dependencies=[Depends(administrator)])
+    @app.post("/api/work-entry/inspect")
     def inspect(body: Inspect, owned=owner_dependency):
         result = runtime.inspect(owned, body.definition_id, body.definition_revision)
         if not local_execution:
@@ -244,7 +264,7 @@ def mount_runtime(app, runtime, session, *, local_execution):
             raise ValueError("복구는 원 작업의 별도 복구 경로를 사용하세요.")
         source = runtime.asset(owned, selection.asset_id)
         runtime.asset_path(owned, selection.asset_id)
-        definition = runtime.definition(
+        definition = runtime.job_definition(
             owned, selection.definition_id, selection.definition_revision
         )
         inspection = runtime.inspect(
@@ -266,11 +286,17 @@ def mount_runtime(app, runtime, session, *, local_execution):
             "notice": "작업 생성은 저장만 합니다. 작업 상세에서 계획 확인과 별도 실행이 필요합니다.",
         }
 
-    @app.post("/api/settings/work-entry/preview")
+    @app.post("/api/settings/work-entry/preview", dependencies=[Depends(administrator)])
+    @app.post("/api/work-entry/preview")
     def preview(body: Selection, owned=owner_dependency):
         return selection_plan(owned, body)
 
-    @app.post("/api/settings/work-entry/create", status_code=201)
+    @app.post(
+        "/api/settings/work-entry/create",
+        status_code=201,
+        dependencies=[Depends(administrator)],
+    )
+    @app.post("/api/work-entry/create", status_code=201)
     def create(body: Create, owned=owner_dependency):
         selection = Selection(
             **body.model_dump(exclude={"request_id", "token", "paid_confirmed"})

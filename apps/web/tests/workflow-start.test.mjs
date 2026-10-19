@@ -4,7 +4,8 @@ import { readFileSync } from 'node:fs';
 
 test('primary workflow start consumes server inspection instead of an executor-type selector', () => {
   const component = readFileSync(new URL('../src/WorkflowStart.tsx', import.meta.url), 'utf8');
-  assert.ok(component.includes('/settings/work-entry/inspect'));
+  assert.ok(component.includes("renewalBackend ? '/work-entry' : '/settings/work-entry'"));
+  assert.ok(component.includes("entryPath + '/inspect'"));
   assert.ok(component.includes('aria-label="원본"'));
   assert.ok(component.includes('aria-label="워크플로우"'));
   assert.ok(component.includes('<WorkflowCanvas'));
@@ -15,7 +16,7 @@ test('primary workflow start consumes server inspection instead of an executor-t
   assert.ok(!component.includes('복구 지원'));
   assert.ok(component.includes('비용 발생 가능성'));
   assert.ok(component.includes('paid_confirmed: paid'));
-  assert.ok(component.includes('/settings/work-entry/preview'));
+  assert.ok(component.includes("entryPath + '/preview'"));
   const tickets = readFileSync(new URL('../src/WorkflowTickets.tsx', import.meta.url), 'utf8');
   assert.ok(tickets.includes('plan.model_bindings'));
   assert.ok(tickets.includes('plan.model_admission'));

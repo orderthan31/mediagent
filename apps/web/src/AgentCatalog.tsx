@@ -4,6 +4,8 @@ import { PageTitle } from './PageTitle';
 import { Pagination, usePagination } from './Pagination';
 import { request } from './api';
 import { AgentInformation } from './AgentInformation';
+import { AgentOperations } from './AgentOperations';
+import { frontendOnly, renewalBackend } from './preview';
 
 export type Agent = {
   optional_inputs: string[];
@@ -39,31 +41,36 @@ export const AgentCatalog = ({
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true),
     [error, setError] = useState('');
-  useEffect(() => {
-    const controller = new AbortController();
-    request<{ nodes: Agent[] }>('/settings/node-catalog', { signal: controller.signal })
-      .then((data) => {
-        if (!controller.signal.aborted) setAgents(data.nodes);
-      })
-      .catch((reason) => {
-        if (!controller.signal.aborted)
-          setError(reason instanceof Error ? reason.message : '에이전트를 불러오지 못했습니다.');
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
-      });
-    return () => controller.abort();
-  }, []);
   const selected = agents.find((agent) => agent.id === identity);
-  useEffect(() => {
-    onLabel?.(selected?.label || '');
-  }, [selected?.label, onLabel]);
   const shown = agents.filter((agent) =>
     `${agent.label} ${agent.id}`.toLocaleLowerCase().includes(query.toLocaleLowerCase()),
   );
   const page = usePagination(shown, query);
   const ports = (value: Record<string, string>) =>
     [...new Set(Object.values(value))].map((type) => types[type] || type).join(' · ');
+  useEffect(() => {
+    const controller = new AbortController();
+    request<{ nodes: Agent[] }>('/settings/node-catalog', { signal: controller.signal })
+      .then((data) => {
+        if (!controller.signal.aborted) {
+          setAgents(data.nodes);
+        }
+      })
+      .catch((reason) => {
+        if (!controller.signal.aborted) {
+          setError(reason instanceof Error ? reason.message : '에이전트를 불러오지 못했습니다.');
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
+      });
+    return () => controller.abort();
+  }, []);
+  useEffect(() => {
+    onLabel?.(selected?.label || '');
+  }, [selected?.label, onLabel]);
   return (
     <main className="ui02-catalog">
       <PageTitle>{identity ? selected?.label || '에이전트 상세' : '에이전트'}</PageTitle>
@@ -76,7 +83,10 @@ export const AgentCatalog = ({
         <p role="status">불러오는 중</p>
       ) : identity ? (
         selected ? (
-          <AgentInformation agent={selected} />
+          <>
+            <AgentInformation agent={selected} />
+            {(frontendOnly || renewalBackend) && <AgentOperations identity={selected.id} />}
+          </>
         ) : (
           !error && <p className="ui02-empty">에이전트를 찾을 수 없습니다.</p>
         )

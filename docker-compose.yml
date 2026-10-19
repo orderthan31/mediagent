@@ -1,6 +1,9 @@
 services:
   api:
-    build: .
+    # Existing legacy API; renewal deployment is separately opt-in.
+    build:
+      context: .
+      target: legacy-api
     logging: &bounded-logs
       driver: json-file
       options:
@@ -42,7 +45,9 @@ services:
       retries: 5
   agent:
     profiles: ["legacy-manual"]
-    build: .
+    build:
+      context: .
+      dockerfile: agents/media/Dockerfile
     logging: *bounded-logs
     init: true
     restart: unless-stopped

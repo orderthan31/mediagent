@@ -111,7 +111,7 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
       try {
         const [next, specs] = await Promise.all([
           request<State>(base, { signal: controller.signal }),
-          request<{ nodes: CanvasSpec[] }>('/settings/node-catalog', { signal: controller.signal }),
+          request<{ nodes: CanvasSpec[] }>('/work-entry/catalog', { signal: controller.signal }),
         ]);
         if (!controller.signal.aborted) {
           setJob(next);

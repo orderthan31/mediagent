@@ -360,6 +360,35 @@ class Intake:
                 for r in rows
             ]
 
+    def _job_definition(self, db, owner, identity, revision=None):
+        resource_id(identity)
+        rows = db.execute(
+            "SELECT wr.* FROM workflows w JOIN workflow_revisions wr ON wr.owner_id=w.owner_id AND wr.workflow_id=w.id AND wr.revision=COALESCE(%s,w.revision) JOIN accounts a ON a.id=w.owner_id WHERE w.id=%s AND a.active AND (w.owner_id=%s OR a.role='admin') ORDER BY (w.owner_id=%s) DESC,w.owner_id",
+            (revision, identity, owner, owner),
+        ).fetchall()
+        if not rows:
+            raise Missing("사용할 수 있는 관리자 워크플로우가 없습니다.")
+        row = rows[0]
+        if row["owner_id"] != owner and len(rows) > 1:
+            raise Conflict("워크플로우 식별자가 중복됩니다. 관리자에게 확인하세요.")
+        if digest(row["definition"]) != row["sha256"]:
+            raise Conflict("워크플로우 무결성 오류")
+        return row["owner_id"], row["definition"]
+
+    def job_definition(self, owner, identity, revision=None):
+        with self.database.connection() as db:
+            return self._job_definition(db, owner, identity, revision)[1]
+
+    def job_definitions(self, owner):
+        with self.database.connection() as db:
+            return [
+                {"id": r["id"], "name": r["name"], "revision": r["revision"]}
+                for r in db.execute(
+                    "SELECT w.id,wr.name,w.revision FROM workflows w JOIN workflow_revisions wr ON wr.owner_id=w.owner_id AND wr.workflow_id=w.id AND wr.revision=w.revision JOIN accounts a ON a.id=w.owner_id WHERE a.active AND (w.owner_id=%s OR a.role='admin') ORDER BY wr.name,w.id",
+                    (owner,),
+                )
+            ]
+
     def _bindings(self, db, owner, definition, *, active=True):
         bindings = {}
         for node in definition["nodes"]:

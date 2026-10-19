@@ -7,6 +7,7 @@ import { Button } from './hangyeol/primitives/button';
 import { WorkflowTickets } from './WorkflowTickets';
 import { WorkflowCanvas, type CanvasDefinition, type CanvasSpec } from './WorkflowCanvas';
 import type { RegisteredVersion } from './registered-models';
+import { useWorkspaceAuth } from './AuthGate';
 import './serving.css';
 import './workflow-tickets.css';
 
@@ -29,6 +30,9 @@ type StartPlan = {
   notice: string;
 };
 export const WorkflowStart = () => {
+  const auth = useWorkspaceAuth();
+  const administrator = frontendOnly || auth?.session.user?.role === 'admin';
+  const entryPath = renewalBackend ? '/work-entry' : '/settings/work-entry';
   const [assets, setAssets] = useState<VideoAsset[]>([]);
   const [definitions, setDefinitions] = useState<{ id: string; name: string; revision: number }[]>(
     [],
@@ -62,9 +66,11 @@ export const WorkflowStart = () => {
       const [videos, workflows, nodes] = await Promise.all([
         request<{ videos: VideoAsset[] }>('/videos'),
         request<{ definitions: { id: string; name: string; revision: number }[] }>(
-          '/settings/workflow-definitions',
+          renewalBackend ? '/work-entry/workflows' : '/settings/workflow-definitions',
         ),
-        request<{ nodes: CanvasSpec[] }>('/settings/node-catalog'),
+        request<{ nodes: CanvasSpec[] }>(
+          renewalBackend ? '/work-entry/catalog' : '/settings/node-catalog',
+        ),
       ]);
       setAssets(videos.videos);
       setDefinitions(workflows.definitions);
@@ -94,11 +100,15 @@ export const WorkflowStart = () => {
     setBusy(true);
     try {
       const [result, graph] = await Promise.all([
-        jsonPost<Inspection>('/settings/work-entry/inspect', {
+        jsonPost<Inspection>(entryPath + '/inspect', {
           definition_id: identity,
           definition_revision: saved.revision,
         }),
-        request<CanvasDefinition>('/settings/workflow-definitions/' + identity),
+        request<CanvasDefinition>(
+          renewalBackend
+            ? `/work-entry/workflows/${identity}?revision=${saved.revision}`
+            : '/settings/workflow-definitions/' + identity,
+        ),
       ]);
       if (graph.revision !== result.definition_revision) {
         throw new Error('워크플로우가 변경됐습니다. 다시 선택해 주세요.');
@@ -145,7 +155,7 @@ export const WorkflowStart = () => {
     setPlan(null);
     setPaid(false);
     try {
-      setPlan(await jsonPost<StartPlan>('/settings/work-entry/preview', selection()));
+      setPlan(await jsonPost<StartPlan>(entryPath + '/preview', selection()));
     } catch (e) {
       setError(e instanceof Error ? e.message : '입력과 모델 설정을 확인해 주세요.');
     } finally {
@@ -159,7 +169,7 @@ export const WorkflowStart = () => {
     setBusy(true);
     setError('');
     try {
-      const ticket = await jsonPost<{ id: string }>('/settings/work-entry/create', {
+      const ticket = await jsonPost<{ id: string }>(entryPath + '/create', {
         ...selection(),
         request_id: requestId,
         token: plan.token,
@@ -247,7 +257,13 @@ export const WorkflowStart = () => {
                 </select>
                 {!definitions.length && !listError && (
                   <p className="form-note">
-                    저장된 워크플로우가 없습니다. <a href="#/workflows/new">워크플로우 추가</a>
+                    {administrator ? (
+                      <>
+                        저장된 워크플로우가 없습니다. <a href="#/workflows/new">워크플로우 추가</a>
+                      </>
+                    ) : (
+                      '사용 가능한 워크플로우가 없습니다. 관리자에게 문의해 주세요.'
+                    )}
                   </p>
                 )}
               </div>
@@ -260,7 +276,7 @@ export const WorkflowStart = () => {
                 <h2>
                   {definition.name} · r{definition.revision}
                 </h2>
-                <a href={'#/workflows/' + definitionId}>워크플로우 열기</a>
+                {administrator && <a href={'#/workflows/' + definitionId}>워크플로우 열기</a>}
               </div>
               {!inspection.supported && (
                 <div role="alert">

@@ -15,7 +15,7 @@ import {
   ChevronRight,
   UsersRound,
 } from 'lucide-react';
-import { AccountMenu } from './AuthGate';
+import { AccountMenu, useWorkspaceAuth } from './AuthGate';
 import { frontendOnly, renewalBackend } from './preview';
 import { PageTitleSlot } from './PageTitle';
 import './ui02-shell.css';
@@ -47,6 +47,8 @@ export const WorkspaceChrome = ({
   uploadCount: number;
   agentLabel?: string;
 }) => {
+  const auth = useWorkspaceAuth();
+  const administrator = frontendOnly || auth?.session.user?.role === 'admin';
   const [wide, setWide] = useState(() => matchMedia('(min-width: 48rem)').matches);
   const [collapsed, setCollapsed] = useState(() => matchMedia('(max-width: 74.999rem)').matches),
     [drawer, setDrawer] = useState(false),
@@ -94,7 +96,7 @@ export const WorkspaceChrome = ({
                       : '';
   const list = !child || route === '#/serving/connections';
   const action =
-    accountView || (renewalBackend && group !== 4)
+    accountView || (!administrator && group > 1)
       ? null
       : group === 0
         ? { label: '새 작업', href: '#/start' }
@@ -115,20 +117,23 @@ export const WorkspaceChrome = ({
   const links = (
     <>
       <nav aria-label="주 메뉴">
-        {sections.map((item, index) => (
-          <a
-            href={item.href}
-            key={item.name}
-            aria-current={
-              (accountView ? item.href === '#/account' : group === index) ? 'page' : undefined
-            }
-            title={item.name}
-            onClick={() => setDrawer(false)}
-          >
-            <item.icon size={20} aria-hidden="true" />
-            <span>{item.name}</span>
-          </a>
-        ))}
+        {sections.map(
+          (item, index) =>
+            (administrator || index < 2) && (
+              <a
+                href={item.href}
+                key={item.name}
+                aria-current={
+                  (accountView ? item.href === '#/account' : group === index) ? 'page' : undefined
+                }
+                title={item.name}
+                onClick={() => setDrawer(false)}
+              >
+                <item.icon size={20} aria-hidden="true" />
+                <span>{item.name}</span>
+              </a>
+            ),
+        )}
       </nav>
       {!frontendOnly && (
         <div className="ui02-session">
