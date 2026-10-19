@@ -1,94 +1,29 @@
-# 영상 자동 번역 자막 서비스
+# mideagent
 
-웹에서 영상을 업로드하면 음성을 전사하고 번역한 뒤, SRT 자막과 자막이 번인된 최종 영상을 생성하는 모노레포입니다.
+원본 하나와 저장한 워크플로우 하나를 티켓 단위로 처리하는 미디어 에이전트 제품이다.
+현재 `renewal`에서 PostgreSQL·독립 에이전트·미디어 저장소 구조로 리뉴얼하고 있다.
 
-## 구성
+## 개발 진입점
 
-- `apps/web`: React + Vite 웹 UI
-- `apps/api`: FastAPI 기반 업로드, Job, 결과 API
-- `workers/media`: FFmpeg, STT, 번역, 자막, 인코딩을 담당하는 별도 Worker
-- `packages/shared`: API와 Worker가 공유하는 Job 상태, Timeline, Transcript, Storage 유틸리티
-- `docs`: 요구사항, 아키텍처, API 문서
+- [작업 규칙](docs/rules/README.md) · [문서 관리](docs/rules/docs-manage.md)
+- [제품 기획](docs/plans/specs.md) · [구조](docs/plans/architect.md) · [디자인](docs/plans/design.md)
+- [현재 확정 태스크](docs/plans/tasks.md) · [미확정 기획](docs/plans/ideation.md)
+- [개발·격리 실행 계약](docs/references/high/runtime.md) · [문서 인덱스](docs/README.md)
 
-## 현재 개발 상태
+## 현재 상태
 
-업로드, Gemini 전사·번역, SRT 생성 및 영상 인코딩까지 구현하고 실제 영상으로 검증 중입니다.
-기능과 검증 범위는 [개발 현황](docs/development-status.md)을 참고합니다.
-POC 임시 데이터·환경 삭제 내역은 [정리 기록](docs/poc-cleanup.md)에 있습니다. 실제 업로드 결과는 보존합니다.
+- `apps/web`: React/Vite, DEV 합성 목업과 opt-in 실제 API 경로.
+- `apps/api`: FastAPI. 리뉴얼 API는 명시 DB/저장소로 구성하며 import나 startup에서 migration·큐 소비를 하지 않는다.
+- `packages/shared`: PG 저장소·계약·미디어 유틸리티와 CPU 에이전트 진입점의 개발 소스.
+- `workers/media`: 아직 이관되지 않은 레거시 패키지. `agents` 명칭/실행 구조 전환은 진행 태스크이며 완료로 표기하지 않는다.
 
-- Resumable chunk upload API
-- 파일시스템 기반 Job 저장소
-- Job 상태 모델
-- 요청 실패 시 chunk 롤백, 동시 변경 방지용 OS 파일 잠금
-- 저장소 경로 검증 및 루트 삭제 방지
-- 명시적 비발화 라벨만 제거하는 Transcript 후처리 필터
-- 무음 제거 경계에서 원본 시작/종료 시간을 구분하는 Timeline Mapping
-- SRT 생성
-- 직렬 업로드 큐, 수동 처리 시작, 중단 단계 재시도 및 파일 보존
-- 전사·번역 3병렬 처리와 구간별 진행률
-- 최대 60초 병합 전사와 업로드별 선택형 NVIDIA VAD (기본 끄기): [설정과 주의사항](docs/nvidia-vad.md)
+격리 PG와 합성 미디어를 사용한 업로드·티켓·검수·CPU 처리·다운로드 동선을 확인했지만
+현재 신규 runtime은 개발 WIP이며 브라우저 MP4 재생 실패가 남아 있다.
+S3-compatible 오브젝트 스토리지·브로커 연결, 최종 회귀·소스 공유와 실제 운영 전환은 완료되지 않았다.
+이 README는 GPU/실모델·유료 요청·기존 큐 소비·사용자 원본 처리나 기존 Docker 스택 실행을 지시하지 않는다.
 
-React UI와 독립 Worker, FFmpeg 파이프라인 및 Gemini 어댑터 초안을 추가했습니다. 실제 미디어 E2E 검증과 운영 보완은 진행 중입니다. 단계별 검증 및 남은 작업은 [개발 현황](docs/development-status.md)을 기준으로 확인합니다.
+## 이전 자료
 
-## Docker로 실행
-
-호스트에 FFmpeg/Python/Node를 설치하지 않고 실행할 수 있습니다. Docker와 Git을 준비한 뒤:
-
-```sh
-git clone https://github.com/orderthan31/video-subtitle.git
-cd video-subtitle
-cp .env.docker.example .env.docker
-```
-
-Windows에서는 `cp` 대신 `Copy-Item`을 사용할 수 있습니다. `.env.docker`에 본인의
-`GEMINI_API_KEY`를 설정한 다음 실행합니다. 기존 설정 파일은 덮어쓰지 마세요.
-
-```sh
-docker compose --env-file .env.docker up --build -d --wait
-```
-
-웹: http://localhost:8080. 기본은 CPU 인코딩이며 GPU 설정, 포트 변경, 볼륨 보관,
-인증 및 검증 범위는 [Docker 실행 가이드](docs/docker.md)에 정리했습니다.
-현재 개발 PC도 Docker로 실행하며, CPU/GPU VAD와 NVIDIA 영상 인코딩까지 검증했습니다.
-개발 PC의 기존 데이터/5177 포트 재기동은 `scripts/run-docker-preview.ps1`을 사용합니다.
-
-## 로컬 실행
-
-Worker/Web과 Docker Compose를 포함한 전체 실행 방법은 [설치 및 실행](docs/running.md)을 참고합니다.
-
-Python 의존성은 가상환경에서 설치하는 것을 권장합니다.
-
-```powershell
-python -m venv .venv
-.\.venv\Scripts\python -m pip install -e packages/shared -e apps/api httpx
-```
-
-API:
-
-```powershell
-.\scripts\run-api.ps1
-```
-
-API 문서: http://localhost:8000/docs
-
-테스트:
-
-```powershell
-.\.venv\Scripts\python -m unittest discover -s tests -v
-```
-
-API와 Worker는 루트 `.env`를 읽습니다. 기존 프로세스 환경변수가 우선합니다. `.env.example`은 키가 없는 공유용 예시입니다. 전사와 번역 모두 `gemini-3.8-flash`입니다. 전사는 단어별 시간이 아닌 문장/발화별 시작·종료·원문 JSON을 요청하고 SRT로 변환합니다.
-
-## 필수 외부 도구
-
-- FFmpeg
-- FFprobe
-- NVIDIA GPU/NVENC 지원 드라이버
-
-Windows에서는 `scripts/setup-ffmpeg.ps1`로 프로젝트 `.tools`에 FFmpeg를 준비할 수 있습니다. Worker는 PATH에 도구가 없으면 이 경로를 찾습니다. `ALLOW_SOFTWARE_ENCODER_FALLBACK=true`이면 GPU 사전 검사 실패 시 libx265로 전환합니다.
-
-기본 실행은 로컬 익명 모드이며 선택적 계정 인증을 지원합니다. 외부 공개 전에는 HTTPS와 인증 설정이 필요합니다. 잠금 파일은 저장소의 `.locks`에 유지되며 프로세스가 종료되면 OS 잠금은 해제됩니다. API와 Worker는 동일한 잠금 규약을 사용합니다. 접수 시 활성 작업의 예약 용량을 합산하고 Worker는 처리 중 실제 사용량을 검사합니다. 예약량은 원본의 4배 추정치이며 상세 제한은 개발 현황 문서에 기록합니다.
-
-## 얼굴 합성
-
-기존 영상 상세의 **얼굴 합성**에서 Source/대상 선택, 미리보기, 전체 합성 및 결과 영상 등록을 제공합니다. FaceFusion 3.5.4를 별도 환경에서 실행하며 기본은 비활성화입니다. [실행·검증 가이드](docs/faceswap.md)와 [통합 명세](docs/facefusion-integration-plan.md)를 참고하세요.
+구형 파일 저장소·단일 pipeline·GPU/유료 POC·과거 배포/검증 자료는
+[archive](docs/references/archive/README.md)에서 과거 이력으로만 참조한다.
+과거 성공 기록은 현재 renewal의 기능 수용이나 실행 권한이 아니다.

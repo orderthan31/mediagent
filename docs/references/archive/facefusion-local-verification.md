@@ -58,7 +58,7 @@ Pinokio 제어 서버 `127.0.0.1:42000`은 연결 거부 상태였다. 사용자
 
 ## 재현
 
-[진단 스크립트](../scripts/check-facefusion.py)는 출력 폴더를 새로 생성하며 기존 폴더를 덮어쓰지 않는다. 현재 설치 버전 3.5.4에 맞춘 진단이고, 모델이 없거나 hash가 다르면 설치/수정 없이 실패한다. 엔진 Python으로 실행해야 한다.
+[진단 스크립트](../../../scripts/check-facefusion.py)는 출력 폴더를 새로 생성하며 기존 폴더를 덮어쓰지 않는다. 현재 설치 버전 3.5.4에 맞춘 진단이고, 모델이 없거나 hash가 다르면 설치/수정 없이 실패한다. 엔진 Python으로 실행해야 한다.
 
 ```powershell
 $env:PYTHONDONTWRITEBYTECODE = '1'
