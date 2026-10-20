@@ -1,0 +1,59 @@
+# Explicit, independently scalable AMQP CPU roles. No broker service/deployment.
+# Named config/credential environment is supplied by a private operator env file.
+x-amqp: &amqp
+  build:
+    context: ../..
+    dockerfile: agents/cpu/Dockerfile
+    target: amqp
+    additional_contexts:
+      media_base: service:media-base
+  image: mideagent-cpu-amqp:local
+  init: true
+  restart: "no"
+  read_only: true
+  stop_grace_period: 120s
+  tmpfs:
+    - /tmp:size=512m,uid=10001,gid=10001,mode=0700
+  env_file:
+    - ${MIDEAGENT_AGENT_ENV_FILE:?Set an explicit private agent env file}
+  networks: [agent-transport]
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  pids_limit: 64
+  cpus: 1
+  mem_limit: 1g
+services:
+  media-base:
+    profiles: [build, analyze, extract-audio, generate-subtitle, encode, validate-video]
+    image: mideagent-media-base:local
+    build:
+      context: ../..
+      target: media-base
+    network_mode: none
+    # Build dependency only; never a long-running shared media service.
+    entrypoint: [/bin/true]
+    restart: "no"
+  analyze:
+    <<: *amqp
+    profiles: [analyze]
+    command: [--enable-broker, --agent, analyze, --broker-config-env, MIDEAGENT_BROKER_CONFIG, --object-config-env, MIDEAGENT_AGENT_OBJECT_CONFIG]
+  extract-audio:
+    <<: *amqp
+    profiles: [extract-audio]
+    command: [--enable-broker, --agent, extract_audio, --broker-config-env, MIDEAGENT_BROKER_CONFIG, --object-config-env, MIDEAGENT_AGENT_OBJECT_CONFIG]
+  generate-subtitle:
+    <<: *amqp
+    profiles: [generate-subtitle]
+    command: [--enable-broker, --agent, generate_subtitle, --broker-config-env, MIDEAGENT_BROKER_CONFIG, --object-config-env, MIDEAGENT_AGENT_OBJECT_CONFIG]
+  encode:
+    <<: *amqp
+    profiles: [encode]
+    command: [--enable-broker, --agent, encode, --broker-config-env, MIDEAGENT_BROKER_CONFIG, --object-config-env, MIDEAGENT_AGENT_OBJECT_CONFIG]
+  validate-video:
+    <<: *amqp
+    profiles: [validate-video]
+    command: [--enable-broker, --agent, validate_video, --broker-config-env, MIDEAGENT_BROKER_CONFIG, --object-config-env, MIDEAGENT_AGENT_OBJECT_CONFIG]
+networks:
+  agent-transport:
+    external: true
+    name: ${MIDEAGENT_AGENT_NETWORK:?Set an existing isolated transport network}

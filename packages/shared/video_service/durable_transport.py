@@ -25,12 +25,13 @@ class DurableTransport:
                 return False
             if row["message_type"] == "agent.command.v1":
                 run = db.execute(
-                    "SELECT * FROM node_runs WHERE owner_id=%s AND job_id=%s AND id=%s",
+                    "SELECT *,lease_expires_at>now() AS lease_valid FROM node_runs WHERE owner_id=%s AND job_id=%s AND id=%s",
                     (owner, job_id, message_id),
                 ).fetchone()
                 if (
                     not run
                     or run["status"] != "running"
+                    or not run["lease_valid"]
                     or job["cancel_requested"]
                     or run["generation"] != job["generation"]
                 ):

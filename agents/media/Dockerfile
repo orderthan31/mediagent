@@ -1,15 +1,11 @@
 # Optional legacy media image. Heavy engines never enter the API/CPU images.
-FROM python:3.12-slim-bookworm AS runtime
-ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
-WORKDIR /app
+FROM media_base AS runtime
 ARG WITH_NVIDIA_VAD=0
 ARG WITH_FACEFUSION=0
 ARG VAD_TORCH_VERSION=2.14.0+cpu
 ARG VAD_TORCHAUDIO_VERSION=2.11.0+cpu
 ARG VAD_TORCH_INDEX_URL=https://download.pytorch.org/whl/cpu
 COPY scripts/download-vad-model.py /app/scripts/download-vad-model.py
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg fontconfig fonts-noto-cjk ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
 RUN if [ "$WITH_FACEFUSION" = "1" ]; then \
       apt-get update && apt-get install -y --no-install-recommends curl git libgl1 libglib2.0-0 \
       && rm -rf /var/lib/apt/lists/* \

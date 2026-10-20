@@ -6,7 +6,7 @@ provider request, real user media or startup migration is allowed.
 ## Dependencies
 
 Use Python 3.12+, FFmpeg/FFprobe, Node 22+ and installed web/Playwright dependencies.
-Install `packages/shared[postgres,models,objects]`, `apps/api`, `agents/cpu`, pytest
+Install `packages/shared[postgres,models,objects,amqp]`, `apps/api`, `agents/cpu`, pytest
 and the test-only `moto[server]>=5,<6` in an isolated environment. Moto is an
 in-process disposable loopback S3 protocol fixture, **not MinIO vendor validation**.
 No test starts a production storage/broker deployment.
@@ -19,7 +19,7 @@ checksum-checked migrations and tears down only that schema. Missing DSN means
 skipped tests, not successful DB verification.
 
 ```sh
-PYTHONPATH=packages/shared:apps/api python -m pytest tests/renewal -q
+PYTHONPATH=packages/shared:apps/api:agents/cpu python -m pytest tests/renewal -q
 ```
 
 Tests cover upload resume/hash/owner, immutable workflow revisions, job admission,
@@ -48,6 +48,19 @@ the only video-player path. `MIDEAGENT_TEST_CHROME` may name an explicit optiona
 browser binary for comparison; it is not required by the WebM regression.
 
 ## Deliberate limits
+
+`test_amqp.py` uses the real pinned Pika SDK/property encoder, an actual negative
+loopback handshake probe and a clearly labeled channel test double. Its media,
+S3-emulator and PostgreSQL paths execute for real, including retrying an unpublished
+attempt, durable result acceptance and dispatch of the next node. Heartbeat/drain,
+confirm failure and poison-message checks at the channel seam are **not live
+RabbitMQ routing, restart, HA or multi-consumer acceptance**. No broker is started.
+
+The installed `mideagent-cpu-amqp` executable requires `--enable-broker` and named
+broker/object configs. `app.broker_server` separately enables topology provisioning
+or result consumption. Import/startup tests prove neither starts implicitly.
+CPU subprocess children receive object config/credentials only, not the broker URL
+or application DB credentials. Unknown attempts remain fenced, not auto-executed.
 
 These are synthetic loopback tests, not multi-host/MinIO/broker/GPU/production or
 actual Fold hardware acceptance. Source size is currently 256 MiB. Long-running

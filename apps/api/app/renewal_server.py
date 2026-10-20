@@ -13,6 +13,7 @@ def main():
     storage.add_argument("--content-root")
     storage.add_argument("--object-config-env")
     parser.add_argument("--agent-config-env")
+    parser.add_argument("--broker-config-env")
     parser.add_argument("--origin", required=True)
     parser.add_argument("--allow-cpu", action="store_true")
     parser.add_argument(
@@ -21,6 +22,15 @@ def main():
         help="Allow administrator-owned CPU instances; starts none at startup",
     )
     args = parser.parse_args()
+    if args.broker_config_env and (
+        not args.allow_cpu
+        or not args.object_config_env
+        or args.agent_config_env
+        or args.manage_cpu
+    ):
+        parser.error(
+            "Broker routing requires --allow-cpu and independent object storage, without local executors"
+        )
     origin = urlsplit(args.origin)
     if (
         origin.scheme != "http"
@@ -51,7 +61,7 @@ def main():
         from video_service.object_store import from_config
 
         store = from_config(json.loads(os.environ[args.object_config_env]))
-        if args.allow_cpu and not args.agent_config_env:
+        if args.allow_cpu and not (args.agent_config_env or args.broker_config_env):
             parser.error(
                 "Object execution requires an independent explicit agent config"
             )
@@ -64,6 +74,16 @@ def main():
             parser.error("Object agent config requires object storage")
         store = ContentStore(args.content_root)
     cpu_driver = None
+    broker_factory = None
+    if args.broker_config_env:
+        import logging
+
+        from video_service.rabbitmq_transport import BrokerConfig, RabbitClient
+
+        logging.getLogger("pika").disabled = True
+        config = BrokerConfig.from_env(args.broker_config_env, environ=os.environ)
+        # No connection at startup; each explicit dispatch owns its connection.
+        broker_factory = lambda: RabbitClient.connect(config, environ=os.environ)
     if args.manage_cpu:
         if not args.allow_cpu or not args.content_root:
             parser.error("--manage-cpu requires --allow-cpu and local --content-root")
@@ -78,6 +98,7 @@ def main():
         local_execution=args.allow_cpu,
         agent_executor=executor,
         cpu_driver=cpu_driver,
+        broker_factory=broker_factory,
     )
     bundle = Path(__file__).resolve().parents[2] / "web" / "dist"
     if bundle.is_dir():

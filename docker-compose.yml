@@ -1,4 +1,14 @@
 services:
+  media-base:
+    profiles: [build, legacy-manual]
+    image: mideagent-media-base:local
+    build:
+      context: .
+      target: media-base
+    network_mode: none
+    # Build dependency only; never a long-running shared media service.
+    entrypoint: [/bin/true]
+    restart: "no"
   api:
     # Existing legacy API; renewal deployment is separately opt-in.
     build:
@@ -48,6 +58,8 @@ services:
     build:
       context: .
       dockerfile: agents/media/Dockerfile
+      additional_contexts:
+        media_base: service:media-base
     logging: *bounded-logs
     init: true
     restart: unless-stopped

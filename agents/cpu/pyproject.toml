@@ -6,6 +6,7 @@ dependencies = ["video-service-shared"]
 
 [project.optional-dependencies]
 objects = ["video-service-shared[objects]"]
+amqp = ["video-service-shared[objects,amqp]"]
 
 [project.scripts]
 mideagent-analyze = "mideagent_cpu.cli:analyze"
@@ -15,6 +16,7 @@ mideagent-encode = "mideagent_cpu.cli:encode"
 mideagent-validate-video = "mideagent_cpu.cli:validate_video"
 mideagent-object-agent = "video_service.object_agent:main"
 mideagent-cpu-instance = "mideagent_cpu.server:main"
+mideagent-cpu-amqp = "mideagent_cpu.broker:main"
 
 [tool.setuptools.packages.find]
 where = ["."]

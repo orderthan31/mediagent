@@ -1,9 +1,6 @@
-# CPU media family. No API, database driver, Google SDK, FaceFusion or Torch.
-FROM python:3.12-slim-bookworm AS runtime
-ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
-WORKDIR /app
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg fontconfig fonts-noto-cjk ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+# CPU media family. BuildKit media_base context is the root media-base stage.
+# No API, database driver, Google SDK, FaceFusion or Torch.
+FROM media_base AS runtime
 COPY packages/shared /app/packages/shared
 COPY agents/cpu /app/agents/cpu
 RUN pip install --no-cache-dir /app/packages/shared /app/agents/cpu \
@@ -12,3 +9,12 @@ RUN pip install --no-cache-dir /app/packages/shared /app/agents/cpu \
 USER media
 # JSON-line instances receive explicit commands on private stdin, never scan a queue.
 ENTRYPOINT ["mideagent-cpu-instance"]
+
+# Optional network transport; the default CPU image remains SDK-free.
+FROM runtime AS amqp
+USER root
+RUN pip install --no-cache-dir '/app/packages/shared[objects,amqp]'
+USER media
+ENTRYPOINT ["mideagent-cpu-amqp"]
+
+FROM runtime AS default

@@ -9,6 +9,7 @@ dependencies = ["python-dotenv>=1.0", "srt==3.5.3", "cryptography>=45.0"]
 postgres = ["psycopg[binary]>=3.2,<4"]
 models = ["httpx>=0.28.1,<1"]
 objects = ["boto3>=1.36,<2"]
+amqp = ["pika==1.4.4"]
 
 [tool.setuptools.package-data]
 video_service = ["postgres/migrations/*.sql"]

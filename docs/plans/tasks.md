@@ -8,6 +8,8 @@
 
 CPU/저장소/WebM에 이어 renewal 관리자 권한과 명시 로컬 CPU 인스턴스 운영을 구현·격리 검증했다. 컨테이너·GPU·외부 실행 관리자는 연결하지 않았다. 운영 잔여를 아래에서 관리한다.
 
+RabbitMQ opt-in client·CPU 수신기·결과 제어기와 명시 API dispatch, 공통 media-base stage를 추가했다. SDK/채널 대역과 실제 격리 CPU·S3·PG를 구분해 검증했으며 실제 RabbitMQ 서버·컨테이너 운영은 실행하지 않았다.
+
 ## 주요 내용
 
 ### 완료 범위
@@ -34,6 +36,17 @@ CPU/저장소/WebM에 이어 renewal 관리자 권한과 명시 로컬 CPU 인�
 - [x] 비활성화·축소 시 신규 배정을 막고 예약된 작업의 완료 후 drain/종료한다. 선택 얼굴교체 미사용·CPU 기동/축소/종료와 일반 사용자 전체 작업 동선을 격리 검증한다.
 - [ ] web 제어기와 실제 Compose/외부 orchestrator의 인증된 제한 adapter를 연결하고 컨테이너별 배포·기동·자원 한도를 검증한다. 현 로컬 subprocess를 컨테이너 scale이나 다중 호스트로 취급하지 않으며 API에 Docker socket을 제공하지 않는다.
 - [ ] 얼굴교체 등 비-CPU 실행환경의 실제 설치/health/활성화·축소 adapter를 연결한다. 현재는 미연결 상태를 정확히 보여주는 범위이며 실제 GPU/provider 호출은 별도 승인 대상이다.
+
+### 독립 RabbitMQ 전달과 공통 의존성
+
+- [x] Pika를 선택 extra로 분리하고 명시 namespace·환경변수 이름·TLS 설정만 받는 client를 구현한다. import/startup에서 연결·큐 선언·소비를 시작하지 않는다.
+- [x] 명령 outbox의 확인 발행, 역할별 수신, 독립 CPU/S3 처리, 결과 DB 채택과 후속 명령 발행을 연결한다. 발행 실패의 동일 attempt 재전달·receipt/inbox 중복 방어·만료된 미발행 명령 거부를 검증한다.
+- [x] CPU 작업 중 I/O thread의 heartbeat 처리, prefetch 1, 처리 후 confirm/ACK, SIGTERM drain과 poison/결과 불명 메시지 격리 경로를 구현한다. 채널 대역 검증을 실제 브로커 수용으로 부르지 않는다.
+- [x] FFmpeg/FFprobe·폰트를 root media-base 한 stage로 관리하고 API·CPU·선택 legacy media가 공유하도록 Compose/Bake build graph를 연결한다. 기본 CPU와 AMQP 선택 이미지를 분리하며 heavy engine을 공통 base에 넣지 않는다.
+- [x] CPU 역할별 AMQP profile·별도 private cache·외부 transport network·자원 한도 레시피를 제공한다. 브로커 service·운영 계정·자동 배포·Docker socket 제어는 추가하지 않는다.
+- [ ] 별도 실행 승인 아래 실제 RabbitMQ 버전/인증·복수 consumer 분산·브로커 재시작/네트워크 단절·DLQ 전달을 수용한다. 실제 큐·GPU/provider를 기존 테스트에 연결하지 않는다.
+- [ ] 원격 consumer와 웹 fleet의 observed health·enabled/disabled·컨테이너 수 제어를 연결한다. 현재 웹 fleet은 여전히 로컬 CPU subprocess용이며 AMQP 설정을 실제 인스턴스 준비로 표시하지 않는다.
+- [ ] 장시간 큐 대기/작업의 lease 갱신·cancel 전달·운영 retry/HA 정책을 수용한다. 현재 짧은 명령 TTL·기존 CPU lease를 일반 분산 scheduler로 보고하지 않는다.
 
 ### 인프라 잔여 — GPU 작업으로 분류하지 않음
 

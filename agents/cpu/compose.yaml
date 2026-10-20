@@ -5,6 +5,9 @@ x-cpu: &cpu
   build:
     context: ../..
     dockerfile: agents/cpu/Dockerfile
+    target: runtime
+    additional_contexts:
+      media_base: service:media-base
   image: mideagent-cpu:local
   init: true
   stdin_open: true
@@ -23,6 +26,16 @@ x-cpu: &cpu
   cpus: 1
   mem_limit: 512m
 services:
+  media-base:
+    profiles: [build, analyze, extract-audio, generate-subtitle, encode, validate-video]
+    image: mideagent-media-base:local
+    build:
+      context: ../..
+      target: media-base
+    network_mode: none
+    # Build dependency only; never a long-running shared media service.
+    entrypoint: [/bin/true]
+    restart: "no"
   analyze:
     <<: *cpu
     profiles: [analyze]

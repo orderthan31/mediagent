@@ -1,10 +1,13 @@
-# API-only image. FFmpeg remains an API dependency for legacy upload/preview paths.
-# It does not install any agent package, FaceFusion, Torch or provider SDK.
-FROM python:3.12-slim-bookworm AS api
+# Shared CPU-media stage: immutable build layers, not a running media service.
+ARG PYTHON_BASE_IMAGE=python:3.12-slim-bookworm
+FROM ${PYTHON_BASE_IMAGE} AS media-base
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg fontconfig fonts-noto-cjk ca-certificates \
     && rm -rf /var/lib/apt/lists/*
+
+# API still invokes upload/preview FFmpeg. No agent package or heavy engine here.
+FROM media-base AS api
 COPY packages/shared /app/packages/shared
 COPY apps/api /app/apps/api
 RUN pip install --no-cache-dir /app/packages/shared /app/apps/api \
@@ -24,5 +27,11 @@ RUN pip install --no-cache-dir /app/agents/media
 USER media
 CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
-# Default builds remain API-only, not the legacy compatibility image.
+# Explicit broker/object transport image; API startup still consumes no queue.
+FROM api AS broker
+USER root
+RUN pip install --no-cache-dir '/app/packages/shared[objects,amqp]'
+USER media
+
+# Default builds remain API-only, not the legacy compatibility/broker image.
 FROM api AS runtime

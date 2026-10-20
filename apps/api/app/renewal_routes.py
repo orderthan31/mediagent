@@ -122,7 +122,9 @@ def ledger(job):
     }
 
 
-def mount_runtime(app, runtime, session, administrator, *, local_execution):
+def mount_runtime(
+    app, runtime, session, administrator, *, local_execution, broker_factory=None
+):
     session_dependency = Depends(session)
 
     def owner(value=session_dependency):
@@ -344,6 +346,19 @@ def mount_runtime(app, runtime, session, administrator, *, local_execution):
     def run(identity: str, owned=owner_dependency):
         if not local_execution:
             raise HTTPException(403, "CPU 실행이 비활성입니다.")
+        if broker_factory is not None:
+            from video_service.rabbitmq_controller import BrokerController
+            from video_service.rabbitmq_transport import BrokerError
+
+            try:
+                return BrokerController(runtime, broker_factory).dispatch(
+                    owned, identity
+                )
+            except BrokerError:
+                raise HTTPException(
+                    503,
+                    "브로커 전달을 확인하지 못했습니다. 실행 상태를 다시 확인하세요.",
+                ) from None
         return runtime.run_local(owned, identity)
 
     @app.post("/api/renewal/jobs/{identity}/cancel")

@@ -127,6 +127,7 @@ def create_app(
     local_execution=False,
     agent_executor=None,
     cpu_driver=None,
+    broker_factory=None,
 ):
     origins = frozenset(allowed_origins)
     if not origins or any(
@@ -141,6 +142,16 @@ def create_app(
     ):
         raise ValueError("명시적인 same-origin 주소가 필요합니다.")
     from video_service.postgres.fleet import Fleet
+
+    if broker_factory is not None and (
+        not local_execution
+        or getattr(content_store, "storage_kind", None) != "s3"
+        or cpu_driver is not None
+        or agent_executor is not None
+    ):
+        raise ValueError(
+            "Broker execution requires explicit CPU approval and exclusive S3 routing"
+        )
 
     if cpu_driver is not None and (
         not local_execution or content_store is None or agent_executor is not None
@@ -354,12 +365,22 @@ def create_app(
         return {
             "backend": "postgres",
             "features": features,
-            "agent_runtime": "cpu_subprocess" if cpu_driver is not None else None,
+            "agent_runtime": (
+                "amqp_explicit"
+                if broker_factory is not None
+                else "cpu_subprocess"
+                if cpu_driver is not None
+                else None
+            ),
             "execution_enabled": content_store is not None and local_execution,
             "model_network_enabled": False,
-            "transport": "explicit_cpu_subprocess"
-            if content_store is not None
-            else None,
+            "transport": (
+                "explicit_amqp"
+                if broker_factory is not None
+                else "explicit_cpu_subprocess"
+                if content_store is not None
+                else None
+            ),
         }
 
     @app.get("/api/settings/serving-connections")
@@ -442,6 +463,7 @@ def create_app(
             session,
             administrator,
             local_execution=local_execution,
+            broker_factory=broker_factory,
         )
     elif local_execution:
         raise ValueError("CPU execution requires an explicit private content store")
