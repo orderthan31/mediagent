@@ -26,6 +26,12 @@ def runtime_components(database, config, *, enable_broker=False):
         if "broker_config_file" not in config or "object_config_file" not in config:
             raise ValueError("broker_requires_private_broker_and_object_files")
         factory = broker_factory(config["broker_config_file"])
+        if "engine_broker_config_file" in config:
+            from video_service.transport_files import engine_broker_factory
+
+            factory.engine_factory = engine_broker_factory(
+                config["engine_broker_config_file"]
+            )
     return store, credentials, factory
 
 
@@ -37,6 +43,7 @@ def main(argv=None):
             "migrate",
             "declare-topology",
             "consume-results",
+            "consume-engine-results",
             "initialize-objects",
         ),
     )
@@ -47,7 +54,10 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if args.mode == "migrate" and not args.apply_migrations:
         parser.error("Migrations require --apply-migrations and a verified backup")
-    if args.mode in ("declare-topology", "consume-results") and not args.enable_broker:
+    if (
+        args.mode in ("declare-topology", "consume-results", "consume-engine-results")
+        and not args.enable_broker
+    ):
         parser.error("Broker operations require --enable-broker")
     if args.mode == "initialize-objects" and not args.initialize_empty_bucket:
         parser.error("Explicit empty bucket initialization required")
@@ -74,15 +84,29 @@ def main(argv=None):
             store.client.head_bucket(Bucket=store.bucket)
             print('{"status":"ok","bucket_initialized":true}')
             return 0
-        with factory() as client:
+        engine_factory = getattr(factory, "engine_factory", None)
+        selected_factory = factory
+        if args.mode == "consume-engine-results":
+            if engine_factory is None:
+                raise ValueError("engine_transport_not_configured")
+            selected_factory = engine_factory
+        with selected_factory() as client:
             if args.mode == "declare-topology":
                 client.declare()
+                if engine_factory is not None:
+                    with engine_factory() as engine_client:
+                        engine_client.declare()
                 print('{"status":"ok","topology_declared":true}')
                 return 0
             from video_service.postgres.execution import Execution
             from video_service.rabbitmq_controller import BrokerController
 
-            controller = BrokerController(Execution(database, store), factory)
+            controller = BrokerController(
+                Execution(
+                    database, store, engine_runtime_enabled=engine_factory is not None
+                ),
+                factory,
+            )
             stop = threading.Event()
             for sig in (signal.SIGINT, signal.SIGTERM):
                 signal.signal(sig, lambda *_: stop.set())

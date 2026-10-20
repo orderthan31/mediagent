@@ -23,7 +23,7 @@ class DurableTransport:
                 raise Missing("보낼 메시지를 찾을 수 없습니다.")
             if row["published_at"]:
                 return False
-            if row["message_type"] == "agent.command.v1":
+            if row["message_type"] in {"agent.command.v1", "agent.engine.command.v2"}:
                 run = db.execute(
                     "SELECT *,lease_expires_at>now() AS lease_valid FROM node_runs WHERE owner_id=%s AND job_id=%s AND id=%s",
                     (owner, job_id, message_id),
@@ -36,6 +36,26 @@ class DurableTransport:
                     or run["generation"] != job["generation"]
                 ):
                     raise Conflict("취소/이전 세대 명령은 새로 전달하지 않습니다.")
+                from .cpu_agents import digest
+
+                if run["request_sha256"] != digest(row["payload"]):
+                    raise Conflict("outbox 요청 무결성 오류")
+                if row["message_type"] == "agent.engine.command.v2":
+                    from .postgres.engine_runtimes import EngineRuntimes
+
+                    try:
+                        pin = job["snapshot"]["engine_bindings"][run["node_id"]]
+                        current = EngineRuntimes.resolve_in(
+                            db, run["node_type"], sha256=pin["sha256"], lock=True
+                        )
+                        if (
+                            current["revision"] != pin["revision"]
+                            or row["payload"]["runtime"] != pin["descriptor"]
+                            or row["payload"]["agent"]["revision"] != pin["sha256"]
+                        ):
+                            raise ValueError("engine_revision_changed")
+                    except (ValueError, KeyError, TypeError):
+                        raise Conflict("발행 직전 engine pin/가용성 변경") from None
             if (
                 send_confirm(row["id"], row["message_type"], canonical(row["payload"]))
                 is not True

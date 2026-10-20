@@ -14,7 +14,7 @@ x-runtime: &runtime
   pids_limit: 128
   mem_limit: 1g
   cpus: 1
-  tmpfs: [/tmp:size=256m,uid=10001,gid=10001,mode=0700]
+  tmpfs: ["/tmp:size=256m,uid=10001,gid=10001,mode=0700"]
   networks: [agent-transport]
 services:
   api:
@@ -32,8 +32,17 @@ services:
   results:
     <<: *runtime
     profiles: [results]
+    tmpfs: ["/tmp:size=256m,uid=10001,gid=10001,mode=0700", "/data/content:size=512m,uid=10001,gid=10001,mode=0700"]
     command: [python, -m, app.operator, consume-results, --bootstrap-file, /run/bootstrap/api.json, --enable-broker]
     stop_grace_period: 120s
+    volumes:
+      - ${MIDEAGENT_BOOTSTRAP_DIR:?Set private bootstrap directory}/api:/run/bootstrap:ro
+  engine-results:
+    <<: *runtime
+    profiles: [engine-results]
+    tmpfs: ["/tmp:size=256m,uid=10001,gid=10001,mode=0700", "/data/content:size=512m,uid=10001,gid=10001,mode=0700"]
+    command: [python, -m, app.operator, consume-engine-results, --bootstrap-file, /run/bootstrap/api.json, --enable-broker]
+    stop_grace_period: 300s
     volumes:
       - ${MIDEAGENT_BOOTSTRAP_DIR:?Set private bootstrap directory}/api:/run/bootstrap:ro
 networks:

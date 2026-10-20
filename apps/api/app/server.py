@@ -17,7 +17,12 @@ FIELDS = {
     "port",
     "secure_cookies",
 }
-OPTIONAL_FIELDS = {"credential_key_file", "object_config_file", "broker_config_file"}
+OPTIONAL_FIELDS = {
+    "credential_key_file",
+    "object_config_file",
+    "broker_config_file",
+    "engine_broker_config_file",
+}
 
 
 def load_bootstrap(path):

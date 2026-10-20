@@ -266,6 +266,52 @@ def run(command, input_root, output_root, *, agent=None):
                 ]
             )
             outputs["audio"] = (file, "audio")
+        elif kind == "preprocess_audio":
+            # CPU-only normalization contract. NVIDIA VAD and packed silence
+            # filtering are not silently substituted with a successful no-op.
+            options = command["options"]
+            if (
+                options.get("vad_mode", "off") != "off"
+                or options.get("audio_filter", "off") != "off"
+            ):
+                raise ValueError("cpu_preprocess_supports_off_only")
+            import wave
+
+            file = work / "normalized.wav"
+            process(
+                [
+                    *ffmpeg(),
+                    "-i",
+                    str(paths["audio"]),
+                    "-vn",
+                    "-ac",
+                    "1",
+                    "-ar",
+                    "16000",
+                    "-c:a",
+                    "pcm_s16le",
+                    str(file),
+                ]
+            )
+            with wave.open(str(file), "rb") as audio:
+                duration = audio.getnframes() / audio.getframerate()
+            if not 0 < duration <= 31536000:
+                raise ValueError("invalid_audio_duration")
+            timeline = work / "timeline.json"
+            timeline.write_bytes(
+                canonical(
+                    [
+                        {
+                            "source_start": 0,
+                            "source_end": duration,
+                            "packed_start": 0,
+                            "packed_end": duration,
+                        }
+                    ]
+                )
+            )
+            outputs["audio"] = (file, "audio")
+            outputs["timeline"] = (timeline, "timeline_map")
         elif kind == "encode":
             probe(paths["video"])
             options = command["options"]

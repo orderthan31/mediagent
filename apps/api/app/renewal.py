@@ -288,6 +288,23 @@ def create_app(
 
     administrator_dependency = Depends(administrator)
 
+    from video_service.postgres.legacy_archive import LegacyArchive
+
+    archive = LegacyArchive(database)
+
+    @app.get("/api/legacy/history")
+    def legacy_history(
+        kind: str = "job",
+        limit: int = Query(100, ge=1, le=200),
+        offset: int = Query(0, ge=0),
+        actor=administrator_dependency,
+    ):
+        return archive.records(kind=kind, limit=limit, offset=offset)
+
+    @app.get("/api/legacy/summary")
+    def legacy_summary(actor=administrator_dependency):
+        return archive.summary()
+
     @app.get("/api/auth/session")
     def current(request: Request):
         value = accounts.session(request.cookies.get(cookie))
@@ -406,11 +423,17 @@ def create_app(
         )
 
     @app.put("/api/settings/serving-connections/{identity}/credential")
-    def provider_credential(identity: str, body: ProviderCredential, value=administrator_dependency):
+    def provider_credential(
+        identity: str, body: ProviderCredential, value=administrator_dependency
+    ):
         if credential_store is None:
             raise HTTPException(503, "credential_store_unavailable")
-        return credential_store.save(value["user"]["id"], identity, revision=body.revision,
-            secret=body.secret.get_secret_value() if body.secret is not None else None)
+        return credential_store.save(
+            value["user"]["id"],
+            identity,
+            revision=body.revision,
+            secret=body.secret.get_secret_value() if body.secret is not None else None,
+        )
 
     @app.get("/api/settings/registered-models")
     def models(value=administrator_dependency):
@@ -473,6 +496,9 @@ def create_app(
                 content_store,
                 agent_executor=agent_executor,
                 fleet=fleet if cpu_driver is not None else None,
+                engine_runtime_enabled=bool(
+                    getattr(broker_factory, "engine_factory", None)
+                ),
             ),
             session,
             administrator,

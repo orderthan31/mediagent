@@ -5,7 +5,7 @@ from fastapi.responses import FileResponse
 from pydantic import Field, StrictBool, StrictInt
 from video_service.cpu_agents import digest
 from video_service.postgres import Conflict, Missing
-from video_service.renewal_contracts import catalog, validate
+from video_service.renewal_contracts import validate
 
 from .renewal import Body
 
@@ -141,7 +141,7 @@ def mount_runtime(
 
     @app.get("/api/settings/node-catalog")
     def nodes(owned=admin_dependency):
-        return catalog()
+        return runtime.catalog()
 
     @app.get("/api/video-uploads")
     def uploads(owned=owner_dependency):
@@ -244,7 +244,7 @@ def mount_runtime(
 
     @app.get("/api/work-entry/catalog")
     def job_catalog(owned=owner_dependency):
-        return catalog()
+        return runtime.catalog()
 
     @app.get("/api/work-entry/workflows/{identity}")
     def job_graph(identity: str, revision: int = Query(ge=1), owned=owner_dependency):

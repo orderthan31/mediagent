@@ -28,6 +28,7 @@ from test_foundation import db as _db_fixture
 from test_foundation import login
 from test_object_agents import command
 from test_object_agents import objects as _objects_fixture
+from video_service.agent_protocol import CPU_AGENTS
 from video_service.object_agent import ObjectAgentExecutor
 from video_service.postgres import Conflict
 from video_service.postgres.execution import Execution
@@ -266,7 +267,9 @@ def test_topology_is_explicit_and_roles_have_separate_durable_queues():
     assert [op for op, *_ in channel.events] == ["confirm"]
     client.declare()
     queues = [fields for op, _, fields in channel.events if op == "queue"]
-    assert len(queues) == 12 and all(q["durable"] for q in queues)
+    assert len(queues) == 2 * (len(CPU_AGENTS) + 1) and all(
+        q["durable"] for q in queues
+    )
     assert len({q["queue"] for q in queues}) == len(queues)
     result = next(q for q in queues if q["queue"] == client.config.queue("result"))
     assert "x-message-ttl" not in result["arguments"]

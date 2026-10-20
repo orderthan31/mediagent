@@ -57,7 +57,7 @@ services:
       dockerfile: infra/objects.Dockerfile
     user: "10001:10001"
     read_only: true
-    tmpfs: [/tmp:size=64m,uid=10001,gid=10001,mode=0700]
+    tmpfs: ["/tmp:size=64m,uid=10001,gid=10001,mode=0700"]
     volumes:
       - ${MIDEAGENT_BOOTSTRAP_DIR:?Set an absolute private bootstrap directory}/objects:/run/bootstrap:ro
       - objects-data:/data

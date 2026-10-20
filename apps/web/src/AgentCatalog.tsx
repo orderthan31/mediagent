@@ -15,6 +15,19 @@ export type Agent = {
   inputs: Record<string, string>;
   outputs: Record<string, string>;
   options: Record<string, string[]>;
+  engine_runtime?: {
+    revision: number;
+    sha256: string;
+    descriptor: {
+      role: string;
+      family: string;
+      engine: string;
+      model_sha256: string;
+      source_language: string | null;
+      target_language: string | null;
+    };
+  };
+  workflow_binding?: boolean;
 };
 const types: Record<string, string> = {
   video: '영상',

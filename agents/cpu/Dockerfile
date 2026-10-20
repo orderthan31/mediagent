@@ -17,4 +17,11 @@ RUN pip install --no-cache-dir '/app/packages/shared[objects,amqp]'
 USER media
 ENTRYPOINT ["mideagent-cpu-amqp"]
 
+FROM amqp AS local-models
+USER root
+RUN pip install --no-cache-dir '/app/agents/cpu[local-models]'
+ENV HOME=/tmp HF_HUB_OFFLINE=1 PYTHONDONTWRITEBYTECODE=1
+USER media
+ENTRYPOINT ["mideagent-local-models"]
+
 FROM runtime AS default

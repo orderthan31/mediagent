@@ -29,6 +29,16 @@ target "cpu-amqp" {
   target = "amqp"
   tags = ["mideagent-cpu-amqp:local"]
 }
+target "cpu-local-models" {
+  inherits = ["cpu"]
+  target = "local-models"
+  tags = ["mideagent-local-models:local"]
+}
+target "gpu-amqp" {
+  inherits = ["gpu"]
+  target = "broker"
+  tags = ["mideagent-gpu-amqp:local"]
+}
 target "gpu" {
   context = "."
   dockerfile = "agents/gpu/Dockerfile"

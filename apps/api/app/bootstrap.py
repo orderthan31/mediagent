@@ -143,6 +143,7 @@ def generate(directory, origin):
     roles = (
         "analyze",
         "extract_audio",
+        "preprocess_audio",
         "generate_subtitle",
         "encode",
         "validate_video",

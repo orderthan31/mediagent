@@ -1,4 +1,5 @@
-# Optional GPU tools. Never part of default API/CPU builds; never a queue consumer.
+# Optional GPU tools. The broker stage is explicit, never a default consumer.
+ARG GPU_ENGINE_BASE=media_base
 FROM media_base AS runtime
 ARG WITH_NVIDIA_VAD=0
 ARG WITH_FACEFUSION=0
@@ -32,3 +33,17 @@ RUN pip install --no-cache-dir /app/agents/gpu \
 USER media
 # Entry points consume an explicit engine request, never inspect DBs or poll jobs.
 CMD ["mideagent-gpu-vad", "--help"]
+
+# Select a verified GPU engine dependency image explicitly; this stage does not
+# install/launch the legacy media Worker, copy its data or inherit its command.
+FROM ${GPU_ENGINE_BASE} AS broker
+USER root
+COPY packages/shared /app/packages/shared
+COPY agents/gpu /app/agents/gpu
+RUN pip install --no-cache-dir '/app/packages/shared[objects,amqp]' /app/agents/gpu \
+    && (getent passwd 10001 >/dev/null || useradd --uid 10001 --create-home media)
+ENV HOME=/tmp HF_HUB_OFFLINE=1 PYTHONDONTWRITEBYTECODE=1 NVIDIA_DRIVER_CAPABILITIES=compute,video,utility
+USER 10001:10001
+ENTRYPOINT ["mideagent-gpu-broker"]
+
+FROM runtime AS default

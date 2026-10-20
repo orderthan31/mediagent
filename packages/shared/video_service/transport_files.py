@@ -33,13 +33,23 @@ def secret_file(path):
 
 
 def broker_factory(path):
+    return _broker_factory(path, BrokerConfig, RabbitClient)
+
+
+def engine_broker_factory(path):
+    from .engine_transport import EngineBrokerConfig, EngineRabbitClient
+
+    return _broker_factory(path, EngineBrokerConfig, EngineRabbitClient)
+
+
+def _broker_factory(path, config_type, client_type):
     value = document(path)
     if set(value) - {"namespace", "url_file", "ca_file", "allow_loopback"} or not {
         "namespace",
         "url_file",
     } <= set(value):
         raise BrokerError("invalid_broker_config")
-    config = BrokerConfig(
+    config = config_type(
         namespace=value["namespace"],
         url_env="PRIVATE_BROKER_URL",
         ca_file=value.get("ca_file"),
@@ -48,7 +58,7 @@ def broker_factory(path):
 
     # Resolve on the calling IO thread, not in a shared Pika connection.
     def connect():
-        return RabbitClient.connect(
+        return client_type.connect(
             config, environ={"PRIVATE_BROKER_URL": secret_file(value["url_file"])}
         )
 

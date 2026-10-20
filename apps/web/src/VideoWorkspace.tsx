@@ -33,6 +33,7 @@ import {
 } from './video-api';
 import { Theme } from './hangyeol/foundation/theme';
 import { WorkspaceChrome } from './WorkspaceChrome';
+import { LegacyArchivePage } from './LegacyArchivePage';
 import { WorkflowCatalog } from './WorkflowCatalog';
 import { AgentCatalog } from './AgentCatalog';
 import { useWorkspaceAuth } from './AuthGate';
@@ -479,6 +480,8 @@ export const VideoWorkspace = () => {
             <p role="alert">관리자만 이용할 수 있는 화면입니다.</p>
             <a href="#/jobs">작업으로 돌아가기</a>
           </main>
+        ) : renewalBackend && route === '#/settings/legacy' ? (
+          <LegacyArchivePage />
         ) : renewalBackend &&
           (!runtimeReady || workflowTicketsView || settingsView || route === '#/serving/roles') &&
           !(route.startsWith('#/account') || (servingView && route !== '#/serving/roles')) ? (
@@ -499,9 +502,15 @@ export const VideoWorkspace = () => {
               않았습니다.
             </p>
             {administrator && (
-              <a className="ui02-text-action" href="#/serving">
-                서빙 관리
-              </a>
+              <>
+                <a className="ui02-text-action" href="#/serving">
+                  서빙 관리
+                </a>
+                <br />
+                <a className="ui02-text-action" href="#/settings/legacy">
+                  이관된 구버전 이력
+                </a>
+              </>
             )}
           </main>
         ) : (frontendOnly || renewalBackend) && route.startsWith('#/account') ? (

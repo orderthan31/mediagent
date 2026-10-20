@@ -1,0 +1,5 @@
+# Explicit Windows destination override; preserves the approved private Serve route.
+# Merge after docker-compose.yml and (if selected) compose.transport.yaml.
+services:
+  web:
+    ports: !override ["127.0.0.1:5177:80"]

@@ -70,30 +70,32 @@ export const WorkspaceChrome = ({
   const accountView = route.startsWith('#/account');
   const current = accountView ? { name: '계정 관리', href: '#/account' } : sections[group];
   const child =
-    route === '#/account/new'
-      ? '발급'
-      : route === '#/serving/connections'
-        ? '공급자'
-        : route.startsWith('#/agents/')
-          ? agentLabel || '상세'
-          : route === '#/serving/roles'
-            ? '역할 설정'
-            : route === '#/start'
-              ? '추가'
-              : /\/new$/.test(route)
+    route === '#/settings/legacy'
+      ? '구버전 이력'
+      : route === '#/account/new'
+        ? '발급'
+        : route === '#/serving/connections'
+          ? '공급자'
+          : route.startsWith('#/agents/')
+            ? agentLabel || '상세'
+            : route === '#/serving/roles'
+              ? '역할 설정'
+              : route === '#/start'
                 ? '추가'
-                : /\/edit$/.test(route)
-                  ? route.startsWith('#/workflows/')
-                    ? '상세'
-                    : '편집'
-                  : route.startsWith('#/serving/') ||
-                      route.startsWith('#/videos/') ||
-                      /^#\/jobs\//.test(route) ||
-                      /^#\/workflows\//.test(route)
-                    ? '상세'
-                    : route.includes('tickets')
-                      ? '워크플로우 작업'
-                      : '';
+                : /\/new$/.test(route)
+                  ? '추가'
+                  : /\/edit$/.test(route)
+                    ? route.startsWith('#/workflows/')
+                      ? '상세'
+                      : '편집'
+                    : route.startsWith('#/serving/') ||
+                        route.startsWith('#/videos/') ||
+                        /^#\/jobs\//.test(route) ||
+                        /^#\/workflows\//.test(route)
+                      ? '상세'
+                      : route.includes('tickets')
+                        ? '워크플로우 작업'
+                        : '';
   const list = !child || route === '#/serving/connections';
   const action =
     accountView || (!administrator && group > 1)

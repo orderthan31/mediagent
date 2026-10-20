@@ -24,11 +24,11 @@ services:
     pids_limit: 128
     mem_limit: 1g
     cpus: 2
-    tmpfs: [/tmp:size=256m,mode=1777]
+    tmpfs: ["/tmp:size=256m,mode=1777"]
     command: [python, -m, app.server, --bootstrap-file, /run/bootstrap/api.json]
     volumes:
       - type: bind
-        source: ${MIDEAGENT_BOOTSTRAP_DIR:?Set an absolute private bootstrap directory}
+        source: ${MIDEAGENT_BOOTSTRAP_DIR:?Set an absolute private bootstrap directory}/api
         target: /run/bootstrap
         read_only: true
       - content:/data/content

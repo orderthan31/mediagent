@@ -293,6 +293,8 @@ def decode(delivery, *, role=None, result=False):
 
 
 class RabbitClient:
+    roles = CPU_AGENTS
+
     def __init__(self, config, connection, sdk):
         self.config, self.connection, self.sdk = config, connection, sdk
         self.owner_thread = threading.get_ident()
@@ -335,7 +337,7 @@ class RabbitClient:
                 durable=True,
                 auto_delete=False,
             )
-        for role in (*sorted(CPU_AGENTS), "result"):
+        for role in (*sorted(self.roles), "result"):
             queue = cfg.queue(role)
             dead = queue + ".dead"
             c.queue_declare(

@@ -10,10 +10,10 @@
 ### 현재 배포 경계
 
 - Common의 정식 빌드·산출물 배포는 해당 릴리스의 실행 승인이 있는 범위에만 적용한다. 소스 push나 검증용 build를 운영 전환 승인으로 취급하지 않는다.
-- 현재 허용된 상시 화면은 기존 사설 5174 DEV 목업이다. 이를 유지하며 API·에이전트·브로커·오브젝트 스토리지의 운영 스택은 별도 승인 없이 시작하거나 외부에 노출하지 않는다.
+- 기존 사설 5174 DEV는 별도 담당 범위를 유지한다. 2026-10-20/21 사용자 지시로 Windows 목적지의 기존 제품 배포 하나·필요 PG/TLS broker/S3·renewal consumer·로컬 GPU/모델·합성 영상 검증을 승인했다. 목적지의 기존 5177 loopback/사설 Serve를 재사용하며 다른 목적지·공개 ingress·병행 제품 stack으로 확대하지 않는다.
 - 격리 PG와 합성 미디어의 임시 loopback 테스트는 운영 DB·기존 큐·사용자 원본을 사용하지 않는다. 테스트 프로세스와 운영 에이전트를 구분한다.
-- GPU·실모델/provider·유료 호출, 기존 큐 소비, 사용자 원본 처리·삭제, 키 변경·공개 범위 확대는 별도 실행 승인 전 금지한다.
-- 최종 VPS/5070 Ti 배포 분할과 실제 데이터 이관은 미실행이다. 정식 배포 때에만 정확한 source/build·호환성·백업·롤백과 접근을 검증한다.
+- 이 목적지의 명시 로컬 GPU/고정 모델·테스트 입력은 승인 범위다. 기존 Worker/기존 큐 소비, 외부 유료 provider·미승인 사용자 원본 처리/삭제·기존 키 교체·공개 범위 확대는 계속 금지한다.
+- VPS 분할은 미실행이다. Windows 목적지의 archive 이관/배포 실제 실행과 실사용자 계정·소유권·제품 E2E 미수용을 구분한다. 정확한 source/build·호환성·복구·접근을 확인한다.
 - Android/Windows 게임 빌드, Google Drive 경로 및 게임 산출물 보관 규칙은 이 프로젝트에 적용하지 않는다. 제품 릴리스 산출물의 게시 위치가 미확정이면 배포 대기로 남기고 임의 공개하지 않는다.
 
 ### 저장소 제공 설치 구성과 권한
@@ -31,7 +31,7 @@
 3. 키 교체는 새 connection revision을 만든다. 기존 모델/작업의 pinned revision은 자동 교체하지 않는다. 전체 폐기는 해당 connection의 이전 credential도 차단한다. endpoint/provider/protocol 변경은 새 revision에 이전 키를 자동 복사하지 않는다. 모델에서 필요한 새 connection revision을 다시 선택한다.
 4. 구형 `env:` credential 참조는 이력 보존만 하고 해석하지 않는다. migration 008은 새 쓰기를 DB ref로 제한하며 기존 이력은 `NOT VALID`로 보존한다. 실제 migration 전 구형 참조/호환성을 분류하고 관리자가 키를 다시 등록한다. 기존 DB가 이관됐다고 자동 판정하지 않는다.
 5. 복호화 master key, DSN, broker/S3 endpoint·전송 인증·TLS CA, origin/port/cache 경로는 프로세스를 시작하기 위한 별도 private infrastructure bootstrap이다. master key는 provider API key가 아니며 DB dump와 함께 복구 가능하게 별도 보관한다. 분실/교체하면 기존 암호문을 복호화하지 못한다. 생성기는 기존 디렉터리를 덮어쓰지 않는다.
-6. `app.server`는 필수 `database_dsn_file`, `content_root`, `allowed_origins`, `host`, `port`, `secure_cookies`와 선택 `credential_key_file`, `object_config_file`, `broker_config_file`만 허용한다. `--enable-broker`와 object/broker file을 함께 제공해야 API의 명시 CPU dispatch가 켜진다. API startup은 migration/큐 declare/consume/작업 scan을 하지 않는다.
+6. `app.server`는 필수 `database_dsn_file`, `content_root`, `allowed_origins`, `host`, `port`, `secure_cookies`와 선택 `credential_key_file`, `object_config_file`, `broker_config_file`, `engine_broker_config_file`만 허용한다. `--enable-broker`와 object/broker file을 함께 제공해야 API의 명시 CPU dispatch가 켜진다. 추가 engine file은 별도 v2 factory와 DB-pinned 물리 runtime을 사용하며 임의 model_ref/provider fallback을 켜지 않는다. API startup은 migration/큐 declare/consume/작업 scan을 하지 않는다.
 7. broker/objects file은 실제 값을 담는 환경이 아니라 private 파일을 직접 읽는다. 기존 explicit environment-name transport CLI는 호환용 infrastructure interface로만 남는다. 잔여 environment 접근은 test opt-in, DB/전송 bootstrap, subprocess 최소 실행 환경, GPU resource/offline 제어로 분류하며 application provider/model fallback으로 사용하지 않는다.
 8. DB resolver의 text wire는 검증됐지만 default 모델 네트워크 실행은 여전히 disabled다. 실제 local/on-prem 또는 provider 통신은 승인된 origin과 address-pinned transport, 능력별 agent adapter 및 실행 승인이 필요하다. Gemini/Anthropic·STT/TTS 등 등록 가능한 메타데이터를 실행 지원으로 표시하지 않는다.
 
@@ -77,6 +77,24 @@ docker compose -p mideagent-cpu -f agents/cpu/compose.amqp.yaml --profile encode
 - `/healthz`는 liveness다. API healthcheck는 허용된 Host를 명시한다. PostgreSQL `pg_isready`, 실제 migration 목록, S3 bucket access/조건부 쓰기, TLS broker 인증/queue·consumer readiness는 별도 확인한다. nginx 업로드 한도는 API 256 MiB와 일치시킨다.
 - default 인증은 유지한다. 이전 임시 무인증 검토 환경을 새 계정 설정 완료로 간주하거나 운영 설정을 임의 변경하지 않는다. 기존 사설 URL/매핑은 목적지 담당자가 확인 후 보존하며 public ingress나 추가 병행 stack을 만들지 않는다.
 
+### 기존 설치 archive 이관과 고정 engine 운영
+
+- `legacy_archive.build_manifest`는 멈춘 source의 일관 snapshot에서 job/asset/workflow/비활성 settings와 각 SQLite index를 다른 kind/namespace로 만든다. 원본/미디어/정의/키·DB snapshot·파일 hash inventory를 별도 보존한다. index42와 index14를 job56으로 합산하지 않는다.
+- `009_legacy_archive.sql`과 `app.legacy_import --bootstrap-file ... --manifest-file ...`는 관리자 전용 `legacy/unassigned` 읽기 전용 이력을 사용한다. 기본은 dry-run, 실제 쓰기는 `--apply`다. 같은 내용 재실행은 추가0, 같은 identity의 다른 내용은 충돌로 멈춘다. 기존 상태를 새 node run/receipt/승인으로 만들지 않는다.
+- 기존 workflow 원문/자산 참조를 보존해도 실행 가능으로 자동 승격하거나 가짜/개인 owner에 배정하지 않는다. 실제 소유권 배정·지원 노드 전환·credential 재활성은 별도 결정이다. admin archive 화면도 원본 다운로드/새 실행으로 우회하지 않는다.
+- Fernet 암호문을 AES-GCM credential로 복사하지 않는다. 기존 cipher/key는 private snapshot에 보존하고 archive 설정은 비활성으로 둔다. 재등록 또는 승인된 메모리 내 재암호화 전까지 외부/free/env key로 대체하지 않는다.
+- PG dump는 별도 신규 임시 DB restore/행·관계 대조를 수행할 수 있다. 실제 source DB/volume에 fresh-install 초기화·restore를 덮어쓰지 않는다. 임시 DB 정리는 자신이 만든 exact 이름에만 한정한다.
+- 고정 offline engine은 `engine_runtime_revisions`/head(010)의 물리 descriptor CAS와 private locator를 결속한다. 일반 owner-scoped 등록 모델/connection/credential transport는 여전히 별도다.
+- `app.engine_admin provision --directory ... --manifest-file ... --apply`는 검증한 네 역할 manifest를 받아 **새 역할 credential과 참조만 추가**한다. 기존 secret/CA/DSN/master key는 바꾸지 않는다. controller 권한·참조 JSON과 broker definitions의 변경 delta를 read-back하고 private backup에 보존한다. 기존 runtime/locator가 다르면 자동 교체하지 않는다.
+- `app.engine_admin register --bootstrap-file ... --manifest-file ... --role ... --expected-revision ... --enable-runtime --apply`는 확인한 물리 descriptor를 DB에 명시 등록한다. manifest는 secret이 아니라 `{descriptor,model_dir[,python]}`이고 descriptor 모델 SHA는 실제 다운로드/설치 파일에서 산출한다. 개인 계정이나 원본 소유자를 생성하는 기능이 아니다.
+- Bake target `cpu-local-models`는 CPU offline ASR/MT, `gpu-amqp`는 별도 GPU consumer다. GPU broker는 `GPU_ENGINE_BASE`로 검증된 dependency image를 명시할 수 있다. 구형 image의 SDK layer를 재사용하더라도 entrypoint는 새 `mideagent-gpu-broker`이며 옛 Worker/큐/데이터/PAID 설정을 기동하지 않는다. 기본 GPU 도구 help와 실제 설치/추론은 구분한다.
+- `compose.engines.yaml`의 `local-engines`/`gpu-engines` profile은 역할별 bootstrap leaf와 실제 weights만 read-only mount한다. `MIDEAGENT_ASR_MODEL_DIR`, `MIDEAGENT_TRANSLATION_MODEL_DIR`, `MIDEAGENT_FACEFUSION_MODELS_DIR`는 실제 검증된 절대 경로다. weights/caches/private manifests를 Git에 넣지 않는다.
+- 역할 CLI는 `--enable-broker --agent ... --broker-config-file ... --object-config-file ... --runtime-config-file ...`가 명시돼야 소비한다. model CLI에 GPU role을 넣을 수 없다. source/모델 hash·UID read·cache write·TLS 인증·role 권한과 실제 command/result/ACK를 각각 확인한다.
+- `compose.transport.yaml`의 `engine-results`는 `consume-engine-results` 전용 별도 결과 제어기다. 명시 `declare-topology`가 두 family를 선언하며 startup은 자동 선언하지 않는다. inactive/미설정 모델을 켜거나 기존 큐를 scan하지 않는다.
+- Windows는 bootstrap의 `/api` leaf를 mount하고 `compose.windows.yaml`로 loopback5177을 재사용한다. POSIX chmod/chown 성공은 NTFS 기밀성 증명이 아니다. 새 private parent의 NTFS ACL·각 role 실제 UID의 read/write와 다른 role/API secret 미노출을 별도로 확인한다.
+- RabbitMQ CLI가 제한된 PID 안에서 `inet_gethost:eagain`으로 실패하면 서비스 건강과 조회 실패를 구분한다. 검사 CLI만 `ERL_FLAGS='+S 1:1 +SDcpu 1 +SDio 1 +A 1'`로 제한해 재조회할 수 있다. 이를 인증 실패나 전 서비스 재시작 사유로 오판하지 않는다.
+- 최초 관리자·실사용자 로그인은 별도 수용이다. 계정이 없으면 검증 브라우저에서 실제 사용자가 설정하도록 요청하고 로그인 우회·공유 비밀번호·가짜 owner로 제품 E2E를 통과시키지 않는다. disposable schema의 영상 완료와 제품 계정의 원본/작업/결과 경로를 정확히 구분한다.
+
 ### 검증과 중단·복구
 
 - `tests/renewal/test_credentials.py`: 실제 격리 PG의 관리자 write-only/CAS·암호문·wrong key/owner/tamper·폐기·환경 fallback 부재와 DB pinned model→주입 transport를 검증한다. 실제 provider 호출이 아니다.
@@ -84,4 +102,4 @@ docker compose -p mideagent-cpu -f agents/cpu/compose.amqp.yaml --profile encode
 - 기본 API만 시작해도 consumer가 생긴다고 가정하지 않는다. 선택 profile/명시 `--enable-broker`가 없으면 소비하지 않아야 한다. web fleet의 현재 observed state/replica 제어는 로컬 subprocess용이며 Compose의 실제 scale/원격 health와 자동 동기화하지 않는다.
 - 축소/정지는 새 assignment를 막고 in-flight 작업을 drain한 뒤 수행한다. 현재 짧은 command TTL/lease를 장시간 GPU 작업/HA 정책으로 확장하지 않는다. cancellation 전달, lease 갱신, 복수 host 장애·broker 재시작 수용은 별도 잔여다.
 - rollback 시 source SHA·실행 image ID·Compose·DSN·DB backup·content/object data·credential master key·broker 정의/상태를 함께 보존한다. migration 후 이전 binary를 새 schema에 무조건 연결하지 않는다. 운영 `down -v`, 자동 큐 purge, 사용자 원본/자막 삭제, 강제 Git reset/clean/force push는 금지한다.
-- GPU 도구 image/CLI의 존재·help 성공은 GPU agent 준비가 아니다. 현재 GPU 도구는 AMQP CPU consumer가 아니며 CPU-only protocol에 GPU role을 임의로 넣지 않는다. GPU role contract/consumer adapter와 모델·provider 능력별 실행 경로의 후속 구현/수용, NVIDIA runtime/CUDA·torch/torchaudio/ONNX 조합, 모델 artifact, 엔진 기동/실행/결과를 구분해 보고한다. 실 GPU/provider/유료 호출은 별도 승인 전 금지한다.
+- GPU 도구 image/CLI의 존재·help 성공은 GPU agent 준비가 아니다. 고정 GPU/model v2는 별도 namespace/codec/consumer로 구현했으며 CPU-only v1에 GPU를 넣지 않는다. 목적지의 실제 CUDA VAD·CUDA FaceFusion self-swap·offline STT/MT 수용과 일반 model_ref/provider transport·장시간/품질 미수용을 구분한다. 외부 유료 호출은 이번 승인에 포함되지 않는다.

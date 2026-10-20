@@ -22,7 +22,7 @@ x-amqp: &amqp
   mem_limit: 1g
 services:
   media-base:
-    profiles: [build, analyze, extract-audio, generate-subtitle, encode, validate-video]
+    profiles: [build, analyze, extract-audio, preprocess-audio, generate-subtitle, encode, validate-video]
     image: mideagent-media-base:local
     build:
       context: ../..
@@ -47,6 +47,15 @@ services:
     volumes:
       - type: bind
         source: ${MIDEAGENT_BOOTSTRAP_DIR:?Set an absolute private bootstrap directory}/agent/extract_audio
+        target: /run/bootstrap
+        read_only: true
+  preprocess-audio:
+    <<: *amqp
+    profiles: [preprocess-audio]
+    command: [--enable-broker, --agent, preprocess_audio, --broker-config-file, /run/bootstrap/preprocess_audio-broker.json, --object-config-file, /run/bootstrap/objects.json]
+    volumes:
+      - type: bind
+        source: ${MIDEAGENT_BOOTSTRAP_DIR:?Set an absolute private bootstrap directory}/agent/preprocess_audio
         target: /run/bootstrap
         read_only: true
   generate-subtitle:

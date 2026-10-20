@@ -19,6 +19,10 @@ def extract_audio():
     return _run("extract_audio")
 
 
+def preprocess_audio():
+    return _run("preprocess_audio")
+
+
 def generate_subtitle():
     return _run("generate_subtitle")
 

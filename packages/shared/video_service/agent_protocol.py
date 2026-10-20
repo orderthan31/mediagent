@@ -7,7 +7,14 @@ request digest, exact role/port types and object key/hash equality.
 from copy import deepcopy
 
 CPU_AGENTS = frozenset(
-    {"analyze", "extract_audio", "generate_subtitle", "encode", "validate_video"}
+    {
+        "analyze",
+        "extract_audio",
+        "preprocess_audio",
+        "generate_subtitle",
+        "encode",
+        "validate_video",
+    }
 )
 PROTOCOL_VERSION = 1
 COMMAND = "agent.command.v1"

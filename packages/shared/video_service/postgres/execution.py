@@ -32,10 +32,125 @@ def public(row):
 
 
 class Execution(Intake):
-    def __init__(self, database, store, *, agent_executor=None, fleet=None):
+    def __init__(
+        self,
+        database,
+        store,
+        *,
+        agent_executor=None,
+        fleet=None,
+        engine_runtime_enabled=False,
+    ):
         super().__init__(database, store)
         self.agent_executor = agent_executor
         self.fleet = fleet
+        self.engine_runtime_enabled = bool(engine_runtime_enabled)
+
+    def catalog(self):
+        from ..renewal_contracts import catalog
+        from .engine_runtimes import EngineRuntimes
+
+        value = catalog()
+        value["local_engine_transport_enabled"] = self.engine_runtime_enabled
+        if not self.engine_runtime_enabled:
+            return value
+        with self.database.connection() as db:
+            for node in value["nodes"]:
+                if node["id"] not in {
+                    "transcribe",
+                    "translate",
+                    "preprocess_audio",
+                    "faceswap",
+                }:
+                    continue
+                try:
+                    row = EngineRuntimes.resolve_in(db, node["id"])
+                except ValueError:
+                    continue
+                node["engine_runtime"] = {
+                    key: row[key] for key in ["revision", "sha256", "descriptor"]
+                }
+                node["runtime_scope"] = "configuration_not_inference_readiness"
+                node["workflow_binding"] = node["id"] != "faceswap"
+                if node["id"] in {"transcribe", "translate"}:
+                    node["execution"] = "engine_amqp"
+        return value
+
+    @staticmethod
+    def _engine_role(node):
+        if node["type"] in {"transcribe", "translate", "faceswap"}:
+            return node["type"]
+        if (
+            node["type"] == "preprocess_audio"
+            and node.get("options", {}).get("vad_mode") == "nvidia"
+        ):
+            return "preprocess_audio"
+        return None
+
+    def _engine_bindings(self, db, definition):
+        from .engine_runtimes import EngineRuntimes
+
+        bindings = {}
+        if not self.engine_runtime_enabled:
+            return bindings
+        for node in definition["nodes"]:
+            role = self._engine_role(node)
+            if role:
+                try:
+                    row = EngineRuntimes.resolve_in(db, role)
+                except ValueError:
+                    continue
+                bindings[node["id"]] = {
+                    key: row[key] for key in ["revision", "sha256", "descriptor"]
+                }
+        return bindings
+
+    def _execution_reasons(self, db, definition, bindings, options, done_nodes=()):
+        from .engine_runtimes import EngineRuntimes
+
+        reasons = []
+        for node in definition["nodes"]:
+            if node["id"] in done_nodes:
+                continue
+            role = self._engine_role(node)
+            if node.get("model_ref"):
+                reasons.append("등록 모델의 실행 transport 미지원: " + node["id"])
+            elif role:
+                pin = bindings.get(node["id"])
+                if not self.engine_runtime_enabled or not pin:
+                    reasons.append("로컬 engine runtime 미설정: " + node["id"])
+                    continue
+                try:
+                    row = EngineRuntimes.resolve_in(db, role, sha256=pin["sha256"])
+                    if (
+                        row["descriptor"] != pin["descriptor"]
+                        or row["revision"] != pin["revision"]
+                    ):
+                        raise ValueError("runtime_revision_changed")
+                except (ValueError, KeyError):
+                    reasons.append("engine runtime pin/가용성 변경: " + node["id"])
+                    continue
+                descriptor = pin["descriptor"]
+                if (
+                    options is not None
+                    and descriptor["source_language"] is not None
+                    and options.get("source_language") != descriptor["source_language"]
+                ):
+                    reasons.append("설치 engine의 원문 언어 미지원: " + node["id"])
+                if (
+                    options is not None
+                    and descriptor["target_language"] is not None
+                    and options.get("target_language") != descriptor["target_language"]
+                ):
+                    reasons.append("설치 engine의 대상 언어 미지원: " + node["id"])
+            elif node["type"] not in CPU_AGENTS | CONTROL:
+                reasons.append("미지원 모델/제어 실행 경로: " + node["id"])
+            elif (
+                node["type"] == "preprocess_audio"
+                and node.get("options", {}).get("audio_filter", "off") != "off"
+            ):
+                reasons.append("CPU 전처리는 필터 off만 지원: " + node["id"])
+        return reasons
 
     def _job(self, db, owner, identity, *, lock=False):
         row = db.execute(
@@ -86,21 +201,12 @@ class Execution(Intake):
     def inspect(self, owner, identity, revision):
         definition = self.job_definition(owner, identity, revision)
         reasons = []
-        for node in definition["nodes"]:
-            if node["type"] not in CPU_AGENTS | CONTROL:
-                reasons.append(
-                    {
-                        "node_id": node["id"],
-                        "message": "이 노드는 아직 승인된 CPU 실행 경로가 없습니다. GPU/모델·Loop/Fallback 정책 연결이 필요합니다.",
-                    }
-                )
-            if node.get("model_ref"):
-                reasons.append(
-                    {
-                        "node_id": node["id"],
-                        "message": "실모델 호출은 이 실행기에서 비활성입니다.",
-                    }
-                )
+        with self.database.connection() as db:
+            bindings = self._engine_bindings(db, definition)
+            reasons += [
+                {"node_id": None, "message": message}
+                for message in self._execution_reasons(db, definition, bindings, None)
+            ]
         if definition["inputs"] != {"video": "video"}:
             reasons.append(
                 {
@@ -113,7 +219,12 @@ class Execution(Intake):
                 reasons += [
                     {"node_id": None, "message": message}
                     for message in self.fleet.reasons(
-                        db, [n["type"] for n in definition["nodes"]]
+                        db,
+                        [
+                            n["type"]
+                            for n in definition["nodes"]
+                            if not self._engine_role(n)
+                        ],
                     )
                 ]
         return {
@@ -125,7 +236,7 @@ class Execution(Intake):
                 for n in definition["nodes"]
             ],
             "reasons": reasons,
-            "notice": "CPU 독립 프로세스만 지원하며 실제 모델 호출은 비활성입니다.",
+            "notice": "포트 계약과 등록된 로컬 runtime 조회입니다. 실제 입력·소유권·언어·엔진 실행 검증은 별도입니다.",
         }
 
     def create(
@@ -175,6 +286,7 @@ class Execution(Intake):
                 db, owner, definition_id, definition_revision
             )
             bindings = self._bindings(db, workflow_owner, definition, active=False)
+            engine_bindings = self._engine_bindings(db, definition)
             parent = self._job(db, owner, parent_id) if parent_id else None
             if parent and parent["status"] not in ("failed", "cancelled"):
                 raise Conflict(
@@ -187,6 +299,7 @@ class Execution(Intake):
                 "definition": definition,
                 "options": options,
                 "model_bindings": bindings,
+                "engine_bindings": engine_bindings,
                 "recovery": {
                     "parent_id": parent_id,
                     "snapshot_sha256": parent["snapshot_sha256"],
@@ -245,16 +358,24 @@ class Execution(Intake):
             reasons.append("복구 receipt 검증이 끝나지 않았습니다.")
         if definition["inputs"] != {"video": "video"}:
             reasons.append("추가 외부 입력 binding이 필요합니다.")
-        for node in definition["nodes"]:
-            if node["type"] not in CPU_AGENTS | CONTROL or node.get("model_ref"):
-                reasons.append("미지원 모델/제어 실행 경로: " + node["id"])
+        reasons += self._execution_reasons(
+            db,
+            definition,
+            job["snapshot"].get("engine_bindings", {}),
+            job["snapshot"]["options"],
+            {r["node_id"] for r in runs if r["status"] in {"completed", "skipped"}},
+        )
         if self.fleet is not None:
             done_nodes = {
                 r["node_id"] for r in runs if r["status"] in ("completed", "skipped")
             }
             reasons += self.fleet.reasons(
                 db,
-                [n["type"] for n in definition["nodes"] if n["id"] not in done_nodes],
+                [
+                    n["type"]
+                    for n in definition["nodes"]
+                    if n["id"] not in done_nodes and not self._engine_role(n)
+                ],
             )
         if job["status"] not in ("draft", "review_required") or job["cancel_requested"]:
             reasons.append("현재 상태에서 새 실행 승인을 만들 수 없습니다.")
@@ -284,7 +405,7 @@ class Execution(Intake):
             "reasons": plan["reasons"],
             "paid_roles": [],
             "cost": plan["cost"],
-            "notice": "외부 호출 없는 CPU 실행입니다. 동의 저장과 실행 요청은 별개입니다.",
+            "notice": "외부 유료 호출 없는 로컬 실행입니다. 동의 저장과 실행 요청은 별개입니다.",
             "snapshot_sha256": job["snapshot_sha256"],
             "generation": job["generation"],
         }
@@ -396,13 +517,40 @@ class Execution(Intake):
             "inputs": inputs,
             "options": node["options"],
         }
+        if self._engine_role(node) and status == "running":
+            from ..engine_protocol import make_command
+
+            if not self.engine_runtime_enabled:
+                raise Conflict("engine transport가 비활성 상태입니다.")
+            pin = job["snapshot"]["engine_bindings"][node["id"]]
+            from .engine_runtimes import EngineRuntimes
+
+            try:
+                current = EngineRuntimes.resolve_in(
+                    db, node["type"], sha256=pin["sha256"]
+                )
+                if current["revision"] != pin["revision"]:
+                    raise ValueError("engine_revision_changed")
+            except ValueError:
+                raise Conflict("engine runtime pin/가용성이 변경됐습니다.") from None
+            descriptor = pin["descriptor"]
+            command = make_command(
+                node["type"],
+                run_id=job["id"],
+                attempt_id=identity,
+                generation=job["generation"],
+                inputs=inputs,
+                options=node["options"],
+                runtime=descriptor,
+            )
         row = db.execute(
-            "INSERT INTO node_runs(owner_id,job_id,id,node_id,agent_revision,attempt,generation,status,input_sha256,settings_sha256,inputs,options,node_type,request,request_sha256,claim_id,lease_owner,lease_expires_at,started_at) VALUES (%s,%s,%s,%s,'1',1,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,now()+interval '120 seconds',now()) RETURNING *",
+            "INSERT INTO node_runs(owner_id,job_id,id,node_id,agent_revision,attempt,generation,status,input_sha256,settings_sha256,inputs,options,node_type,request,request_sha256,claim_id,lease_owner,lease_expires_at,started_at) VALUES (%s,%s,%s,%s,%s,1,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,now()+interval '120 seconds',now()) RETURNING *",
             (
                 job["owner_id"],
                 job["id"],
                 identity,
                 node["id"],
+                command["agent"]["revision"],
                 job["generation"],
                 status,
                 digest(inputs),
@@ -525,7 +673,11 @@ class Execution(Intake):
                 for ref in inputs.values():
                     self.store.path(owner, ref)
                 instance = None
-                if self.fleet is not None and node["type"] in CPU_AGENTS:
+                if (
+                    self.fleet is not None
+                    and node["type"] in CPU_AGENTS
+                    and not self._engine_role(node)
+                ):
                     instance = self.fleet.reserve(db, node["type"])
                     if instance is None:
                         continue
@@ -612,10 +764,17 @@ class Execution(Intake):
                         )
                         indexed[node["id"]] = {**row, "status": "failed"}
                     continue
-                if node["type"] not in CPU_AGENTS or node.get("model_ref"):
+                if (
+                    node["type"] not in CPU_AGENTS and not self._engine_role(node)
+                ) or node.get("model_ref"):
                     raise Conflict("비활성 실행 경로")
+                message_type = (
+                    "agent.engine.command.v2"
+                    if command["protocol_version"] == 2
+                    else "agent.command.v1"
+                )
                 self._write_outbox(
-                    db, owner, identity, "agent.command.v1", command, row["id"]
+                    db, owner, identity, message_type, command, row["id"]
                 )
                 db.execute(
                     "UPDATE jobs SET status='running',revision=revision+1,updated_at=now() WHERE owner_id=%s AND id=%s",
@@ -714,7 +873,12 @@ class Execution(Intake):
         if self.agent_executor is not None:
             try:
                 result = self.agent_executor(owner, command)
-                if result.get("transport") != "s3_subprocess":
+                expected_transport = (
+                    "s3_engine"
+                    if command.get("protocol_version") == 2
+                    else "s3_subprocess"
+                )
+                if result.get("transport") != expected_transport:
                     raise ValueError("Unexpected object agent transport")
             except (ValueError, OSError, subprocess.TimeoutExpired):
                 result = {
@@ -809,11 +973,17 @@ class Execution(Intake):
         return result
 
     def _import_outputs(self, owner, command, result):
+        if command.get("protocol_version") == 2:
+            from ..engine_protocol import envelope
+
+            envelope(owner, command, result)
+        elif result.get("transport") == "s3_engine":
+            raise ValueError("Engine result cannot satisfy a CPU command")
         expected = spec(command["agent"]["id"], command["options"])["outputs"]
         values = result.get("outputs")
         if not isinstance(values, dict) or set(values) != set(expected):
             raise ValueError("Agent output ports differ")
-        if result.get("transport") == "s3_subprocess":
+        if result.get("transport") in {"s3_subprocess", "s3_engine"}:
             if getattr(self.store, "storage_kind", None) != "s3":
                 raise ValueError("Object results require an explicit object store")
             for port, reference in values.items():

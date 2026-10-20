@@ -1,0 +1,80 @@
+# Explicit fixed local engines. Build cpu-local-models / gpu-amqp first.
+# No provider/API key, PG DSN or whole-bootstrap mount enters an engine role.
+x-engine: &engine
+  init: true
+  user: "10001:10001"
+  restart: "no"
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  pids_limit: 256
+  stop_grace_period: 300s
+  networks: [agent-transport]
+  environment:
+    HOME: /tmp
+    HF_HUB_OFFLINE: "1"
+    PYTHONDONTWRITEBYTECODE: "1"
+  tmpfs: ["/tmp:size=2g,uid=10001,gid=10001,mode=0700"]
+  cpus: 2
+  mem_limit: 3g
+services:
+  model-transcribe:
+    <<: *engine
+    profiles: [local-engines]
+    image: mideagent-local-models:local
+    command: [--enable-broker, --agent, transcribe, --broker-config-file, /run/bootstrap/engine-broker.json, --object-config-file, /run/bootstrap/objects.json, --runtime-config-file, /run/bootstrap/runtime.json]
+    volumes:
+      - type: bind
+        source: ${MIDEAGENT_BOOTSTRAP_DIR:?Set an absolute private bootstrap directory}/agent/engine/transcribe
+        target: /run/bootstrap
+        read_only: true
+      - type: bind
+        source: ${MIDEAGENT_ASR_MODEL_DIR:?Set the verified local ASR model directory}
+        target: /models
+        read_only: true
+  model-translate:
+    <<: *engine
+    profiles: [local-engines]
+    image: mideagent-local-models:local
+    command: [--enable-broker, --agent, translate, --broker-config-file, /run/bootstrap/engine-broker.json, --object-config-file, /run/bootstrap/objects.json, --runtime-config-file, /run/bootstrap/runtime.json]
+    volumes:
+      - type: bind
+        source: ${MIDEAGENT_BOOTSTRAP_DIR:?Set an absolute private bootstrap directory}/agent/engine/translate
+        target: /run/bootstrap
+        read_only: true
+      - type: bind
+        source: ${MIDEAGENT_TRANSLATION_MODEL_DIR:?Set the verified local translation model directory}
+        target: /models
+        read_only: true
+  gpu-preprocess:
+    <<: *engine
+    profiles: [gpu-engines]
+    image: mideagent-gpu-amqp:local
+    gpus: all
+    mem_limit: 4g
+    command: [--enable-broker, --agent, preprocess_audio, --broker-config-file, /run/bootstrap/engine-broker.json, --object-config-file, /run/bootstrap/objects.json, --runtime-config-file, /run/bootstrap/runtime.json]
+    volumes:
+      - type: bind
+        source: ${MIDEAGENT_BOOTSTRAP_DIR:?Set an absolute private bootstrap directory}/agent/engine/preprocess_audio
+        target: /run/bootstrap
+        read_only: true
+  gpu-faceswap:
+    <<: *engine
+    profiles: [gpu-engines]
+    image: mideagent-gpu-amqp:local
+    gpus: all
+    mem_limit: 4g
+    command: [--enable-broker, --agent, faceswap, --broker-config-file, /run/bootstrap/engine-broker.json, --object-config-file, /run/bootstrap/objects.json, --runtime-config-file, /run/bootstrap/runtime.json]
+    volumes:
+      - type: bind
+        source: ${MIDEAGENT_BOOTSTRAP_DIR:?Set an absolute private bootstrap directory}/agent/engine/faceswap
+        target: /run/bootstrap
+        read_only: true
+      - type: bind
+        source: ${MIDEAGENT_FACEFUSION_MODELS_DIR:?Set the verified existing FaceFusion model directory}
+        target: /opt/facefusion/.assets/models
+        read_only: true
+networks:
+  agent-transport:
+    external: true
+    name: ${MIDEAGENT_AGENT_NETWORK:?Set an existing isolated transport network}

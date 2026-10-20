@@ -7,10 +7,13 @@ dependencies = ["video-service-shared"]
 [project.optional-dependencies]
 objects = ["video-service-shared[objects]"]
 amqp = ["video-service-shared[objects,amqp]"]
+local-models = ["video-service-shared[objects,amqp]", "faster-whisper==1.2.1", "ctranslate2==4.6.0", "sentencepiece==0.2.1", "PyYAML==6.0.2"]
 
 [project.scripts]
 mideagent-analyze = "mideagent_cpu.cli:analyze"
 mideagent-extract-audio = "mideagent_cpu.cli:extract_audio"
+mideagent-local-models = "mideagent_cpu.models:main"
+mideagent-preprocess-audio = "mideagent_cpu.cli:preprocess_audio"
 mideagent-generate-subtitle = "mideagent_cpu.cli:generate_subtitle"
 mideagent-encode = "mideagent_cpu.cli:encode"
 mideagent-validate-video = "mideagent_cpu.cli:validate_video"

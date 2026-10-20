@@ -6,7 +6,26 @@
 
 ## 현재 상태
 
-CPU/저장소/WebM에 이어 renewal 관리자 권한과 명시 로컬 CPU 인스턴스 운영을 구현·격리 검증했다. 컨테이너·GPU·외부 실행 관리자는 연결하지 않았다. 운영 잔여를 아래에서 관리한다.
+2026-10-20/21 사용자가 Windows 목적지의 renewal 배포·SQLite 이관·새 consumer·로컬 GPU/모델과 합성 영상 검증을 승인했다. 아래 기존 격리 수용과 목적지 실제 실행을 구분한다. 기존 Worker·기존 큐 소비, 외부 유료 provider, 공개 ingress·registry publish·VPS 분할은 승인 범위가 아니다.
+
+### Windows 목적지 실행 체크포인트 — 전체 완료 아님
+
+- [x] 원본 1,587파일의 SHA snapshot, SQLite 3개 무결성, private 설정/키·정의·기존 ref/WIP/stash 보존.
+- [x] `legacy/unassigned` 관리자 전용 immutable archive importer와 009 migration. 작업42(완료31/실패11, 내부25/사용자17), 인덱스42/14의 독립 namespace, 자산17·정의1·비활성 설정1을 분리한다. dry-run117 → 실제117 → 재실행 추가0을 대조했다. 개인 계정/새 실행 receipt/승인을 합성하지 않았다.
+- [x] PG dump를 실제 별도 임시 DB에 restore하고 종류·상태·내부 구분·native jobs0·physical runtime4를 대조했다. 임시 DB만 정리하고 원본 SQLite/미디어·실제 DB/volume은 보존했다.
+- [x] 기존 사설 443→loopback5177 경로에 API/web를 교체하고 PG/TLS RabbitMQ/S3를 기동했다. API/CPU/model/GPU는 UID10001·read-only root·역할별 bootstrap mount를 사용한다. 기존 secret bytes는 유지하고 controller 권한/참조 JSON과 새 역할만 추가했다.
+- [x] CPU 정규화(`audio_filter=off`, `vad_mode=off`)와 별도 model/GPU v2 MQ를 구현했다. CPU v1에 GPU/model 역할을 끼워 넣지 않았다.
+- [x] 실제 Whisper tiny.en CPU int8 전사, OPUS-MT en→de CPU int8 번역, NVIDIA Marblenet CUDA VAD, FaceFusion CUDA swapper/NVENC self-swap과 S3 receipt 재전달을 검증했다. 모델·GPU별 새 attempt의 실제 TLS MQ command/result/confirm/ACK도 별도 수용했다.
+- [x] 합성 음성 영상의 분석→추출→전처리→전사→번역→자막→번인→검증을 실제 S3/TLS MQ/격리 PG에서 완료했다. 내려받은 12.6초 영상의 SHA/ffprobe와 실제 브라우저 끝까지 재생(315 frames, decoder error 없음)을 확인했다. 이 작업은 **disposable schema 검증**이지 제품 계정의 완료 작업이 아니다.
+- [x] 별도 CPU 6개·model 2개·GPU 2개 consumer와 결과 소비자2개가 목적지의 독립 큐에 각1개 연결됐음을 확인했다. 실제 입력/출력 수용과 단순 connection 수를 구분한다.
+- [ ] **실제 최초 관리자 설정/검증 브라우저 로그인 → 제품 원본 등록/저장/실행 → 제품 job/다운로드/플레이어 수용**. 계정이 없어 로그인 우회나 공유/가짜 계정을 만들지 않았다.
+- [ ] legacy 자산의 실제 소유권 배정과 활성 workflow 전환. archive를 owner-scoped 자산/실행 작업으로 변환했다고 하지 않는다.
+- [ ] 기존 Fernet credential은 비활성 원문/키 보존 상태다. AES-GCM 필드로 암호문 복사나 무료/환경변수 key 대체를 하지 않았다. 재등록/승인된 메모리 내 재암호화는 별도다.
+- [ ] FaceFusion의 제품 세션/미리보기 binding·승인 API. 별도 합법적 self-swap RPC fixture 성공을 제품 faceswap workflow 완료로 확대하지 않는다.
+- [ ] `decision`, Loop/Fallback은 renewal 실제 실행 미연결. controller-owned select/join/review/if/switch와 독립 consumer를 혼동하지 않는다.
+- [ ] 한국어·다른 언어/모델, 일반 얼굴교체 품질, 긴/대용량 작업·lease 갱신·HA·웹의 remote-container 제어는 미수용이다. 현재 전사는 영어, 번역은 영어→독일어 고정 profile이며 전처리 필터는 off만 지원한다.
+
+기존 작성자의 92/44 등 수용 수치와 이 목적지 회귀/실모델/GPU 수치를 합산하지 않는다. 목적지 실행 자료·실제 image ID·snapshot/dump SHA는 비공개 운영 인계에 보존하며 public 저장소에 키/DB/미디어/개인 운영주소를 넣지 않는다.
 
 RabbitMQ opt-in client·CPU 수신기·결과 제어기와 명시 API dispatch, 공통 media-base stage를 추가했다. SDK/채널 대역 검증에 더해 고유 internal network·tmpfs의 실제 TLS RabbitMQ 4.2.9/MinIO와 독립 CPU 두 process·결과 소비 process·격리 PG를 연결해 합성 영상 완료, confirm/ACK·중복 receipt·DLQ·결과 SHA를 수용했다. 운영 broker/사용자 데이터와 분리한 검증이며 운영 설치 완료는 아니다.
 
@@ -35,7 +54,7 @@ RabbitMQ opt-in client·CPU 수신기·결과 제어기와 명시 API dispatch, 
 - [x] 같은 종류의 두 실제 CPU 프로세스에 복수 작업을 분산한다. 인스턴스당 동시 처리 1개, revision 충돌·다른 controller 중복 기동 차단과 설정 변경 이력을 검증한다.
 - [x] 비활성화·축소 시 신규 배정을 막고 예약된 작업의 완료 후 drain/종료한다. 선택 얼굴교체 미사용·CPU 기동/축소/종료와 일반 사용자 전체 작업 동선을 격리 검증한다.
 - [ ] web 제어기와 실제 Compose/외부 orchestrator의 인증된 제한 adapter를 연결하고 컨테이너별 배포·기동·자원 한도를 검증한다. 현 로컬 subprocess를 컨테이너 scale이나 다중 호스트로 취급하지 않으며 API에 Docker socket을 제공하지 않는다.
-- [ ] 얼굴교체 등 비-CPU 실행환경의 실제 설치/health/활성화·축소 adapter를 연결한다. 현재는 미연결 상태를 정확히 보여주는 범위이며 실제 GPU/provider 호출은 별도 승인 대상이다.
+- [ ] 얼굴교체 등 비-CPU 실행환경의 웹 운영/축소 adapter를 연결한다. 목적지의 수동 Compose 기동·실 GPU 역할 수용과 웹의 observed state/scale 제어를 구분한다.
 
 ### 독립 RabbitMQ 전달과 공통 의존성
 
@@ -54,7 +73,7 @@ RabbitMQ opt-in client·CPU 수신기·결과 제어기와 명시 API dispatch, 
 - [x] MQ request/result JSON Schema·정확한 역할/포트·옵션·digest·세대·CAS 참조 검사를 정본화한다. 예상 외 응답 필드·credential·raw 진단은 거부한다.
 - [x] Compose의 LLM/provider/model 환경변수 주입과 구형 설정 API를 제거한다. root API는 명시 private bootstrap 파일만 읽으며 startup migration/worker는 없다.
 - [x] 관리자 모델/connection revision CRUD와 DB encrypted credential 저장·교체·폐기·CAS·복호화 resolver를 연결한다. pinned DB endpoint/model/key가 injected text adapter의 요청에 반영되고 상충/삭제된 환경값으로 fallback하지 않음을 실제 격리 PG에서 검증한다.
-- [ ] 실제 모델 agent/능력별 runtime 및 address-pinned egress transport를 연결·승인한다. 기본 model network는 disabled이며 injected wire 성공을 provider/STT/TTS/GPU 실행 완료로 보고하지 않는다.
+- [ ] 일반 등록 모델의 owner-scoped provider/STT/TTS·address-pinned egress transport를 연결·승인한다. 목적지의 고정 offline STT/en→de/GPU engine v2는 별도 구현했으며, 이를 일반 model_ref transport나 외부 provider 수용으로 확대하지 않는다.
 - [x] 레포 내 opt-in RabbitMQ/PG/S3 구성, private bootstrap 생성기, 수동 migration/bucket/topology, API/results/CPU 선택 기동과 복구 절차를 제공하고 실제 격리 broker를 수용한다. exact renewal·목적지 운영 경계·GPU 미구현/미검증 범위의 인계 준비를 완료한다. 실제 전달/수신/목적지 실행은 Discord 증적으로 별도 구분한다.
 
 ### 인프라 잔여 — GPU 작업으로 분류하지 않음
@@ -67,10 +86,11 @@ RabbitMQ opt-in client·CPU 수신기·결과 제어기와 명시 API dispatch, 
 - [x] API의 legacy import와 단일 파이프라인·legacy Docker target/overlays를 제거한다. 사용자 원본·자막·DB·키·백업은 삭제하지 않는다.
 - [ ] 전체 web lint/format 부채를 별도 정비한다. 삭제된 legacy 구현 전용 suite는 함께 폐기했으며 기존 실패를 수정했다고 보고하지 않는다. renewal·독립 CPU·보존 pure 회귀는 유지한다.
 
-### 별도 실행 승인 필요
+### 승인·수용 경계
 
-- [ ] 실제 GPU/모델/provider와 자격증명 resolver·비용·성능 검증.
-- [ ] 운영 DB migration·사용자 데이터 이관·운영 배포와 실기기 수용 검증.
+- [x] 이 Windows 목적지의 배포·archive migration·새 consumer·로컬 GPU/모델·합성 미디어 검증 승인과 실제 실행. 위 체크포인트의 미수용 항목은 남긴다.
+- [ ] 외부 유료 provider·실소유자 credential 재활성·미승인 원본 처리·다른 목적지/공개 배포는 별도 승인 필요.
+- [ ] 실사용자 최초 관리자·제품 계정 E2E와 legacy 자산 소유권은 위 잔여대로 별도 수용한다.
 
 ## 미확정 사항
 

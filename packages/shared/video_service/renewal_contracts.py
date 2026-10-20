@@ -105,7 +105,12 @@ def catalog():
 
 def spec(kind, options):
     if kind not in CONTROL_TYPES:
-        return node_spec(kind, options)
+        selected = node_spec(kind, options)
+        if selected is not None and kind == "encode":
+            selected["optional_inputs"] = []
+            if options.get("subtitle_mode", "burn") == "none":
+                selected["inputs"].pop("subtitles", None)
+        return selected
     base = next(deepcopy(n) for n in catalog()["nodes"] if n["id"] == kind)
     data_type = options.get("data_type", "video")
     base["inputs"] = {k: data_type for k in base["inputs"]}
@@ -281,7 +286,7 @@ def validate(payload):
             key = (b["node"], b["port"])
             if key in incoming or source[a["port"]] != target[b["port"]]:
                 raise ValueError()
-            incoming[key] = True
+            incoming[key] = a["node"]
             # Only the explicit Loop.next back-edge may form a graph cycle.
             if a["node"] != "$input" and not (
                 indexed[b["node"]]["type"] == "control_loop" and b["port"] == "next"
@@ -296,6 +301,11 @@ def validate(payload):
         for p in set(selected["inputs"]) - set(selected["optional_inputs"]):
             if (identity, p) not in incoming:
                 fail("필수 입력 연결 없음: " + p, identity)
+        if selected["id"] == "transcribe":
+            audio_source = incoming.get((identity, "audio"))
+            clock_source = incoming.get((identity, "timeline"))
+            if audio_source and clock_source and audio_source != clock_source:
+                fail("전사 오디오와 타임라인은 같은 생산자여야 합니다.", identity)
     visited, active = set(), set()
 
     def visit(identity):

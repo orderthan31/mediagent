@@ -91,6 +91,7 @@
                 "encode",
                 "extract_audio",
                 "generate_subtitle",
+                "preprocess_audio",
                 "validate_video"
               ]
             },
@@ -344,6 +345,60 @@
             "agent": {
               "properties": {
                 "id": {
+                  "const": "preprocess_audio"
+                }
+              }
+            },
+            "inputs": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "audio": {
+                  "allOf": [
+                    {
+                      "$ref": "#/$defs/artifact"
+                    },
+                    {
+                      "properties": {
+                        "type": {
+                          "const": "audio"
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "audio"
+              ]
+            },
+            "options": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "audio_filter": {
+                  "enum": [
+                    "off",
+                    "conservative",
+                    "strong",
+                    "silence3"
+                  ]
+                },
+                "vad_mode": {
+                  "enum": [
+                    "off",
+                    "nvidia"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "agent": {
+              "properties": {
+                "id": {
                   "const": "validate_video"
                 }
               }
@@ -425,6 +480,7 @@
                 "encode",
                 "extract_audio",
                 "generate_subtitle",
+                "preprocess_audio",
                 "validate_video"
               ]
             },
