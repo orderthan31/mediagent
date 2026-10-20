@@ -29,9 +29,9 @@ target "cpu-amqp" {
   target = "amqp"
   tags = ["mideagent-cpu-amqp:local"]
 }
-target "legacy-media" {
+target "gpu" {
   context = "."
-  dockerfile = "agents/media/Dockerfile"
+  dockerfile = "agents/gpu/Dockerfile"
   contexts = { media_base = "target:media-base" }
-  tags = ["mideagent-legacy-media:local"]
+  tags = ["mideagent-gpu:local"]
 }

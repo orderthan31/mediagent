@@ -1,12 +1,15 @@
-"""Typed contracts for existing Agent stages, not a second DAG executor."""
+"""Renewal port/options catalog; availability is explicit and not an executor."""
 from copy import deepcopy
+
+from .agent_protocol import CPU_AGENTS
 
 
 def node(identity, label, inputs, outputs, role='media', optional=(), choices=None, embedded=()):
     return {'id': identity, 'label': label, 'inputs': inputs, 'outputs': outputs,
             'optional_inputs': list(optional), 'worker_role': role, 'options': choices or {},
-            'embedded_operations': list(embedded), 'execution': 'existing_fixed_workflow',
-            'entrypoint': 'media_agent.faceswap.runner:execute' if identity == 'faceswap' else 'media_agent.agent:Agent.process'}
+            'embedded_operations': list(embedded),
+            'execution': 'cpu_subprocess' if identity in CPU_AGENTS else 'unavailable',
+            'entrypoint': 'mideagent-' + identity.replace('_', '-') if identity in CPU_AGENTS else ''}
 
 
 NODES = [
@@ -31,18 +34,18 @@ from .decision_conditions import OPTIONS as DECISION_OPTIONS
 VALUE_TYPES = ['video', 'audio', 'transcript', 'subtitle', 'timeline_map', 'media_metadata', 'validation_report', 'artifact_manifest', 'decision_result']
 NODES.extend([
     {**node('decision', 'AI 판단 · 조건 경로', {'value': 'video'}, {'a': 'video', 'b': 'video', 'result': 'decision_result'}, role='control', choices={'data_type': VALUE_TYPES, **DECISION_OPTIONS}),
-     'execution': 'explicit_decision_ticket', 'entrypoint': 'video_service.decision_tickets:DecisionTicketStore.run',
+     'execution': 'explicit_decision_ticket', 'entrypoint': 'controller-owned',
      'port_types_from_options': {'inputs': {'value': 'data_type'}, 'outputs': {'a': 'data_type', 'b': 'data_type'}}},
     {**node('review', '사람 검수', {'value': 'video'}, {'value': 'video'}, role='control', choices={'data_type': VALUE_TYPES}),
-     'execution': 'explicit_review_ticket', 'entrypoint': 'video_service.review_tickets:ReviewTicketStore.run',
+     'execution': 'explicit_review_ticket', 'entrypoint': 'controller-owned',
      'port_types_from_options': {'inputs': {'value': 'data_type'}, 'outputs': {'value': 'data_type'}}},
     {**node('select', '수동 선택 분기', {'value': 'video'}, {'a': 'video', 'b': 'video'}, role='control',
             choices={'data_type': VALUE_TYPES, 'selection': ['a', 'b', 'both']}),
-     'execution': 'explicit_graph_ticket', 'entrypoint': 'video_service.graph_tickets:GraphTicketStore.run',
+     'execution': 'explicit_graph_ticket', 'entrypoint': 'controller-owned',
      'port_types_from_options': {'inputs': {'value': 'data_type'}, 'outputs': {'a': 'data_type', 'b': 'data_type'}}},
     {**node('join', '선택 결과 합류 목록', {'left': 'video', 'right': 'video'}, {'manifest': 'artifact_manifest'}, role='control',
             choices={'left_type': VALUE_TYPES, 'right_type': VALUE_TYPES}),
-     'execution': 'explicit_graph_ticket', 'entrypoint': 'video_service.graph_tickets:GraphTicketStore.run',
+     'execution': 'explicit_graph_ticket', 'entrypoint': 'controller-owned',
      'port_types_from_options': {'inputs': {'left': 'left_type', 'right': 'right_type'}}},
 ])
 
@@ -63,10 +66,10 @@ def node_spec(identity, options=None):
 
 def node_catalog():
     return {'version': 1, 'nodes': deepcopy(NODES), 'standalone_execution': False,
-            'scope': '고정 workflow 처리 단계와 명시 수동 분기/결과 목록 합류 계약입니다. 실행 가능 범위는 순차/병렬 티켓의 서버 검사로 구분하며 운영 실행기 연결과 모델 성공은 별도입니다.',
+            'scope': 'renewal 입출력·옵션 계약입니다. CPU 독립 프로세스와 controller 제어를 구분하며 GPU·모델 미연결 노드는 실행 불가입니다.',
             'notes': ['번인은 encode의 subtitle_mode=burn이며 독립 실행 단계가 아닙니다.',
                       '전처리의 NVIDIA VAD·얼굴 합성은 해당 엔진과 모델 환경이 별도로 필요합니다.',
-                      '서빙 역할은 단일 media_agent의 논리 역할이며 분산 Agent 등록부가 아닙니다.']}
+                      'MQ CPU 역할은 독립 소비자입니다. GPU 엔진 소스 보존은 MQ 연결이나 GPU 검증 완료를 뜻하지 않습니다.']}
 
 
 def validate_node(payload):
@@ -77,7 +80,7 @@ def validate_node(payload):
         raise ValueError('현재 실행 경로가 없는 노드입니다.')
     inputs, options = payload.get('inputs'), payload.get('options', {})
     if not isinstance(inputs, dict) or not isinstance(options, dict):
-        raise ValueError('입력 포트와 옵션은 객체여야 합니다.')
+        raise ValueError('입력 포트와 옵션은 객체여야 합니다.')  # noqa: TRY004 -- public validation contract
     if set(inputs) - set(selected['inputs']):
         raise ValueError('지원하지 않는 입력 포트입니다.')
     required = set(selected['inputs']) - set(selected['optional_inputs'])

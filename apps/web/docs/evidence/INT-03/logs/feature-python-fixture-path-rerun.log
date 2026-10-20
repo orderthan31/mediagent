@@ -1,3 +1,0 @@
-docker: Error response from daemon: failed to create task for container: failed to create shim task: OCI runtime create failed: runc create failed: unable to start container process: error during container init: error mounting "tmpfs" to rootfs at "/src/data": create mountpoint for /src/data mount: make mountpoint "/src/data": mkdirat /var/lib/docker/rootfs/overlayfs/21aececd9f304e3c9a6fff6bbe510b3b02272cb00d258d7e96414fad639277a7/src/data: read-only file system
-
-Run 'docker run --help' for more information

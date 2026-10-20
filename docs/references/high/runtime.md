@@ -39,7 +39,7 @@
 - 비활성화·축소는 신규 배정을 막고 이미 예약한 명령을 마친 뒤 종료한다. 자동 작업 검색/소비/재실행은 없다. 자리가 없으면 명시 작업은 대기 상태를 유지하며 후속 명시 호출 또는 향후 scheduler가 필요하다.
 - 독립 instance는 private stdin/stdout의 제한 JSON 명령과 owner/CAS 참조만 받는다. DB·웹 세션·provider 키·workflow traversal을 받지 않는다. CPU 결과의 요청 digest와 attempt/generation을 검증한다.
 - 연결되지 않은 얼굴교체/모델 실행환경은 미연결로 표시하고 활성화 요청을 거부한다. 실제 얼굴교체 on/off가 구현됐다는 뜻이 아니다. 컨테이너 adapter·health·자원 정책은 별도 잔여다.
-- 기본 API는 agent package/Torch/FaceFusion을 설치하지 않는다. `legacy-api`는 기존 paused Compose의 기본 API 호환 target이다. API의 직접 upload/preview FFmpeg는 여전히 남는다. CPU 이미지와 선택 legacy media 이미지 및 CPU Compose profiles는 분리했지만 이미지 빌드·실행은 하지 않았으며 기존 GPU/VAD/얼굴교체 overlay의 API 내 엔진 동작도 호환 수용하지 않았다.
+- 기본 API는 agent package/Torch/FaceFusion을 설치하지 않는다. 구형 API 호환 target과 GPU/VAD overlays는 제거했다. API 직접 upload/preview FFmpeg는 남으며 CPU/GPU 선택 이미지는 분리한다. 이미지 빌드·GPU engine 설치·컨테이너 수용은 미실행이다.
 
 ### 선택 RabbitMQ 전송과 공통 이미지
 
@@ -50,14 +50,14 @@
 - CPU 수신기는 자신의 역할/owner/artifact/설정만 해석하며 별도 private cache의 S3 CLI로 처리한다. 결과 receipt의 확인 발행 뒤 명령 ACK, 결과 제어기의 DB commit·후속 dispatch 뒤 결과 ACK 순서를 유지한다. receipt/inbox가 완료 중복을 재사용하고 결과 불명/poison은 자동 실행하지 않는다.
 - Pika I/O는 소유 thread에서만 수행하고 CPU/DB 처리는 작업 thread로 분리해 heartbeat를 계속 처리한다. prefetch는 1이다. SIGTERM은 신규 수신을 취소하고 진행 중 작업·결과 확인/ACK를 마친다. 연결 실패 시 자동 reconnect·작업 retry는 하지 않는다.
 - 현재 명령 TTL은 60초, 기존 node lease는 120초다. 결과 큐에는 TTL을 두지 않는다. 긴 큐 대기·장시간 작업의 lease 갱신, cancel의 원격 실행 중단, DLQ 보관/재처리·재연결·HA와 원격 fleet 제어는 별도 잔여다. 취소/이전 generation/lease 만료 결과의 DB 격리는 유지한다.
-- root Dockerfile의 `media-base`가 FFmpeg/FFprobe·폰트를 한 번 선언한다. `agents/cpu`와 `agents/media`는 named build context로 상속하고 API는 같은 파일의 stage를 상속한다. `docker-bake.hcl`이 build graph를 묶는다. Compose의 base helper는 장기 실행 서비스를 제공하지 않으며 역할별 profile은 독립 실행 단위다.
+- root Dockerfile의 `media-base`가 FFmpeg/FFprobe·폰트를 한 번 선언한다. `agents/cpu`와 `agents/gpu`는 named build context로 상속하고 API는 같은 파일의 stage를 상속한다. `docker-bake.hcl`이 build graph를 묶는다. Compose의 base helper는 장기 실행 서비스를 제공하지 않으며 역할별 profile은 독립 실행 단위다.
 - `agents/cpu/compose.amqp.yaml`은 선택 network transport 레시피다. 명시 private env file·기존 external network·개별 tmpfs cache만 사용하고 공유 원본 bind mount·고정 container_name·Docker socket·broker service·자동 restart를 추가하지 않는다. 동일 역할의 복제는 Compose 실행 관리자의 책임이며 웹 fleet과 자동 연결하지 않는다. 이미지 빌드·컨테이너 자원 한도 수용은 미실행이다.
 
 다음은 배포 승인 후 사용하는 진입점이며 현재 운영에 실행하지 않았다.
 
 ```sh
 # 공통 base 의존성이 포함된 build graph 조회만 수행한다.
-docker buildx bake -f docker-bake.hcl --print api cpu cpu-amqp api-broker legacy-media
+docker buildx bake -f docker-bake.hcl --print api cpu cpu-amqp api-broker gpu
 
 # broker 설정은 namespace/url_env만, 실제 값은 별도 private 환경에서 제공한다.
 python -m app.broker_server declare-topology --enable-broker --broker-config-env MIDEAGENT_BROKER_CONFIG
@@ -67,7 +67,7 @@ python -m app.broker_server consume-results --enable-broker --broker-config-env 
 
 API launcher는 `--allow-cpu --object-config-env <app-config> --broker-config-env <broker-config>`를 선택할 수 있다. `--agent-config-env`/`--manage-cpu`와 동시 사용하지 않으며 기존 `--dsn-env`/`--origin`을 명시한다. 브로커는 API startup이 아니라 명시 작업 dispatch 때 연결한다.
 
-### 기존 독립 CPU 진입점
+### 독립 CPU 진입점
 
 Python 3.12+와 FFmpeg/FFprobe가 필요하다. `packages/shared[postgres,models,objects]`, `apps/api`, `agents/cpu`를 격리 환경에 설치한다. CPU 에이전트 자체는 PostgreSQL 패키지나 API 연결 없이 동작한다.
 
@@ -76,15 +76,21 @@ Python 3.12+와 FFmpeg/FFprobe가 필요하다. `packages/shared[postgres,models
 - `python -m app.renewal_server --dsn-env <name> --origin http://127.0.0.1:<port> --content-root <root> --allow-cpu`: 로컬 전용 launcher.
 - 같은 launcher의 `--manage-cpu`를 명시해야 관리자 상세에서 로컬 CPU fleet을 조작할 수 있다. CPU package를 같은 승인된 환경에 설치해야 하며 이 옵션 없이 조작 가능으로 표시하지 않는다. 실제 운영에 이 명령을 자동 적용하지 않는다.
 - S3 실행은 content-root 대신 `--object-config-env <app-config-name> --agent-config-env <agent-config-name>`을 사용한다. 앱과 agent config의 private cache_root를 다르게 지정한다. 이 launcher는 공개 production server가 아니다.
-- `agents/media/media_agent`는 기존 API 의존성을 위한 legacy 호환 코드다. CLI는 `--allow-legacy-queue` 없이는 queue/cleanup을 실행하지 않으며 이 플래그의 존재가 현재 운영 실행 승인은 아니다. 기존 WORKER_* 환경변수·과거 DB/protocol 식별자는 데이터 호환성을 위해 임의 변경하지 않는다.
+- 구형 혼합 media 패키지·파일 queue·workflow executor·SQLite 계정/설정 API와 일회성 scripts는 제거했다. CPU/GPU는 실제 폴더에 package-dir를 매핑한다. FaceFusion/VAD 엔진 소스와 process-tree·transcript/decision/model-reference 공통 파서는 별도로 보존했다.
+
+### 설정·wire 정본
+
+- [MQ request/response 계약](agent-protocol.md)의 versioned schema를 패키지에 포함한다. 결과의 정확한 필드·포트·자료 유형과 request digest/세대/attempt를 runtime에서도 검사하며 raw 진단·추가 credential 필드는 거부한다.
+- root Compose의 LLM/provider/model 환경변수 주입은 제거했다. `app.server --bootstrap-file`은 DB 접속 파일·콘텐츠 root·listen·origin/cookie 설정만 받고 startup에서 migrate/worker를 실행하지 않는다. 모델/provider/key 필드는 bootstrap에 허용하지 않는다. private runtime UID 읽기 조건은 루트 README를 따른다.
+- DB credential resolver·관리자 설정의 실제 model runtime 연결, 레포 RabbitMQ 설치 구성·실제 broker 수용과 GPU/MagicDNS 배포는 아직 남아 있다. 구형 설정 API/환경 fallback 삭제를 이 작업들 완료로 취급하지 않는다.
 
 ### 검증과 남은 부채
 
-- 전체 renewal 격리 회귀는 72개 통과(AMQP 관련 11개와 기존 네 브라우저 경로, skip 없음), web 단위 테스트는 44개 통과했고 production build도 통과했다. AMQP는 실제 Pika property/실패 loopback handshake, 채널 대역의 confirm/ACK·heartbeat/drain·poison, 실제 합성 CPU/S3/PG의 재전달·결과 채택·다음 단계 dispatch를 검증한 것이며 실제 브로커 수용은 아니다. 존재하지 않는 과거 Chrome 경로로 실패한 브라우저 세 개는 기존 설치 Chromium을 명시해 전체 재검증했다.
+- 정리 후 renewal 전체 회귀는 84개 통과(skip 없음), web 단위 44개와 production build도 통과했다. 소스/스키마 계약과 기존 네 브라우저 경로를 포함한다. AMQP는 실제 Pika property/실패 loopback handshake·채널 seam과 실제 CPU/S3/PG 검증이며 실제 RabbitMQ 서버 수용은 아니다. 추가 파일-bootstrap 서버/보존 자막 회귀 8개도 통과했다. 실제 파일 기반 서버 기동·liveness·관리 API의 인증 차단·DSN 비노출을 확인했다.
 - 실제 CPU 기동 실패·종료, ready handshake 후 DB 기록 실패의 기존 검증도 유지한다. 변경 Python lint/format, 타입/build, Compose 역할 profile 11개와 Bake graph 정적 구성을 확인했다. Compose/Bake 검사는 이미지 빌드·스택 실행이 아니다.
 - 테스트는 명시 disposable PostgreSQL의 임의 schema와 합성 미디어만 사용한다. S3 테스트는 임시 loopback 프로토콜 에뮬레이터이며 종료 후 서버를 닫는다.
 - 코덱 지원 Chrome만 사용하는 우회와 구분한다. H.264/AAC 미지원 Chromium에서도 WebM 원본/산출물 재생, 재생 시간 진행·영상 크기, 원본/WebM 실제 다운로드와 SHA를 확인한다. FHD/cover/unfolded는 브라우저 에뮬레이션이지 실기기 수용이 아니다.
-- 현재 legacy suite는 27 failed / 558 passed / 1 skipped이며 직전 exact SHA `ae057f643ebf8bb6c93c1088cfe9ebc4140dfa24`의 기존 검증 결과와 실패 식별자 집합이 동일하다. 그 직전 검증도 `6035f763e896f23cccbaf249a5c13604748f82ff` baseline과 대조했다. 주요 부채는 과거 fixture/실행 승인 계약, provider mock 설정과 download test 호환성이다. 전체 legacy suite는 all-green이 아니다.
+- 삭제된 구형 구현 전용 legacy suite는 같은 정리에서 폐기했다. 이전 legacy 27 failures를 해결했다는 뜻이 아니다. 보존한 pure 회귀와 renewal의 실제 CPU/S3/PG·브라우저 회귀를 별도로 실행한다.
 - 전체 web lint는 기존 오류 80개, format은 기존 파일 네 개 부채가 있다. 에이전트 목록의 기존 컨벤션 오류 7개를 함께 정리했으며 변경 runtime 화면 lint·web 단위 테스트·타입/build 검사와 분리한다. 검사를 삭제하거나 실행 승인 보호를 낮추지 않는다.
 - 실제 제품/다중 머신에서는 최소권한 bucket prefix 정책, 인증/허용 명령 범위, 브로커 topology, 장애/중복/취소 및 성능을 다시 수용해야 한다. 현재 S3 fixture는 IAM/실 MinIO 적합성을 증명하지 않는다.
 

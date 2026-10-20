@@ -1,3 +1,0 @@
-# Expanded browser fixture correction
-
-The first a-route/reopen/review/completion flow produced judgment and completed captures. The additional-case loop reused the new-ticket definition button after a deliberate full-page reload, which clears that form selection. The component correctly disables the button when definitionId is empty. Inspection of the still-running isolated fixture found one completed ticket/one adapter call/one a execution and no additional tickets. The bounded test process proc_fc9576b87c32 was stopped rather than waiting its 600-second locator timeout. This interrupted run is NOT PASS. Each subsequent case now explicitly reselects video and stored workflow before creating a new ticket. No operating stack/queue/Worker was involved.

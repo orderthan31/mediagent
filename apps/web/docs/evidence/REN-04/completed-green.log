@@ -1,6 +1,0 @@
-
-Running 1 test using 1 worker
-
-  ✓  1 tests/browser/ticket-review.spec.ts:154:1 › 완료 티켓의 결과 링크·원문/번역·저장 성공과 readonly 거부를 보존한다 (3.6s)
-
-  1 passed (5.3s)

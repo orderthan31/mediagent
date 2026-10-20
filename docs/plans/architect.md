@@ -33,13 +33,16 @@ flowchart LR
 - S3 경로의 앱과 에이전트는 서로 다른 private cache를 쓴다. 입력/출력은 owner-scoped digest 참조로 이동하며 ETag를 SHA로 취급하지 않는다.
 - 명령 ID의 DB delivery reservation과 S3 attempt marker가 중복 실행을 막는다. 완료 receipt 없는 예약은 결과 불명이며 자동 재실행하지 않는다.
 - 원본·처리 결과와 WebM 파생본의 SHA/출처를 따로 저장한다. GET 재생/다운로드에서 변환하지 않는다. WebM 실패는 원본을 덮어쓰거나 삭제하지 않는다.
-- `agents/cpu`는 독립 CPU CLI, `agents/media/media_agent`는 필요한 legacy 호환 코드다. legacy 큐/청소 CLI는 기본 차단하며 compose의 legacy-manual profile도 운영 실행 승인이 아니다.
+- `agents/cpu`는 평탄한 독립 CPU CLI/server/broker 패키지, `agents/gpu`는 선택 FaceFusion/VAD 엔진 패키지다. 구형 media 혼합 패키지·파일 큐·고정 workflow·설정 API·일회성 scripts는 제거했다. GPU 엔진 보존은 실제 MQ 연결이나 hardware 검증 완료가 아니다.
 - API import/startup은 migration·queue scan·provider/GPU 작업을 시작하지 않는다. 기존 사설 5174 DEV 목업은 별도다.
 - 일반 사용자는 원본·작업만 접근한다. 작업 선택 API는 관리자 정의의 불변 revision을 제공하되 관리 API 권한이나 원본 소유권을 넘기지 않는다.
 - fleet은 관리자 요청 후에만 실제 CPU 프로세스를 만들고, DB 예약으로 역할별 idle 인스턴스 하나에 명시 명령을 배정한다. 설정만 저장된 상태·실제 준비·드레인·실패/불명 상태를 구분하며 시작 시 자동 복구/기동하지 않는다.
-- 기본 API 이미지, CPU family 이미지와 선택 legacy media 이미지는 레시피를 분리했다. `agents/cpu/compose.yaml`은 역할별 service/profile 정의이며 웹 fleet과 미연결이다. Docker socket 제어, 이미지 빌드·배포 검증은 수행하지 않았다. API 직접 preview/분석의 FFmpeg 의존성은 잔여다.
-- 공통 FFmpeg/FFprobe·폰트는 root Dockerfile의 `media-base` stage 한 곳에서 관리한다. CPU/legacy media Dockerfile은 named context로 이를 상속하고 Compose/Bake가 build 의존성을 명시한다. base는 장기 실행하는 공통 서비스가 아니며 역할별 실행은 분리한다. broker SDK와 heavy engine은 선택 layer다.
+- 기본 API 이미지, CPU family 이미지와 선택 GPU 도구 이미지는 레시피를 분리했다. `agents/cpu/compose.yaml`은 역할별 service/profile 정의이며 웹 fleet과 미연결이다. Docker socket 제어, 이미지 빌드·배포 검증은 수행하지 않았다. API 직접 preview/분석의 FFmpeg 의존성은 잔여다.
+- 공통 FFmpeg/FFprobe·폰트는 root Dockerfile의 `media-base` stage 한 곳에서 관리한다. CPU/GPU Dockerfile은 named context로 이를 상속하고 Compose/Bake가 build 의존성을 명시한다. base는 장기 실행하는 공통 서비스가 아니며 역할별 실행은 분리한다. broker SDK와 heavy engine은 선택 layer다.
 - `--broker-config-env`는 S3·명시 CPU 승인과 함께 API의 단일 작업 dispatch를 선택한다. startup 연결/소비는 없고 각 호출이 별도 연결을 소유한다. 결과 소비와 topology 생성은 별도 opt-in CLI다. 이 모드의 원격 consumer는 웹 fleet의 로컬 인스턴스 집계/제어에 연결하지 않았다.
+
+- MQ req/res 정본은 shared `agent_protocol.py`와 패키지에 포함한 JSON Schema이며 runtime validator가 digest·attempt·정확한 포트까지 검사한다. [wire 계약](../references/high/agent-protocol.md)을 따른다.
+- root Compose는 opt-in renewal API/web만 제공한다. provider/model/key의 환경변수 경로는 폐기했으며 private 파일은 DB 접속·listen/origin·스토리지 부팅에만 사용한다. 관리자 DB credential resolver와 레포 RabbitMQ 설치 구성은 아직 잔여다.
 
 ## 미확정 사항
 

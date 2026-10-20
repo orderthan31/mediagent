@@ -244,7 +244,7 @@ def validate(payload):
                     }
                 )
             if "model_ref" in n:
-                from .model_registry import valid_reference
+                from .model_reference import valid_reference
 
                 valid_reference(n["model_ref"])
             pos = n["position"]

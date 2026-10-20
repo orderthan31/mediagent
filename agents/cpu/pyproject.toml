@@ -18,6 +18,6 @@ mideagent-object-agent = "video_service.object_agent:main"
 mideagent-cpu-instance = "mideagent_cpu.server:main"
 mideagent-cpu-amqp = "mideagent_cpu.broker:main"
 
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["mideagent_cpu*"]
+[tool.setuptools]
+packages = ["mideagent_cpu"]
+package-dir = {mideagent_cpu = "."}

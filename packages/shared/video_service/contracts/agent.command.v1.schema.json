@@ -1,0 +1,383 @@
+{
+  "$id": "urn:mideagent:agent.command.v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "owner",
+    "command"
+  ],
+  "$defs": {
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "storage_key",
+        "sha256",
+        "bytes",
+        "type"
+      ],
+      "properties": {
+        "storage_key": {
+          "type": "string",
+          "pattern": "^blobs/[a-f0-9]{64}$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 268435456
+        },
+        "type": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "properties": {
+    "version": {
+      "const": 1,
+      "type": "integer"
+    },
+    "owner": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{32}$"
+    },
+    "command": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocol_version",
+        "run_id",
+        "attempt_id",
+        "generation",
+        "agent",
+        "inputs",
+        "options"
+      ],
+      "properties": {
+        "protocol_version": {
+          "const": 1,
+          "type": "integer"
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{32}$"
+        },
+        "attempt_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{32}$"
+        },
+        "generation": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "agent": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "revision"
+          ],
+          "properties": {
+            "id": {
+              "enum": [
+                "analyze",
+                "encode",
+                "extract_audio",
+                "generate_subtitle",
+                "validate_video"
+              ]
+            },
+            "revision": {
+              "const": "1"
+            }
+          }
+        },
+        "inputs": {
+          "type": "object"
+        },
+        "options": {
+          "type": "object"
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "agent": {
+              "properties": {
+                "id": {
+                  "const": "analyze"
+                }
+              }
+            },
+            "inputs": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "video": {
+                  "allOf": [
+                    {
+                      "$ref": "#/$defs/artifact"
+                    },
+                    {
+                      "properties": {
+                        "type": {
+                          "const": "video"
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "video"
+              ]
+            },
+            "options": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {}
+            }
+          }
+        },
+        {
+          "properties": {
+            "agent": {
+              "properties": {
+                "id": {
+                  "const": "encode"
+                }
+              }
+            },
+            "inputs": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "video": {
+                  "allOf": [
+                    {
+                      "$ref": "#/$defs/artifact"
+                    },
+                    {
+                      "properties": {
+                        "type": {
+                          "const": "video"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "subtitles": {
+                  "allOf": [
+                    {
+                      "$ref": "#/$defs/artifact"
+                    },
+                    {
+                      "properties": {
+                        "type": {
+                          "const": "subtitle"
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "video"
+              ]
+            },
+            "options": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "subtitle_mode": {
+                  "enum": [
+                    "burn",
+                    "soft",
+                    "none"
+                  ]
+                },
+                "video_codec": {
+                  "enum": [
+                    "h264",
+                    "hevc"
+                  ]
+                },
+                "resolution": {
+                  "enum": [
+                    "original",
+                    "1080p",
+                    "720p"
+                  ]
+                },
+                "quality_profile": {
+                  "enum": [
+                    "balanced",
+                    "high",
+                    "compact"
+                  ]
+                }
+              }
+            }
+          },
+          "if": {
+            "properties": {
+              "options": {
+                "required": [
+                  "subtitle_mode"
+                ],
+                "properties": {
+                  "subtitle_mode": {
+                    "const": "none"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "inputs": {
+                "not": {
+                  "required": [
+                    "subtitles"
+                  ]
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "inputs": {
+                "required": [
+                  "subtitles"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "agent": {
+              "properties": {
+                "id": {
+                  "const": "extract_audio"
+                }
+              }
+            },
+            "inputs": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "video": {
+                  "allOf": [
+                    {
+                      "$ref": "#/$defs/artifact"
+                    },
+                    {
+                      "properties": {
+                        "type": {
+                          "const": "video"
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "video"
+              ]
+            },
+            "options": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {}
+            }
+          }
+        },
+        {
+          "properties": {
+            "agent": {
+              "properties": {
+                "id": {
+                  "const": "generate_subtitle"
+                }
+              }
+            },
+            "inputs": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "transcript": {
+                  "allOf": [
+                    {
+                      "$ref": "#/$defs/artifact"
+                    },
+                    {
+                      "properties": {
+                        "type": {
+                          "const": "transcript"
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "transcript"
+              ]
+            },
+            "options": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {}
+            }
+          }
+        },
+        {
+          "properties": {
+            "agent": {
+              "properties": {
+                "id": {
+                  "const": "validate_video"
+                }
+              }
+            },
+            "inputs": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "video": {
+                  "allOf": [
+                    {
+                      "$ref": "#/$defs/artifact"
+                    },
+                    {
+                      "properties": {
+                        "type": {
+                          "const": "video"
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "video"
+              ]
+            },
+            "options": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {}
+            }
+          }
+        }
+      ]
+    }
+  }
+}

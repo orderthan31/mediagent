@@ -398,7 +398,7 @@ export const ServingPage = () => {
             <article className="serving-node">
               <h3>{node.label}</h3>
               <p>
-                역할 {node.worker_role} · 기존 실행 경로 <code>{node.entrypoint}</code>
+                역할 {node.worker_role} · 실행 연결 <code>{node.entrypoint || '미연결'}</code>
               </p>
               <p>
                 출력:{' '}

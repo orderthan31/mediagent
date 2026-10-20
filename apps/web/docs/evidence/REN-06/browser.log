@@ -1,8 +1,0 @@
-
-Running 3 tests using 1 worker
-
-  ✓  1 tests/browser/settings-provider.spec.ts:50:1 › 키 출처·변경 대기·모델 조회와 저장 충돌/키 초기화·성공 적용을 구분한다 (2.9s)
-  ✓  2 tests/browser/settings-provider.spec.ts:166:1 › 초기 조회/모델 조회·저장 대기와 실패 및 필수 입력을 구분한다 (1.8s)
-  ✓  3 tests/browser/settings-provider.spec.ts:242:1 › 계정 메뉴·로그아웃 실패/성공·로그인 재입력과 세션 만료 계약을 보존한다 (1.7s)
-
-  3 passed (8.8s)

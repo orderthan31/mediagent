@@ -1,6 +1,0 @@
-
-Running 2 tests using 1 worker
-
-[1/2] tests\browser\integrated-operator.spec.ts:452:3 › safe integrated operator journey 1440px
-[2/2] tests\browser\integrated-operator.spec.ts:452:3 › safe integrated operator journey 390px
-  2 passed (9.1s)

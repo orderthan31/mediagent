@@ -1,9 +1,0 @@
-
-Running 4 tests using 1 worker
-
-  ✓  1 tests/browser/workspace-offline.spec.ts:3:1 › 목록 연결 실패를 빈 보관함으로 확정하지 않고 기존 탐색을 유지한다 (1.2s)
-  ✓  2 tests/browser/workspace-offline.spec.ts:36:1 › 최초 목록 대기는 확정 개수를 표시하지 않는다 (309ms)
-  ✓  3 tests/browser/workspace-offline.spec.ts:66:1 › 목록 갱신 실패에는 영상·작업의 마지막 확인 개수를 표시한다 (3.9s)
-  ✓  4 tests/browser/workspace-shell.spec.ts:79:1 › 정상 연결된 빈 보관함에서 업로드 행동을 유지한다 (455ms)
-
-  4 passed (7.8s)

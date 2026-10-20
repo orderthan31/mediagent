@@ -1,4 +1,4 @@
-name: Docker CPU smoke test
+name: Renewal CPU contracts and build recipes
 on:
   push:
     branches: [master]
@@ -7,25 +7,34 @@ on:
 permissions:
   contents: read
 jobs:
-  docker:
+  contracts:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: renewal_tests
+        ports: ["127.0.0.1:5432:5432"]
+        options: --health-cmd pg_isready --health-interval 2s --health-timeout 5s --health-retries 20
     env:
-      # No jobs are submitted and no paid API calls are made.
-      GEMINI_API_KEY: docker-smoke-not-a-real-key
+      MIDEAGENT_TEST_DISPOSABLE: "1"
+      MIDEAGENT_TEST_DSN: host=127.0.0.1 port=5432 user=postgres dbname=renewal_tests
+      MIDEAGENT_BOOTSTRAP_DIR: /tmp/synthetic-bootstrap-unused
+      MIDEAGENT_AGENT_CONTENT_ROOT: /tmp/synthetic-content-unused
+      MIDEAGENT_AGENT_ENV_FILE: /dev/null
+      MIDEAGENT_AGENT_NETWORK: synthetic-transport-unused
     steps:
       - uses: actions/checkout@v4
-      - name: Validate Compose without exposing environment values
-        run: docker compose --env-file .env.docker.example config --quiet
-      - name: Build and start isolated services
-        run: docker compose --env-file .env.docker.example up --build -d --wait
-      - name: Verify reverse proxy and runtime
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg fontconfig fonts-noto-cjk
+      - run: python -m pip install -e 'packages/shared[postgres,models,objects,amqp,verify]' -e apps/api -e agents/cpu -e agents/gpu
+      - name: Validate recipes only; no broker, GPU or provider stack is started
         run: |
-          curl --fail http://127.0.0.1:8080/api/health
-          docker compose --env-file .env.docker.example exec -T worker python scripts/check-container.py
-      - name: Show logs on failure
-        if: failure()
-        run: docker compose --env-file .env.docker.example logs --tail=100
-      - name: Stop containers
-        if: always()
-        run: docker compose --env-file .env.docker.example down
+          docker compose --profile renewal config --quiet
+          docker compose -f agents/cpu/compose.yaml --profile '*' config --quiet
+          docker compose -f agents/cpu/compose.amqp.yaml --profile '*' config --quiet
+          docker buildx bake --print api cpu cpu-amqp api-broker gpu
+      - run: python -m pytest tests/renewal -q --tb=short

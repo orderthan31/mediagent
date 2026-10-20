@@ -1,116 +1,60 @@
+# Explicit renewal API/web recipe. No legacy workflow, provider env or auto worker.
+# Create private bootstrap/DSN files first; migrations are a separate manual step.
 services:
   media-base:
-    profiles: [build, legacy-manual]
+    profiles: [build, renewal]
     image: mideagent-media-base:local
     build:
       context: .
       target: media-base
     network_mode: none
-    # Build dependency only; never a long-running shared media service.
     entrypoint: [/bin/true]
     restart: "no"
   api:
-    # Existing legacy API; renewal deployment is separately opt-in.
+    profiles: [renewal]
     build:
       context: .
-      target: legacy-api
-    logging: &bounded-logs
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+      target: runtime
     init: true
-    restart: unless-stopped
-    environment: &storage
-      VIDEO_STORAGE_ROOT: /data/video-jobs
-      HOST_DISK_PROBE_PATH: /host-disk-probe
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      XAI_API_KEY: ${XAI_API_KEY:-}
-      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      GEMINI_TRANSCRIPTION_MODEL: ${GEMINI_TRANSCRIPTION_MODEL:-gemini-3.8-flash}
-      GEMINI_TRANSLATION_MODEL: ${GEMINI_TRANSLATION_MODEL:-gemini-3.8-flash}
-      MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-10737418240}
-      VIDEO_SERVICE_QUOTA_BYTES: ${VIDEO_SERVICE_QUOTA_BYTES:-322122547200}
-      MIN_FREE_SPACE_BYTES: ${MIN_FREE_SPACE_BYTES:-53687091200}
-      AUTH_ENABLED: ${AUTH_ENABLED:-false}
-      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-true}
-      AUTH_SESSION_HOURS: ${AUTH_SESSION_HOURS:-8}
-      STORAGE_AUDIT_INTERVAL_SECONDS: ${STORAGE_AUDIT_INTERVAL_SECONDS:-300}
-      JOB_INDEX_ENABLED: ${JOB_INDEX_ENABLED:-true}
-      JOB_DATABASE_DIR: /data/job-databases
-      WEB_CORS_ORIGINS: ${WEB_CORS_ORIGINS:-http://localhost:8080,http://127.0.0.1:8080}
+    user: "10001:10001"
+    restart: "no"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 1g
+    cpus: 2
+    tmpfs: [/tmp:size=256m,mode=1777]
+    command: [python, -m, app.server, --bootstrap-file, /run/bootstrap/api.json]
     volumes:
-      - jobs:/data/video-jobs
-      - job-databases:/data/job-databases
-      # Read-only, non-sensitive folder on the host drive; statvfs reports its real capacity.
-      - ${HOST_DISK_PROBE_DIR:-./scripts}:/host-disk-probe:ro
-    ports:
-      - "127.0.0.1:${DOCKER_API_PORT:-8000}:8000"
+      - type: bind
+        source: ${MIDEAGENT_BOOTSTRAP_DIR:?Set an absolute private bootstrap directory}
+        target: /run/bootstrap
+        read_only: true
+      - content:/data/content
+    expose: ["8000"]
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=5)"]
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=5)"]
       interval: 10s
       timeout: 6s
       retries: 5
-  agent:
-    profiles: ["legacy-manual"]
-    build:
-      context: .
-      dockerfile: agents/media/Dockerfile
-      additional_contexts:
-        media_base: service:media-base
-    logging: *bounded-logs
-    init: true
-    restart: unless-stopped
-    command: ["python", "-m", "media_agent.agent"]
-    stop_grace_period: 60s
-    environment:
-      <<: *storage
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      PAID_LLM_ENABLED: ${PAID_LLM_ENABLED:-false}
-      GEMINI_TRANSCRIPTION_MODEL: ${GEMINI_TRANSCRIPTION_MODEL:-gemini-3.8-flash}
-      GEMINI_TRANSLATION_MODEL: ${GEMINI_TRANSLATION_MODEL:-gemini-3.8-flash}
-      GEMINI_AUDIO_FILTER_MODEL: ${GEMINI_AUDIO_FILTER_MODEL:-gemini-3.8-flash}
-      VOCALIZATION_FILTER_ENABLED: ${VOCALIZATION_FILTER_ENABLED:-false}
-      MAX_PROCESS_LOG_BYTES: ${MAX_PROCESS_LOG_BYTES:-8388608}
-      VIDEO_ENCODER: ${VIDEO_ENCODER:-libx265}
-      ALLOW_SOFTWARE_ENCODER_FALLBACK: ${ALLOW_SOFTWARE_ENCODER_FALLBACK:-true}
-      RESULT_TTL_HOURS: ${RESULT_TTL_HOURS:-24}
-      HISTORY_TTL_DAYS: ${HISTORY_TTL_DAYS:-90}
-      REVIEW_TTL_HOURS: ${REVIEW_TTL_HOURS:-24}
-      UPLOAD_TTL_HOURS: ${UPLOAD_TTL_HOURS:-6}
-      ORPHAN_GRACE_HOURS: ${ORPHAN_GRACE_HOURS:-2}
-      WORKER_POLL_INTERVAL_SECONDS: ${WORKER_POLL_INTERVAL_SECONDS:-5}
-      MAX_ENCODING_JOBS: ${MAX_ENCODING_JOBS:-1}
-      MAX_CONCURRENT_JOBS: ${MAX_CONCURRENT_JOBS:-3}
-      MAX_GPU_JOBS: ${MAX_GPU_JOBS:-1}
-      MAX_IO_JOBS: ${MAX_IO_JOBS:-2}
-      MAX_LLM_JOBS: ${MAX_LLM_JOBS:-1}
-      AUTO_RESUME_INTERRUPTED: ${AUTO_RESUME_INTERRUPTED:-true}
-      MAX_AUTO_RECOVERIES: ${MAX_AUTO_RECOVERIES:-2}
-    volumes:
-      - jobs:/data/video-jobs
-      - job-databases:/data/job-databases
-    depends_on:
-      api:
-        condition: service_healthy
+    logging: &logs
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
   web:
-    logging: *bounded-logs
+    profiles: [renewal]
     build:
       context: .
       dockerfile: apps/web/Dockerfile
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:${DOCKER_WEB_PORT:-8080}:80"
+    restart: "no"
+    ports: ["127.0.0.1:8080:80"]
+    logging: *logs
+    depends_on:
+      api: {condition: service_healthy}
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/healthz"]
+      test: [CMD, wget, -q, --spider, http://127.0.0.1/healthz]
       interval: 10s
       timeout: 5s
       retries: 5
-    depends_on:
-      api:
-        condition: service_healthy
 volumes:
-  jobs:
-  job-databases:
+  content:

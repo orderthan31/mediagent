@@ -14,8 +14,8 @@
       "worker_role": "media",
       "options": {},
       "embedded_operations": [],
-      "execution": "existing_fixed_workflow",
-      "entrypoint": "media_agent.agent:Agent.process"
+      "execution": "cpu_subprocess",
+      "entrypoint": "mideagent-analyze"
     },
     {
       "id": "extract_audio",
@@ -30,8 +30,8 @@
       "worker_role": "media",
       "options": {},
       "embedded_operations": [],
-      "execution": "existing_fixed_workflow",
-      "entrypoint": "media_agent.agent:Agent.process"
+      "execution": "cpu_subprocess",
+      "entrypoint": "mideagent-extract-audio"
     },
     {
       "id": "preprocess_audio",
@@ -58,8 +58,8 @@
         ]
       },
       "embedded_operations": [],
-      "execution": "existing_fixed_workflow",
-      "entrypoint": "media_agent.agent:Agent.process"
+      "execution": "unavailable",
+      "entrypoint": ""
     },
     {
       "id": "transcribe",
@@ -78,8 +78,8 @@
         "filter_transcript",
         "restore_timeline"
       ],
-      "execution": "existing_fixed_workflow",
-      "entrypoint": "media_agent.agent:Agent.process"
+      "execution": "unavailable",
+      "entrypoint": ""
     },
     {
       "id": "translate",
@@ -94,8 +94,8 @@
       "worker_role": "translation",
       "options": {},
       "embedded_operations": [],
-      "execution": "existing_fixed_workflow",
-      "entrypoint": "media_agent.agent:Agent.process"
+      "execution": "unavailable",
+      "entrypoint": ""
     },
     {
       "id": "generate_subtitle",
@@ -110,8 +110,8 @@
       "worker_role": "media",
       "options": {},
       "embedded_operations": [],
-      "execution": "existing_fixed_workflow",
-      "entrypoint": "media_agent.agent:Agent.process"
+      "execution": "cpu_subprocess",
+      "entrypoint": "mideagent-generate-subtitle"
     },
     {
       "id": "encode",
@@ -151,8 +151,8 @@
       "embedded_operations": [
         "burn_subtitles"
       ],
-      "execution": "existing_fixed_workflow",
-      "entrypoint": "media_agent.agent:Agent.process"
+      "execution": "cpu_subprocess",
+      "entrypoint": "mideagent-encode"
     },
     {
       "id": "validate_video",
@@ -167,8 +167,8 @@
       "worker_role": "media",
       "options": {},
       "embedded_operations": [],
-      "execution": "existing_fixed_workflow",
-      "entrypoint": "media_agent.agent:Agent.process"
+      "execution": "cpu_subprocess",
+      "entrypoint": "mideagent-validate-video"
     },
     {
       "id": "faceswap",
@@ -195,8 +195,8 @@
         ]
       },
       "embedded_operations": [],
-      "execution": "existing_fixed_workflow",
-      "entrypoint": "media_agent.faceswap.runner:execute"
+      "execution": "unavailable",
+      "entrypoint": ""
     },
     {
       "id": "decision",
@@ -264,7 +264,7 @@
       },
       "embedded_operations": [],
       "execution": "explicit_decision_ticket",
-      "entrypoint": "video_service.decision_tickets:DecisionTicketStore.run",
+      "entrypoint": "controller-owned",
       "port_types_from_options": {
         "inputs": {
           "value": "data_type"
@@ -301,7 +301,7 @@
       },
       "embedded_operations": [],
       "execution": "explicit_review_ticket",
-      "entrypoint": "video_service.review_tickets:ReviewTicketStore.run",
+      "entrypoint": "controller-owned",
       "port_types_from_options": {
         "inputs": {
           "value": "data_type"
@@ -343,7 +343,7 @@
       },
       "embedded_operations": [],
       "execution": "explicit_graph_ticket",
-      "entrypoint": "video_service.graph_tickets:GraphTicketStore.run",
+      "entrypoint": "controller-owned",
       "port_types_from_options": {
         "inputs": {
           "value": "data_type"
@@ -392,7 +392,7 @@
       },
       "embedded_operations": [],
       "execution": "explicit_graph_ticket",
-      "entrypoint": "video_service.graph_tickets:GraphTicketStore.run",
+      "entrypoint": "controller-owned",
       "port_types_from_options": {
         "inputs": {
           "left": "left_type",
@@ -402,10 +402,10 @@
     }
   ],
   "standalone_execution": false,
-  "scope": "목업 · 기존 에이전트 입출력 설명을 위한 샘플",
+  "scope": "renewal 입출력·옵션 계약입니다. CPU 독립 프로세스와 controller 제어를 구분하며 GPU·모델 미연결 노드는 실행 불가입니다.",
   "notes": [
     "번인은 encode의 subtitle_mode=burn이며 독립 실행 단계가 아닙니다.",
     "전처리의 NVIDIA VAD·얼굴 합성은 해당 엔진과 모델 환경이 별도로 필요합니다.",
-    "서빙 역할은 단일 media_agent의 논리 역할이며 분산 Agent 등록부가 아닙니다."
+    "MQ CPU 역할은 독립 소비자입니다. GPU 엔진 소스 보존은 MQ 연결이나 GPU 검증 완료를 뜻하지 않습니다."
   ]
 }

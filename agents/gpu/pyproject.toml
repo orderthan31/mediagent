@@ -1,0 +1,13 @@
+[project]
+name = "mideagent-gpu-agents"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = []
+
+[project.scripts]
+mideagent-gpu-vad = "mideagent_gpu.vad:main"
+mideagent-gpu-facefusion = "mideagent_gpu.facefusion:cli"
+
+[tool.setuptools]
+packages = ["mideagent_gpu"]
+package-dir = {mideagent_gpu = "."}

@@ -16,12 +16,10 @@ from contextlib import suppress
 from dataclasses import dataclass
 from urllib.parse import urlsplit
 
+from .agent_protocol import COMMAND, MAX_MESSAGE, RESULT
 from .cpu_agents import CPU_AGENTS, canonical, digest
-from .node_contracts import validate_node
+from .node_contracts import node_spec, validate_node
 
-COMMAND = "agent.command.v1"
-RESULT = "agent.result.v1"
-MAX_MESSAGE = 131072
 ENV_NAME = re.compile(r"[A-Z_][A-Z0-9_]{0,127}\Z")
 ID = re.compile(r"[a-f0-9]{32}\Z")
 
@@ -178,29 +176,77 @@ def validate_command(command):
     return command
 
 
+def validate_result(command, result):
+    try:
+        fields = {
+            "protocol_version",
+            "run_id",
+            "attempt_id",
+            "generation",
+            "agent",
+            "request_sha256",
+            "status",
+            "outputs",
+            "transport",
+        }
+        failed = isinstance(result, dict) and result.get("status") == "failed"
+        if not isinstance(result, dict) or set(result) != fields | (
+            {"error"} if failed else set()
+        ):
+            raise ValueError
+        if any(
+            result.get(k) != command[k]
+            for k in ("protocol_version", "run_id", "attempt_id", "generation", "agent")
+        ):
+            raise ValueError
+        if (
+            type(result["protocol_version"]) is not int
+            or type(result["generation"]) is not int
+            or result["request_sha256"] != digest(command)
+            or result["status"] not in ("completed", "failed")
+            or result["transport"] != "s3_subprocess"
+            or not isinstance(result["outputs"], dict)
+        ):
+            raise ValueError
+        if failed:
+            error = result["error"]
+            if (
+                result["outputs"]
+                or not isinstance(error, dict)
+                or set(error) != {"code", "retryable"}
+                or not isinstance(error["code"], str)
+                or not re.fullmatch(r"[a-z][a-z0-9_]{0,63}", error["code"])
+                or type(error["retryable"]) is not bool
+            ):
+                raise ValueError
+        else:
+            spec = node_spec(command["agent"]["id"])
+            if spec is None or set(result["outputs"]) != set(spec["outputs"]):
+                raise ValueError
+            for port, ref in result["outputs"].items():
+                if (
+                    not isinstance(ref, dict)
+                    or set(ref) != {"storage_key", "sha256", "bytes", "type"}
+                    or not isinstance(ref["sha256"], str)
+                    or not re.fullmatch(r"[a-f0-9]{64}", ref["sha256"])
+                    or ref["storage_key"] != "blobs/" + ref["sha256"]
+                    or type(ref["bytes"]) is not int
+                    or not 0 < ref["bytes"] <= 268435456
+                    or ref["type"] != spec["outputs"][port]
+                ):
+                    raise ValueError
+    except (KeyError, ValueError, TypeError, AttributeError):
+        raise InvalidMessage("invalid_result") from None
+    return result
+
+
 def envelope(owner, command, result=None):
     validate_command(command)
     if not isinstance(owner, str) or not ID.fullmatch(owner):
         raise InvalidMessage("invalid_owner")
     value = {"version": 1, "owner": owner, "command": command}
     if result is not None:
-        if (
-            not isinstance(result, dict)
-            or any(
-                result.get(k) != command[k]
-                for k in (
-                    "protocol_version",
-                    "run_id",
-                    "attempt_id",
-                    "generation",
-                    "agent",
-                )
-            )
-            or result.get("request_sha256") != digest(command)
-            or result.get("status") not in ("completed", "failed")
-            or result.get("transport") != "s3_subprocess"
-        ):
-            raise InvalidMessage("invalid_result")
+        validate_result(command, result)
         value["result"] = result
     body = canonical(value)
     if len(body) > MAX_MESSAGE:

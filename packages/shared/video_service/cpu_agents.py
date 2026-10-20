@@ -16,14 +16,11 @@ import subprocess
 import sys
 from pathlib import Path
 
-from .agent_runtime import _segments
+from .agent_protocol import CPU_AGENTS
 from .content_store import MAX_CONTENT
 from .node_contracts import validate_node
 from .subtitles import segment_subtitles, segments_to_srt
-
-CPU_AGENTS = frozenset(
-    {"analyze", "extract_audio", "generate_subtitle", "encode", "validate_video"}
-)
+from .transcript_input import parse_segments as _segments
 
 
 def canonical(value):

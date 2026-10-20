@@ -1,6 +1,0 @@
-
-Running 2 tests using 1 worker
-
-[1/2] tests\browser\workflow-tickets.spec.ts:7:3 › definition ticket real orchestration 1440
-[2/2] tests\browser\workflow-tickets.spec.ts:7:3 › definition ticket real orchestration 390
-  2 passed (1.6m)

@@ -3,16 +3,17 @@ name = "video-service-shared"
 version = "0.1.0"
 description = "Shared domain models and utilities for the video subtitle monorepo."
 requires-python = ">=3.12"
-dependencies = ["python-dotenv>=1.0", "srt==3.5.3", "cryptography>=45.0"]
+dependencies = []
 
 [project.optional-dependencies]
 postgres = ["psycopg[binary]>=3.2,<4"]
 models = ["httpx>=0.28.1,<1"]
 objects = ["boto3>=1.36,<2"]
 amqp = ["pika==1.4.4"]
+verify = ["pytest>=8,<10", "jsonschema>=4,<5", "moto[server]>=5,<6"]
 
 [tool.setuptools.package-data]
-video_service = ["postgres/migrations/*.sql"]
+video_service = ["postgres/migrations/*.sql", "contracts/*.json"]
 
 [tool.setuptools.packages.find]
 where = ["."]

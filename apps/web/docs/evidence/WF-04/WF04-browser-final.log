@@ -1,8 +1,0 @@
-
-Running 4 tests using 1 worker
-
-[1/4] tests\browser\graph-tickets.spec.ts:7:3 › real graph orchestration and manual routing 1440
-[2/4] tests\browser\graph-tickets.spec.ts:7:3 › real graph orchestration and manual routing 390
-[3/4] tests\browser\workflow-tickets.spec.ts:7:3 › definition ticket real orchestration 1440
-[4/4] tests\browser\workflow-tickets.spec.ts:7:3 › definition ticket real orchestration 390
-  4 passed (4.4m)

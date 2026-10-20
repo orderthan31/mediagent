@@ -1,5 +1,5 @@
 """Approved WF06 A: two fixed predicates, exactly one match, no fallback/eval."""
-from .decision_adapter import structured_result
+from .decision_result import structured_result
 
 FIELDS = ['label', 'confidence']
 OPS = ['eq', 'gte', 'lte']

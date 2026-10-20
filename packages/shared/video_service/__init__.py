@@ -1,6 +1,1 @@
-"""Shared domain package for the video subtitle service."""
-
-from .models import JobOptions, JobRecord, JobStatus, QualityProfile
-
-__all__ = ["JobOptions", "JobRecord", "JobStatus", "QualityProfile"]
-
+"""Renewal contracts and explicit runtimes; import has no startup side effects."""

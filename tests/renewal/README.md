@@ -6,8 +6,9 @@ provider request, real user media or startup migration is allowed.
 ## Dependencies
 
 Use Python 3.12+, FFmpeg/FFprobe, Node 22+ and installed web/Playwright dependencies.
-Install `packages/shared[postgres,models,objects,amqp]`, `apps/api`, `agents/cpu`, pytest
-and the test-only `moto[server]>=5,<6` in an isolated environment. Moto is an
+Install `packages/shared[postgres,models,objects,amqp,verify]`, `apps/api`, `agents/cpu`
+and `agents/gpu` in an isolated environment. The verify extra includes pytest,
+jsonschema and test-only `moto[server]>=5,<6`. Moto is an
 in-process disposable loopback S3 protocol fixture, **not MinIO vendor validation**.
 No test starts a production storage/broker deployment.
 
@@ -65,7 +66,8 @@ or application DB credentials. Unknown attempts remain fenced, not auto-executed
 These are synthetic loopback tests, not multi-host/MinIO/broker/GPU/production or
 actual Fold hardware acceptance. Source size is currently 256 MiB. Long-running
 preview generation needs a separate durable scheduler. Model and Loop/Fallback
-execution remain fail-closed. Existing legacy-suite and full-web style debts are
+execution remain fail-closed. Retired legacy implementation tests were removed with
+their source, not fixed or counted as passing. Remaining full-web style debt is
 tracked in [the runtime contract](../../docs/references/high/runtime.md).
 
 DEV geometry scripts remain available: `frontend-responsive.mjs`,

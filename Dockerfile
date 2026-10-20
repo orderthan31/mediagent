@@ -10,22 +10,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg fontconf
 FROM media-base AS api
 COPY packages/shared /app/packages/shared
 COPY apps/api /app/apps/api
-RUN pip install --no-cache-dir /app/packages/shared /app/apps/api \
+RUN pip install --no-cache-dir '/app/packages/shared[postgres,models]' /app/apps/api \
     && useradd --uid 10001 --create-home media \
-    && mkdir -p /data/video-jobs /data/job-databases && chown -R media:media /data
+    && mkdir -p /data/content && chown -R media:media /data
 USER media
-ENV VIDEO_STORAGE_ROOT=/data/video-jobs
 # No automatic migration, provider or queue consumer is started by this image.
-CMD ["python", "-m", "app.renewal_server"]
-
-# Explicit compatibility target for the existing paused legacy Compose only.
-# Its optional import coupling is retained until legacy admission is retired.
-FROM api AS legacy-api
-USER root
-COPY agents/media /app/agents/media
-RUN pip install --no-cache-dir /app/agents/media
-USER media
-CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "-m", "app.server", "--bootstrap-file", "/run/bootstrap/api.json"]
 
 # Explicit broker/object transport image; API startup still consumes no queue.
 FROM api AS broker
@@ -33,5 +23,5 @@ USER root
 RUN pip install --no-cache-dir '/app/packages/shared[objects,amqp]'
 USER media
 
-# Default builds remain API-only, not the legacy compatibility/broker image.
+# Default builds remain API-only, not the explicit broker image.
 FROM api AS runtime

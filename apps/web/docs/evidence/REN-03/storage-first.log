@@ -1,8 +1,0 @@
-
-Running 3 tests using 1 worker
-
-  ✓  1 tests/browser/storage-upload.spec.ts:31:1 › 기존 직렬 queue의 대기·전송·중단·등록·완료·integrity/chunk 오류·재시도·제거를 보존한다 (1.9s)
-  ✓  2 tests/browser/storage-upload.spec.ts:138:1 › 불완전 세션·등록 재시도·삭제 확인을 명확한 업로드 카드로 보존한다 (1.3s)
-  ✓  3 tests/browser/storage-upload.spec.ts:194:1 › 모바일 원본의 명확한 열기·미확인 메타데이터에서 실제 상세와 삭제 취소로 연결한다 (1.4s)
-
-  3 passed (6.9s)

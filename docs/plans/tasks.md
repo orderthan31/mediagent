@@ -15,12 +15,12 @@ RabbitMQ opt-in client·CPU 수신기·결과 제어기와 명시 API dispatch, 
 ### 완료 범위
 
 - [x] Common 보존, 미디에이전트 Special, 저장소 정본 및 구형 문서 분리.
-- [x] `workers/media/media_worker`를 `agents/media/media_agent`로 실제 이관하고 import·패키지·CLI·Docker·스크립트·테스트 참조를 정리한다.
+- [x] 구형 media 혼합 패키지·workflow/queue/API를 제거하고 `agents/cpu`·`agents/gpu`를 평탄화한다. 기존 GPU 엔진·공통 파서는 필요한 코드만 분리 보존한다.
 - [x] `agents/cpu`에 역할 고정 개별 CLI를 제공하고 DB 없는 단일 명령/결과 계약을 연결한다.
 - [x] 검증 업로드·불변 workflow/티켓·실행 승인·노드 결과·검수·취소/복구를 opt-in API/화면과 연결한다.
 - [x] S3-compatible CAS와 별도 cache 에이전트 연결, 원격 SHA/소유자·중복/불명 결과·취소/복구 및 confirm/ack 순서를 격리 테스트한다.
 - [x] 업로드·처리 결과에 별도 WebM을 생성하고 원본/WebM 다운로드, 실제 플레이어 재생·Range·다운로드 SHA를 검증한다.
-- [x] 참조 없는 구형 CPU POC 스크립트 네 개를 제거한다. 의존 코드가 있는 legacy 파이프라인은 보존하고 기본 실행을 차단한다.
+- [x] 구형 `scripts/`의 일회성 POC·복구·벤치마크·배포 스크립트와 예전 생성 검증 이미지를 제거한다. 모델 설치는 GPU build 모듈로 이관하며 실제 원본·DB·키·백업은 보존한다.
 - [x] 최종 격리 회귀·비밀정보/범위·문서 검사를 수행하고 검증된 소스를 renewal의 일반 커밋으로 공유한다. 아래 기존 부채와 운영 미검증은 분리한다.
 
 ### renewal 권한 경계
@@ -30,7 +30,7 @@ RabbitMQ opt-in client·CPU 수신기·결과 제어기와 명시 API dispatch, 
 
 ### 에이전트 상세 운영 관리 — 로컬 CPU 구현, 컨테이너 운영 미연결
 
-- [x] 기본 API·CPU 미디어 family·선택 legacy media 이미지 레시피를 분리하고 CPU 역할별 Compose profile을 정적 검증한다. API의 직접 미디어 처리용 FFmpeg는 남으며, 이미지 빌드·배포 완료로 보고하지 않는다.
+- [x] 기본 API·CPU 미디어 family·선택 GPU 도구 이미지 레시피를 분리하고 CPU 역할별 Compose profile을 정적 검증한다. API의 직접 미디어 처리용 FFmpeg는 남으며, 이미지 빌드·배포 완료로 보고하지 않는다.
 - [x] 관리자 상세에서 서버 전체 종류별 사용 여부·목표 개수와 실제 private CPU subprocess 기동/종료·인스턴스 PID/상태/처리 수를 연결한다. 미연결 얼굴교체/모델 실행환경은 활성화 성공으로 표시하지 않는다.
 - [x] 같은 종류의 두 실제 CPU 프로세스에 복수 작업을 분산한다. 인스턴스당 동시 처리 1개, revision 충돌·다른 controller 중복 기동 차단과 설정 변경 이력을 검증한다.
 - [x] 비활성화·축소 시 신규 배정을 막고 예약된 작업의 완료 후 drain/종료한다. 선택 얼굴교체 미사용·CPU 기동/축소/종료와 일반 사용자 전체 작업 동선을 격리 검증한다.
@@ -42,11 +42,18 @@ RabbitMQ opt-in client·CPU 수신기·결과 제어기와 명시 API dispatch, 
 - [x] Pika를 선택 extra로 분리하고 명시 namespace·환경변수 이름·TLS 설정만 받는 client를 구현한다. import/startup에서 연결·큐 선언·소비를 시작하지 않는다.
 - [x] 명령 outbox의 확인 발행, 역할별 수신, 독립 CPU/S3 처리, 결과 DB 채택과 후속 명령 발행을 연결한다. 발행 실패의 동일 attempt 재전달·receipt/inbox 중복 방어·만료된 미발행 명령 거부를 검증한다.
 - [x] CPU 작업 중 I/O thread의 heartbeat 처리, prefetch 1, 처리 후 confirm/ACK, SIGTERM drain과 poison/결과 불명 메시지 격리 경로를 구현한다. 채널 대역 검증을 실제 브로커 수용으로 부르지 않는다.
-- [x] FFmpeg/FFprobe·폰트를 root media-base 한 stage로 관리하고 API·CPU·선택 legacy media가 공유하도록 Compose/Bake build graph를 연결한다. 기본 CPU와 AMQP 선택 이미지를 분리하며 heavy engine을 공통 base에 넣지 않는다.
+- [x] FFmpeg/FFprobe·폰트를 root media-base 한 stage로 관리하고 API·CPU·선택 GPU 도구가 공유하도록 Compose/Bake build graph를 연결한다. 기본 CPU와 AMQP 선택 이미지를 분리하며 heavy engine을 공통 base에 넣지 않는다.
 - [x] CPU 역할별 AMQP profile·별도 private cache·외부 transport network·자원 한도 레시피를 제공한다. 브로커 service·운영 계정·자동 배포·Docker socket 제어는 추가하지 않는다.
 - [ ] 별도 실행 승인 아래 실제 RabbitMQ 버전/인증·복수 consumer 분산·브로커 재시작/네트워크 단절·DLQ 전달을 수용한다. 실제 큐·GPU/provider를 기존 테스트에 연결하지 않는다.
 - [ ] 원격 consumer와 웹 fleet의 observed health·enabled/disabled·컨테이너 수 제어를 연결한다. 현재 웹 fleet은 여전히 로컬 CPU subprocess용이며 AMQP 설정을 실제 인스턴스 준비로 표시하지 않는다.
 - [ ] 장시간 큐 대기/작업의 lease 갱신·cancel 전달·운영 retry/HA 정책을 수용한다. 현재 짧은 명령 TTL·기존 CPU lease를 일반 분산 scheduler로 보고하지 않는다.
+
+### 소스·설정 정리
+
+- [x] MQ request/result JSON Schema·정확한 역할/포트·옵션·digest·세대·CAS 참조 검사를 정본화한다. 예상 외 응답 필드·credential·raw 진단은 거부한다.
+- [x] Compose의 LLM/provider/model 환경변수 주입과 구형 설정 API를 제거한다. root API는 명시 private bootstrap 파일만 읽으며 startup migration/worker는 없다.
+- [ ] DB 기반 credential resolver·모델 실행 설정의 관리자 CRUD/런타임 연결을 완성한다. 환경변수 삭제만으로 DB 설정 이관 완료라고 부르지 않는다.
+- [ ] 레포 내 RabbitMQ 설치 구성 및 실제 격리 broker 수용 후 exact renewal과 GPU 확인 범위를 실행 담당자에게 인계한다.
 
 ### 인프라 잔여 — GPU 작업으로 분류하지 않음
 
@@ -54,8 +61,8 @@ RabbitMQ opt-in client·CPU 수신기·결과 제어기와 명시 API dispatch, 
 - [ ] 운영 승인 범위에서 브로커·에이전트 인증과 다중 머신 전달·취소·장애 복구를 연결한다. 기존 큐는 소비하지 않는다.
 - [ ] Loop/Fallback의 실행 정책과 추가 입력 binding을 구현한다. 현재 편집만 지원하는 경로는 실행 승인을 차단한다.
 - [ ] 장시간/대용량 WebM 파생 생성을 durable 비동기 작업으로 확장한다. 현재 256 MiB/단계별 timeout 한계를 대용량 지원으로 보고하지 않는다.
-- [ ] API의 legacy 호환 의존성을 해소한 뒤 단일 파이프라인을 최종 제거한다. 사용자 원본·자막·DB·키·백업은 삭제하지 않는다.
-- [ ] 기존 legacy 테스트 실패와 전체 web lint/format 부채를 별도 정비한다. 안전 승인 조건을 낮춰 테스트를 통과시키지 않는다.
+- [x] API의 legacy import와 단일 파이프라인·legacy Docker target/overlays를 제거한다. 사용자 원본·자막·DB·키·백업은 삭제하지 않는다.
+- [ ] 전체 web lint/format 부채를 별도 정비한다. 삭제된 legacy 구현 전용 suite는 함께 폐기했으며 기존 실패를 수정했다고 보고하지 않는다. renewal·독립 CPU·보존 pure 회귀는 유지한다.
 
 ### 별도 실행 승인 필요
 
