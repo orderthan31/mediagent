@@ -8,7 +8,7 @@
 
 CPU/저장소/WebM에 이어 renewal 관리자 권한과 명시 로컬 CPU 인스턴스 운영을 구현·격리 검증했다. 컨테이너·GPU·외부 실행 관리자는 연결하지 않았다. 운영 잔여를 아래에서 관리한다.
 
-RabbitMQ opt-in client·CPU 수신기·결과 제어기와 명시 API dispatch, 공통 media-base stage를 추가했다. SDK/채널 대역과 실제 격리 CPU·S3·PG를 구분해 검증했으며 실제 RabbitMQ 서버·컨테이너 운영은 실행하지 않았다.
+RabbitMQ opt-in client·CPU 수신기·결과 제어기와 명시 API dispatch, 공통 media-base stage를 추가했다. SDK/채널 대역 검증에 더해 고유 internal network·tmpfs의 실제 TLS RabbitMQ 4.2.9/MinIO와 독립 CPU 두 process·결과 소비 process·격리 PG를 연결해 합성 영상 완료, confirm/ACK·중복 receipt·DLQ·결과 SHA를 수용했다. 운영 broker/사용자 데이터와 분리한 검증이며 운영 설치 완료는 아니다.
 
 ## 주요 내용
 
@@ -43,8 +43,9 @@ RabbitMQ opt-in client·CPU 수신기·결과 제어기와 명시 API dispatch, 
 - [x] 명령 outbox의 확인 발행, 역할별 수신, 독립 CPU/S3 처리, 결과 DB 채택과 후속 명령 발행을 연결한다. 발행 실패의 동일 attempt 재전달·receipt/inbox 중복 방어·만료된 미발행 명령 거부를 검증한다.
 - [x] CPU 작업 중 I/O thread의 heartbeat 처리, prefetch 1, 처리 후 confirm/ACK, SIGTERM drain과 poison/결과 불명 메시지 격리 경로를 구현한다. 채널 대역 검증을 실제 브로커 수용으로 부르지 않는다.
 - [x] FFmpeg/FFprobe·폰트를 root media-base 한 stage로 관리하고 API·CPU·선택 GPU 도구가 공유하도록 Compose/Bake build graph를 연결한다. 기본 CPU와 AMQP 선택 이미지를 분리하며 heavy engine을 공통 base에 넣지 않는다.
-- [x] CPU 역할별 AMQP profile·별도 private cache·외부 transport network·자원 한도 레시피를 제공한다. 브로커 service·운영 계정·자동 배포·Docker socket 제어는 추가하지 않는다.
-- [ ] 별도 실행 승인 아래 실제 RabbitMQ 버전/인증·복수 consumer 분산·브로커 재시작/네트워크 단절·DLQ 전달을 수용한다. 실제 큐·GPU/provider를 기존 테스트에 연결하지 않는다.
+- [x] CPU 역할별 AMQP profile·별도 private cache·role별 최소 broker 권한과 bootstrap mount를 제공한다. `infra/compose.yaml`에 별도 opt-in broker/PG/S3 설치 구성을 제공하며 startup 자동 초기화·자동 consumer·Docker socket은 없다.
+- [x] 실제 격리 TLS broker 인증·역할별 독립 consumer/결과 제어기·후속 노드 전달·중복 명령/DB 결과·ACK 후 unacked=0·poison DLQ를 수용한다.
+- [ ] 같은 role의 복수 remote consumer 분산, broker 재시작/네트워크 단절·HA와 장시간 운영을 별도 수용한다. 기존 운영 큐·GPU/provider는 테스트에 연결하지 않는다.
 - [ ] 원격 consumer와 웹 fleet의 observed health·enabled/disabled·컨테이너 수 제어를 연결한다. 현재 웹 fleet은 여전히 로컬 CPU subprocess용이며 AMQP 설정을 실제 인스턴스 준비로 표시하지 않는다.
 - [ ] 장시간 큐 대기/작업의 lease 갱신·cancel 전달·운영 retry/HA 정책을 수용한다. 현재 짧은 명령 TTL·기존 CPU lease를 일반 분산 scheduler로 보고하지 않는다.
 
@@ -52,12 +53,14 @@ RabbitMQ opt-in client·CPU 수신기·결과 제어기와 명시 API dispatch, 
 
 - [x] MQ request/result JSON Schema·정확한 역할/포트·옵션·digest·세대·CAS 참조 검사를 정본화한다. 예상 외 응답 필드·credential·raw 진단은 거부한다.
 - [x] Compose의 LLM/provider/model 환경변수 주입과 구형 설정 API를 제거한다. root API는 명시 private bootstrap 파일만 읽으며 startup migration/worker는 없다.
-- [ ] DB 기반 credential resolver·모델 실행 설정의 관리자 CRUD/런타임 연결을 완성한다. 환경변수 삭제만으로 DB 설정 이관 완료라고 부르지 않는다.
-- [ ] 레포 내 RabbitMQ 설치 구성 및 실제 격리 broker 수용 후 exact renewal과 GPU 확인 범위를 실행 담당자에게 인계한다.
+- [x] 관리자 모델/connection revision CRUD와 DB encrypted credential 저장·교체·폐기·CAS·복호화 resolver를 연결한다. pinned DB endpoint/model/key가 injected text adapter의 요청에 반영되고 상충/삭제된 환경값으로 fallback하지 않음을 실제 격리 PG에서 검증한다.
+- [ ] 실제 모델 agent/능력별 runtime 및 address-pinned egress transport를 연결·승인한다. 기본 model network는 disabled이며 injected wire 성공을 provider/STT/TTS/GPU 실행 완료로 보고하지 않는다.
+- [x] 레포 내 opt-in RabbitMQ/PG/S3 구성, private bootstrap 생성기, 수동 migration/bucket/topology, API/results/CPU 선택 기동과 복구 절차를 제공하고 실제 격리 broker를 수용한다. exact renewal·목적지 운영 경계·GPU 미구현/미검증 범위의 인계 준비를 완료한다. 실제 전달/수신/목적지 실행은 Discord 증적으로 별도 구분한다.
 
 ### 인프라 잔여 — GPU 작업으로 분류하지 않음
 
-- [ ] 실제 S3 제품/버전의 조건부 쓰기·최소권한·소유자 prefix 정책·장애/보관 정책을 검증한다. 에뮬레이터를 MinIO 배포 완료로 취급하지 않는다.
+- [x] source-pinned MinIO를 실제 격리 TLS 서버로 build/기동하고 조건부 쓰기/CAS·attempt receipt·해시 검증을 CPU 왕복에서 확인한다.
+- [ ] 운영 S3 IAM 최소권한·소유자 prefix 격리·장애/보관 정책을 수용한다. 개발 bootstrap의 공통 storage credential과 tmpfs 검증을 운영 데이터 보관 완료로 취급하지 않는다.
 - [ ] 운영 승인 범위에서 브로커·에이전트 인증과 다중 머신 전달·취소·장애 복구를 연결한다. 기존 큐는 소비하지 않는다.
 - [ ] Loop/Fallback의 실행 정책과 추가 입력 binding을 구현한다. 현재 편집만 지원하는 경로는 실행 승인을 차단한다.
 - [ ] 장시간/대용량 WebM 파생 생성을 durable 비동기 작업으로 확장한다. 현재 256 MiB/단계별 timeout 한계를 대용량 지원으로 보고하지 않는다.

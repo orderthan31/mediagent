@@ -6,7 +6,7 @@
 
 ## 현재 상태
 
-검증 업로드·불변 workflow/티켓·PostgreSQL 상태·독립 CPU 프로세스·로컬/S3-compatible CAS·검수/승인/취소/복구·WebM과 이중 다운로드를 구현했다. renewal 관리자 경계와 실제 로컬 CPU fleet에 이어 opt-in RabbitMQ adapter·독립 수신기·결과 제어기와 공통 이미지 build graph를 추가했다. SDK/채널 대역과 실제 CPU·S3·PG를 격리 검증했으며 실제 RabbitMQ 서버·컨테이너 제어·MinIO 제품·다중 머신·GPU/provider·운영 전환은 미검증이다.
+검증 업로드·불변 workflow/티켓·PostgreSQL 상태·독립 CPU 프로세스·로컬/S3-compatible CAS·검수/승인/취소/복구·WebM과 이중 다운로드를 구현했다. renewal 관리자 경계와 실제 로컬 CPU fleet에 이어 opt-in RabbitMQ adapter·독립 수신기·결과 제어기와 공통 이미지 build graph를 추가했다. SDK/채널 대역과 실제 격리 TLS RabbitMQ 4.2.9·source-pinned MinIO·독립 CPU 두 process·결과 소비 process·PG의 합성 영상 완료/ACK/DLQ/결과 SHA를 구분해 수용했다. 컨테이너 fleet 제어·다중 머신·GPU/provider·운영 전환은 미검증이다.
 
 ## 주요 내용
 
@@ -22,7 +22,7 @@
 ### 저장소와 WebM
 
 - 원본 상한 256 MiB, chunk 4 MiB. `ContentStore`는 private local CAS, `S3ContentStore`는 기존 bucket의 명시 prefix/owner/CAS를 사용한다.
-- S3 adapter는 bucket 생성/나열/삭제·서명 URL 발급을 하지 않는다. 키는 프로세스의 명시 환경변수 이름으로만 읽으며 명령/정의/DB에 raw credential을 넣지 않는다. 원격 HTTPS(테스트 loopback HTTP 예외), 직접 SHA/byte 검증, 불변 참조를 사용한다.
+- S3 adapter는 bucket 생성/나열/삭제·서명 URL 발급을 하지 않는다. 신규 배포는 명시 private credential/config 파일을 직접 읽으며 기존 환경변수 이름 CLI는 infrastructure 호환용이다. 별도 operator만 명시 빈 bucket을 초기화한다. 명령/정의/DB에 raw transport credential을 넣지 않는다. 원격 HTTPS(테스트 loopback HTTP 예외), 직접 SHA/byte 검증, 불변 참조를 사용한다.
 - private cache는 로컬 작업공간일 뿐 정본이 아니다. 앱/에이전트는 공유 볼륨 없이 별도 cache에서 S3 HTTP로 원본/결과를 교환한다.
 - 업로드 원본과 처리 결과 원본은 보존한다. 별도 `webm-vp9-opus-v1` 파생본(VP9/Opus, 최대 1280×720)을 생성하고 원본 SHA와 연결한다. 원본을 WebM으로 바꿔 저장하지 않는다.
 - `/api/videos/{id}/stream`은 WebM 재생, `/download`는 업로드 원본이다. `stream?download=true`는 WebM 첨부 다운로드다.
@@ -82,7 +82,7 @@ Python 3.12+와 FFmpeg/FFprobe가 필요하다. `packages/shared[postgres,models
 
 - [MQ request/response 계약](agent-protocol.md)의 versioned schema를 패키지에 포함한다. 결과의 정확한 필드·포트·자료 유형과 request digest/세대/attempt를 runtime에서도 검사하며 raw 진단·추가 credential 필드는 거부한다.
 - root Compose의 LLM/provider/model 환경변수 주입은 제거했다. `app.server --bootstrap-file`은 DB 접속 파일·콘텐츠 root·listen·origin/cookie 설정만 받고 startup에서 migrate/worker를 실행하지 않는다. 모델/provider/key 필드는 bootstrap에 허용하지 않는다. private runtime UID 읽기 조건은 루트 README를 따른다.
-- DB credential resolver·관리자 설정의 실제 model runtime 연결, 레포 RabbitMQ 설치 구성·실제 broker 수용과 GPU/MagicDNS 배포는 아직 남아 있다. 구형 설정 API/환경 fallback 삭제를 이 작업들 완료로 취급하지 않는다.
+- 관리자 DB credential/revision resolver→주입 text wire와 레포 opt-in 설치 구성·실제 격리 broker 수용은 구현/검증했다. 실제 model agent/address-pinned network transport, GPU contract/consumer/engine, 원격 fleet·MagicDNS 운영 배포는 남아 있다. [배포 절차](../../rules/deploy.md)의 신규 설치/복구와 실행 승인 경계를 따른다.
 
 ### 검증과 남은 부채
 

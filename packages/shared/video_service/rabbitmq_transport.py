@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import ipaddress
 import json
+import logging
 import re
 import ssl
 import threading
@@ -301,6 +302,12 @@ class RabbitClient:
     @classmethod
     def connect(cls, config, *, environ):
         connection = None
+        diagnostics = logging.getLogger("pika")
+        if not any(
+            isinstance(handler, logging.NullHandler) for handler in diagnostics.handlers
+        ):
+            diagnostics.addHandler(logging.NullHandler())
+        diagnostics.propagate = False
         try:
             import pika
 

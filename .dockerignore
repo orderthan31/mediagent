@@ -17,3 +17,10 @@ data
 **/coverage
 **/.vite
 **/.llm-settings
+
+# Private deployment material must never enter Git or an image build context.
+.private/
+bootstrap-private/
+**/*-bootstrap/
+**/credential-master.key
+**/offline-ca/

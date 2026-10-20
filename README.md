@@ -48,7 +48,7 @@ DB·합성 미디어·브라우저 검증의 실제 명령과 opt-in 조건은 [
 
 ## Compose와 bootstrap
 
-root Compose는 `renewal` profile의 API/web 레시피다. API는 `app.server --bootstrap-file`을 사용하며 LLM key·provider·model을 environment에 입력받지 않는다. 앱 설정의 정본은 관리자 DB이며 **DB credential resolver 연결은 아직 잔여**다. 삭제한 환경변수 fallback을 복구하지 않는다.
+root Compose는 `renewal` profile의 API/web 레시피다. API는 `app.server --bootstrap-file`을 사용하며 LLM key·provider·model을 environment에 입력받지 않는다. 앱 설정의 정본은 관리자 DB다. 관리자 write-only 키 저장·교체·폐기는 DB 암호문과 불변 connection revision으로 관리하며 pinned model resolver→주입 text wire를 검증했다. 기본 model network 실행은 disabled다. 삭제한 환경변수 fallback을 복구하지 않는다.
 
 프로세스 부팅에 필요한 DB 접속·콘텐츠 root·origin·listen/cookie 설정만 별도 private bootstrap 파일로 제공한다. 이것은 DB가 열리기 전 필요한 인프라 bootstrap이며 모델/provider 설정 파일이 아니다.
 
@@ -69,7 +69,7 @@ private 디렉터리의 `api.json` 구조:
 
 `MIDEAGENT_BOOTSTRAP_DIR`은 해당 private 디렉터리의 절대 경로다. `docker compose --profile renewal config --quiet`는 정적 검증이며 배포가 아니다. `/healthz`는 프로세스 liveness만 확인하며 DB 준비 완료를 의미하지 않는다. 실제 migration·DB/스토리지 준비·image build/run은 별도 수용 단계다. API는 외부에 publish하지 않고 web만 `127.0.0.1:8080`으로 publish한다. MagicDNS/원격 배포는 이 레시피만으로 완료되지 않는다.
 
-`agents/cpu/compose.yaml`은 명시 stdin/local-CAS, `compose.amqp.yaml`은 외부 broker/S3를 전제로 한 선택 레시피다. 실제 RabbitMQ 서버 설치 recipe와 원격 fleet 연동은 잔여이며 기본 startup에 consumer를 붙이지 않는다. 이미지 graph는 `docker buildx bake --print api cpu cpu-amqp api-broker gpu`로 조회한다. 공통 FFmpeg base는 실행 서비스가 아닌 build layer다.
+`agents/cpu/compose.yaml`은 명시 stdin/local-CAS, `compose.amqp.yaml`은 외부 broker/S3를 전제로 한 선택 레시피다. 선택 `infra/compose.yaml`은 별도 TLS broker/PG/S3 설치 recipe, `compose.transport.yaml`은 root API/results/operator 연결 overlay다. 신규 private bootstrap·수동 초기화·권한·복구는 [배포 절차](docs/rules/deploy.md)를 따른다. 실제 격리 broker/S3/독립 CPU 왕복은 수용했지만 운영 배포·원격 fleet 제어·GPU agent 실행은 별도다. 기본 startup에 consumer를 붙이지 않는다. 이미지 graph는 `docker buildx bake -f docker-bake.hcl --print api cpu cpu-amqp api-broker gpu`로 조회한다. 공통 FFmpeg base는 실행 서비스가 아닌 build layer다.
 
 ## 이전 자료
 

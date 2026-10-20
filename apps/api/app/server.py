@@ -17,6 +17,7 @@ FIELDS = {
     "port",
     "secure_cookies",
 }
+OPTIONAL_FIELDS = {"credential_key_file", "object_config_file", "broker_config_file"}
 
 
 def load_bootstrap(path):
@@ -25,7 +26,11 @@ def load_bootstrap(path):
         if len(raw) > 8192:
             raise ValueError
         value = json.loads(raw)
-        if not isinstance(value, dict) or set(value) != FIELDS:
+        if (
+            not isinstance(value, dict)
+            or not FIELDS <= set(value)
+            or set(value) - FIELDS - OPTIONAL_FIELDS
+        ):
             raise ValueError
         if value["host"] not in ("127.0.0.1", "0.0.0.0"):
             raise ValueError
@@ -50,7 +55,11 @@ def load_bootstrap(path):
                 or text != f"{origin.scheme}://{origin.netloc}"
             ):
                 raise ValueError
-        for name in ("database_dsn_file", "content_root"):
+        for name in (
+            "database_dsn_file",
+            "content_root",
+            *(key for key in OPTIONAL_FIELDS if key in value),
+        ):
             if not isinstance(value[name], str) or not Path(value[name]).is_absolute():
                 raise ValueError
         dsn_bytes = Path(value["database_dsn_file"]).read_bytes()
@@ -67,6 +76,7 @@ def load_bootstrap(path):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--bootstrap-file", required=True)
+    parser.add_argument("--enable-broker", action="store_true")
     args = parser.parse_args()
     try:
         config, dsn = load_bootstrap(args.bootstrap_file)
@@ -75,17 +85,24 @@ def main():
             "Invalid or unreadable explicit bootstrap file; values are never logged."
         )
     import uvicorn
-    from video_service.content_store import ContentStore
     from video_service.postgres import Database
 
     from app.renewal import create_app
 
+    database = Database(dsn)
+    from app.operator import runtime_components
+
+    store, credentials, broker_factory = runtime_components(
+        database, config, enable_broker=args.enable_broker
+    )
     app = create_app(
-        Database(dsn),
+        database,
         allowed_origins=tuple(config["allowed_origins"]),
         secure_cookies=config["secure_cookies"],
-        content_store=ContentStore(config["content_root"]),
-        local_execution=False,
+        content_store=store,
+        credential_store=credentials,
+        broker_factory=broker_factory,
+        local_execution=args.enable_broker,
     )
 
     @app.get("/healthz", include_in_schema=False)

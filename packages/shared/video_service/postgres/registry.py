@@ -1,7 +1,13 @@
 """Owner-scoped registry with immutable snapshots and pessimistic CAS writes."""
 import re
-from ..model_endpoints import canonical_hash, validate_endpoint, PROVIDERS, PROTOCOL_USES
-from ..model_profile import validate_profile, MODEL_TYPES, MODALITIES, CAPABILITIES
+
+from ..model_endpoints import (
+    PROTOCOL_USES,
+    PROVIDERS,
+    canonical_hash,
+    validate_endpoint,
+)
+from ..model_profile import CAPABILITIES, MODALITIES, MODEL_TYPES, validate_profile
 from . import Conflict, Missing
 
 
@@ -44,7 +50,7 @@ class Registry:
     def _public_connection(parent, row):
         return {'id': parent['id'], 'name': row['name'], 'provider': row['provider'], 'protocol': row['protocol'],
                 'endpoint': row['endpoint'], 'revision': parent['state_revision'], 'current_revision': row['revision'],
-                'active': parent['active'], 'credential': 'reference_set' if row['credential_ref'] else 'not_set',
+                'active': parent['active'], 'credential': 'reference_set' if row['credential_ref'] and re.fullmatch(r'db:[a-f0-9]{32}', row['credential_ref']) else 'not_set',
                 'sha256': row['sha256'], 'connection_verified': False}
 
     def connections(self, owner):
@@ -65,9 +71,14 @@ class Registry:
         config = {'name': name, 'provider': provider, 'protocol': protocol, 'endpoint': endpoint}
         with self.database.connection() as db:
             parent = self._lock(db, 'serving_connections', owner, identity, revision)
+            previous = self._connection(db, owner, identity)[1] if parent['revision'] else None
+            reference = previous['credential_ref'] if previous and all(previous[k] == config[k] for k in ('provider', 'protocol', 'endpoint')) else None
+            if reference is not None and not re.fullmatch(r'db:[a-f0-9]{32}', reference):
+                reference = None
+            config['credential_ref'] = reference
             next_revision = parent['revision'] + 1
-            db.execute('INSERT INTO connection_revisions(owner_id,connection_id,revision,name,provider,protocol,endpoint,sha256) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)',
-                       (owner, identity, next_revision, name, provider, protocol, endpoint, canonical_hash(config)))
+            db.execute('INSERT INTO connection_revisions(owner_id,connection_id,revision,name,provider,protocol,endpoint,credential_ref,sha256) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)',
+                       (owner, identity, next_revision, name, provider, protocol, endpoint, reference, canonical_hash(config)))
             db.execute('UPDATE serving_connections SET revision=%s,state_revision=state_revision+1 WHERE owner_id=%s AND id=%s', (next_revision, owner, identity))
             result = self._public_connection(*self._connection(db, owner, identity))
         return result

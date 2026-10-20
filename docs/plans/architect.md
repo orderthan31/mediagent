@@ -42,7 +42,7 @@ flowchart LR
 - `--broker-config-env`는 S3·명시 CPU 승인과 함께 API의 단일 작업 dispatch를 선택한다. startup 연결/소비는 없고 각 호출이 별도 연결을 소유한다. 결과 소비와 topology 생성은 별도 opt-in CLI다. 이 모드의 원격 consumer는 웹 fleet의 로컬 인스턴스 집계/제어에 연결하지 않았다.
 
 - MQ req/res 정본은 shared `agent_protocol.py`와 패키지에 포함한 JSON Schema이며 runtime validator가 digest·attempt·정확한 포트까지 검사한다. [wire 계약](../references/high/agent-protocol.md)을 따른다.
-- root Compose는 opt-in renewal API/web만 제공한다. provider/model/key의 환경변수 경로는 폐기했으며 private 파일은 DB 접속·listen/origin·스토리지 부팅에만 사용한다. 관리자 DB credential resolver와 레포 RabbitMQ 설치 구성은 아직 잔여다.
+- root Compose는 opt-in renewal API/web만 제공한다. provider/model/key의 환경변수 경로는 폐기했으며 private 파일은 DB 접속·listen/origin·스토리지 부팅에만 사용한다. 관리자 DB encrypted credential/revision resolver와 opt-in `infra/compose.yaml` 설치 구성, 별도 `compose.transport.yaml` API/results/operator 연결을 제공한다. 실제 격리 TLS broker/MinIO·독립 CPU·PG 왕복을 수용했으며 운영 이관·원격 fleet/GPU/model 실행은 별도다.
 
 ## 미확정 사항
 

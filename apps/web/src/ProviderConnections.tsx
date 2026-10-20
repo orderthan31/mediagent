@@ -26,6 +26,9 @@ export const ProviderConnections = ({ route, query }: { route: string; query: st
   const [protocol, setProtocol] = useState('openai_compatible');
   const [endpoint, setEndpoint] = useState('');
   const [revision, setRevision] = useState(0);
+  const [secret, setSecret] = useState('');
+  const [removeSecret, setRemoveSecret] = useState(false);
+  const [createdIdentity, setCreatedIdentity] = useState('');
   const [busy, setBusy] = useState('load');
   const [error, setError] = useState('');
   const identity = route.match(/^#\/serving\/connections\/([a-f0-9]{32})(?:\/edit)?$/)?.[1];
@@ -44,8 +47,8 @@ export const ProviderConnections = ({ route, query }: { route: string; query: st
     setBusy('save');
     setError('');
     try {
-      const id = identity || crypto.randomUUID().replaceAll('-', '');
-      await request<ServingConnection>(connectionsEndpoint + '/' + id, {
+      const id = identity || createdIdentity || crypto.randomUUID().replaceAll('-', '');
+      const saved = await request<ServingConnection>(connectionsEndpoint + '/' + id, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -56,6 +59,25 @@ export const ProviderConnections = ({ route, query }: { route: string; query: st
           ...(renewalBackend ? { protocol } : {}),
         }),
       });
+      setRevision(saved.revision);
+      setCreatedIdentity(id);
+      if (renewalBackend && (secret || removeSecret)) {
+        try {
+          await request<ServingConnection>(connectionsEndpoint + '/' + id + '/credential', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              revision: saved.revision,
+              secret: removeSecret ? null : secret,
+            }),
+          });
+        } catch {
+          throw new Error(
+            '공급자 정보는 저장했지만 API 키는 저장하지 못했습니다. 최신 공급자에서 다시 시도하세요.',
+          );
+        }
+      }
+      setSecret('');
       location.hash = '/serving/connections/' + id;
     } catch (value) {
       setError(value instanceof Error ? value.message : '저장하지 못했습니다.');
@@ -64,6 +86,17 @@ export const ProviderConnections = ({ route, query }: { route: string; query: st
     }
   };
   useEffect(() => {
+    setBusy('load');
+    setCreatedIdentity('');
+    setSecret('');
+    setRemoveSecret(false);
+    if (!identity) {
+      setName('');
+      setEndpoint('');
+      setRevision(0);
+      setProvider(renewalBackend ? 'openai_compatible' : 'openai');
+      setProtocol('openai_compatible');
+    }
     const controller = new AbortController();
     void request<{ connections: ServingConnection[]; providers: Record<string, string> }>(
       connectionsEndpoint,
@@ -98,7 +131,7 @@ export const ProviderConnections = ({ route, query }: { route: string; query: st
         }
       });
     return () => controller.abort();
-  }, [identity]);
+  }, [identity, route]);
   return (
     <main className="serving-page">
       <PageTitle>
@@ -169,16 +202,31 @@ export const ProviderConnections = ({ route, query }: { route: string; query: st
               API 키
               <Input
                 type="password"
-                disabled
-                value=""
+                disabled={!renewalBackend || removeSecret}
+                value={secret}
+                maxLength={4096}
+                onChange={(event) => setSecret(event.target.value)}
                 placeholder={
                   renewalBackend
-                    ? '보안 참조 연결 준비 중 · 현재 무키 연결만 등록'
+                    ? '변경할 때만 입력 · DB 암호화 저장, 다시 표시하지 않음'
                     : '목업 · 입력 불가'
                 }
                 autoComplete="off"
               />
             </label>
+            {renewalBackend && identity && (
+              <label>
+                <input
+                  type="checkbox"
+                  checked={removeSecret}
+                  onChange={(event) => {
+                    setRemoveSecret(event.target.checked);
+                    setSecret('');
+                  }}
+                />
+                기존 API 키 전체 폐기 · 이전 버전도 사용 중지
+              </label>
+            )}
           </fieldset>
           <div className="page-actions">
             <Button
@@ -210,7 +258,7 @@ export const ProviderConnections = ({ route, query }: { route: string; query: st
               )}
               <div>
                 <dt>API 키</dt>
-                <dd>{selected.credential === 'reference_set' ? '참조 설정됨' : '미설정'}</dd>
+                <dd>{selected.credential === 'reference_set' ? 'DB 암호화 저장됨' : '미설정'}</dd>
               </div>
               <div>
                 <dt>연결 확인</dt>

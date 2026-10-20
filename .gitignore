@@ -22,3 +22,10 @@ apps/web/test-results/
 apps/web/playwright-report/
 apps/web/.hangyeol-backups/
 apps/web/.hangyeol-transactions/
+
+# Private deployment material must never enter Git or an image build context.
+.private/
+bootstrap-private/
+**/*-bootstrap/
+**/credential-master.key
+**/offline-ca/

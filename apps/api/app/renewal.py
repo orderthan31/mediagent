@@ -13,7 +13,7 @@ import psycopg
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, StrictBool, StrictInt
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from video_service.auth import LoginThrottled
 from video_service.model_endpoints import PROVIDERS
@@ -38,6 +38,11 @@ class Connection(Body):
     provider: str = Field(min_length=1, max_length=80)
     protocol: str = Field(min_length=1, max_length=80)
     endpoint: str = Field(min_length=1, max_length=2048)
+
+
+class ProviderCredential(Body):
+    revision: StrictInt = Field(ge=1)
+    secret: SecretStr | None
 
 
 class Compatibility(Body):
@@ -128,6 +133,7 @@ def create_app(
     agent_executor=None,
     cpu_driver=None,
     broker_factory=None,
+    credential_store=None,
 ):
     origins = frozenset(allowed_origins)
     if not origins or any(
@@ -374,6 +380,7 @@ def create_app(
             ),
             "execution_enabled": content_store is not None and local_execution,
             "model_network_enabled": False,
+            "db_credentials_enabled": credential_store is not None,
             "transport": (
                 "explicit_amqp"
                 if broker_factory is not None
@@ -397,6 +404,13 @@ def create_app(
         return registry.save_connection(
             value["user"]["id"], identity, **body.model_dump()
         )
+
+    @app.put("/api/settings/serving-connections/{identity}/credential")
+    def provider_credential(identity: str, body: ProviderCredential, value=administrator_dependency):
+        if credential_store is None:
+            raise HTTPException(503, "credential_store_unavailable")
+        return credential_store.save(value["user"]["id"], identity, revision=body.revision,
+            secret=body.secret.get_secret_value() if body.secret is not None else None)
 
     @app.get("/api/settings/registered-models")
     def models(value=administrator_dependency):

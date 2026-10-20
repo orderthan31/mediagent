@@ -34,7 +34,7 @@ services:
       - content:/data/content
     expose: ["8000"]
     healthcheck:
-      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=5)"]
+      test: [CMD, python, -c, "import json,urllib.request; from urllib.parse import urlsplit; c=json.load(open('/run/bootstrap/api.json')); r=urllib.request.Request('http://127.0.0.1:8000/healthz',headers={'Host':urlsplit(c['allowed_origins'][0]).netloc}); urllib.request.urlopen(r,timeout=5)"]
       interval: 10s
       timeout: 6s
       retries: 5

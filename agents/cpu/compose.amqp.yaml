@@ -1,5 +1,5 @@
-# Explicit, independently scalable AMQP CPU roles. No broker service/deployment.
-# Named config/credential environment is supplied by a private operator env file.
+# Explicit independently scalable CPU roles; infra/compose.yaml owns the broker.
+# Each role mounts only its own private bootstrap compartment.
 x-amqp: &amqp
   build:
     context: ../..
@@ -14,8 +14,6 @@ x-amqp: &amqp
   stop_grace_period: 120s
   tmpfs:
     - /tmp:size=512m,uid=10001,gid=10001,mode=0700
-  env_file:
-    - ${MIDEAGENT_AGENT_ENV_FILE:?Set an explicit private agent env file}
   networks: [agent-transport]
   cap_drop: [ALL]
   security_opt: [no-new-privileges:true]
@@ -36,23 +34,48 @@ services:
   analyze:
     <<: *amqp
     profiles: [analyze]
-    command: [--enable-broker, --agent, analyze, --broker-config-env, MIDEAGENT_BROKER_CONFIG, --object-config-env, MIDEAGENT_AGENT_OBJECT_CONFIG]
+    command: [--enable-broker, --agent, analyze, --broker-config-file, /run/bootstrap/analyze-broker.json, --object-config-file, /run/bootstrap/objects.json]
+    volumes:
+      - type: bind
+        source: ${MIDEAGENT_BOOTSTRAP_DIR:?Set an absolute private bootstrap directory}/agent/analyze
+        target: /run/bootstrap
+        read_only: true
   extract-audio:
     <<: *amqp
     profiles: [extract-audio]
-    command: [--enable-broker, --agent, extract_audio, --broker-config-env, MIDEAGENT_BROKER_CONFIG, --object-config-env, MIDEAGENT_AGENT_OBJECT_CONFIG]
+    command: [--enable-broker, --agent, extract_audio, --broker-config-file, /run/bootstrap/extract_audio-broker.json, --object-config-file, /run/bootstrap/objects.json]
+    volumes:
+      - type: bind
+        source: ${MIDEAGENT_BOOTSTRAP_DIR:?Set an absolute private bootstrap directory}/agent/extract_audio
+        target: /run/bootstrap
+        read_only: true
   generate-subtitle:
     <<: *amqp
     profiles: [generate-subtitle]
-    command: [--enable-broker, --agent, generate_subtitle, --broker-config-env, MIDEAGENT_BROKER_CONFIG, --object-config-env, MIDEAGENT_AGENT_OBJECT_CONFIG]
+    command: [--enable-broker, --agent, generate_subtitle, --broker-config-file, /run/bootstrap/generate_subtitle-broker.json, --object-config-file, /run/bootstrap/objects.json]
+    volumes:
+      - type: bind
+        source: ${MIDEAGENT_BOOTSTRAP_DIR:?Set an absolute private bootstrap directory}/agent/generate_subtitle
+        target: /run/bootstrap
+        read_only: true
   encode:
     <<: *amqp
     profiles: [encode]
-    command: [--enable-broker, --agent, encode, --broker-config-env, MIDEAGENT_BROKER_CONFIG, --object-config-env, MIDEAGENT_AGENT_OBJECT_CONFIG]
+    command: [--enable-broker, --agent, encode, --broker-config-file, /run/bootstrap/encode-broker.json, --object-config-file, /run/bootstrap/objects.json]
+    volumes:
+      - type: bind
+        source: ${MIDEAGENT_BOOTSTRAP_DIR:?Set an absolute private bootstrap directory}/agent/encode
+        target: /run/bootstrap
+        read_only: true
   validate-video:
     <<: *amqp
     profiles: [validate-video]
-    command: [--enable-broker, --agent, validate_video, --broker-config-env, MIDEAGENT_BROKER_CONFIG, --object-config-env, MIDEAGENT_AGENT_OBJECT_CONFIG]
+    command: [--enable-broker, --agent, validate_video, --broker-config-file, /run/bootstrap/validate_video-broker.json, --object-config-file, /run/bootstrap/objects.json]
+    volumes:
+      - type: bind
+        source: ${MIDEAGENT_BOOTSTRAP_DIR:?Set an absolute private bootstrap directory}/agent/validate_video
+        target: /run/bootstrap
+        read_only: true
 networks:
   agent-transport:
     external: true

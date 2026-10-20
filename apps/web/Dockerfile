@@ -4,7 +4,7 @@ COPY apps/web/package.json apps/web/package-lock.json ./
 COPY apps/web/vendor ./vendor
 RUN npm ci
 COPY apps/web ./
-RUN npm run build
+RUN VITE_RENEWAL_BACKEND=1 npm run build
 
 FROM nginx:1.28-alpine
 COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf

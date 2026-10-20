@@ -37,21 +37,38 @@ def main(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("--enable-broker", action="store_true")
     parser.add_argument("--agent", required=True, choices=sorted(CPU_AGENTS))
-    parser.add_argument("--broker-config-env", required=True)
-    parser.add_argument("--object-config-env", required=True)
+    broker = parser.add_mutually_exclusive_group(required=True)
+    broker.add_argument("--broker-config-env")
+    broker.add_argument("--broker-config-file")
+    objects = parser.add_mutually_exclusive_group(required=True)
+    objects.add_argument("--object-config-env")
+    objects.add_argument("--object-config-file")
     args = parser.parse_args(argv)
     if not args.enable_broker:
         parser.error("Broker consumption is disabled without --enable-broker")
     # SDK diagnostics must not print private connection parameters.
     logging.getLogger("pika").disabled = True
     try:
-        config = BrokerConfig.from_env(args.broker_config_env, environ=os.environ)
-        executor = ObjectAgentExecutor(args.object_config_env, environ=os.environ)
+        from video_service.transport_files import broker_factory, object_executor
+
+        factory = (
+            broker_factory(args.broker_config_file)
+            if args.broker_config_file
+            else lambda: RabbitClient.connect(
+                BrokerConfig.from_env(args.broker_config_env, environ=os.environ),
+                environ=os.environ,
+            )
+        )
+        executor = (
+            object_executor(args.object_config_file)
+            if args.object_config_file
+            else ObjectAgentExecutor(args.object_config_env, environ=os.environ)
+        )
         handler = CpuHandler(args.agent, executor)
         stop = threading.Event()
         for sig in (signal.SIGINT, signal.SIGTERM):
             signal.signal(sig, lambda *_: stop.set())
-        with RabbitClient.connect(config, environ=os.environ) as client:
+        with factory() as client:
             client.serve(args.agent, handler, stop)
         return 0
     except Exception:  # noqa: BLE001 -- CLI must suppress paths, endpoints and credentials

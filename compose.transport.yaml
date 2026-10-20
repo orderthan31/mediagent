@@ -1,0 +1,42 @@
+# Merge with docker-compose.yml, not with infra/compose.yaml (different projects).
+# Existing default API/web recipe remains broker-free unless this overlay is chosen.
+x-broker-image: &broker-image
+  image: mideagent-api-broker:local
+  build: {context: ., target: broker}
+x-runtime: &runtime
+  <<: *broker-image
+  init: true
+  user: "10001:10001"
+  restart: "no"
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  pids_limit: 128
+  mem_limit: 1g
+  cpus: 1
+  tmpfs: [/tmp:size=256m,uid=10001,gid=10001,mode=0700]
+  networks: [agent-transport]
+services:
+  api:
+    <<: *broker-image
+    command: [python, -m, app.server, --bootstrap-file, /run/bootstrap/api.json, --enable-broker]
+    volumes:
+      - ${MIDEAGENT_BOOTSTRAP_DIR:?Set private bootstrap directory}/api:/run/bootstrap:ro
+    networks: [default, agent-transport]
+  operator:
+    <<: *runtime
+    profiles: [operator]
+    entrypoint: [python, -m, app.operator]
+    volumes:
+      - ${MIDEAGENT_BOOTSTRAP_DIR:?Set private bootstrap directory}/operator:/run/bootstrap:ro
+  results:
+    <<: *runtime
+    profiles: [results]
+    command: [python, -m, app.operator, consume-results, --bootstrap-file, /run/bootstrap/api.json, --enable-broker]
+    stop_grace_period: 120s
+    volumes:
+      - ${MIDEAGENT_BOOTSTRAP_DIR:?Set private bootstrap directory}/api:/run/bootstrap:ro
+networks:
+  agent-transport:
+    external: true
+    name: ${MIDEAGENT_AGENT_NETWORK:?Set existing isolated infrastructure network}

@@ -214,7 +214,8 @@ def from_config(config, *, environ=None):
     }
     if (
         not isinstance(config, dict)
-        or set(config) != fields
+        or not fields <= set(config)
+        or set(config) - fields - {"ca_file"}
         or not all(isinstance(v, str) and v for v in config.values())
     ):
         raise ObjectStoreError("Invalid object store config")
@@ -239,6 +240,7 @@ def from_config(config, *, environ=None):
     client = boto3.client(
         "s3",
         endpoint_url=config["endpoint"],
+        verify=config.get("ca_file", True),
         region_name=config["region"],
         aws_access_key_id=keys[0],
         aws_secret_access_key=keys[1],
