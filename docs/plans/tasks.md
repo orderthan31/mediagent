@@ -6,6 +6,16 @@
 
 ## 현재 상태
 
+### 실제 시작·2→1 부분 축소 복구 — 새 격리 경계 검토 자료
+
+- 관리자 복구 UI는 `23685e3cb5571afe616b90900fc3bece19388fb7`로 분리·수용됐고 PM App push 완료 보고를 받았다. 이번은 그 위의 별도 변경이다. 기존 수용 backend12·MQ·UI8 묶음을 반복하지 않고 새로운 경계만 확인했다.
+- 시작 요청을 제품 버튼으로 접수하고 실제 native start 반환·서명 ACK 뒤 SQL sent 전 호스트 프로세스를 exit23으로 중단했다. 원 요청/target/image/현재 boot와 서명 ACK의 StartedAt을 대조해 관리자 판단→호스트 재검증→제품 화면 관측 확정을 확인했다. 대상이 실행 중이어도 ACK 파일이 없으면 보류만 가능하며, 원 파일을 복원해도 원래 issuing·예약 기록을 sent/succeeded로 바꾸거나 start를 재발행하지 않는다.
+- 별도 격리 대상의 동일 container를 외부 fault로 정상 중지/재시작해 실행 회차가 달라지면 유효한 원 ACK 파일이 있어도 보류만 제공했다. 화면에 현재/ACK 실행 회차·boot·대조 불일치를 표시한다. 이 외부 fixture fault는 원 제어 요청의 재발행이나 운영 대상 교체/정책 변경이 아니다.
+- 2→1 부분 축소에서 두 대상이 실제 FFmpeg 작업 중일 때 제거 대상에게만 SIGTERM을 보냈고 SQL ACK 전 호스트를 중단했다. 유지 대상은 같은 boot에서 후속 작업까지 처리했다. 호스트 제어를 일시 정지한 동안 후속 완료가 발생한 snapshot/시각을 저장했다. 제거 대상은 진행 작업 완료·exit0 후 종료했고 뒤에 넣은 작업은 queued/claim0으로 남았다. 관리자 복구 후 실제 개수1과 유지 대상 동일 boot, 이력 반영을 PC/390px 화면에서 확인했다.
+- 새 경계에서 '개수만 맞으면 유지 대상 boot 변경/상태 불명도 확정 가능'한 허점을 새 PG red→green으로 수정했다. migration016은 새 batch 생성 때 모든 슬롯의 ID/pin/boot/StartedAt 기준선을 저장하며 기존 batch는 NULL을 유지한다. 시작/유지 대상의 원 기준선이 없거나 달라지면 보류한다. API와 host의 baseline UPDATE는 실제 권한 거부였다. migration은 새 일회용 PG에만 적용했다.
+- 신규 PG guard3 passed·실제 브라우저 경계5개·Node50·typecheck/build/변경 lint/format 통과. 원 action3개는 각각 issuing/issue_count1을 보존했고 제어기 명령 기록도 각각1회이며 유지 대상에 제어 신호가 없었다. 실제 산출물3개의 bytes/SHA와 ffprobe 6.0/20.0/4.0초를 확인했다. 첫 브라우저의 이전 select DOM을 성급히 읽은 실패는 보존하고 실제 preview 응답/렌더 완료를 기다리도록 fixture를 수정했다.
+- **범위:** 직접 PG 보고·합성 FFmpeg 작업·고정 native 대상과 실제 API/제품 화면의 격리 검증이다. MQ·제품 티켓 연결 복구, 여러 제거 슬롯의 발행 중간 중단, 근거 없는 해제·격리 해제/대상 교체 및 운영 등록/배포/활성화는 별도다. `restart=no`·기존 자원/키/WIP/롤백 보존을 유지한다.
+
 ### 관리자 복구 제품 화면 — 별도 UI 검토 자료, 운영 미적용
 
 - 관리자 API·호스트 15경로는 `07a3caa9012c97876f597605fd27e3755464672f`로 분리했고 PM의 수용/App push 완료 보고를 받았다. 이번은 그 위의 별도 화면 변경이며 수용된 backend12/MQ 시험을 재실행하거나 운영 API를 교체하지 않았다.

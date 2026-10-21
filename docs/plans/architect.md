@@ -6,6 +6,10 @@
 
 ## 현재 상태
 
+`23685e3c` 다음 별도 시작/부분 축소 복구는 원 batch의 모든 슬롯 generation 기준선을 host-only로 저장한다(migration016, 기존 행 NULL 보존). 시작 슬롯은 서명 ACK의 실제 StartedAt·현재 보고 boot/pin을 대조하고, 부분 축소의 유지 슬롯도 원 boot/StartedAt/pin과 관측 상태가 유지되는지 검사한다. 결과 개수만 맞는 것은 근거가 아니다. API/host의 기준선 재작성 권한을 추가하지 않으며 기존 계획·action/issue_count·판단 이력을 보존한다. 화면은 신호를 받지 않는 유지 대상과 시작/중지 대상, 현재/ACK 실행 회차의 대조를 구분한다.
+
+격리된 실제 제품 버튼/관리자 복구로 시작 ACK 뒤 SQL 전 중단→읽기/판단 기반 복구, missing ACK·새 실행 회차의 봉쇄, 실제 FFmpeg 작업 중 2→1 축소·제거 대상 drain/exit0·유지 대상 동일 boot의 후속 처리와 화면 결과를 확인했다. 이 경로는 직접 PG 상태 보고와 합성 작업 fixture이며 MQ/제품 티켓·운영 복구 수용은 아니다. 운영 정책/등록/배포/활성화 금지와 restart=no를 유지한다.
+
 관리자 API·호스트는 `07a3caa9012c97876f597605fd27e3755464672f`까지 PM 수용·App push 완료 보고를 받았다. 별도 UI 후속은 기존 fixed-host 실행 설정 아래 recovery status/preview/decision에만 연결한다. 원 요청/pin/boot/예약 기록과 허용 판단을 표시하고, 사유 입력→접수→호스트 재검증 결과/최근 이력을 구분한다. 접수를 성공으로 보거나 파일 근거 부족을 해제하지 않는다. 다른 판단/관측 변경은 이전 계획을 막고 재확인을 요구하며, 늦은 POST와 역순 GET 응답이 이미 확인한 상태를 덮지 않게 한다. 실제 사설 API/PG/native-fault 준비 fixture의 PC/390px 브라우저 자료이며 운영·시작/부분 축소·MQ/티켓 연결 복구 수용은 아니다. Backend 계약/권한·운영 등록/배포/활성화는 변경하지 않는다.
 
 관리자 복구는 `612ce794` 위의 별도 API/host 후속이다. 명시 `create_app(control_recovery=...)`에서 관리자·CSRF preview/decision/status만 추가하며 기본 운영 bootstrap은 그대로다. API는 Docker 대상/명령/ACK 자료나 완료 결과를 제출할 수 없고, 고정 호스트만 서명된 private ACK 파일과 현재 pin/boot/물리 상태를 검증한다. 실제 호출 반환→private ACK 파일→SQL sent의 순서이며 파일조차 없는 모호한 구간은 자동 복구하지 않는다. HMAC 키는 provider 키와 별개이고 이번에는 새 격리 fixture에서만 생성·사용했다.

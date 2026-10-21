@@ -26,9 +26,17 @@ type Evidence = {
     running: boolean;
     state: string;
     boot_id: string | null;
+    started_at?: string;
     exit_code: number | null;
   }[];
-  ack_evidence: { action_id: string; valid: boolean; receipt_sha256: string | null }[];
+  ack_evidence: {
+    action_id: string;
+    valid: boolean;
+    receipt_sha256: string | null;
+    facts?: { after_started_at: string; acknowledged_at: string } | null;
+  }[];
+  baseline?: { id: string; boot_id: string | null; started_at: string }[] | null;
+  execution_bindings?: { worker_id: string; kind: string; matched: boolean }[];
 };
 type Plan = { id: string; context: Evidence; allowed: Choice[] };
 type Decision = {
@@ -74,6 +82,8 @@ const Facts = ({ value }: { value: Evidence }) => (
       const action = value.actions.find((item) => item.worker_id === target.worker_id);
       const observed = value.observed.find((item) => item.id === target.worker_id);
       const ack = value.ack_evidence.find((item) => item.action_id === action?.id);
+      const original = value.baseline?.find((item) => item.id === target.worker_id);
+      const binding = value.execution_bindings?.find((item) => item.worker_id === target.worker_id);
       return (
         <dl key={target.worker_id}>
           <div>
@@ -94,26 +104,61 @@ const Facts = ({ value }: { value: Evidence }) => (
           </div>
           <div>
             <dt>판단 근거</dt>
-            <dd>{ack?.valid ? 'ACK 파일 근거 확인됨' : 'ACK 파일 근거 확인 불가'}</dd>
+            <dd>
+              {!action
+                ? '유지 대상 · 제어 신호 없음'
+                : ack?.valid
+                  ? 'ACK 파일 근거 확인됨'
+                  : 'ACK 파일 근거 확인 불가'}
+            </dd>
           </div>
           <div>
             <dt>원래 발행 기록</dt>
             <dd>
               {action
                 ? `${action.action} / ${action.phase} / 예약 ${action.issue_count}회`
-                : '이 대상의 발행 기록 없음'}
+                : '유지 대상 · 이 요청의 발행 없음'}
             </dd>
           </div>
           <div>
             <dt>원래 boot</dt>
             <dd>
-              <code>{action?.before_boot_id ?? '확인 불가'}</code>
+              <code>
+                {action?.before_boot_id ??
+                  original?.boot_id ??
+                  (action?.action === 'start' ? '시작 전 boot 기록 없음' : '원래 boot 확인 불가')}
+              </code>
             </dd>
           </div>
           <div>
             <dt>확인된 boot</dt>
             <dd>
               <code>{observed?.boot_id ?? '확인 불가'}</code>
+            </dd>
+          </div>
+          <div>
+            <dt>실행 회차 시작</dt>
+            <dd>
+              <code>{observed?.started_at ?? '확인 불가'}</code>
+            </dd>
+          </div>
+          <div>
+            <dt>ACK의 실행 회차</dt>
+            <dd>
+              <code>
+                {ack?.facts?.after_started_at ??
+                  (action ? '근거 없음' : (original?.started_at ?? '원래 기록 없음'))}
+              </code>
+            </dd>
+          </div>
+          <div>
+            <dt>실행 회차 대조</dt>
+            <dd>
+              {binding
+                ? binding.matched
+                  ? '원 실행과 일치'
+                  : '불일치 · 보류 필요'
+                : '추가 확인 필요'}
             </dd>
           </div>
           <div>

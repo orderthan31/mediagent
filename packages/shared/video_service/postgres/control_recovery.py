@@ -63,11 +63,21 @@ class ControlRecovery:
         request=db.execute('SELECT * FROM remote_control_requests WHERE request_id=%s',(group['pending_request'],)).fetchone()
         if request['phase']!='unknown':raise Conflict('control_request_not_unknown')
         actions=[dict(r) for r in db.execute('SELECT * FROM remote_control_actions WHERE request_id=%s ORDER BY worker_id',(request['request_id'],)).fetchall()]
+        batch=db.execute('SELECT contract_sha256,baseline FROM remote_control_batches WHERE request_id=%s',(request['request_id'],)).fetchone()
+        baseline=batch['baseline'] if batch and batch['contract_sha256']==group['contract_sha256'] else None
+        original={r['id']:r for r in baseline} if baseline else {}
         observations=group['observed'] or []
         if [r['id'] for r in observations]!=group['slot_ids']:raise Conflict('review_slot_binding_mismatch')
         critical=('id','target_id','image_id','running','state','boot_id','ticket_id','attempt_id','exit_code','started_at','restart_policy','report_state')
         observed=[{k:r.get(k) for k in critical} for r in observations]
-        indexed={r['id']:r for r in observations};evidence=[];all_ack=bool(actions);normal=True;bound=True
+        indexed={r['id']:r for r in observations};evidence=[];all_ack=bool(actions);normal=True;bound=True;bindings=[]
+        affected={a['worker_id'] for a in actions}
+        for index,current in enumerate(observations):
+            if index>=request['replicas'] or current['id'] in affected:continue
+            before=original.get(current['id'])
+            retained=bool(before and before['running'] and current['running'] and current['state'] in ('connected','ready','busy') and all(before.get(key) and before.get(key)==current.get(key) for key in ('target_id','image_id','boot_id','started_at')) and current.get('restart_policy')=='no')
+            bound=bound and retained
+            bindings.append({'worker_id':current['id'],'kind':'retained','matched':retained})
         for action in actions:
             row=db.execute('SELECT * FROM remote_control_ack_evidence WHERE action_id=%s',(action['id'],)).fetchone()
             fresh=bool(row and row['valid'] and 0<=(datetime.now(timezone.utc)-row['verified_at']).total_seconds()<15)
@@ -79,8 +89,14 @@ class ControlRecovery:
             facts=row['facts'] if fresh else None
             same_start=bool(not facts or facts['after_started_at']==current.get('started_at'))
             same_boot=bool(current.get('boot_id') and (action['action']=='start' or current['boot_id']==action['before_boot_id']))
+            started_from_bound_slot=True
+            if action['action']=='start':
+                before=original.get(action['worker_id'])
+                started_from_bound_slot=bool(before and before['running'] is False and before.get('target_id')==current.get('target_id') and before.get('image_id')==current.get('image_id') and (not before.get('boot_id') or before['boot_id']!=current.get('boot_id')))
+                bound=bound and started_from_bound_slot
             pin=bool(current.get('target_id') and current.get('image_id') and (not facts or (facts['target_id']==current['target_id'] and facts['image_id']==current['image_id'])))
             bound=bound and same_start and same_boot and pin and current.get('restart_policy')=='no'
+            bindings.append({'worker_id':current['id'],'kind':action['action'],'matched':bool(same_start and same_boot and pin and (action['action']!='start' or started_from_bound_slot))})
             if action['action']=='stop':
                 received=utc(current.get('report_received_at'))
                 normal=normal and not current['running'] and current.get('exit_code')==0 and current.get('report_state')=='stopped' and received is not None and received>=action['issued_at']
@@ -95,6 +111,8 @@ class ControlRecovery:
                  'contract_sha256':group['contract_sha256'],'slot_ids':group['slot_ids'],'group_revision':group['revision'],'observation_revision':group['observation_revision'],'review_revision':review_revision,
                  'observed':observed,'actions':[{k:r[k] for k in ('id','request_id','worker_id','action','phase','issue_count','before_boot_id','issued_at')} for r in actions],'ack_evidence':evidence,'allowed':allowed}
         context['targets']=[{'worker_id':r['id'],'target_id':r.get('target_id'),'image_id':r.get('image_id')} for r in observations]
+        context['baseline']=baseline
+        context['execution_bindings']=bindings
         return context,digest(context)
 
     def preview(self, actor, group):

@@ -6,6 +6,7 @@ issuing (before durable send acknowledgement) stays unknown, even at target coun
 """
 from datetime import datetime, timezone
 from uuid import uuid4
+from psycopg.types.json import Jsonb
 from . import Conflict, Missing
 
 
@@ -29,7 +30,8 @@ class ControlJournal:
                 raise ValueError('invalid_journal_observation')
             if any(o.get('restart_policy')!='no' for o in observations):
                 raise ValueError('cooperative_signal_requires_no_restart_policy')
-            db.execute('INSERT INTO remote_control_batches(request_id,agent_id,contract_sha256) VALUES(%s,%s,%s)',(command['request_id'],command['agent_id'],contract))
+            baseline=[{key:row.get(key) for key in ('id','target_id','image_id','running','boot_id','started_at','restart_policy')} for row in observations]
+            db.execute('INSERT INTO remote_control_batches(request_id,agent_id,contract_sha256,baseline) VALUES(%s,%s,%s,%s)',(command['request_id'],command['agent_id'],contract,Jsonb(baseline)))
             for index,row in enumerate(observations):
                 desired=index<command['replicas']
                 if desired==row['running']:continue
