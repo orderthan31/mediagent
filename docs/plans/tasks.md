@@ -6,6 +6,15 @@
 
 ## 현재 상태
 
+### 실제 RabbitMQ·제품 티켓 제어 연결 — 격리 수용 자료, 운영 미적용
+
+- 고정 대상 제어 21경로는 PM 수용 후 `6e78e7e4147545f4f52f37712f2fb1a0829ab922`로 분리했고 App push 완료를 전달받았다. 이 소스의 동일 시험은 반복하지 않았다. 후속은 별도 source diff이며, 운영 bootstrap 등록·제어 활성화는 계속 금지한다.
+- 새 TLS RabbitMQ/S3·전용 PG에서 실제 CPU encode consumer 두 개와 validate consumer, 결과 소비기·상태 collector를 연결했다. 각 consumer의 명령/상태 credential을 분리하고 상태 발행 주소는 개별 ID에 고정했다. 실제 broker에서 다른 ID의 상태 exchange 발행이 403으로 거부됐다. 기존 역할별 권한/운영 MQ는 바꾸지 않았다.
+- 실제 제품 API의 업로드·불변 workflow·티켓 생성·계획/동의/승인·run으로 티켓 #1/#2를 처리하고 제품 버튼으로 0→1→2→0을 조작했다. 합성 영상의 실제 FFmpeg 입력을 격리 이미지에서 실시간으로 제한했으며 원래 FFmpeg binary SHA는 보존했다. 이는 모델 대체나 상태 주입이 아니다. 두 티켓은 각 ID/boot/attempt와 연결된 채 중지 중을 유지했고, 신호 발행 후 30초를 넘어서도 실제 실행 중이었다. 최종 encode→validate 완료·원본 산출물 다운로드 SHA와 45.056초 영상을 확인했다.
+- 종료 신호와 드레인 대기를 분리한 durable journal을 추가했다. CLI ACK를 sent로 기록한 뒤 제어기를 강제 중단했을 때 TTL 후 UI는 개수/작업/제어 결과를 확인 불가로 표시하고 조작을 막았다. 재기동한 제어기는 같은 요청의 sent action을 재발행하지 않고 관측만으로 정상 종료를 확정했다. action별 issue_count는 1이며 실제 대상은 exit0이다. 대기하던 #3은 명시적인 제품 시작 조작 뒤 처음 처리돼 완료됐고 다운로드 SHA도 일치했다. 당시 티켓 DB의 running은 명령 예약/발행 상태이며 실제 소비 시작 증거는 별도 worker busy/attempt 기록이다.
+- 신규 범위 PostgreSQL/신호/재기동/티켓 binding 테스트 9 passed와 실제 PC/390px 브라우저 증적을 확보했다. 첫 PATH 기반 실시간 래퍼는 자식의 제한 환경에 전달되지 않아 긴 작업 gate가 실패했다. 그 실패를 보존하고 격리 이미지의 wrapper/interpreter 배치만 고쳐 실제 긴 작업을 검증했다. 제품의 환경 필터는 완화하지 않았다.
+- **남은 경계:** 신호 발행 직전/직후 ACK 영속화 사이에 중단된 issuing/unknown은 자동 재신호·성공 처리하지 않고 봉쇄한다. 이 모호한 구간의 운영자 확인/복구 절차는 미구현이다. 비정상 종료도 unknown으로 남긴다. 새 signal-only adapter는 `restart=no`인 사전 고정 슬롯만 허용하며 운영의 restart 정책을 변경하지 않았다. 운영 대상 등록·정책/복구 수용·배포는 별도 PM 검토/승인 전까지 하지 않는다. 공용 자료함과 기존 CAS/FK WIP는 후속 이미지에 섞지 않았다.
+
 ### 실제 제어 연결 — 고정 대상 격리 API/UI 체크포인트, 운영 적용 전
 
 - `create_app(remote_control=...)`의 명시 opt-in으로 관리자·CSRF·요청 ID 멱등성과 revision/CAS·처리 중 요청 덮어쓰기 거부를 연결했다. PostgreSQL에 먼저 요청을 저장하고 별도 호스트 제어기가 고정 container/image/label/worker ID만 조작한다. API에는 Docker CLI/socket·호스트 설정을 주지 않으며, API DB 역할도 관측값·대상 계약·요청 완료 상태를 쓸 수 없다. 기본 bootstrap은 바꾸지 않았다.

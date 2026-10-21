@@ -79,3 +79,37 @@ def test_real_consumer_loop_reports_busy_identity_without_changing_ack_order():
     assert [x["state"] for x in sent] == ["connected", "ready", "busy", "stopping", "stopped"]
     busy = next(x for x in sent if x["state"] == "busy")
     assert busy["ticket_id"] == command["run_id"] and busy["attempt_id"] == command["attempt_id"]
+
+
+def test_same_role_instances_have_distinct_bound_exchanges():
+    from video_service.worker_telemetry import exchange, validate_report
+
+    first, second = report(), report()
+    a = exchange('cpu', 'analyze', worker_id=first['worker_id'])
+    b = exchange('cpu', 'analyze', worker_id=second['worker_id'])
+    assert a != b
+    assert validate_report(first, a) == first
+    assert validate_report(second, b) == second
+    with pytest.raises(ValueError):
+        validate_report(first, b)
+    with pytest.raises(ValueError):
+        exchange('cpu', 'analyze', worker_id='../escape')
+    # Existing publishers/configs remain usable during an explicit staged rollout.
+    assert validate_report(first, exchange('cpu', 'analyze')) == first
+
+
+def test_sender_instance_namespace_is_opt_in_and_keeps_old_configs(tmp_path):
+    import json
+    from video_service.telemetry_transport import StatusSender
+    from video_service.worker_telemetry import exchange
+
+    worker = uuid4().hex
+    config = {'worker_id':worker,'family':'cpu','role':'analyze',
+              'url_file':'unused-in-constructor','ca_file':'unused-in-constructor'}
+    path=tmp_path/'status.json'
+    path.write_text(json.dumps(config))
+    assert StatusSender(path).exchange == exchange('cpu','analyze')
+    path.write_text(json.dumps({**config,'instance_exchange':True}))
+    assert StatusSender(path).exchange == exchange('cpu','analyze',worker_id=worker)
+    path.write_text(json.dumps({**config,'instance_exchange':'true'}))
+    with pytest.raises(ValueError):StatusSender(path)

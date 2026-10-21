@@ -15,9 +15,13 @@ MAX_REPORT = 2048
 PREFIX = "mideagent.telemetry"
 
 
-def exchange(family, role):
+def exchange(family, role, *, worker_id=None):
     if family not in FAMILIES or role not in FAMILIES[family]:
         raise ValueError("invalid_telemetry_role")
+    if worker_id is not None:
+        if not isinstance(worker_id, str) or not ID.fullmatch(worker_id):
+            raise ValueError("invalid_telemetry_worker")
+        return f"{PREFIX}.{family}.{role}.{worker_id}.v1"
     return f"{PREFIX}.{family}.{role}.v1"
 
 
@@ -31,7 +35,9 @@ def validate_report(value, source_exchange):
             or not isinstance(value["worker_id"], str) or not ID.fullmatch(value["worker_id"])
             or not isinstance(value["boot_id"], str) or not ID.fullmatch(value["boot_id"])
             or type(value["sequence"]) is not int or not 0 <= value["sequence"] < 2**63
-            or value["state"] not in STATES or exchange(value["family"], value["role"]) != source_exchange):
+            or value["state"] not in STATES
+            or source_exchange not in (exchange(value["family"], value["role"]),
+                                       exchange(value["family"], value["role"], worker_id=value["worker_id"]))):
             raise ValueError
         busy = value["state"] in {"busy", "stopping"} and value["ticket_id"] is not None
         for key in ("ticket_id", "attempt_id"):

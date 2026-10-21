@@ -24,9 +24,12 @@ def status_connection(config):
 class StatusSender:
     def __init__(self, path):
         self.config = document(path)
-        if set(self.config) != {"worker_id", "family", "role", "url_file", "ca_file"}:
+        fields = {"worker_id", "family", "role", "url_file", "ca_file"}
+        if (set(self.config) not in (fields, fields | {"instance_exchange"})
+            or type(self.config.get("instance_exchange", False)) is not bool):
             raise ValueError("invalid_telemetry_config")
-        self.exchange = exchange(self.config["family"], self.config["role"])
+        self.exchange = exchange(self.config["family"], self.config["role"],
+                                 worker_id=self.config["worker_id"] if self.config.get("instance_exchange") else None)
         self.connection = self.channel = None
 
     def __call__(self, report):

@@ -14,6 +14,9 @@ Windows API·에이전트 배포 `6986b614…`에서 PG/S3/TLS RabbitMQ·독립 
 
 ## 주요 내용
 
+- 후속 격리 경로는 실제 TLS MQ consumer의 개별 ID/권한 보고를 제한 PG host observer가 읽는다. API만 제품 ticket/attempt를 조회해 같은 ID·boot·ticket·attempt일 때 표시 번호를 결합하며 host에는 jobs/password 조회 권한을 주지 않는다.
+- 별도 durable batch/action journal은 신호 발행을 planned→issuing→sent로 한 번만 허가하고, 드레인 대기는 fresh Docker 상태·같은 boot의 정상 종료 보고로 따로 확인한다. sent ACK가 있는 중단 요청은 재기동 후 읽기 전용 확인으로 복구하고, ACK가 없는 issuing/unknown이나 비정상 종료는 자동 재시도 없이 봉쇄한다. 이는 운영자 복구 UI/정책 전체 수용이 아니다. signal-only 방식의 자동 재시작 충돌을 막기 위해 격리 대상의 restart=no를 요구하며 운영 정책은 바꾸지 않았다.
+
 ```mermaid
 flowchart LR
   Web[웹: WebM 재생 / 원본·WebM 다운로드] --> App[API · workflow 제어 · 승인 · 검수]

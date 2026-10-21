@@ -62,7 +62,8 @@ class RemoteControl:
             workers.append({'worker_id':instance['id'],'state':state,'received_at':instance.get('received_at'),
                             'ticket_id':instance.get('ticket_id') if state in ('busy','stopping') else None,
                             'ticket_number':instance.get('ticket_number') if state in ('busy','stopping') else None,
-                            'boot_id':instance.get('boot_id'),'node_id':None,'attempt_id':None,'recent_events':[]})
+                            'boot_id':instance.get('boot_id'),'node_id':None,
+                            'attempt_id':instance.get('attempt_id') if state in ('busy','stopping') else None,'recent_events':[]})
         actual=sum(i['running'] for i in observed) if fresh else None
         state='unknown'
         if fresh and observed:
@@ -133,6 +134,18 @@ class RemoteControl:
 class ControlledFleet:
     """Overlay explicit registered groups only; no implicit adoption of live agents."""
     def __init__(self, base, control):self.base,self.control=base,control
-    def get(self, agent):return self.control.get(agent) if self.control.has(agent) else self.base.get(agent)
+    def get(self, agent):
+        if not self.control.has(agent):return self.base.get(agent)
+        managed=self.control.get(agent)
+        # This runs in the authenticated product API, not the limited host observer.
+        # Never copy a ticket number from another boot or another execution attempt.
+        underlying=self.base.get(agent)
+        if underlying.get('observation_source')=='amqp':
+            workers={w['worker_id']:w for w in underlying.get('workers',[])}
+            for row in managed['workers']:
+                observed=workers.get(row['worker_id'])
+                if row['ticket_id'] and observed and all(row.get(k)==observed.get(k) for k in ('boot_id','ticket_id','attempt_id')):
+                    row.update({k:observed.get(k) for k in ('ticket_number','node_id','family','role')})
+        return managed
     def list(self):return [self.get(item['agent_id']) for item in self.base.list()]
     def configure(self, actor, agent, **body):return self.control.configure(actor,agent,**body)
