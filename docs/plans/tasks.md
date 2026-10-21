@@ -6,7 +6,21 @@
 
 ## 현재 상태
 
+### 운영 웹 반영 및 제어 어댑터 진행
+
+- 웹만 clean archive `893579340680c8e189fe0d73bfff13943232fae9` 이미지로 반영했다. API·에이전트는 `6986b614…` 그대로다. 실제 사설 HTTPS/vault 로그인 후 PC·모바일 인코딩 상세, PC 목록 및 사람 검수의 `확인 불가` 보정을 확인했다. HTTPS JS/CSS hash가 실행 이미지 파일과 일치하고 health200/미인증 agents401이다.
+- 웹 이외 기존 running 컨테이너17개의 ID·image·start time·mount·환경 hash와 bootstrap96파일 bytes를 전후 대조해 보존했다. 웹의 기존 port/mount/restart 정책과 롤백 이미지/설정도 보존했다. 첫 배포 검증에서 기존 Compose revision label 상속을 발견해 웹 label만 보정했고 이미지 ID까지 재확인했다. 목록 확인 중 브라우저가 about:blank로 전환된 도구 세션 문제는 vault 재로그인으로 복구했으며 제품 세션 지속성 전체 수용으로 확대하지 않는다.
+- 후속 `agent_control.py`는 host 전용, 고정 container ID/image/Compose label allowlist의 제어 primitive다. API endpoint/권한 경계가 아니며 API에 Docker socket을 주지 않는다. 네트워크·port·키·데이터 mount 없는 일회용 테스트 프로세스 두 개로 실제 0→1→2→1→0 시작/중지·개수 readback과 잘못된 개수 거부를 확인한 뒤 테스트 컨테이너만 정리했다. 운영 에이전트를 이 테스트로 중지하지 않았다.
+- 실제 제품 버튼·관리자 admission/revision/idempotency·최소권한 제어 전달·드레인 진행 상태·운영 대상 적용은 아직 미연결이다. 소스 primitive의 실제 Docker 동작을 제품 start/stop/scale 완료로 보고하지 않는다. 해당 소스와 공용 자료함/개별 인스턴스 WIP는 웹 이미지에서 제외했다.
+
 ### 최신 제품 수용 기준 — 화면 단순화와 실제 기능
+
+- 최우선: 원본 목록에서 업로드를 바로 찾을 수 있게 복구하고 진행률·실패·재개를 실제 연결한다. 업로드 상태 접근도 현재 운영 모드에서 숨기지 않는다. 업로드 버튼만 복구한 것으로 끝내지 않는다.
+- 필요한 식별 정보는 제거하지 않는다. 실행 인스턴스가 하나여도 고유 ID를 축약 표시하고 전체 확인·복사를 제공한다. 복수 실행은 각 ID·상태·현재 작업을 결합하며 순번으로 대체하지 않는다.
+- 작업 목록의 일반 행 영역 전체를 상세 진입점으로 제공한다. 버튼/선택/다운로드 조작과 이동 이벤트가 충돌하지 않아야 한다. 지적한 WebM 안내는 삭제하고 다른 장문으로 대체하지 않는다.
+- 에이전트 목록에는 실제 처리 에이전트만 표시한다. IF/Switch 등 제어와 사람 검수는 workflow에 유지하고 서로 구별되는 아이콘을 추가 메뉴·편집/실행 canvas 모두에서 일관되게 사용한다. 기존 연결/설정은 보존한다.
+- 원본/작업/workflow/agent/serving/settings GET의 최초 목록·상세 로딩은 실제 행·플레이어·폼 배치에 맞는 skeleton을 제공한다. 주기 갱신 중에는 기존 내용을 유지하며 loading/empty/error를 구분한다.
+- 업로드 복구 소스 검증: 운영과 동일한 설치 API `6986b614` + 별도 일회용 PG/CAS에 연결한 production bundle에서 일반 사용자로 PC/390px 모바일 파일 선택→4MiB 전송 후 의도적 연결 실패→페이지 재열기→동일 파일 재선택→저장 prefix 검증/동일 업로드 세션 재개→등록→화면에서 다운로드 SHA 일치를 확인했다. backend WIP overlay나 가짜 성공 응답은 사용하지 않았다. 아직 운영 배포 결과가 아니다.
 
 - 혜지 검토 보정: `controller`는 실행 방식 구분이며 정상 동작의 증거가 아니므로 기본 상태를 `확인 불가`로 표시한다. `RenewalJobDetail.tsx`의 실패한 patch는 무변경이며 HEAD 대비 diff 없음으로 재확인했다. 공용 자료함 읽기 전용 UI는 적용 완료가 아니다. 이 묶음은 화면 정리만 분리하며 실제 제어·provider 호출·제품 전체 완료로 확대하지 않는다.
 
@@ -20,9 +34,10 @@
 ### 사용자 재확정 요구와 다음 구현 순서 — 2026-10-21 19:49 KST
 
 - 단일 직접 writer는 Windows의 혜윤, 혜지는 요구사항/결과 검토와 GitHub App push를 담당한다. 개발 checkout `C:/Users/skygg/dev/mediagent-s2`, `renewal`, 시작 HEAD `625bd9289649321a92f1a6469912d3a44ea49615`. 기존 문서 WIP·미추적 evidence와 원본/DB/키/백업을 보존한다.
-- 현재 운영 배포는 `6986b61471765aa53afc4b8b2b6a1c33b88a3b21`이다. 고정 로컬 영어→독일어 제품 job의 UI/API 혼합 실행과 단일 인스턴스별 worker telemetry 관측을 실제 확인했다. 일반 provider 실행·순수 UI-only 생성·공용 자료함·티켓별 물리 저장·원격 start/stop/scale 전체 완료가 아니다. 공용 자료함 소스 WIP는 배포에 포함하지 않았다.
+- 현재 웹은 `893579340680c8e189fe0d73bfff13943232fae9`, API·에이전트는 `6986b61471765aa53afc4b8b2b6a1c33b88a3b21`이다. 고정 로컬 영어→독일어 제품 job의 UI/API 혼합 실행과 단일 인스턴스별 worker telemetry 관측을 실제 확인했다. 일반 provider 실행·순수 UI-only 생성·공용 자료함·티켓별 물리 저장·원격 start/stop/scale 전체 완료가 아니다. 공용 자료함 소스 WIP는 배포에 포함하지 않았다.
 - [x] 1차-관측: 상태 전용 broker/제한 PG 경로로 worker10개를 연결하고 실제 합성 작업의 처리·heartbeat 만료·복귀와 collector 중단/복귀를 API 및 PC 제품 목록·상세에서 확인했다. 준비 상태는 작업 수신 등록이며 추론 품질·개별 모델 초기화 수용이 아니다. 기존 controller의 passive403 권한을 넓히지 않았다.
 - [ ] 1차-제어: 원격 start/stop/scale adapter를 실제 대상과 연결한다. 현재 검증용 Docker 조작은 제품 제어 기능이 아니다. 먼저 exchange당 단일 worker ID 바인딩을 다중 인스턴스 식별/수용 구조로 보완해야 한다.
+  - 후속 소스 WIP: 동일 기능의 여러 실행 인스턴스에 각각 ID가 묶인 상태 발행 주소를 부여하는 opt-in 경로와 송신 설정을 추가했다. 기존 단일 인스턴스 설정/권한은 변경하지 않는다. 프로토콜·송신 설정 범위 7개 테스트 통과. 운영 broker provisioning·다중 인스턴스 실제 수신·start/stop/scale adapter와 제품 버튼은 미완료이며 UI 커밋 `8935793`/전달 bundle에 포함하지 않았다.
 - [ ] 2차: 인증된 공용 원본/작업/결과 조회·사용·다운로드와 업로더/실행자 기록을 연결한다. credential·관리 API의 보호는 유지하며, 구버전 원본을 개인 계정 소유함으로 옮기는 이전 제안은 폐기한다.
 - [ ] 3차: `originals/{original_id}` 및 `tickets/{ticket_id}`의 단계별 파일/manifest를 실제 object 저장에 연결하고 기존 owner-CAS 읽기를 보존한다. 단순 경로 설명이나 PG 목록만으로 완료 처리하지 않는다.
 - [ ] 4차: 기존 원본17개를 이력 복원 없이 공용 목록에 이관한다. 대용량 보관·재생·다운로드와 실행 용량 제한을 분리하고 전체 SHA·멱등 재실행·실제 읽기를 수용한다.
