@@ -19,6 +19,7 @@ import { AccountMenu, useWorkspaceAuth } from './AuthGate';
 import { frontendOnly, renewalBackend } from './preview';
 import { PageTitleSlot } from './PageTitle';
 import './ui02-shell.css';
+import './upload-entry.css';
 const sections = [
   { name: '작업', href: '#/jobs', icon: BriefcaseBusiness },
   { name: '원본', href: '#/', icon: Folder },
@@ -212,10 +213,18 @@ export const WorkspaceChrome = ({
               />
             </div>
           )}
-          {group === 1 && list && !renewalBackend && (
-            <button className="ui02-primary" aria-label="업로드" title="업로드" onClick={onUpload}>
-              <Plus size={20} />
-              <span>업로드</span>
+          {group === 1 && list && (
+            <button
+              className="ui02-primary ui02-upload-primary"
+              aria-label="원본 업로드"
+              title="원본 업로드"
+              onClick={() => {
+                setUploads(true);
+                onUpload();
+              }}
+            >
+              <Plus size={20} aria-hidden="true" />
+              <span>원본 업로드</span>
             </button>
           )}
           {action && !['편집', '추가'].includes(child) && (
@@ -229,7 +238,7 @@ export const WorkspaceChrome = ({
               <span>{action.label}</span>
             </a>
           )}
-          {!renewalBackend && (
+          {
             <button
               className="ui02-icon ui02-upload-trigger"
               aria-label="업로드 상태"
@@ -239,7 +248,7 @@ export const WorkspaceChrome = ({
               <Upload size={21} />
               {uploadCount > 0 && <span>{uploadCount}</span>}
             </button>
-          )}
+          }
         </div>
       </header>
       {wide && (

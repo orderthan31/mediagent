@@ -98,16 +98,23 @@ export const VideoWorkspace = () => {
           item.jobId = created.upload_id;
           changed();
         }
-        await resumeUpload(
-          item.file!,
-          item.jobId!,
-          signal,
-          (n) => {
-            item.progress = n;
-            changed();
-          },
-          legacy ? '/uploads' : '/video-uploads',
-        );
+        try {
+          await resumeUpload(
+            item.file!,
+            item.jobId!,
+            signal,
+            (n) => {
+              item.progress = n;
+              changed();
+            },
+            legacy ? '/uploads' : '/video-uploads',
+          );
+        } catch (error) {
+          if (error instanceof TypeError) {
+            throw new Error('전송 연결 끊김');
+          }
+          throw error;
+        }
       }),
   );
   const assetId = route.match(/^#\/videos\/([a-f0-9]{32})$/)?.[1],

@@ -1,0 +1,8 @@
+/* Keep the original-upload action identifiable on narrow screens. */
+.ui02-workspace .ui02-gnb .ui02-primary.ui02-upload-primary {
+  width: auto;
+  padding-inline: 12px;
+}
+.ui02-workspace .ui02-gnb .ui02-upload-primary > span {
+  display: inline;
+}
