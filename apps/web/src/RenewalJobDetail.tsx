@@ -254,9 +254,6 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
                                 있습니다.
                               </p>
                             )}
-                            <p>
-                              웹 전용 WebM으로 재생합니다. 다운로드 원본은 처리 결과 그대로입니다.
-                            </p>
                           </>
                         ) : (
                           <a href={url(port)} target="_blank" rel="noreferrer">

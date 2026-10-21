@@ -103,7 +103,6 @@ export const StorageVideoInfo = ({ video, assetId }: { video: VideoAsset; assetI
               WebM 받기
             </a>
           )}
-          <p>플레이어는 웹 전용 WebM을 재생하며 업로드 원본은 변경하지 않습니다.</p>
         </nav>
       )}
     </div>
