@@ -6,6 +6,15 @@
 
 ## 현재 상태
 
+### 관리자 확인/복구 후속 — API·호스트 동작 확인, 제품 복구 화면 미구현
+
+- 실제 MQ·티켓 후속 21경로는 `612ce794ac54cdc1b1b8fe8240a48ea5e7b492ee`로 분리했고 PM의 App push 완료 보고를 받았다. 아래는 그 위의 별도 미커밋 변경이다. 기존 수용 시험은 반복하지 않았다.
+- 원래 request/action/actor, 고정 worker/container/image/계약 SHA, before boot, 발행 예약 횟수와 시각, 최신 물리 상태·보고를 관리자 preview에 묶는다. 판단 ID 멱등성, 설정/review/의미 관측 revision과 2분 계획 만료를 검사하며 관측의 ABA 변경도 거부한다. API는 판단 의도만 저장하고 호스트가 실행 직전 권한·근거를 다시 검증한다. 계획·판단·결과는 별도 불변 이력이며 원래 action의 issuing/unknown·issue_count를 성공 이력으로 덮어쓰지 않는다.
+- 새 선택형 host-private HMAC ACK 파일은 실제 native 호출의 정상 반환 뒤, SQL sent 저장 전에 영속화한다. request/action/대상/image/계약/boot/issued_at을 검증하고 서명 키는 API에 주지 않는다. 근거와 정상 종료 관측이 모두 맞을 때 관리자가 요청한 별도 `reviewed_completed`로 확정한다. 이는 작업 성공 생성이나 자동 신호 재발행이 아니다. native 호출이 없었던 no-op도 ACK 파일을 만들지 않는다.
+- 실제 Docker 임시 대상 + 제한 PG 역할 + 정상 인증/CSRF를 거친 제품 ASGI에서 ① ACK 파일 뒤·SQL ACK 전 제어기 프로세스 exit23→재기동→재신호 없이 관리자 관측 확정 ② native 호출 전 제어기 exit24→ACK 없음→확정 409·hold 유지 ③ 대상 실제 exit7→`reviewed_failed`·대상 그룹 격리·새 시작 409를 확인했다. 복구 자체의 native 변경 호출은 0이다. issuing 예약 횟수 1을 실제 daemon 신호 1회의 증거로 해석하지 않는다. 이 시험은 직접 PG 보고 fixture이며 새 RabbitMQ/제품 티켓 처리 시험이 아니다.
+- 신규 Python/PG/API/호스트 범위 12 passed. 동시에 제출한 판단은 하나만 접수되고 다른 하나는 conflict였다. API의 ACK 근거·관측·완료·결과 변경 및 host의 비밀번호 조회는 실제 PG 권한 거부였다. 운영 18개(비웹17) ID/image/start/env/동일 mount 레코드, 기존 bootstrap96파일 SHA와 다른 WIP37경로 bytes를 보존했다. Docker mount 배열 순서 변동으로 생긴 초기 비교 오류는 원래 SHA를 현재 mount 레코드의 재정렬로 재구성하여 검증했다. 최초 bootstrap 경로 0개 조회는 검증으로 사용하지 않고 기존 확인 경로의 96개 SHA를 대조했다. 일회용 대상·PG·네트워크 정리, 운영 health200/미인증401 확인.
+- **남은 문제:** 관리자 복구 제품 화면은 아직 연결하지 않았다. API 성공을 UI 수용으로 보고하지 않는다. ACK 파일 자체가 없는 구간(실제 호출 뒤 파일 저장 전 포함), 이전 버전의 근거 없는 unknown은 hold만 가능하다. 비정상 종료 격리는 해제/재기동·작업 재실행/성공으로 이어지지 않는다. 격리 해제/대상 교체 및 운영 키·권한 provisioning/배포는 별도 정책 검토가 필요하다. `restart=no` 제한, 운영 정책 변경·대상 등록·제어 활성화 금지를 유지한다.
+
 ### 실제 RabbitMQ·제품 티켓 제어 연결 — 격리 수용 자료, 운영 미적용
 
 - 고정 대상 제어 21경로는 PM 수용 후 `6e78e7e4147545f4f52f37712f2fb1a0829ab922`로 분리했고 App push 완료를 전달받았다. 이 소스의 동일 시험은 반복하지 않았다. 후속은 별도 source diff이며, 운영 bootstrap 등록·제어 활성화는 계속 금지한다.

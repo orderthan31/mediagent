@@ -37,8 +37,11 @@ class SignalControl(DockerControl):
         with self.locks[group]:
             observed=self.details(group)
             running=observed['instances'][index]['running']
-            if action=='start' and not running:self.run(['container','start',targets[index].container_id])
-            elif action=='stop' and running:self.run(['container','kill','--signal','SIGTERM',targets[index].container_id])
+            if action=='start' and not running:
+                self.run(['container','start',targets[index].container_id]);return True
+            elif action=='stop' and running:
+                self.run(['container','kill','--signal','SIGTERM',targets[index].container_id]);return True
+            return False
 
 
 class BrokerReports:
@@ -66,7 +69,9 @@ from .postgres.control_journal import ControlJournal
 
 class DurableHost(HostControl):
     """Signal once, observe indefinitely; recover acknowledged sends read-only."""
-    def __init__(self, store, adapter, slots, reports):
+    def __init__(self, store, adapter, slots, reports, *, receipts=None, recovery=None):
+        if (receipts is None)!=(recovery is None):raise ControlError('recovery_requires_private_ack_store')
+        self.receipts,self.recovery=receipts,recovery
         if not isinstance(adapter,SignalControl):raise ControlError('signal_adapter_required')
         self.reports=reports
         super().__init__(store,adapter,slots)
@@ -76,14 +81,14 @@ class DurableHost(HostControl):
         actual=self.adapter.details(group)
         reports=self.reports.read(group,self.slots[group]);now=datetime.now(timezone.utc)
         observations=[]
-        for physical,wid in zip(actual['instances'],self.slots[group]):
+        for physical,wid,target in zip(actual['instances'],self.slots[group],self.adapter._targets(group)):
             report=reports.get(wid);received=report['received_at'] if report else None
             started=_time(physical['started_at'])
             same_boot=bool(report and started and isinstance(received,datetime) and received>=started)
             state='stopped' if not physical['running'] else 'unknown'
             if physical['running'] and same_boot and isinstance(received,datetime) and 0<=(now-received).total_seconds()<15:
                 state=report['state'] if report['state']!='stopped' else 'unknown'
-            observations.append({'id':wid,'running':physical['running'],'state':state,
+            observations.append({'id':wid,'target_id':physical['id'],'image_id':target.image_id,'running':physical['running'],'state':state,
                                  'exit_code':physical['exit_code'],'started_at':physical['started_at'],'restart_policy':physical['restart_policy'],
                                  'boot_id':report['boot_id'] if same_boot else None,
                                  'received_at':received.isoformat() if received else None,
@@ -104,20 +109,44 @@ class DurableHost(HostControl):
                     db.execute('UPDATE remote_control_groups SET observed_at=NULL WHERE agent_id=%s',(group,))
                 continue
             command=self.journal.pending(group)
-            if not command:continue
+            if not command:
+                if self.recovery:self.recovery.apply_pending(group)
+                continue
             if command['phase']=='queued':command=self.store.claim(group,self.contracts[group])
-            if not command:continue
+            if not command:
+                if self.recovery:self.recovery.apply_pending(group)
+                continue
             # Never signal an unauthenticated/unobserved running consumer.
             removing=[r for index,r in enumerate(observed) if index>=command['replicas'] and r['running']]
-            if any(r['state']=='unknown' or not r['boot_id'] for r in removing):continue
+            if any(r['state']=='unknown' or not r['boot_id'] for r in removing):
+                self._review(group,command)
+                continue
             self.journal.prepare(command,self.contracts[group],observed)
             actions=self.journal.actions(command['request_id'])
             if not any(a['phase'] in ('issuing','unknown') for a in actions):
                 for action in actions:
                     if action['phase']!='planned':continue
                     if self.journal.begin(action['id'],owner=self.owner):
-                        try:self.adapter.signal(group,ids.index(action['worker_id']),action['action'])
+                        try:
+                            index=ids.index(action['worker_id'])
+                            action=next(a for a in self.journal.actions(command['request_id']) if a['id']==action['id'])
+                            delivered=self.adapter.signal(group,index,action['action'])
+                            if self.receipts:
+                                if delivered is not True:raise ControlError('native_ack_not_observed')
+                                after=self.adapter.details(group)['instances'][index]
+                                self.receipts.record(action,self.contracts[group],self.adapter._targets(group)[index],after)
                         except ControlError:self.journal.unknown(action['id'])
                         else:self.journal.sent(action['id'])
             fresh=self.observe(group)
             self.journal.reconcile(command['request_id'],fresh)
+            self._review(group,command)
+
+    def _review(self,group,command):
+        if not self.recovery or not self.receipts:return
+        for action in self.journal.actions(command['request_id']):
+            if not action['issued_at']:continue
+            target=self.adapter._targets(group)[self.slots[group].index(action['worker_id'])]
+            try:proof=self.receipts.read(action,self.contracts[group],target)
+            except ControlError:self.recovery.publish_evidence(action['id'],None,error_code='ack_receipt_invalid')
+            else:self.recovery.publish_evidence(action['id'],proof)
+        self.recovery.apply_pending(group)

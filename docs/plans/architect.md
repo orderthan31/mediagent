@@ -6,6 +6,10 @@
 
 ## 현재 상태
 
+관리자 복구는 `612ce794` 위의 별도 API/host 후속이다. 명시 `create_app(control_recovery=...)`에서 관리자·CSRF preview/decision/status만 추가하며 기본 운영 bootstrap은 그대로다. API는 Docker 대상/명령/ACK 자료나 완료 결과를 제출할 수 없고, 고정 호스트만 서명된 private ACK 파일과 현재 pin/boot/물리 상태를 검증한다. 실제 호출 반환→private ACK 파일→SQL sent의 순서이며 파일조차 없는 모호한 구간은 자동 복구하지 않는다. HMAC 키는 provider 키와 별개이고 이번에는 새 격리 fixture에서만 생성·사용했다.
+
+계획은 원래 요청/계약/대상/boot/action/관측 revision에 묶고 관리자 판단은 불변 intent로 먼저 저장한다. 호스트가 재검증한 관측 확정은 `reviewed_completed`, 비정상 종료는 `reviewed_failed`+격리로 기록한다. 원래 action phase/발행 예약 기록과 제품 작업 결과는 고치지 않으며 복구에서 native 신호를 보내지 않는다. host 검증 때 근거가 바뀌면 `rejected_stale` 이력만 남기고 원래 봉쇄를 유지한다. 실제 제어기 프로세스 중단 두 경계·실제 대상 exit7·제한 DB 권한·API 판단을 일회용 Docker/직접 PG 보고 fixture에서 확인했다. 새 MQ/티켓 수용이나 운영 복구 수용은 아니다. **관리자 복구 제품 화면, 근거 없는 unknown 해소, 격리 해제/대상 교체 정책은 남아 있고 운영 등록·활성화는 금지**다.
+
 현재 웹은 `6eb22e2308cc955f24ebc38614435168d522fe87`, API·에이전트는 `6986b614…`다. 수용/push된 clean archive의 웹만 교체해 실제 PC/모바일 ID 표시, 작업 일반 셀 이동, 처리 에이전트 목록, 원본/산출물 WebM 안내 삭제와 다운로드 링크, 실제 GET 지연 중 상세 스켈레톤을 확인했다. 비웹17개·기존 데이터 mount·bootstrap96파일·WIP·롤백을 보존했다. 제품 제어는 여전히 미연결(`manageable=false`)이며 ID 화면 수용을 다중 실행·start/stop/scale 수용으로 취급하지 않는다. 기존 업로드 수용·격리 API 자동 목록 갱신 수용은 유지하며 이번 배포에서 운영 실패/재개를 다시 시험하지 않았다.
 
 Windows API·에이전트 배포 `6986b614…`에서 PG/S3/TLS RabbitMQ·독립 CPU와 고정 local engine의 합성 영상 제품 job 및 단일 인스턴스별 worker telemetry를 실제 확인했다. 상태 발행 전용 broker 권한과 제한 PG collector를 사용하며 API는 PG의 수신 기록을 읽는다. 기존 controller의 passive 관측403 권한은 넓히지 않았다. 일반 provider·순수 UI 생성·공용 자료함·티켓별 저장·원격 fleet 제어까지 완료된 것은 아니다. 공용 자료함 소스 WIP는 운영 배포에서 제외했다.

@@ -77,6 +77,13 @@ class AgentConfiguration(Body):
     request_id: str | None = Field(default=None, pattern=r"^[a-f0-9]{32}$")
 
 
+class ControlReviewDecision(Body):
+    plan_id: str = Field(pattern=r"^[a-f0-9]{32}$")
+    decision_id: str = Field(pattern=r"^[a-f0-9]{32}$")
+    choice: str = Field(pattern=r"^(hold|confirm_observed|quarantine_failed)$")
+    reason: str = Field(min_length=1, max_length=1000)
+
+
 class SourceMetadata(Body):
     filename: str = Field(min_length=1, max_length=255)
     artifact_ref: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
@@ -136,6 +143,7 @@ def create_app(
     broker_factory=None,
     credential_store=None,
     remote_control=None,
+    control_recovery=None,
 ):
     origins = frozenset(allowed_origins)
     if not origins or any(
@@ -175,6 +183,8 @@ def create_app(
     else:
         fleet = Fleet(database, cpu_driver)
 
+    if control_recovery is not None and (remote_control is None or control_recovery.store is not remote_control or control_recovery.database is not database):
+        raise ValueError("Recovery requires the same explicit fixed-host mailbox")
     if remote_control is not None:
         if cpu_driver is not None:
             raise ValueError("Fixed-host control cannot share a local process controller")
@@ -483,6 +493,19 @@ def create_app(
     @app.put("/api/source-metadata/{identity}")
     def source_register(identity: str, body: SourceMetadata, value=session_dependency):
         return sources.register(value["user"]["id"], identity, **body.model_dump())
+
+    if control_recovery is not None:
+        @app.get("/api/admin/agents/{identity}/recovery")
+        def recovery_status(identity: str, value=administrator_dependency):
+            return control_recovery.status(identity)
+
+        @app.post("/api/admin/agents/{identity}/recovery/preview")
+        def recovery_preview(identity: str, body: Body, value=administrator_dependency):
+            return control_recovery.preview(value["user"]["id"], identity)
+
+        @app.post("/api/admin/agents/{identity}/recovery/decisions")
+        def recovery_decision(identity: str, body: ControlReviewDecision, value=administrator_dependency):
+            return control_recovery.submit(value["user"]["id"], identity, **body.model_dump())
 
     @app.get("/api/admin/agents")
     def agent_list(value=administrator_dependency):

@@ -49,7 +49,9 @@ class RemoteControl:
             for instance in instances:
                 if type(instance.get('running')) is not bool or instance.get('state') not in ('connected','ready','busy','stopping','stopped','unknown'):
                     raise ValueError('invalid_control_observation')
-            db.execute('UPDATE remote_control_groups SET observed=%s,observed_at=now() WHERE agent_id=%s',(Jsonb(instances),agent))
+            critical=('id','target_id','image_id','running','state','boot_id','ticket_id','attempt_id','exit_code','started_at','restart_policy','report_state')
+            semantic=hashlib.sha256(json.dumps([{k:i.get(k) for k in critical} for i in instances],sort_keys=True).encode()).hexdigest()
+            db.execute('UPDATE remote_control_groups SET observed=%s,observed_at=now(),observation_revision=observation_revision+CASE WHEN observation_sha256 IS DISTINCT FROM %s THEN 1 ELSE 0 END,observation_sha256=%s WHERE agent_id=%s',(Jsonb(instances),semantic,semantic,agent))
 
     def _view(self, db, row):
         fresh=bool(row['observed_at'] and (datetime.now(timezone.utc)-row['observed_at']).total_seconds()<15)
@@ -69,7 +71,7 @@ class RemoteControl:
         if fresh and observed:
             state=next((candidate for candidate in ('stopping','busy','unknown','connected','ready','stopped') if any(w['state']==candidate for w in workers)),'unknown')
         return {'agent_id':row['agent_id'],'revision':row['revision'],'enabled':row['enabled'],'replicas':row['replicas'],
-                'max_replicas':row['capacity'],'manageable':fresh and phase!='unknown','runtime':'fixed_host',
+                'max_replicas':row['capacity'],'manageable':fresh and phase!='unknown' and not row.get('quarantined',False),'runtime':'fixed_host',
                 'observation_source':'fixed_host','telemetry':True,'collector':{'healthy':fresh,'received_at':row['observed_at'].isoformat() if row['observed_at'] else None},
                 'observed_replicas':actual,'ready_replicas':sum(w['state']=='ready' for w in workers) if fresh else None,
                 'draining_replicas':sum(w['state']=='stopping' for w in workers) if fresh else None,
