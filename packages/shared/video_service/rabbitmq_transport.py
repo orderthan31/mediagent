@@ -413,7 +413,7 @@ class RabbitClient:
             raise BrokerError("broker_publish_unconfirmed") from None
         return True
 
-    def serve(self, role, handler, stop):
+    def serve(self, role, handler, stop, *, telemetry=None):
         """One unacked delivery, off-thread work, main-thread heartbeat/confirm/ack."""
         self._owner()
         c = self.channel
@@ -421,6 +421,21 @@ class RabbitClient:
         c.basic_qos(prefetch_count=1, global_qos=False)
         active = []
         pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="agent-delivery")
+
+        def status(state, delivery=None):
+            if telemetry is None:
+                return
+            try:
+                if delivery is not None:
+                    telemetry.begin(delivery)
+                elif state == "stopping":
+                    telemetry.emit(state, telemetry.ticket, telemetry.attempt)
+                else:
+                    telemetry.emit(state)
+            except Exception:  # telemetry failure must never alter job delivery/ACK
+                return
+
+        status("connected")
 
         def received(channel, method, properties, body):
             if stop.is_set():
@@ -436,30 +451,40 @@ class RabbitClient:
                 properties.content_type,
                 properties.content_encoding,
             )
+            status("busy", delivery)
             active.append((method.delivery_tag, pool.submit(handler, delivery)))
 
         tag = c.basic_consume(
             queue=self.config.queue(role), on_message_callback=received, auto_ack=False
         )
+        status("ready")
         cancelled = False
         try:
             while not stop.is_set() or active:
                 if stop.is_set() and not cancelled:
+                    status("stopping")
                     c.basic_cancel(tag)
                     cancelled = True
                 self.connection.process_data_events(time_limit=0.05)
+                if telemetry is not None:
+                    try:
+                        telemetry.tick()
+                    except Exception:  # reporting is a separate best-effort channel
+                        pass
                 if active and active[0][1].done():
                     delivery_tag, future = active.pop()
                     try:
                         outgoing = future.result()
                     except InvalidMessage:
                         c.basic_nack(delivery_tag=delivery_tag, requeue=False)
+                        status("ready")
                         continue
                     # A handler/confirm failure leaves the delivery unacked. Closing
                     # requeues it, but the remote attempt marker forbids re-execution.
                     if outgoing is not None:
                         self.publish(outgoing)
                     c.basic_ack(delivery_tag=delivery_tag)
+                    status("stopping" if stop.is_set() else "ready")
         except InvalidMessage:
             raise
         except Exception:  # noqa: BLE001 -- handler failure must leave delivery unacked and sanitized
@@ -468,6 +493,9 @@ class RabbitClient:
             pool.shutdown(wait=True, cancel_futures=True)
             if c.is_open and not cancelled:
                 c.basic_cancel(tag)
+            status("stopped")
+            if telemetry is not None:
+                telemetry.close()
 
     def close(self):
         self._owner()

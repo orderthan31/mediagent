@@ -17,6 +17,14 @@
 - [ ] 5차: connection/model/credential→실제 capability별 provider 요청과 태스크별 동적 폴백 체인을 연결한다. 폴백0개 허용·추가/삭제/재정렬·snapshot pin·A실패→B실패→C성공/전부실패/폴백없음/취소중단·오류별 전환 정책·후보별 능력/인증/비용 확인·실제 시도 순서/최종 모델 표시를 수용한다. 유료 외부 호출은 별도 승인 전에는 실행하지 않는다.
 - [ ] 6차: 언어/모델/폴백 선택→원본/workflow→티켓→별도 승인/실행→중간/최종 결과를 순수 제품 UI로 검증한다. 다른 로컬 모델 대체나 API 우회 결과를 UI 완료로 보고하지 않는다.
 
+#### 후속 묶음 B — 상태 전용 worker telemetry (배포/실제 전환 수용은 아래 후속 결과로 구분)
+
+- 고정된 worker 식별자와 정렬 가능한 boot generation/sequence, family/기능, 마지막 서버 수신 heartbeat, 현재 job/attempt 및 PG가 대조한 node/ticket을 제공한다. consumer 수를 worker 생존/준비로 환산하지 않는다.
+- 별도 역할별 상태 발행 계정은 자신의 상태 exchange에만 write, 수집 계정은 전용 상태 queue에만 read한다. 기존 controller/worker의 broker 권한은 보존한다. API는 PG만 조회한다. 원격 start/stop/scale은 별도 미완료이며 제공하지 않는다.
+- collector와 worker의 수신 만료를 분리하고 연결/작업 수용 준비/처리 중/heartbeat 끊김/관측 불가를 표시한다. 별도 연결의 상태 보고 실패가 기존 처리·result publish·ACK 순서를 바꾸지 않도록 격리한다. 이전 boot 및 중복 sequence는 현재 상태를 갱신하지 않는다.
+- 추가 migration `011_worker_telemetry.sql`은 상태 snapshot/변화/수집기 heartbeat table만 추가한다. 기존 job/result/원본/키를 변경하지 않는다. 배포 시 사전 PG dump와 기존 bootstrap hash/권한 readback을 보존한다.
+- 변경 범위 테스트: Python 27 passed/3 skipped(기존 AMQP 통합 세 항목), 웹 변경 lint/format/build 및 전체 Node test 통과, 기존 관측 표시 PC/phone 24건 통과. 별도 disposable PG의 순서/만료/boot fencing와 인증된 실제 ASGI 목록·상세 경로를 포함한다. 이 결과는 운영 worker 변화나 배포 완료를 뜻하지 않는다.
+
 #### 1차 수정 묶음 A — 관측/제어 오표시 제거
 
 - 혜지의 실제 diff/manifest 검토로 부분 수용됐다. 후속 지적에 따라 AMQP mode를 runtime 값과 분리해 조회 실패 중에도 전용 패널을 유지하고 로컬 활성화/개수 form이 나타나지 않도록 보완했다. 목록도 `/api/admin/agents`의 같은 상태 해석을 사용한다. 실제 실패를 재현한 후 보완했고 PC/phone 목록·상세/실패/복구 계약24건을 통과했다. 변경 frontend lint/format·build·Node test도 통과했다. telemetry/원격 제어 완료와 운영 배포는 별도로 기록한다.

@@ -16,8 +16,9 @@ ENGINE_NODES = frozenset({"transcribe", "translate", "faceswap"})
 
 
 class BrokerFleet:
-    def __init__(self, database, factory):
+    def __init__(self, database, factory, *, telemetry=None):
         self.database = database
+        self.telemetry = telemetry
         self.factory = factory
         self.engine_factory = getattr(factory, "engine_factory", None)
         self.kinds = {node["id"] for node in catalog()["nodes"]}
@@ -78,6 +79,17 @@ class BrokerFleet:
                 "state": "unsupported",
                 "unavailable_reason": "이 노드의 독립 실행 경로는 아직 연결되지 않았습니다.",
             }
+        if self.telemetry is not None:
+            observed = self.telemetry.role(agent)
+            workers = observed["workers"]
+            state = "unknown"
+            if observed["collector"]["healthy"] and workers:
+                for candidate in ("busy", "ready", "connected", "stopping", "heartbeat_lost", "stopped"):
+                    if any(worker["state"] == candidate for worker in workers):
+                        state = candidate
+                        break
+            return {**value, **observed, "telemetry": True, "state": state,
+                    "observed_at": observed["collector"]["received_at"]}
         for family, factory in factories:
             try:
                 with factory() as client:

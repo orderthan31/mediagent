@@ -167,8 +167,9 @@ def create_app(
         )
     if broker_factory is not None:
         from video_service.postgres.broker_fleet import BrokerFleet
+        from video_service.postgres.worker_telemetry import WorkerTelemetry
 
-        fleet = BrokerFleet(database, broker_factory)
+        fleet = BrokerFleet(database, broker_factory, telemetry=WorkerTelemetry(database))
     else:
         fleet = Fleet(database, cpu_driver)
 

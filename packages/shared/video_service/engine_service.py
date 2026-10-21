@@ -34,6 +34,7 @@ def _main(family, argv):
     parser.add_argument("--broker-config-file", required=True)
     parser.add_argument("--object-config-file", required=True)
     parser.add_argument("--runtime-config-file", required=True)
+    parser.add_argument("--telemetry-config-file")
     args = parser.parse_args(argv)
     if not args.enable_broker:
         parser.error("Consumption requires --enable-broker")
@@ -54,7 +55,10 @@ def _main(family, argv):
         for sig in (signal.SIGINT, signal.SIGTERM):
             signal.signal(sig, lambda *_: stop.set())
         with factory() as client:
-            client.serve(args.agent, handler, stop)
+            from .worker_telemetry import reporter_from_file
+
+            client.serve(args.agent, handler, stop,
+                         telemetry=reporter_from_file(args.telemetry_config_file, family, args.agent))
         return 0
     except Exception:
         print('{"status":"failed","code":"engine_broker_stopped"}')

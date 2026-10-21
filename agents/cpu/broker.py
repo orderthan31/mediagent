@@ -37,6 +37,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("--enable-broker", action="store_true")
     parser.add_argument("--agent", required=True, choices=sorted(CPU_AGENTS))
+    parser.add_argument("--telemetry-config-file")
     broker = parser.add_mutually_exclusive_group(required=True)
     broker.add_argument("--broker-config-env")
     broker.add_argument("--broker-config-file")
@@ -69,7 +70,10 @@ def main(argv=None):
         for sig in (signal.SIGINT, signal.SIGTERM):
             signal.signal(sig, lambda *_: stop.set())
         with factory() as client:
-            client.serve(args.agent, handler, stop)
+            from video_service.worker_telemetry import reporter_from_file
+
+            client.serve(args.agent, handler, stop,
+                         telemetry=reporter_from_file(args.telemetry_config_file, "cpu", args.agent))
         return 0
     except Exception:  # noqa: BLE001 -- CLI must suppress paths, endpoints and credentials
         print(

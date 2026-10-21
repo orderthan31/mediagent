@@ -35,6 +35,27 @@ export type AgentRuntime = {
   messages_ready?: number | null;
   observations?: BrokerObservation[];
   activity?: { running: number; expired: number; completed: number };
+  telemetry?: boolean;
+  ttl_seconds?: number;
+  collector?: { healthy: boolean; received_at: string | null };
+  workers?: {
+    worker_id: string;
+    boot_id: string;
+    family: string;
+    role: string;
+    state: string;
+    received_at: string;
+    ticket_id: string | null;
+    ticket_number: number | null;
+    node_id: string | null;
+    attempt_id: string | null;
+    recent_events: {
+      state: string;
+      received_at: string;
+      ticket_number: number | null;
+      node_id: string | null;
+    }[];
+  }[];
 };
 const states: Record<string, string> = {
   ready: '준비됨',

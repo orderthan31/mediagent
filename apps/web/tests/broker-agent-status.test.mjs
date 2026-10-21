@@ -28,6 +28,19 @@ test('failed observations never reuse stale zero or positive consumer counts', a
   }
 });
 
+test('worker telemetry has distinct readiness, busy and expired-heartbeat states', async () => {
+  const { brokerStatusView } = await load();
+  for (const [state, title] of [
+    ['connected', '연결됨'],
+    ['ready', '작업 수용 준비됨'],
+    ['busy', '처리 중'],
+    ['heartbeat_lost', '응답 끊김'],
+    ['unknown', '관측 불가'],
+  ]) {
+    assert.equal(brokerStatusView({ state, telemetry: true }).title, title);
+  }
+});
+
 test('observed zero consumers is disconnected, not unsupported', async () => {
   const { brokerStatusView } = await load();
   const view = brokerStatusView({ state: 'disconnected', consumers: 0, messages_ready: 0 });
