@@ -11,18 +11,18 @@ const load = async () => {
 test('AMQP consumer connectivity is not presented as enabled or inference ready', async () => {
   const { brokerStatusView } = await load();
   const view = brokerStatusView({ state: 'connected', consumers: 2, messages_ready: 3 });
-  assert.equal(view.title, 'consumer 연결됨');
+  assert.equal(view.title, '연결됨');
   assert.equal(view.consumers, '2개');
   assert.equal(view.pending, '3개');
   assert.equal(view.canControl, false);
-  assert.match(view.notice, /추론 준비.*별도/);
+  assert.equal('notice' in view, false);
 });
 
 test('failed observations never reuse stale zero or positive consumer counts', async () => {
   const { brokerStatusView } = await load();
   for (const consumers of [null, 0, 2]) {
     const view = brokerStatusView({ state: 'unknown', consumers, messages_ready: 0 });
-    assert.equal(view.title, '실제 연결 상태 확인 불가');
+    assert.equal(view.title, '확인 불가');
     assert.equal(view.consumers, '확인 불가');
     assert.equal(view.pending, '확인 불가');
   }
@@ -31,11 +31,11 @@ test('failed observations never reuse stale zero or positive consumer counts', a
 test('worker telemetry has distinct readiness, busy and expired-heartbeat states', async () => {
   const { brokerStatusView } = await load();
   for (const [state, title] of [
-    ['connected', '연결됨'],
-    ['ready', '작업 수용 준비됨'],
+    ['connected', '정상'],
+    ['ready', '정상'],
     ['busy', '처리 중'],
-    ['heartbeat_lost', '응답 끊김'],
-    ['unknown', '관측 불가'],
+    ['heartbeat_lost', '연결 끊김'],
+    ['unknown', '확인 불가'],
   ]) {
     assert.equal(brokerStatusView({ state, telemetry: true }).title, title);
   }
@@ -44,8 +44,8 @@ test('worker telemetry has distinct readiness, busy and expired-heartbeat states
 test('observed zero consumers is disconnected, not unsupported', async () => {
   const { brokerStatusView } = await load();
   const view = brokerStatusView({ state: 'disconnected', consumers: 0, messages_ready: 0 });
-  assert.equal(view.title, '연결된 consumer 없음');
+  assert.equal(view.title, '연결 끊김');
   assert.equal(view.consumers, '0개');
-  assert.equal(brokerStatusView({ state: 'controller' }).title, '애플리케이션 제어 노드');
-  assert.equal(brokerStatusView({ state: 'unsupported' }).title, '실행 경로 미지원');
+  assert.equal(brokerStatusView({ state: 'controller' }).title, '확인 불가');
+  assert.equal(brokerStatusView({ state: 'unsupported' }).title, '확인 불가');
 });

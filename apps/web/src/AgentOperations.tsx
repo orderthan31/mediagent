@@ -185,10 +185,7 @@ export const AgentOperations = ({ identity }: { identity: string }) => {
                   <dt>실제 상태</dt>
                   <dd>{states[runtime.state] || runtime.state}</dd>
                 </div>
-                <div>
-                  <dt>실행환경</dt>
-                  <dd>{runtime.runtime === 'cpu_subprocess' ? '독립 CPU 프로세스' : '미연결'}</dd>
-                </div>
+
                 <div>
                   <dt>실행 개수</dt>
                   <dd>

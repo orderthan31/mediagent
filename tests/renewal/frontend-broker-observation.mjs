@@ -49,11 +49,14 @@ try {
     ["phone", 390, 844],
   ]) {
     for (const [state, title] of [
-      ["connected", "consumer 연결됨"],
-      ["disconnected", "연결된 consumer 없음"],
-      ["unknown", "실제 연결 상태 확인 불가"],
-      ["controller", "애플리케이션 제어 노드"],
-      ["unsupported", "실행 경로 미지원"],
+      ["connected", "정상"],
+      ["disconnected", "연결 끊김"],
+      ["unknown", "확인 불가"],
+      ["controller", "확인 불가"],
+      ["unsupported", "확인 불가"],
+      ["busy", "처리 중"],
+      ["stopped", "중지"],
+      ["heartbeat_lost", "연결 끊김"],
     ]) {
       const context = await browser.newContext({ viewport: { width, height } });
       const page = await context.newPage();
@@ -77,7 +80,7 @@ try {
         messages_ready:
           state === "connected" ? 3 : state === "disconnected" ? 0 : null,
         activity: { running: 1, expired: 0, completed: 8 },
-        observed_at: "2026-10-21T11:00:00Z",
+        observed_at: "2026-10-21T11:55:00Z",
         observations: [],
         instances: [],
         unavailable_reason: "원격 시작·중지·확장 제어 미연결",
@@ -85,6 +88,25 @@ try {
         max_replicas: 0,
         concurrency_per_instance: 1,
       };
+      if (["connected", "busy", "stopped", "heartbeat_lost"].includes(state)) {
+        runtime.telemetry = true;
+        runtime.collector = { healthy: true };
+        runtime.workers = [
+          {
+            worker_id: "a".repeat(32),
+            boot_id: "b".repeat(32),
+            family: "cpu",
+            role: "analyze",
+            state: state === "connected" ? "ready" : state,
+            received_at: "2026-10-21T11:00:00Z",
+            ticket_id: "c".repeat(32),
+            ticket_number: 3,
+            node_id: "analyze",
+            attempt_id: "d".repeat(32),
+            recent_events: [],
+          },
+        ];
+      }
       await context.route("**/*", (route) => {
         const url = new URL(route.request().url());
         if (url.origin !== base) {
@@ -158,11 +180,12 @@ try {
       try {
         await page.goto(base + "/#/agents/analyze");
         const panel = page.getByRole("region", {
-          name: "독립 에이전트 관측",
+          name: "에이전트 현황",
           exact: true,
         });
         await panel.waitFor({ timeout: 5000 });
-        await panel.getByText(title, { exact: true }).waitFor();
+        const badge = panel.getByRole("status");
+        await badge.filter({ hasText: title }).waitFor();
         assert.equal(
           await panel.getByLabel("에이전트 활성화", { exact: true }).count(),
           0,
@@ -171,7 +194,24 @@ try {
           await panel.getByRole("button", { name: "설정 적용" }).count(),
           0,
         );
-        assert.match(await panel.innerText(), /추론 준비/);
+        assert.doesNotMatch(
+          await page.locator("body").innerText(),
+          /독립|AMQP|consumer|worker|heartbeat|lease|실행 경로|제공하지|작업 수용|등록된 물리 엔진/,
+        );
+        const body = await panel.innerText();
+        if (state === "busy") assert.match(body, /#3/);
+        if (state === "heartbeat_lost") assert.doesNotMatch(body, /#3/);
+        if (state === "connected" || state === "busy")
+          assert.match(body, /1개/);
+        if (runtime.telemetry) {
+          const actualResponse = await page.evaluate(() =>
+            new Date("2026-10-21T11:00:00Z").toLocaleString(),
+          );
+          assert.match(
+            body,
+            new RegExp(actualResponse.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+          );
+        }
         await panel.scrollIntoViewIfNeeded();
         const overflow = await page.evaluate(
           () => document.documentElement.scrollWidth > innerWidth + 1,
@@ -185,18 +225,13 @@ try {
         cases.push({ viewport, state, overflow, errors });
         if (state === "connected") {
           failObservation = true;
-          await page
-            .getByRole("alert")
-            .getByText("controlled observation failure")
-            .waitFor();
+          await badge.filter({ hasText: "확인 불가" }).waitFor();
           assert.equal(
             await panel.count(),
             1,
             "Keep AMQP mode during observation failure",
           );
-          await panel
-            .getByText("실제 연결 상태 확인 불가", { exact: true })
-            .waitFor();
+          await badge.filter({ hasText: "확인 불가" }).waitFor();
           assert.equal(
             await page.getByLabel("에이전트 활성화", { exact: true }).count(),
             0,
@@ -205,16 +240,13 @@ try {
             await page.getByLabel("목표 실행 개수", { exact: true }).count(),
             0,
           );
-          assert.equal(
-            await panel.getByText("consumer 연결됨", { exact: true }).count(),
-            0,
-          );
+          assert.equal(await badge.filter({ hasText: "정상" }).count(), 0);
           await page.screenshot({
             path: join(evidence, `${viewport}-refresh-failed.png`),
           });
           cases.push({ viewport, state: "refresh-failed", errors });
           failObservation = false;
-          await panel.getByText("consumer 연결됨", { exact: true }).waitFor();
+          await badge.filter({ hasText: "정상" }).waitFor();
           assert.equal(
             await page.getByRole("alert").count(),
             0,
@@ -262,5 +294,5 @@ try {
     ),
   );
 }
-assert.equal(cases.length, 2 * (5 + 2 + 5));
+assert.equal(cases.length, 2 * (8 + 2 + 8));
 console.log(JSON.stringify({ cases: cases.length, failures: failures.length }));

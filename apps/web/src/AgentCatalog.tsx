@@ -135,8 +135,11 @@ export const AgentCatalog = ({
       ) : identity ? (
         selected ? (
           <>
-            <AgentInformation agent={selected} />
-            {(frontendOnly || renewalBackend) && <AgentOperations identity={selected.id} />}
+            {frontendOnly || renewalBackend ? (
+              <AgentOperations identity={selected.id} />
+            ) : (
+              <AgentInformation agent={selected} />
+            )}
           </>
         ) : (
           !error && <p className="ui02-empty">에이전트를 찾을 수 없습니다.</p>
@@ -154,22 +157,24 @@ export const AgentCatalog = ({
               </span>
               <div className="ui02-list-copy">
                 <h2 className="ui02-list-title">{agent.label}</h2>
-                <p className="ui02-list-meta">
-                  {ports(agent.inputs)} → {ports(agent.outputs)}
-                </p>
+                {!renewalBackend && (
+                  <p className="ui02-list-meta">
+                    {ports(agent.inputs)} → {ports(agent.outputs)}
+                  </p>
+                )}
                 {renewalBackend && (
-                  <span aria-label={`${agent.label} 상태`}>
+                  <span className="agent-status-badge" aria-label={`${agent.label} 상태`}>
                     {runtimeError
-                      ? '관측 실패 · 최신 상태 확인 불가'
+                      ? '확인 불가'
                       : runtimes?.[agent.id]?.observation_source === 'amqp'
                         ? brokerStatusView(runtimes[agent.id]).title
                         : runtimes?.[agent.id]
                           ? runtimes[agent.id].state
-                          : '실행 상태 확인 중'}
+                          : '확인 중'}
                   </span>
                 )}
               </div>
-              <code className="ui02-revision">{agent.id}</code>
+              {!renewalBackend && <code className="ui02-revision">{agent.id}</code>}
             </a>
           ))}
           {!error && !shown.length && (
