@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { request, mediaUrl } from './api';
 import { jsonPost } from './video-api';
 import { PageTitle } from './PageTitle';
+import { LoadingSkeleton } from './LoadingSkeleton';
 import { Button } from './hangyeol/primitives/button';
 import { WorkflowCanvas, type CanvasDefinition, type CanvasSpec } from './WorkflowCanvas';
 import { DataForm } from './DataForm';
@@ -135,12 +136,13 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
   }, [base]);
   return (
     <main className="job-detail ticket-detail job-detail-canvas">
-      <PageTitle>{job ? `작업 #${job.ticket_number}` : '작업 불러오는 중'}</PageTitle>
+      <PageTitle>{job ? `작업 #${job.ticket_number}` : '작업'}</PageTitle>
       {error && (
         <p role="alert" className="alert">
           {error}
         </p>
       )}
+      {!job && !error && <LoadingSkeleton layout="canvas" label="작업 상세 불러오는 중" />}
       {job && (
         <>
           <div className="job-detail-toolbar">

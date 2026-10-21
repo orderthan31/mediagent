@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Boxes } from 'lucide-react';
 import { PageTitle } from './PageTitle';
+import { LoadingSkeleton } from './LoadingSkeleton';
 import { Pagination, usePagination } from './Pagination';
 import { request } from './api';
 import { AgentInformation } from './AgentInformation';
 import { AgentOperations } from './AgentOperations';
 import type { AgentRuntime } from './AgentOperations';
 import { brokerStatusView } from './broker-agent-status';
+import { nodeKind } from './NodeSymbol';
 import { frontendOnly, renewalBackend } from './preview';
 
 export type Agent = {
@@ -70,7 +72,7 @@ export const AgentCatalog = ({
     request<{ nodes: Agent[] }>('/settings/node-catalog', { signal: controller.signal })
       .then((data) => {
         if (!controller.signal.aborted) {
-          setAgents(data.nodes);
+          setAgents(data.nodes.filter((agent) => nodeKind(agent.id) === 'agent'));
         }
       })
       .catch((reason) => {
@@ -131,7 +133,7 @@ export const AgentCatalog = ({
         </p>
       )}
       {loading ? (
-        <p role="status">불러오는 중</p>
+        <LoadingSkeleton layout={identity ? 'agent' : 'list'} label="에이전트 불러오는 중" />
       ) : identity ? (
         selected ? (
           <>

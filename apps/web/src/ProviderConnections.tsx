@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { PageTitle } from './PageTitle';
+import { LoadingSkeleton } from './LoadingSkeleton';
 import { Pagination, usePagination } from './Pagination';
 import { request } from './api';
 import { Button } from './hangyeol/primitives/button';
@@ -136,7 +137,8 @@ export const ProviderConnections = ({ route, query }: { route: string; query: st
     <main className="serving-page">
       <PageTitle>
         {identity
-          ? name || (busy === 'load' ? '공급자 불러오는 중' : '공급자를 찾을 수 없음')
+          ? name ||
+            (error ? '공급자 조회 실패' : busy === 'load' ? '공급자 상세' : '공급자를 찾을 수 없음')
           : form
             ? '공급자 추가'
             : '공급자'}
@@ -148,7 +150,7 @@ export const ProviderConnections = ({ route, query }: { route: string; query: st
         </p>
       )}
       {busy === 'load' ? (
-        <p role="status">불러오는 중</p>
+        <LoadingSkeleton layout={form || identity ? 'form' : 'list'} label="공급자 불러오는 중" />
       ) : form ? (
         <form
           className="connection-form"

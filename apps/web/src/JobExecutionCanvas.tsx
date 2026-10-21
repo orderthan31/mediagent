@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ApiError, mediaUrl, request, type Job } from './api';
+import { LoadingSkeleton } from './LoadingSkeleton';
 import { WorkflowCanvas, type CanvasSpec } from './WorkflowCanvas';
 import { GenericJobReview } from './GenericJobReview';
 import { frontendOnly } from './preview';
@@ -353,7 +354,7 @@ export const JobExecutionCanvas = ({
           details={details}
         />
       ) : (
-        !error && <p role="status">처리 흐름 불러오는 중</p>
+        !error && <LoadingSkeleton layout="canvas" label="처리 흐름 불러오는 중" />
       )}
     </section>
   );

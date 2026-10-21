@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { request } from './api';
 import { useWorkspaceAuth } from './AuthGate';
 import { PageTitle } from './PageTitle';
+import { LoadingSkeleton } from './LoadingSkeleton';
 import { Pagination, usePagination } from './Pagination';
 import { Button } from './hangyeol/primitives/button';
 import { TextField } from './hangyeol/components/text-field';
@@ -162,7 +163,7 @@ export const LiveAccounts = ({ create = false }: { create?: boolean }) => {
             </a>
           </div>
           {loading ? (
-            <p role="status">계정 불러오는 중</p>
+            <LoadingSkeleton layout="list" label="계정 목록 불러오는 중" />
           ) : (
             !error && (
               <>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { KeyRound, RefreshCw, Save, Settings, Trash2 } from 'lucide-react';
 import { PageTitle } from './PageTitle';
+import { LoadingSkeleton } from './LoadingSkeleton';
 import { request } from './api';
 import { frontendOnly } from './preview';
 import './settings.css';
@@ -208,7 +209,7 @@ const LegacySettingsPage = () => {
       )}
       {notice && <p role="status">{notice}</p>}
       {!preferences ? (
-        <p>{error ? '설정을 불러오지 못했습니다.' : '설정을 불러오는 중입니다.'}</p>
+        !error && <LoadingSkeleton layout="form" label="시스템 설정 불러오는 중" />
       ) : (
         <form
           id="llm-settings-form"

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { GitBranch, ChevronRight } from 'lucide-react';
 import { PageTitle } from './PageTitle';
+import { LoadingSkeleton } from './LoadingSkeleton';
 import { Pagination, usePagination } from './Pagination';
 import { request } from './api';
 type Summary = { id: string; name: string; revision: number };
@@ -43,7 +44,7 @@ export const WorkflowCatalog = ({ query }: { query: string }) => {
         </p>
       )}
       {loading ? (
-        <p role="status">불러오는 중</p>
+        <LoadingSkeleton layout="list" label="워크플로우 목록 불러오는 중" />
       ) : (
         <div className="ui02-list">
           {page.items.map((row) => (

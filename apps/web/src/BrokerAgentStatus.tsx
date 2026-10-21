@@ -1,5 +1,6 @@
 import type { AgentRuntime } from './AgentOperations';
 import { brokerStatusView } from './broker-agent-status';
+import { InstanceIdentity } from './InstanceIdentity';
 
 export const BrokerAgentStatus = ({
   runtime,
@@ -11,7 +12,11 @@ export const BrokerAgentStatus = ({
   const current = error ? null : runtime;
   const state = current?.state ?? 'unknown';
   const view = brokerStatusView(current ?? { state: 'unknown' });
-  const agents = current?.workers ?? [];
+  const agents = (runtime?.workers ?? []).map((agent) =>
+    error || !current?.collector?.healthy
+      ? { ...agent, state: 'unknown', ticket_id: null, ticket_number: null }
+      : agent,
+  );
   const known = Boolean(
     current?.telemetry &&
     current.collector?.healthy &&
@@ -61,7 +66,7 @@ export const BrokerAgentStatus = ({
           </dd>
         </div>
       </dl>
-      {agents.length > 1 && (
+      {agents.length > 0 && (
         <div
           className="agent-instance-scroll"
           role="region"
@@ -71,20 +76,22 @@ export const BrokerAgentStatus = ({
           <table>
             <thead>
               <tr>
-                <th>에이전트</th>
+                <th>실행 ID</th>
                 <th>상태</th>
                 <th>현재 작업</th>
                 <th>최근 응답</th>
               </tr>
             </thead>
             <tbody>
-              {agents.map((agent, index) => (
+              {agents.map((agent) => (
                 <tr
                   key={agent.worker_id}
                   data-worker-id={agent.worker_id}
                   data-worker-state={agent.state}
                 >
-                  <td>에이전트 {index + 1}</td>
+                  <td>
+                    <InstanceIdentity id={agent.worker_id} />
+                  </td>
                   <td>
                     <span className="agent-status-badge" data-state={agent.state}>
                       {brokerStatusView({ state: agent.state, telemetry: true }).title}

@@ -1,4 +1,5 @@
 import { Progress } from './hangyeol/primitives/progress';
+import { LoadingSkeleton } from './LoadingSkeleton';
 import { Button } from './hangyeol/primitives/button';
 import { Badge } from './hangyeol/primitives/badge';
 import { useEffect, useState } from 'react';
@@ -125,7 +126,7 @@ export const StorageSettings = () => {
         </p>
       )}
       {notice && <p role="status">{notice}</p>}
-      {!snapshot && !error && <p>파일 사용량을 계산하고 있습니다.</p>}
+      {!snapshot && !error && <LoadingSkeleton layout="table" label="저장 공간 불러오는 중" />}
       {snapshot && disk && (
         <>
           <div className="storage-summary">

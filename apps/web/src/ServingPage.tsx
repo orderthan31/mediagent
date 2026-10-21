@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { PageTitle } from './PageTitle';
+import { LoadingSkeleton } from './LoadingSkeleton';
 import { request } from './api';
 import { resolvePorts } from './workflow-spec';
 import { jsonPost } from './video-api';
@@ -260,7 +261,7 @@ export const ServingPage = () => {
         </p>
       )}
       {!config ? (
-        <p>{error ? '서빙 설정 미확인' : '서빙 설정을 불러오는 중입니다.'}</p>
+        !error && <LoadingSkeleton layout="form" label="서빙 설정 불러오는 중" />
       ) : (
         <form onSubmit={(e) => void save(e)} aria-busy={!!busy}>
           <div className="serving-heading">

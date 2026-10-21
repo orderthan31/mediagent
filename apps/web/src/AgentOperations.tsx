@@ -3,6 +3,7 @@ import { request } from './api';
 import { frontendOnly } from './preview';
 import { Button } from './hangyeol/primitives/button';
 import { BrokerAgentStatus } from './BrokerAgentStatus';
+import { LoadingSkeleton } from './LoadingSkeleton';
 import type { BrokerObservation } from './broker-agent-status';
 import './agent-operations.css';
 
@@ -124,6 +125,7 @@ export const AgentOperations = ({ identity }: { identity: string }) => {
     }
     const controller = new AbortController();
     let initial = true;
+    let observedBroker = false;
     let timer: ReturnType<typeof setTimeout>;
     const poll = async () => {
       try {
@@ -132,7 +134,8 @@ export const AgentOperations = ({ identity }: { identity: string }) => {
         });
         if (!controller.signal.aborted) {
           setError('');
-          setBrokerMode(value.observation_source === 'amqp');
+          observedBroker = value.observation_source === 'amqp';
+          setBrokerMode(observedBroker);
           if (initial) {
             accept(value);
             initial = false;
@@ -142,8 +145,11 @@ export const AgentOperations = ({ identity }: { identity: string }) => {
         }
       } catch (reason) {
         if (!controller.signal.aborted) {
-          setRuntime(null);
-          initial = true;
+          // Keep read-only broker identities; never retain editable local controls after failure.
+          if (!observedBroker) {
+            setRuntime(null);
+            initial = true;
+          }
           setError(reason instanceof Error ? reason.message : '실행 상태를 불러오지 못했습니다.');
         }
       } finally {
@@ -177,7 +183,7 @@ export const AgentOperations = ({ identity }: { identity: string }) => {
           )}
           {notice && <p role="status">{notice}</p>}
           {!runtime ? (
-            <p role="status">실행 상태 확인 중</p>
+            !error && <LoadingSkeleton layout="agent" label="실행 현황 불러오는 중" />
           ) : (
             <>
               <dl className="agent-operation-facts">

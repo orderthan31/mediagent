@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { executionRequest } from './execution-request';
 import { ChevronLeft, ChevronRight, Plus, Save, Trash2, X, Play } from 'lucide-react';
 import { Job, request } from './api';
+import { LoadingSkeleton } from './LoadingSkeleton';
 import { Button } from './hangyeol/primitives/button';
 import { Input } from './hangyeol/primitives/input';
 import { Textarea } from './hangyeol/primitives/textarea';
@@ -123,9 +124,14 @@ export const SubtitleEditor = ({
         }
       }
       const payload = { revision: draft.revision, tracks: draft.tracks, action };
-      const next = action === 'render'
-        ? await executionRequest<Draft>(`/jobs/${job.job_id}/subtitles`, payload, 'PUT')
-        : await request<Draft>(`/jobs/${job.job_id}/subtitles`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const next =
+        action === 'render'
+          ? await executionRequest<Draft>(`/jobs/${job.job_id}/subtitles`, payload, 'PUT')
+          : await request<Draft>(`/jobs/${job.job_id}/subtitles`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            });
       setDraft(next);
       setDirty(false);
       setDiscard(false);
@@ -250,7 +256,7 @@ export const SubtitleEditor = ({
           </p>
         )}
         {!draft ? (
-          !error && <p>자막 불러오는 중</p>
+          !error && <LoadingSkeleton layout="form" label="자막 불러오는 중" />
         ) : (
           <>
             <div className="editor-toolbar">

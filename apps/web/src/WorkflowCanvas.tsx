@@ -7,8 +7,9 @@ import {
   type PointerEvent,
   type ReactNode,
 } from 'react';
-import { Boxes, LogIn, LogOut, GitBranch, Maximize, Minus, Plus, Trash2, X } from 'lucide-react';
-import { isControlNode, switchOutputs } from './workflow-controls';
+import { LogIn, LogOut, Maximize, Minus, Plus, Trash2, X } from 'lucide-react';
+import { switchOutputs } from './workflow-controls';
+import { NodeSymbol, nodeKind, nodeKindLabel } from './NodeSymbol';
 import { resolvePorts, type PortSpec } from './workflow-spec';
 import type { NodeFormContract } from './form-contract';
 import './workflow-canvas.css';
@@ -72,7 +73,7 @@ export const WorkflowCanvas = ({
   const [view, setView] = useState({ x: 40, y: 40, scale: 1 });
   const [selected, setSelected] = useState('');
   const [edgeId, setEdgeId] = useState('');
-  const [adding, setAdding] = useState<'agent' | 'control' | null>(null);
+  const [adding, setAdding] = useState<'agent' | 'control' | 'review' | null>(null);
   const [source, setSource] = useState<Endpoint | null>(null);
   const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
   const [connectionError, setConnectionError] = useState('');
@@ -415,6 +416,7 @@ export const WorkflowCanvas = ({
               key={box.id}
               className={`workflow-graph-node ${selected === box.id ? 'is-selected' : ''}`}
               data-node-id={box.id}
+              data-node-kind={box.id === '$input' ? 'input' : nodeKind(box.type)}
               data-state={nodeStates[box.id]?.state}
               style={{ left: box.x, top: box.y, width, height: box.height }}
             >
@@ -473,10 +475,8 @@ export const WorkflowCanvas = ({
                     <LogIn size={20} />
                   ) : box.type === '$output' ? (
                     <LogOut size={20} />
-                  ) : isControlNode(box.type) ? (
-                    <GitBranch size={20} />
                   ) : (
-                    <Boxes size={20} />
+                    <NodeSymbol type={box.type} />
                   )}
                 </span>
                 <span>
@@ -486,9 +486,7 @@ export const WorkflowCanvas = ({
                       ? '트리거'
                       : box.type === '$output'
                         ? '종료'
-                        : isControlNode(box.type)
-                          ? '제어 노드'
-                          : '에이전트'}
+                        : nodeKindLabel(box.type)}
                     {box.review && ' · 검토'}
                     {nodeStates[box.id] && ` · ${nodeStates[box.id].label}`}
                   </small>
@@ -565,7 +563,7 @@ export const WorkflowCanvas = ({
         </div>
         {onChange && (
           <div className="workflow-agent-picker">
-            {(['agent', 'control'] as const).map((kind) => (
+            {(['agent', 'control', 'review'] as const).map((kind) => (
               <button
                 type="button"
                 className={kind === 'agent' ? 'ui02-primary' : 'workflow-control-add'}
@@ -576,7 +574,11 @@ export const WorkflowCanvas = ({
                 onClick={() => setAdding((previous) => (previous === kind ? null : kind))}
               >
                 <Plus size={17} />
-                {kind === 'agent' ? '에이전트 추가' : '제어 노드 추가'}
+                {
+                  { agent: '에이전트 추가', control: '제어 노드 추가', review: '사람 검수 추가' }[
+                    kind
+                  ]
+                }
               </button>
             ))}
             {adding && (
@@ -587,10 +589,10 @@ export const WorkflowCanvas = ({
                 aria-label="추가할 노드"
               >
                 {catalog
-                  .filter((spec) => isControlNode(spec.id) === (adding === 'control'))
+                  .filter((spec) => nodeKind(spec.id) === adding)
                   .map((spec) => (
                     <button type="button" key={spec.id} onClick={() => add(spec)}>
-                      {adding === 'control' ? <GitBranch size={16} /> : <Boxes size={16} />}
+                      <NodeSymbol type={spec.id} size={16} />
                       {spec.label}
                     </button>
                   ))}

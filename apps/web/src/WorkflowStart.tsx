@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { PageTitle } from './PageTitle';
+import { LoadingSkeleton } from './LoadingSkeleton';
 import { mediaUrl, request } from './api';
 import { frontendOnly, renewalBackend } from './preview';
 import { jsonPost, type VideoAsset } from './video-api';
@@ -209,7 +210,7 @@ export const WorkflowStart = () => {
         </p>
       )}
       {loading ? (
-        <p role="status">불러오는 중</p>
+        <LoadingSkeleton layout="form" label="작업 구성 불러오는 중" />
       ) : (
         <div className="work-entry-layout">
           <section className="entry-selection" aria-label="작업 구성">

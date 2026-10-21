@@ -204,6 +204,18 @@ try {
         if (state === "connected" || state === "busy")
           assert.match(body, /1개/);
         if (runtime.telemetry) {
+          const instance = panel.locator(
+            '[data-worker-id="' + "a".repeat(32) + '"]',
+          );
+          assert.equal(
+            await instance.count(),
+            1,
+            "Show a real ID even for one instance",
+          );
+          await instance.locator("summary").click();
+          assert.match(await instance.innerText(), new RegExp("a".repeat(32)));
+          assert.doesNotMatch(await instance.innerText(), /에이전트 \d+/);
+          await instance.locator("summary").click();
           const actualResponse = await page.evaluate(() =>
             new Date("2026-10-21T11:00:00Z").toLocaleString(),
           );
@@ -232,6 +244,13 @@ try {
             "Keep AMQP mode during observation failure",
           );
           await badge.filter({ hasText: "확인 불가" }).waitFor();
+          assert.equal(
+            await panel
+              .locator('[data-worker-id="' + "a".repeat(32) + '"]')
+              .count(),
+            1,
+            "Retain the last known ID while observation is unavailable",
+          );
           assert.equal(
             await page.getByLabel("에이전트 활성화", { exact: true }).count(),
             0,

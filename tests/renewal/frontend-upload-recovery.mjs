@@ -133,6 +133,9 @@ try {
     .locator(".storage-asset-row")
     .filter({ hasText: name })
     .waitFor({ timeout: 60000 });
+  // No reload or navigation after completion: this row must arrive by live list refresh.
+  assert.equal(new URL(page.url()).hash, "#/");
+  await page.screenshot({ path: resolve(evidence, "completed-live-list.png") });
   const assets = (
     await (await context.request.get(base + "/api/videos")).json()
   ).videos;
@@ -162,6 +165,10 @@ try {
     asset.sha256,
   );
   assert.deepEqual(errors, []);
+  assert.doesNotMatch(
+    await page.locator("body").innerText(),
+    /플레이어는 웹 전용 WebM을 재생/,
+  );
   await page.screenshot({
     path: resolve(evidence, "recovered-original-detail.png"),
   });
@@ -177,6 +184,7 @@ try {
     prefix_checks: verifyCalls,
     sessions_created: createCalls,
     actual_download_hash_matches: true,
+    completed_list_updated_without_reload: true,
   };
 } catch (error) {
   report = { ...report, error: String(error), page_errors: errors };

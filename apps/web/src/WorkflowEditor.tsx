@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { request } from './api';
 import { PageTitle } from './PageTitle';
+import { LoadingSkeleton } from './LoadingSkeleton';
 import { jsonPost } from './video-api';
 import { resolvePorts } from './workflow-spec';
 import { WorkflowCanvas, type CanvasDefinition, type CanvasSpec } from './WorkflowCanvas';
@@ -337,8 +338,8 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
           ))}
         </ul>
       )}
-      {busy === 'load' ? (
-        <p role="status">불러오는 중</p>
+      {busy === 'load' && doc.revision === 0 ? (
+        <LoadingSkeleton layout="canvas" label="워크플로우 불러오는 중" />
       ) : (
         <WorkflowCanvas
           key={doc.id}

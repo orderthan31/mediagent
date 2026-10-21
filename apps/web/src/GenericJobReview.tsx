@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { LoadingSkeleton } from './LoadingSkeleton';
 import { Check, ClipboardCheck } from 'lucide-react';
 import { request } from './api';
 import { Button } from './hangyeol/primitives/button';
@@ -240,7 +241,7 @@ export const GenericJobReview = ({ jobId, nodeId }: { jobId: string; nodeId?: st
         </p>
       )}
       {loading ? (
-        <p role="status">자료 불러오는 중</p>
+        <LoadingSkeleton layout="form" label="검수 자료 불러오는 중" />
       ) : !error && active ? (
         <>
           {tasks.length > 1 && (

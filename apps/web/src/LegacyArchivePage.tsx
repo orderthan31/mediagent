@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { request } from './api';
 import { PageTitle } from './PageTitle';
+import { LoadingSkeleton } from './LoadingSkeleton';
 
 type RecordRow = {
   namespace: string;
@@ -69,8 +70,8 @@ export const LegacyArchivePage = () => {
         </p>
       )}
       {loading ? (
-        <p role="status">불러오는 중</p>
-      ) : (
+        <LoadingSkeleton layout="list" label="구버전 이력 불러오는 중" />
+      ) : error ? null : (
         <>
           <p>{total}개</p>
           <div className="ui02-list">

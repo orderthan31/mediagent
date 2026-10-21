@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { PageTitle } from './PageTitle';
+import { LoadingSkeleton } from './LoadingSkeleton';
 import { Pagination, usePagination } from './Pagination';
 import { request } from './api';
 import { frontendOnly, renewalBackend } from './preview';
@@ -222,11 +223,20 @@ export const ModelRegistryPage = ({
       void edit(row);
     }
   }, [form, identity, models, editing?.id]);
+  if (loading && !listConfirmed && form) {
+    return (
+      <main className="serving-page model-registry">
+        <PageTitle>{identity ? '모델 편집' : '모델 추가'}</PageTitle>
+        <LoadingSkeleton layout="form" label="모델 설정 불러오는 중" />
+      </main>
+    );
+  }
   return (
     <main className="serving-page workflow-tickets model-registry">
       <PageTitle>
         {identity
-          ? selectedName || (loading ? '모델 불러오는 중' : '모델을 찾을 수 없음')
+          ? selectedName ||
+            (listError ? '모델 조회 실패' : loading ? '모델 상세' : '모델을 찾을 수 없음')
           : form
             ? '모델 추가'
             : '서빙'}
@@ -415,8 +425,8 @@ export const ModelRegistryPage = ({
       {!form && !identity && (
         <>
           <section className="ui02-list" aria-label="등록 모델">
-            {loading ? (
-              <p>등록 목록 읽는 중</p>
+            {loading && !listConfirmed ? (
+              <LoadingSkeleton layout="list" label="모델 목록 불러오는 중" />
             ) : listConfirmed && !listError && !shown.length ? (
               <p>{query ? '검색 결과 없음' : '등록 모델 없음'}</p>
             ) : (
@@ -450,8 +460,8 @@ export const ModelRegistryPage = ({
       )}
       {!form &&
         identity &&
-        (loading ? (
-          <p role="status">모델 불러오는 중</p>
+        (loading && !listConfirmed ? (
+          <LoadingSkeleton layout="form" label="모델 상세 불러오는 중" />
         ) : selectedModel && selectedVersion ? (
           <>
             <dl className="serving-resource-facts">

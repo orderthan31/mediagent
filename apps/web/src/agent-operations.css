@@ -60,6 +60,83 @@
   flex-wrap: wrap;
   gap: 0.5rem;
 }
+.agent-instance-identity {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+}
+.agent-instance-identity summary {
+  cursor: pointer;
+}
+.agent-instance-full-id {
+  display: block;
+  padding-top: 0.5rem;
+}
+.agent-instance-identity .ui02-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+@media (max-width: 700px) {
+  .agent-instance-scroll table,
+  .agent-instance-scroll tbody {
+    display: block;
+    white-space: normal;
+  }
+  .agent-instance-scroll thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .agent-instance-scroll tbody tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    margin-bottom: 0.75rem;
+    border: 1px solid var(--g-color-border, #e5e7eb);
+    border-radius: 10px;
+  }
+  .agent-instance-scroll td {
+    min-width: 0;
+    display: block;
+    padding: 0.65rem;
+    border: 0;
+    overflow-wrap: anywhere;
+  }
+  .agent-instance-scroll td:first-child,
+  .agent-instance-scroll td:last-child {
+    grid-column: 1 / -1;
+  }
+  .agent-instance-scroll td::before {
+    display: block;
+    margin-bottom: 0.35rem;
+    color: var(--g-color-muted, #596475);
+    font-size: 0.75rem;
+  }
+  .agent-instance-scroll td:nth-child(1)::before {
+    content: '실행 ID';
+  }
+  .agent-instance-scroll td:nth-child(2)::before {
+    content: '상태';
+  }
+  .agent-instance-scroll td:nth-child(3)::before {
+    content: '현재 작업';
+  }
+  .agent-instance-scroll td:nth-child(4)::before {
+    content: '최근 응답';
+  }
+  .agent-instance-identity details {
+    min-width: 0;
+    flex: 1;
+  }
+  .agent-instance-full-id {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
 .agent-status-badge {
   display: inline-flex;
   align-items: center;

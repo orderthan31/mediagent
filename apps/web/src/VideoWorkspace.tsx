@@ -5,6 +5,8 @@ import { PageTitle } from './PageTitle';
 import { Pagination, usePagination } from './Pagination';
 import { frontendOnly, renewalBackend } from './preview';
 import { ticketNumber, workflowName } from './job-identity';
+import { rowClick, rowKeyDown } from './row-navigation';
+import { LoadingSkeleton } from './LoadingSkeleton';
 import { AccountPage } from './AccountPage';
 import { PublishingAuth } from './PublishingAuth';
 import { JobDetail } from './JobDetail';
@@ -52,6 +54,8 @@ export const VideoWorkspace = () => {
   const auth = useWorkspaceAuth();
   const administrator = frontendOnly || auth?.session.user?.role === 'admin';
   const [runtimeReady, setRuntimeReady] = useState(!renewalBackend);
+  const [capabilitiesLoading, setCapabilitiesLoading] = useState(renewalBackend);
+  const [capabilitiesError, setCapabilitiesError] = useState('');
   const [agentLabel, setAgentLabel] = useState('');
   const agentIdentity = location.hash.startsWith('#/agents/')
     ? decodeURIComponent(location.hash.slice('#/agents/'.length))
@@ -267,7 +271,14 @@ export const VideoWorkspace = () => {
         </thead>
         <tbody>
           {items.map((job) => (
-            <tr key={job.job_id}>
+            <tr
+              key={job.job_id}
+              className="job-ledger-row"
+              tabIndex={0}
+              aria-label={`작업 ${ticketNumber(job)} 상세 열기`}
+              onClick={(event) => rowClick(event, `#/jobs/${job.job_id}`)}
+              onKeyDown={(event) => rowKeyDown(event, `#/jobs/${job.job_id}`)}
+            >
               <td>
                 <a
                   className="job-ticket-link"
@@ -349,7 +360,14 @@ export const VideoWorkspace = () => {
         }
       })
       .catch(() => {
-        /* Existing foundation-only boundary remains closed. */
+        if (!controller.signal.aborted) {
+          setCapabilitiesError('작업 공간 조회 실패');
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setCapabilitiesLoading(false);
+        }
       });
     return () => controller.abort();
   }, []);
@@ -487,6 +505,25 @@ export const VideoWorkspace = () => {
             <p role="alert">관리자만 이용할 수 있는 화면입니다.</p>
             <a href="#/jobs">작업으로 돌아가기</a>
           </main>
+        ) : renewalBackend && capabilitiesLoading ? (
+          <main className="video-main">
+            <LoadingSkeleton
+              layout={
+                assetId
+                  ? 'media'
+                  : jobId || editorView
+                    ? 'canvas'
+                    : route.startsWith('#/agents/')
+                      ? 'agent'
+                      : settingsView
+                        ? 'form'
+                        : jobsView
+                          ? 'table'
+                          : 'list'
+              }
+              label="작업 공간 불러오는 중"
+            />
+          </main>
         ) : renewalBackend && route === '#/settings/legacy' ? (
           <LegacyArchivePage />
         ) : renewalBackend &&
@@ -504,10 +541,13 @@ export const VideoWorkspace = () => {
                       ? '원본'
                       : '작업'}
             </PageTitle>
-            <p role="status">
-              이 화면의 PostgreSQL 연동은 아직 준비 중입니다. 기존 데이터나 실행기는 연결하지
-              않았습니다.
-            </p>
+            {capabilitiesError && <p role="alert">{capabilitiesError}</p>}
+            {!capabilitiesError && (
+              <p role="status">
+                이 화면의 PostgreSQL 연동은 아직 준비 중입니다. 기존 데이터나 실행기는 연결하지
+                않았습니다.
+              </p>
+            )}
             {administrator && (
               <>
                 <a className="ui02-text-action" href="#/serving">
@@ -587,9 +627,9 @@ export const VideoWorkspace = () => {
           )
         ) : (
           <main className="video-main">
-            {!online && (
-              <p className="workspace-connection-notice" role="status">
-                서버 연결을 확인해 주세요. 목록 정보가 최신이 아닐 수 있어요.
+            {listFailed && (
+              <p className="workspace-connection-notice" role="alert">
+                {hasConfirmedList ? '목록 갱신 실패 · 이전 조회값' : '목록 조회 실패'}
               </p>
             )}
             {error && (
@@ -608,16 +648,21 @@ export const VideoWorkspace = () => {
                     <StorageVideoInfo video={detail.video} assetId={assetId} />
                   </>
                 ) : (
-                  <p role="status">영상 불러오는 중</p>
+                  !error && <LoadingSkeleton layout="media" label="원본 상세 불러오는 중" />
                 )}
               </>
             ) : (
               <>
                 <PageTitle>{jobsView ? '작업' : '원본'}</PageTitle>
 
-                {jobsView ? (
+                {!hasConfirmedList && !listFailed ? (
+                  <LoadingSkeleton
+                    layout={jobsView ? 'table' : 'list'}
+                    label={jobsView ? '작업 목록 불러오는 중' : '원본 목록 불러오는 중'}
+                  />
+                ) : jobsView ? (
                   <>
-                    {jobRows(jobPage.items)}
+                    {hasConfirmedList && jobRows(jobPage.items)}
                     {hasConfirmedList && (
                       <Pagination {...jobPage} disabled={!online}>
                         {!renewalBackend && <ExecutionPopover jobs={jobs} onChanged={refresh} />}
