@@ -6,7 +6,7 @@
 
 ## 현재 상태
 
-현재 웹은 `893579340680c8e189fe0d73bfff13943232fae9`, API·에이전트는 `6986b614…`다. 웹만 clean archive로 교체했고 실제 HTTPS PC·모바일 상세와 PC 목록에서 controller의 `확인 불가` 보정을 확인했다. API·에이전트·기존 데이터 mount·키·롤백은 보존했다.
+현재 웹은 `ad38393b5a789dc1a1b69488e914f7a30e5d6f2f`, API·에이전트는 `6986b614…`다. 업로드 복구 커밋의 clean archive로 웹만 교체했다. 실제 HTTPS PC/모바일 원본 버튼·상태 접근과 모바일 합성 파일 업로드→목록 재조회→상세→원본 다운로드 SHA 일치를 확인했다. 운영 실패/재개는 새로 시험하지 않았으며 격리 설치 API 수용과 구분한다. 비웹17개·기존 데이터 mount·bootstrap96파일·WIP·롤백을 보존했다. 후속 WebM 설명 삭제 소스 `99e4a7b`는 운영에 포함하지 않았다.
 
 Windows API·에이전트 배포 `6986b614…`에서 PG/S3/TLS RabbitMQ·독립 CPU와 고정 local engine의 합성 영상 제품 job 및 단일 인스턴스별 worker telemetry를 실제 확인했다. 상태 발행 전용 broker 권한과 제한 PG collector를 사용하며 API는 PG의 수신 기록을 읽는다. 기존 controller의 passive 관측403 권한은 넓히지 않았다. 일반 provider·순수 UI 생성·공용 자료함·티켓별 저장·원격 fleet 제어까지 완료된 것은 아니다. 공용 자료함 소스 WIP는 운영 배포에서 제외했다.
 

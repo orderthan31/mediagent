@@ -6,7 +6,13 @@
 
 ## 현재 상태
 
-### 운영 웹 반영 및 제어 어댑터 진행
+### 업로드 복구 운영 반영 — 2026-10-22
+
+- 혜지의 소스 수용/App push 후 `origin/renewal == ad38393b5a789dc1a1b69488e914f7a30e5d6f2f`를 읽어 확인했다. 해당 clean archive의 웹만 교체하고 실행 image ID/revision과 실제 HTTPS JS/CSS bytes 일치를 확인했다. API·에이전트는 `6986b614…` 그대로이며 비웹 running17개 ID/image/start/mount/env와 bootstrap96파일 hash, 기존 WIP bytes를 보존했다. 이전 웹 `8935793` 롤백과 canonical override의 웹 image/label도 보존·갱신했다.
+- 실제 vault 로그인 후 PC/390px 모바일 원본 목록의 업로드 버튼과 상태 접근을 확인했다. 모바일에서 합성 영상 `upload-web-ad38393-synthetic.mp4`를 파일 입력으로 실제 업로드해 100% 완료를 보고, 페이지 재조회 후 원본 `500a823526d74a0ea3f8187ad24cb32a` 등록·상세를 확인했다. 상세의 원본 다운로드 URL을 통해 실제 받은 4,265,166 bytes의 SHA가 입력과 일치했다. 기존 원본은 삭제하지 않았다. 운영에서 실패/재개를 재현한 것은 아니며 해당 수용은 앞선 격리 설치 API 증적이다. 완료 직후 목록 자동 갱신까지 검증한 것으로 확대하지 않는다.
+- 후속 WebM 설명문은 원본/산출물 두 상세 소스에서 삭제했고 재생·원본/WebM 다운로드 링크는 유지했다. 별도 source commit `99e4a7b480e04c0bab6670a0cb570740dfd48082`, 범위 RED→GREEN·Node 회귀·변경 lint·renewal build 통과. **검토/push/운영 반영 전이며 현재 운영 상세에는 기존 안내가 남는다.** 나머지 ID·행 이동·노드 분류·스켈레톤·제품 제어는 미완료다.
+
+### 이전 운영 웹 반영 및 제어 어댑터 진행
 
 - 웹만 clean archive `893579340680c8e189fe0d73bfff13943232fae9` 이미지로 반영했다. API·에이전트는 `6986b614…` 그대로다. 실제 사설 HTTPS/vault 로그인 후 PC·모바일 인코딩 상세, PC 목록 및 사람 검수의 `확인 불가` 보정을 확인했다. HTTPS JS/CSS hash가 실행 이미지 파일과 일치하고 health200/미인증 agents401이다.
 - 웹 이외 기존 running 컨테이너17개의 ID·image·start time·mount·환경 hash와 bootstrap96파일 bytes를 전후 대조해 보존했다. 웹의 기존 port/mount/restart 정책과 롤백 이미지/설정도 보존했다. 첫 배포 검증에서 기존 Compose revision label 상속을 발견해 웹 label만 보정했고 이미지 ID까지 재확인했다. 목록 확인 중 브라우저가 about:blank로 전환된 도구 세션 문제는 vault 재로그인으로 복구했으며 제품 세션 지속성 전체 수용으로 확대하지 않는다.
@@ -34,7 +40,7 @@
 ### 사용자 재확정 요구와 다음 구현 순서 — 2026-10-21 19:49 KST
 
 - 단일 직접 writer는 Windows의 혜윤, 혜지는 요구사항/결과 검토와 GitHub App push를 담당한다. 개발 checkout `C:/Users/skygg/dev/mediagent-s2`, `renewal`, 시작 HEAD `625bd9289649321a92f1a6469912d3a44ea49615`. 기존 문서 WIP·미추적 evidence와 원본/DB/키/백업을 보존한다.
-- 현재 웹은 `893579340680c8e189fe0d73bfff13943232fae9`, API·에이전트는 `6986b61471765aa53afc4b8b2b6a1c33b88a3b21`이다. 고정 로컬 영어→독일어 제품 job의 UI/API 혼합 실행과 단일 인스턴스별 worker telemetry 관측을 실제 확인했다. 일반 provider 실행·순수 UI-only 생성·공용 자료함·티켓별 물리 저장·원격 start/stop/scale 전체 완료가 아니다. 공용 자료함 소스 WIP는 배포에 포함하지 않았다.
+- 현재 웹은 `ad38393b5a789dc1a1b69488e914f7a30e5d6f2f`, API·에이전트는 `6986b61471765aa53afc4b8b2b6a1c33b88a3b21`이다. 고정 로컬 영어→독일어 제품 job의 UI/API 혼합 실행과 단일 인스턴스별 worker telemetry 관측을 실제 확인했다. 일반 provider 실행·순수 UI-only 생성·공용 자료함·티켓별 물리 저장·원격 start/stop/scale 전체 완료가 아니다. 공용 자료함 소스 WIP는 배포에 포함하지 않았다.
 - [x] 1차-관측: 상태 전용 broker/제한 PG 경로로 worker10개를 연결하고 실제 합성 작업의 처리·heartbeat 만료·복귀와 collector 중단/복귀를 API 및 PC 제품 목록·상세에서 확인했다. 준비 상태는 작업 수신 등록이며 추론 품질·개별 모델 초기화 수용이 아니다. 기존 controller의 passive403 권한을 넓히지 않았다.
 - [ ] 1차-제어: 원격 start/stop/scale adapter를 실제 대상과 연결한다. 현재 검증용 Docker 조작은 제품 제어 기능이 아니다. 먼저 exchange당 단일 worker ID 바인딩을 다중 인스턴스 식별/수용 구조로 보완해야 한다.
   - 후속 소스 WIP: 동일 기능의 여러 실행 인스턴스에 각각 ID가 묶인 상태 발행 주소를 부여하는 opt-in 경로와 송신 설정을 추가했다. 기존 단일 인스턴스 설정/권한은 변경하지 않는다. 프로토콜·송신 설정 범위 7개 테스트 통과. 운영 broker provisioning·다중 인스턴스 실제 수신·start/stop/scale adapter와 제품 버튼은 미완료이며 UI 커밋 `8935793`/전달 bundle에 포함하지 않았다.
