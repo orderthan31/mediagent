@@ -9,15 +9,33 @@
 ### 사용자 재확정 요구와 다음 구현 순서 — 2026-10-21 19:49 KST
 
 - 단일 직접 writer는 Windows의 혜윤, 혜지는 요구사항/결과 검토와 GitHub App push를 담당한다. 개발 checkout `C:/Users/skygg/dev/mediagent-s2`, `renewal`, 시작 HEAD `625bd9289649321a92f1a6469912d3a44ea49615`. 기존 문서 WIP·미추적 evidence와 원본/DB/키/백업을 보존한다.
-- 현재 완료는 고정 로컬 영어→독일어 제품 job의 UI/API 혼합 실행과 다운로드/재생이다. 일반 provider 실행·순수 UI-only 생성·공용 자료함·티켓별 물리 저장·실제 원격 agent 관리가 완료됐다는 뜻이 아니다. 현재 배포는 `625bd928…`이며 새 구현의 배포/제품 UI 검증과 분리한다.
-- [ ] 1차: 실제 독립 agent 관측을 화면에 연결한다. 연결/준비/추론 성공을 혼동하지 않고 관측 실패는 unknown, 미지원은 unsupported로 구분한다. 현재 API credential의 passive queue 조회는 실제 HTTP가 아닌 AMQP channel 403으로 거부됨을 확인했다. 권한을 임의 확대하거나 초록색 표시로 대체하지 않는다. 관측 연결과 원격 start/stop/scale 제어의 완료를 별도로 기록한다.
+- 현재 운영 배포는 `6986b61471765aa53afc4b8b2b6a1c33b88a3b21`이다. 고정 로컬 영어→독일어 제품 job의 UI/API 혼합 실행과 단일 인스턴스별 worker telemetry 관측을 실제 확인했다. 일반 provider 실행·순수 UI-only 생성·공용 자료함·티켓별 물리 저장·원격 start/stop/scale 전체 완료가 아니다. 공용 자료함 소스 WIP는 배포에 포함하지 않았다.
+- [x] 1차-관측: 상태 전용 broker/제한 PG 경로로 worker10개를 연결하고 실제 합성 작업의 처리·heartbeat 만료·복귀와 collector 중단/복귀를 API 및 PC 제품 목록·상세에서 확인했다. 준비 상태는 작업 수신 등록이며 추론 품질·개별 모델 초기화 수용이 아니다. 기존 controller의 passive403 권한을 넓히지 않았다.
+- [ ] 1차-제어: 원격 start/stop/scale adapter를 실제 대상과 연결한다. 현재 검증용 Docker 조작은 제품 제어 기능이 아니다. 먼저 exchange당 단일 worker ID 바인딩을 다중 인스턴스 식별/수용 구조로 보완해야 한다.
 - [ ] 2차: 인증된 공용 원본/작업/결과 조회·사용·다운로드와 업로더/실행자 기록을 연결한다. credential·관리 API의 보호는 유지하며, 구버전 원본을 개인 계정 소유함으로 옮기는 이전 제안은 폐기한다.
 - [ ] 3차: `originals/{original_id}` 및 `tickets/{ticket_id}`의 단계별 파일/manifest를 실제 object 저장에 연결하고 기존 owner-CAS 읽기를 보존한다. 단순 경로 설명이나 PG 목록만으로 완료 처리하지 않는다.
 - [ ] 4차: 기존 원본17개를 이력 복원 없이 공용 목록에 이관한다. 대용량 보관·재생·다운로드와 실행 용량 제한을 분리하고 전체 SHA·멱등 재실행·실제 읽기를 수용한다.
 - [ ] 5차: connection/model/credential→실제 capability별 provider 요청과 태스크별 동적 폴백 체인을 연결한다. 폴백0개 허용·추가/삭제/재정렬·snapshot pin·A실패→B실패→C성공/전부실패/폴백없음/취소중단·오류별 전환 정책·후보별 능력/인증/비용 확인·실제 시도 순서/최종 모델 표시를 수용한다. 유료 외부 호출은 별도 승인 전에는 실행하지 않는다.
 - [ ] 6차: 언어/모델/폴백 선택→원본/workflow→티켓→별도 승인/실행→중간/최종 결과를 순수 제품 UI로 검증한다. 다른 로컬 모델 대체나 API 우회 결과를 UI 완료로 보고하지 않는다.
 
-#### 후속 묶음 B — 상태 전용 worker telemetry (배포/실제 전환 수용은 아래 후속 결과로 구분)
+#### 후속 묶음 B — 상태 전용 worker telemetry (단일 인스턴스 운영 관측 수용, 원격 제어 별도)
+
+- **2026-10-21 22:09 KST 실제 운영 readback:** 혜지의 23경로 검토/App 일반 push 보고 뒤 Windows에서 `origin/renewal == 6986b61471765aa53afc4b8b2b6a1c33b88a3b21`를 fetch/readback했다. 이미 만든 clean-archive 이미지5종만 사용해 기존 대상14개와 collector1개를 전환했다. 전부 동일 revision/running/restart0/paused=false이며 API/web/infra health 정상이다. 대표 API/CPU/model/GPU에 실제 import된 shared module bytes도 해당 archive와 대조했다. 공용 자료함 intake/test WIP bytes는 보존해 운영 이미지에 섞지 않았다.
+- 제한 PG 역할의 collector heartbeat가 실제 지속 갱신되고, CPU6/model2/GPU2 worker10개가 실제 상태 보고를 했다. 기존14개 mount를 목적지별로 대조해 보존했고 기존 bootstrap95파일 bytes와 옛 Worker 두 개의 exited 상태도 유지했다. collector에 공개 port/Docker socket을 추가하지 않았다.
+- 새 제품 **티켓 #2 `9d61714277ea49598e15e865fa9a6f11`**는 기존 승인 음성 fixture의 영어→독일어 8단계 완료다. **#3 `3aaa2a9a95f54fc0b24e707b8391d6ff`**는 같은 합성 영상의 50초 반복 입력으로 encode→validate 두 단계만 실행해 짧은 busy 상태를 실제 제품 상세에서 포착했다. 원본 등록/생성은 API 설정, 실행 계획/동의/실행은 제품 UI였으며 순수 UI-only 수용으로 보고하지 않는다. 유료 외부 호출은 없고 GPU 추론 수용을 새로 주장하지 않는다.
+- 실제 API의 busy sample과 PG `worker_observation_events`/`node_runs`/`jobs`를 read-only 대조해 두 티켓의 10개 attempt와 worker family/기능/논리 node가 모두 일치함을 확인했다. #3 encode의 worker `81831977b4214488b19fb78fca17c213`, attempt `d8dd352593a54303afc997f221648f2f`가 제품 화면의 #3/encode/attempt 표시와 일치했다. 결과 상태/전사·번역/worker 보고를 수동 주입하지 않았다.
+- collector를 실제 stop하여 TTL 뒤 API/목록/상세가 **관측 불가**가 됨을, collector 복구 뒤 전체10개 ready를 확인했다. 이어 idle encode worker 하나만 pause하여 collector healthy 상태의 **응답 끊김**을 API/목록/상세에서 확인하고 unpause 후 같은 worker ID/boot가 ready로 돌아오며 과거 ticket/attempt가 현재 값으로 남지 않음을 확인했다. 최종15개 running/restart0, worker10개 fresh/ready, collector healthy다. 원격 제어는 미구현으로 유지한다.
+- 실제 JSON/PG 대조/화면 증적은 기존 비공개 ops의 `telemetry-20261021/live/`에 보존한다. 첫 #2의 짧은 encode busy는 API sample에는 있었지만 UI polling 사이에 지나가 #3으로 실제 busy 화면을 추가 확인했다. 큰 binary를 한 CDP 메시지에 넣은 시도는 browser-harness transport limit으로 실패했고 업로드 부작용 없음을 확인한 후 작은 메시지로 나누었다. 이후 도구의 browser context 소실 때문에 추가 실제 phone 확인은 미수행이며 PC 실제 수용과 기존 phone fixture 테스트를 혼합하지 않는다. 일회용 PG/internal network는 테스트 schema0/tmpfs/단독 membership을 확인한 뒤 해당 고유 테스트 자원만 정리했다.
+
+아래는 배포 전 승인 차단과 해소 과정의 과거 체크포인트다.
+
+- **승인 재요청 후 실제 결과:** 선배의 원래 명령 재시도 허용에 따라 같은 명령을 실행 도구에 다시 요청했고 승인되어 exit0으로 완료됐다. 이어 새 제한 DSN으로 별도 연결해 `current_user=mideagent_telemetry_v1`, 상태 table INSERT 허용, jobs UPDATE 불가, accounts SELECT 불가를 다시 확인했다. 기존 광범위 DSN을 수집기 실행에 우회 사용하지 않았다. 아래 승인 만료/역할 없음 기록은 이전 체크포인트이며 현재 PG 선행 차단은 해소됐다. 이번 명령에서 배포·worker 전환·제품 UI 수용·push는 수행하지 않았다. 공용 자료함 소스 WIP와 기존 evidence를 보존했다.
+
+- **2026-10-21 21:20 KST 실제 체크포인트:** A 보완 `adfebd97cdecf48fa830a6336bfc96a0c5173fc6`, B source `6986b61471765aa53afc4b8b2b6a1c33b88a3b21`로 각각 커밋했다. B의 clean git archive에서 API/web/CPU/model/GPU 다섯 이미지를 build exit0으로 만들었고 image revision label을 읽어 확인했다. 원격 App push는 아직 하지 않았다.
+- 사전 PG dump와 기존 정의/설정 hash를 private rollback에 보존한 뒤 **새 011 migration 하나만 적용**했다. 상태 전용 broker 계정11개·역할 exchange10개·전용 queue1개를 추가하고 실제 권한을 다시 읽었다. 기존 broker 계정12개의 권한은 동일하며, definitions의 기존 기록과 나머지 bootstrap95파일의 bytes도 보존했다. 본체 작업/원본/credential 이관을 실행한 것이 아니다.
+- 다음의 **수집기 전용 제한 PG 역할 생성 명령은 실행 도구 승인창이 5분 만료되어 실행되지 않았다.** 같은 명령 재시도·다른 경로 우회·기존 광범위 DSN으로 collector 실행은 하지 않았다. readback에서도 새 PG 역할 없음, worker/observer 보고0행이다. 새로운 역할은 상태 table만 접근하도록 준비됐으며 제품 로그인 계정 생성과는 별개다.
+- **제품 배포는 시작하지 않았고 14개 대상은 모두 기존 `625bd9289649321a92f1a6469912d3a44ea49615`, running/restart0을 유지한다.** API/web/infra health 정상, 옛 Worker 두 개 exited다. 따라서 새 화면과 실제 worker 기동→대기→처리→heartbeat 만료→복귀는 아직 미수용이다. 현재 제품의 예전 꺼짐 표시는 아직 새 source로 바뀌지 않았다.
+- build 최초 시도는 Bake의 기본 Compose 동시 탐색으로 bootstrap 변수 보간에서 중단됐으며 `-f docker-bake.hcl` 명시 후 성공했다. 운영 데이터 오류가 아니며 최초 로그도 보존했다. disposable PG 테스트 컨테이너/내부 network 한 세트는 승인 차단 시점에 남아 있어 재개 시 해당 고유 테스트 자원만 정리해야 한다(운영 PG/volume 정리 금지).
 
 - 고정된 worker 식별자와 정렬 가능한 boot generation/sequence, family/기능, 마지막 서버 수신 heartbeat, 현재 job/attempt 및 PG가 대조한 node/ticket을 제공한다. consumer 수를 worker 생존/준비로 환산하지 않는다.
 - 별도 역할별 상태 발행 계정은 자신의 상태 exchange에만 write, 수집 계정은 전용 상태 queue에만 read한다. 기존 controller/worker의 broker 권한은 보존한다. API는 PG만 조회한다. 원격 start/stop/scale은 별도 미완료이며 제공하지 않는다.

@@ -6,7 +6,7 @@
 
 ## 현재 상태
 
-Windows 배포 `625bd928…`에서 PG/S3/TLS RabbitMQ·독립 CPU와 고정 local engine의 합성 영상 제품 job을 수용했다. 일반 provider·순수 UI 생성·공용 자료함·티켓별 저장·원격 fleet 제어까지 완료된 것은 아니다. broker 모드의 관측/로컬 제어 혼동을 분리하는 source WIP를 추가했으나 미배포이며, 실제 API credential의 passive 관측403을 권한 변경 없이 unknown으로 취급한다.
+Windows 배포 `6986b614…`에서 PG/S3/TLS RabbitMQ·독립 CPU와 고정 local engine의 합성 영상 제품 job 및 단일 인스턴스별 worker telemetry를 실제 확인했다. 상태 발행 전용 broker 권한과 제한 PG collector를 사용하며 API는 PG의 수신 기록을 읽는다. 기존 controller의 passive 관측403 권한은 넓히지 않았다. 일반 provider·순수 UI 생성·공용 자료함·티켓별 저장·원격 fleet 제어까지 완료된 것은 아니다. 공용 자료함 소스 WIP는 운영 배포에서 제외했다.
 
 ## 주요 내용
 
@@ -15,7 +15,7 @@ flowchart LR
   Web[웹: WebM 재생 / 원본·WebM 다운로드] --> App[API · workflow 제어 · 승인 · 검수]
   App --> PG[(PostgreSQL 메타데이터)]
   App --> CPU[명시 단일 명령 / CPU subprocess]
-  Admin[관리자 에이전트 상세] --> Fleet[목표 설정 / 실제 인스턴스 / drain]
+  Admin[관리자 에이전트 목록·상세] -. local 모드 전용 .-> Fleet[로컬 목표 설정 / 인스턴스 / drain]
   Fleet --> PG
   Fleet --> CPU
   App --> Objects[(로컬 CAS 또는 S3-compatible CAS)]
@@ -23,10 +23,15 @@ flowchart LR
   CPU --> Receipt[불변 attempt receipt]
   Receipt --> App
   App -. opt-in confirm 발행 .-> Broker[RabbitMQ / 역할별 독립 큐]
-  Broker -. 역할별 명령 .-> Independent[독립 CPU AMQP 수신기]
+  Broker -. 역할별 명령 .-> Independent[독립 CPU / model / GPU worker]
   Independent -. 결과 confirm .-> Broker
   Broker -. 별도 결과 제어기 / commit 후 ACK .-> App
   Independent -. 별도 private cache .-> Objects
+  Independent -. 역할별 상태 발행 전용 권한 .-> StatusMQ[전용 telemetry exchange / queue]
+  StatusMQ --> Collector[상태 collector / 제한 PG 역할]
+  Collector --> PG
+  Admin --> Observation[BrokerFleet / read-only 관측]
+  Observation --> PG
 ```
 
 - 에이전트는 DB·전체 workflow·다음 노드·웹 세션을 모른다. 애플리케이션이 승인·의존성·검수·취소 generation과 결과 채택을 소유한다.
@@ -39,7 +44,7 @@ flowchart LR
 - fleet은 관리자 요청 후에만 실제 CPU 프로세스를 만들고, DB 예약으로 역할별 idle 인스턴스 하나에 명시 명령을 배정한다. 설정만 저장된 상태·실제 준비·드레인·실패/불명 상태를 구분하며 시작 시 자동 복구/기동하지 않는다.
 - 기본 API 이미지, CPU family 이미지와 선택 GPU 도구 이미지는 레시피를 분리했다. 목적지의 실제 역할별 이미지/컨테이너 실행은 확인했지만 Compose lifecycle은 웹 fleet과 미연결이다. API에 Docker socket을 주지 않는다. API 직접 preview/분석의 FFmpeg 의존성은 잔여다.
 - 공통 FFmpeg/FFprobe·폰트는 root Dockerfile의 `media-base` stage 한 곳에서 관리한다. CPU/GPU Dockerfile은 named context로 이를 상속하고 Compose/Bake가 build 의존성을 명시한다. base는 장기 실행하는 공통 서비스가 아니며 역할별 실행은 분리한다. broker SDK와 heavy engine은 선택 layer다.
-- 현재 배포의 `--enable-broker`와 private bootstrap은 S3·명시 실행 승인을 전제로 단일 작업 dispatch를 선택한다. startup 연결/소비는 없고 각 호출이 별도 연결을 소유한다. 결과 소비와 topology 생성은 별도 opt-in CLI다. 원격 consumer의 상태 관측 source WIP와 실제 lifecycle 제어 완료를 구분한다.
+- 현재 배포의 `--enable-broker`와 private bootstrap은 S3·명시 실행 승인을 전제로 단일 작업 dispatch를 선택한다. API startup 연결/소비는 없고 각 호출이 별도 연결을 소유한다. 결과 소비와 topology 생성은 별도 opt-in CLI다. 별도 상태 collector의 수신 시각으로 worker 준비/처리/heartbeat 만료와 수집기 자체 관측 불가를 구분하며 작업/credential table을 쓰지 않는다. 원격 lifecycle 제어는 미연결이다. 현재 publisher exchange당 고정 worker ID 하나이므로 다중 인스턴스·scale 전에 identity/binding 구조 보완이 필요하다.
 
 - MQ req/res 정본은 shared `agent_protocol.py`와 패키지에 포함한 JSON Schema이며 runtime validator가 digest·attempt·정확한 포트까지 검사한다. [wire 계약](../references/high/agent-protocol.md)을 따른다.
 - root Compose는 opt-in renewal API/web만 제공한다. provider/model/key의 환경변수 경로는 폐기했으며 private 파일은 DB 접속·listen/origin·스토리지 부팅에만 사용한다. 관리자 DB encrypted credential/revision resolver와 opt-in `infra/compose.yaml` 설치 구성, 별도 `compose.transport.yaml` API/results/operator 연결을 제공한다. 목적지의 실제 broker/S3·독립 CPU/고정 model·PG 제품 job과 GPU 역할 fixture를 수용했다. 공용 원본 이관·원격 fleet 제어·일반 provider 호출·제품 FaceFusion binding은 별도 잔여다.
