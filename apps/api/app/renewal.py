@@ -497,6 +497,10 @@ def create_app(
     if control_recovery is not None:
         @app.get("/api/admin/agents/{identity}/recovery")
         def recovery_status(identity: str, value=administrator_dependency):
+            if not remote_control.has(identity):
+                fleet.get(identity)  # Validate the product agent; do not invent registrations.
+                return {"registered": False, "request_id": None, "history": [],
+                        "unavailable_reason": "control_target_not_registered"}
             return control_recovery.status(identity)
 
         @app.post("/api/admin/agents/{identity}/recovery/preview")

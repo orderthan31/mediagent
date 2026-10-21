@@ -82,6 +82,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--bootstrap-file", required=True)
     parser.add_argument("--enable-broker", action="store_true")
+    parser.add_argument("--enable-control", action="store_true",
+                        help="Connect the fixed-host mailbox/recovery API only; never enroll or start targets")
     args = parser.parse_args()
     try:
         config, dsn = load_bootstrap(args.bootstrap_file)
@@ -100,6 +102,13 @@ def main():
     store, credentials, broker_factory = runtime_components(
         database, config, enable_broker=args.enable_broker
     )
+    remote_control = control_recovery = None
+    if args.enable_control:
+        from video_service.postgres.remote_control import RemoteControl
+        from video_service.postgres.control_recovery import ControlRecovery
+
+        remote_control = RemoteControl(database)
+        control_recovery = ControlRecovery(remote_control)
     app = create_app(
         database,
         allowed_origins=tuple(config["allowed_origins"]),
@@ -108,6 +117,8 @@ def main():
         credential_store=credentials,
         broker_factory=broker_factory,
         local_execution=args.enable_broker,
+        remote_control=remote_control,
+        control_recovery=control_recovery,
     )
 
     @app.get("/healthz", include_in_schema=False)

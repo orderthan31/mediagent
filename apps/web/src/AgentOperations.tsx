@@ -24,6 +24,8 @@ export type AgentRuntime = {
   draining_replicas: number | null;
   state: string;
   manageable: boolean;
+  control_available?: boolean;
+  control_registered?: boolean;
   observed_replicas?: number | null;
   control?: { request_id: string | null; phase: string | null; error_code?: string | null };
   runtime: string;

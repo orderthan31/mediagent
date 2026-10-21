@@ -137,8 +137,11 @@ class ControlledFleet:
     """Overlay explicit registered groups only; no implicit adoption of live agents."""
     def __init__(self, base, control):self.base,self.control=base,control
     def get(self, agent):
-        if not self.control.has(agent):return self.base.get(agent)
+        if not self.control.has(agent):
+            # API availability is not permission to adopt or manipulate a live worker.
+            return {**self.base.get(agent),'control_available':True,'control_registered':False,'manageable':False}
         managed=self.control.get(agent)
+        managed.update(control_available=True,control_registered=True)
         # This runs in the authenticated product API, not the limited host observer.
         # Never copy a ticket number from another boot or another execution attempt.
         underlying=self.base.get(agent)
