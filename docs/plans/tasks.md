@@ -6,9 +6,62 @@
 
 ## 현재 상태
 
+### 사용자 재확정 요구와 다음 구현 순서 — 2026-10-21 19:49 KST
+
+- 단일 직접 writer는 Windows의 혜윤, 혜지는 요구사항/결과 검토와 GitHub App push를 담당한다. 개발 checkout `C:/Users/skygg/dev/mediagent-s2`, `renewal`, 시작 HEAD `625bd9289649321a92f1a6469912d3a44ea49615`. 기존 문서 WIP·미추적 evidence와 원본/DB/키/백업을 보존한다.
+- 현재 완료는 고정 로컬 영어→독일어 제품 job의 UI/API 혼합 실행과 다운로드/재생이다. 일반 provider 실행·순수 UI-only 생성·공용 자료함·티켓별 물리 저장·실제 원격 agent 관리가 완료됐다는 뜻이 아니다. 현재 배포는 `625bd928…`이며 새 구현의 배포/제품 UI 검증과 분리한다.
+- [ ] 1차: 실제 독립 agent 관측을 화면에 연결한다. 연결/준비/추론 성공을 혼동하지 않고 관측 실패는 unknown, 미지원은 unsupported로 구분한다. 현재 API credential의 passive queue 조회는 실제 HTTP가 아닌 AMQP channel 403으로 거부됨을 확인했다. 권한을 임의 확대하거나 초록색 표시로 대체하지 않는다. 관측 연결과 원격 start/stop/scale 제어의 완료를 별도로 기록한다.
+- [ ] 2차: 인증된 공용 원본/작업/결과 조회·사용·다운로드와 업로더/실행자 기록을 연결한다. credential·관리 API의 보호는 유지하며, 구버전 원본을 개인 계정 소유함으로 옮기는 이전 제안은 폐기한다.
+- [ ] 3차: `originals/{original_id}` 및 `tickets/{ticket_id}`의 단계별 파일/manifest를 실제 object 저장에 연결하고 기존 owner-CAS 읽기를 보존한다. 단순 경로 설명이나 PG 목록만으로 완료 처리하지 않는다.
+- [ ] 4차: 기존 원본17개를 이력 복원 없이 공용 목록에 이관한다. 대용량 보관·재생·다운로드와 실행 용량 제한을 분리하고 전체 SHA·멱등 재실행·실제 읽기를 수용한다.
+- [ ] 5차: connection/model/credential→실제 capability별 provider 요청과 태스크별 동적 폴백 체인을 연결한다. 폴백0개 허용·추가/삭제/재정렬·snapshot pin·A실패→B실패→C성공/전부실패/폴백없음/취소중단·오류별 전환 정책·후보별 능력/인증/비용 확인·실제 시도 순서/최종 모델 표시를 수용한다. 유료 외부 호출은 별도 승인 전에는 실행하지 않는다.
+- [ ] 6차: 언어/모델/폴백 선택→원본/workflow→티켓→별도 승인/실행→중간/최종 결과를 순수 제품 UI로 검증한다. 다른 로컬 모델 대체나 API 우회 결과를 UI 완료로 보고하지 않는다.
+
+#### 1차 수정 묶음 A — 관측/제어 오표시 제거
+
+- 혜지의 실제 diff/manifest 검토로 부분 수용됐다. 후속 지적에 따라 AMQP mode를 runtime 값과 분리해 조회 실패 중에도 전용 패널을 유지하고 로컬 활성화/개수 form이 나타나지 않도록 보완했다. 목록도 `/api/admin/agents`의 같은 상태 해석을 사용한다. 실제 실패를 재현한 후 보완했고 PC/phone 목록·상세/실패/복구 계약24건을 통과했다. 변경 frontend lint/format·build·Node test도 통과했다. telemetry/원격 제어 완료와 운영 배포는 별도로 기록한다.
+
+- `RabbitClient.observe`는 명시 role의 기존 queue를 passive 조회만 한다. consume/get/publish/queue 생성·삭제는 하지 않는다. 403은 endpoint/인증정보 없이 고정된 관측 권한 오류로 구분한다.
+- broker 배포의 `/api/admin/agents`와 상세·설정 경로를 로컬 `Fleet` 대신 새 read-only `BrokerFleet`에 연결했다. 로컬 subprocess 모드의 Fleet은 유지한다. CPU와 engine v2를 분리 관측하고 전처리는 두 family를 보존한다. 일부 family 조회 실패도 전체 connected로 합성하지 않는다.
+- connected/disconnected/unknown/controller/unsupported를 구분하며 관측 불가는 consumer0/중지로 바꾸지 않는다. broker 연결 수로 PID·개별 worker 생존·추론 readiness·목표 replica를 합성하지 않는다. DB 유효/만료 lease와 누적 완료를 별도 집계로 표시한다. 원격 제어 adapter가 없으므로 start/stop/scale form은 숨기고 서버 설정 요청도 거부한다. 제어 기능 완성이 아니다.
+- RED→GREEN: passive 관측 메서드 부재, 403 구분, API의 잘못된 로컬 fleet 선택, UI 상태 helper 부재/unknown의 잘못된 숫자 노출을 실제 실패 후 수정했다. 새 단위12개 통과. 확장 격리 transport 회귀는 **21 passed/3 skipped**, PG를 요구한 3개는 network-none 실행에서 미수행이고 Starlette 의존성 경고1개가 있었다. 처음 선택한 운영 API image에는 pytest가 없어 실패했으며 기존 acceptance image로 재실행했다.
+- web 전체 Node test **47/47 통과**, production build 통과, 변경 frontend 파일의 ESLint/Prettier 통과. 전체 lint는 미변경 파일의 80 errors, 전체 format은 미변경3파일 부채로 실패했으며 고치거나 숨기지 않았다. 정본 밖 private 로그를 보존한다.
+- PC1440/phone390의 격리 production-bundle UI 계약 **14 cases/0 failures**: 5상태와 연결 후 조회실패/복구를 각각 검사해 stale connected 제거·오류 해소·가로 overflow 없음·미연결 제어 미노출을 확인했다. fixture capability의 verified_uploads 누락 때문에 초기 browser 검증이 가드 화면에서 실패했던 기록은 별도로 보존했고, fixture 보정 후 전부 재실행했다. 실제 제품 worker readiness/UI 수용으로 확대하지 않는다.
+- 새 source를 격리 process로 실행해 실제 PG/AMQP를 read-only 조회했다. analyze/transcribe는 실제 관측403→unknown, 누적 완료1을 각각 확인했고 review=controller/decision=unsupported였다. 운영 source·credential·broker 권한·DB 행·컨테이너는 변경하지 않았다. 현재 제품 배포는 여전히 `625bd928…`다.
+- 검토/다음 구현: 기존 controller credential에 광범위 queue 접근을 추가하는 대신, 명시 read-only 관측 credential/별도 telemetry 경로의 최소권한 경계를 검토한다. 실제 worker identity/생존/작업 heartbeat·원격 제어가 연결돼야 1차 전체 수용이다. 이번 WIP의 독립 검토·운영 배포는 아직 미완료이며 다른 Agent/Codex를 reviewer로 새로 실행하지 않는다.
+
 2026-10-20/21 사용자가 Windows 목적지의 renewal 배포·SQLite 이관·새 consumer·로컬 GPU/모델과 합성 영상 검증을 승인했다. 아래 기존 격리 수용과 목적지 실제 실행을 구분한다. 기존 Worker·기존 큐 소비, 외부 유료 provider, 공개 ingress·registry publish·VPS 분할은 승인 범위가 아니다.
 
 ### Windows 목적지 실행 체크포인트 — 전체 완료 아님
+
+#### 장애 후 복구 스레드 재확인 — 2026-10-21 KST
+
+- Windows 명령과 브라우저 도구 응답을 실제 확인했다. 이전 empty 응답의 원인을 전사 장애로 확정하지 않는다. 모델/공급자/OAuth/gateway/다른 프로필은 변경하지 않았다.
+- 개발·원래 설치 checkout 모두 `renewal`, HEAD `625bd9289649321a92f1a6469912d3a44ea49615`다. 최초 조회의 로컬 추적 ref 대비 ahead 1은 혜지의 canonical 일반 push 완료 통보 후 두 checkout에서 각각 fetch/readback하여 해소했다. 두 곳 모두 `HEAD == origin/renewal == 625bd9289649321a92f1a6469912d3a44ea49615`를 확인했다. 개발의 미추적 evidence와 설치의 `docker-compose.renewal.pg.json`을 보존했다. repo명이 명령줄에 포함된 기존 host writer/build는 발견하지 못했지만, 이름만으로 다른 Codex/앱 프로세스의 작업까지 부재라고 단정하지 않는다.
+- 대상 이미지 14개 container가 모두 위 revision label과 일치하며 running/restart 0이다. API/web와 infra PG/broker/object health는 healthy다. 기존 사설 HTTPS와 loopback 진입점은 각각 HTTP200이며 재배포하지 않았다. 옛 Worker 두 개는 exited 상태를 유지한다.
+- 복구 직후 실제 HTTPS와 검증 브라우저 모두 최초 관리자 미설정이었다. 사용자 설정 완료 후에는 `setup_required=false`이지만 검증 브라우저만 미인증임을 따로 확인했다. 당시 vault 항목 부재와 `prompt_unavailable`로 중단했으나, 이후 사용자가 vault에 기존 실제 계정을 저장했다. 19:08 KST vault fill→로그인 제출→세션 재조회로 **실제 관리자 인증**을 확인했다. 채팅 비밀번호의 직접 입력·가짜 계정·인증 우회는 사용하지 않았다.
+- broker의 기본 vhost 조회 빈 결과를 운영 큐 부재로 해석하지 않았다. 실제 `/mideagent`에는 consumer 연결 큐 12개가 있으며 각 consumer 1개, 해당 큐 ready/unacked는 모두 0이다. 과거 격리 acceptance namespace의 dead queue 메시지 2개는 재처리/삭제하지 않았다.
+- 사설 HTTPS `/healthz`는 HTTP200(text/plain), 미인증 `/api/accounts`·`/api/legacy/summary`는 각각 HTTP401이다. 첫 curl probe는 Windows 출력 장치 쓰기 오류(exit23), 후속 health probe는 응답을 JSON으로 가정한 검사 코드 오류(exit1)가 있었다. Python HTTP 재조회와 content-type/상태 검사로 각각 확인했으며 서비스 장애로 분류하지 않는다.
+- bundle 재생성·재전송, migration 재실행, 기존 초장문 세션 continue, 다른 Agent/Codex 대체를 수행하지 않았다. 기존 격리 음성/GPU 수용을 이번 제품 계정 성공으로 확대하지 않는다.
+
+#### 실제 제품 계정 영상 E2E — 2026-10-21 저녁 KST
+
+- 기존 합성 음성 `spoken-fixture.mp4`를 실제 제품 UI로 업로드했다. 자산 `7f0b0ded68ee476387e74abe3a5b737e`, 원본 84,409 bytes/SHA `9843beef198559046399b077ffa91d92aacbb93bedacbbcae59fb9db72e931fc`, 640×360/25fps/12.6초이며 API 재조회에서 content_verified와 WebM ready를 확인했다.
+- 제품 API로 workflow `f95a30fb3510483b94da73fafa7f63fe` r1, **제품 E2E · 영어 음성 → 독일어 번인 · 2026-10-21**을 신규 저장·재조회했다. 격리 fixture에서는 8단계/10연결의 정의 구조만 재사용했으며 격리 schema의 job/result/승인/전사·번역 결과를 복사하지 않았다. 제품 UI의 원본·저장 workflow 선택과 지원 runtime 조회를 확인했다.
+- 새 작업 화면의 현재 언어 기본값은 auto/ko이므로 이번 고정 모델 수용은 제품 API에 `source_language=en`, `target_language=de`를 명시해 preview→create했다. **순수 UI-only 언어 설정 동선까지 완료한 검증은 아니다.** 이후 실제 작업 상세 UI에서 실행 계획 확인→동의 저장→실행 요청을 각각 수행했다. 계획은 ready이며 paid_roles는 비어 있고 verified_no_external_calls였다.
+- 제품 **작업 #1**, job `77f979c398234344a650e813df890b55`, status completed/revision19/generation1. 분석→오디오 추출→필터/VAD off 전처리→Whisper tiny.en 전사→OPUS-MT en→de 번역→자막 생성→번인→검증의 8개 run이 모두 attempt1/completed/error 없음이다. GPU VAD/FaceFusion은 이 제품 job에 포함하지 않았다.
+- API뿐 아니라 실제 PG `public`의 해당 owner/job을 read-only transaction으로 대조했다. 8개 node_runs 완료, artifact9, 결과 inbox8을 확인했다. 명령 outbox CPU v1 6개·engine v2 2개 모두 published다. 별도 accepted 이벤트8은 미발행 상태로 남아 있으므로 전체 outbox가 비었다고 하지 않는다. 운영 consumer 연결 큐12/consumer12, ready0/unacked0을 확인했다.
+- 실제 제품 다운로드 MP4 94,627 bytes/SHA `0848c896f8a050f53fccfe326b137f54da4df2d7498b55d64344dd1b2a275c71`, WebM 113,843 bytes/SHA `7c69ca4c0ea1f943be1b78698fd542844144cbd0fe1579cda82f130ed89d6f9f`를 저장하고 서버 reference와 해시를 대조했다. 내려받은 MP4 ffprobe는 exit0, H.264/AAC/640×360/25fps/12.6초다. 제품 출력 WebM player를 무음으로 처음부터 끝까지 재생해 ended=true/12.607초/315frames/drop0/decoder error 없음, 독일어 번인 화면을 확인했다. 음질 청취·번역 품질 전반 수용과는 구분한다.
+- 결과 위치: 제품 작업 목록의 **#1 → 영상 인코딩·번인 노드 → 작업 결과 원본 받기/WebM 받기/플레이어**. API job·PG readback·MQ·재생 증적과 다운로드는 비공개 운영 디렉터리에 보존했다. 배포 revision `625bd928…`와 WIP/기존 원본/SQLite/키/백업을 유지했으며 재배포·migration·전체 회귀·외부 유료 호출·옛 Worker 재시작은 수행하지 않았다.
+- 브라우저 도구의 최초 재연결에는 port 파일 접근 오류가 있었으며 파일 부재/기존 daemon 조회 후 1회 재연결은 성공했다. 최종 전체 페이지 재열기에서는 인증 쿠키가 없는 상태와 HTTP401을 한 번 관찰했다. vault 재로그인 후 **동일한 기존 완료 job의 HTTP200/8개 완료**를 다시 확인했고 job은 재실행하지 않았다. 이 세션 소실 원인은 아직 browser-harness/제품 중 어느 쪽인지 확정하지 않았으며 장기 세션 지속성 수용으로 보고하지 않는다.
+
+#### 실제 object storage·구버전 원본 점검 — 2026-10-21 저녁 KST
+
+- 제품 작업 #1의 원본/중간물/결과/원본·결과 WebM reference12개를 기준으로 고유 object11개를 **원격 GET**하여 크기·SHA 전부 일치 확인했다. 원본 추출 audio와 off 전처리 audio는 같은 CAS bytes를 공유한다. 8개 attempt의 claim.json/result.json도 모두 원격에서 읽혔다. 실제 배치는 owner별 CAS `prefix/owner/blobs/SHA256`, attempt receipt는 `prefix/owner/attempts/attempt_id`이며, job/노드/파일 관계는 PG에 있다. 작업별 사람이 읽는 파일명 폴더로 복제된 구조는 아니다.
+- 사용자는 구버전 작업 이력 복원이 아니라 **보존 원본을 현재 계정의 원본 목록에 노출**하는 것을 요청했다. 이력은 복원하지 않되 기존 이력·백업·파일 삭제 요청으로 확대하지 않는다.
+- 옛 Worker mount에서 실제 원본 경로를 재발견했다. 기존 원본17개/29,073,982,271 bytes(29.074 GB)가 존재하며 각 파일 전체 SHA와 크기를 기존 migration snapshot에 대조해 **17개 전부 일치**했다. 원본 손실이 아니라 owner-scoped native asset 등록 미완료다. 이전 일부 backup 경로에는 16개만 있으므로 그 사본을 전체 정본으로 사용하지 않는다.
+- 17개 모두 현 `MAX_CONTENT=256 MiB`를 넘는다. 제한은 업로드 폼뿐 아니라 ContentStore/S3 reference 검증에도 적용된다. 현재 코드에서 PG 행만 등록하거나 한 군데 제한만 바꾸면 실제 읽기/다운로드/실행 경로가 불일치한다. 이번 점검에서 native asset 가짜 등록·상태 주입·제한 monkeypatch·원본 이동/삭제는 하지 않았다.
+- 다음 작업은 원본 보관·다운로드 전용 대용량 경로와 명시 owner/불변 SHA·멱등 import를 분리하고, 현재 처리 용량 제한·WebM 미준비 상태를 정직하게 유지하는 것이다. 이는 배포 `625bd928…` 변경이 필요한 구현 범위이며, 목록 노출/대용량 원본 이관은 아직 완료가 아니다. 원격 object 점검과 원본17개 무결성 inventory는 비공개 운영 증적에 보존했다.
 
 - [x] 원본 1,587파일의 SHA snapshot, SQLite 3개 무결성, private 설정/키·정의·기존 ref/WIP/stash 보존.
 - [x] `legacy/unassigned` 관리자 전용 immutable archive importer와 009 migration. 작업42(완료31/실패11, 내부25/사용자17), 인덱스42/14의 독립 namespace, 자산17·정의1·비활성 설정1을 분리한다. dry-run117 → 실제117 → 재실행 추가0을 대조했다. 개인 계정/새 실행 receipt/승인을 합성하지 않았다.
@@ -18,8 +71,8 @@
 - [x] 실제 Whisper tiny.en CPU int8 전사, OPUS-MT en→de CPU int8 번역, NVIDIA Marblenet CUDA VAD, FaceFusion CUDA swapper/NVENC self-swap과 S3 receipt 재전달을 검증했다. 모델·GPU별 새 attempt의 실제 TLS MQ command/result/confirm/ACK도 별도 수용했다.
 - [x] 합성 음성 영상의 분석→추출→전처리→전사→번역→자막→번인→검증을 실제 S3/TLS MQ/격리 PG에서 완료했다. 내려받은 12.6초 영상의 SHA/ffprobe와 실제 브라우저 끝까지 재생(315 frames, decoder error 없음)을 확인했다. 이 작업은 **disposable schema 검증**이지 제품 계정의 완료 작업이 아니다.
 - [x] 별도 CPU 6개·model 2개·GPU 2개 consumer와 결과 소비자2개가 목적지의 독립 큐에 각1개 연결됐음을 확인했다. 실제 입력/출력 수용과 단순 connection 수를 구분한다.
-- [ ] **실제 최초 관리자 설정/검증 브라우저 로그인 → 제품 원본 등록/저장/실행 → 제품 job/다운로드/플레이어 수용**. 계정이 없어 로그인 우회나 공유/가짜 계정을 만들지 않았다.
-- [ ] legacy 자산의 실제 소유권 배정과 활성 workflow 전환. archive를 owner-scoped 자산/실행 작업으로 변환했다고 하지 않는다.
+- [x] **실제 최초 관리자 설정/검증 브라우저 로그인 → 제품 원본 등록/저장/실행 → 제품 job/다운로드/플레이어 수용**. 위 제품 작업 #1의 영어→독일어 합성 영상 UI/API 혼합 경로에 한정한다. 일반 사용자 role·임의 언어·순수 UI-only 생성 동선 전체를 수용했다고 하지 않는다.
+- [ ] 사용자 요청의 구버전 원본17개를 인증 사용자 공용 자료함에 멱등 이관하고 원본 목록/보관/다운로드/재생을 검증한다. 업로더는 행위자 기록이며 개인 자료함으로 분리하지 않는다. 작업 이력 복원은 요구 범위가 아니다. 17개 전부 기존 SHA 보존 확인, 전부 256 MiB 초과이므로 원본 전용 대용량 지원이 선행되어야 한다.
 - [ ] 기존 Fernet credential은 비활성 원문/키 보존 상태다. AES-GCM 필드로 암호문 복사나 무료/환경변수 key 대체를 하지 않았다. 재등록/승인된 메모리 내 재암호화는 별도다.
 - [ ] FaceFusion의 제품 세션/미리보기 binding·승인 API. 별도 합법적 self-swap RPC fixture 성공을 제품 faceswap workflow 완료로 확대하지 않는다.
 - [ ] `decision`, Loop/Fallback은 renewal 실제 실행 미연결. controller-owned select/join/review/if/switch와 독립 consumer를 혼동하지 않는다.
@@ -90,7 +143,8 @@ RabbitMQ opt-in client·CPU 수신기·결과 제어기와 명시 API dispatch, 
 
 - [x] 이 Windows 목적지의 배포·archive migration·새 consumer·로컬 GPU/모델·합성 미디어 검증 승인과 실제 실행. 위 체크포인트의 미수용 항목은 남긴다.
 - [ ] 외부 유료 provider·실소유자 credential 재활성·미승인 원본 처리·다른 목적지/공개 배포는 별도 승인 필요.
-- [ ] 실사용자 최초 관리자·제품 계정 E2E와 legacy 자산 소유권은 위 잔여대로 별도 수용한다.
+- [x] 실사용자 최초 관리자·제품 계정 합성 영상 E2E는 위 실제 제품 작업 #1 범위로 수용했다.
+- [ ] 공용 원본 이관, 순수 UI-only 고정 모델 언어 선택 및 기타 미수용 범위는 별도로 남긴다. 개인 소유권 배정은 현재 요구가 아니다.
 
 ## 미확정 사항
 

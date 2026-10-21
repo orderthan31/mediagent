@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { request } from './api';
 import { frontendOnly } from './preview';
 import { Button } from './hangyeol/primitives/button';
+import { BrokerAgentStatus } from './BrokerAgentStatus';
+import type { BrokerObservation } from './broker-agent-status';
 import './agent-operations.css';
 
 type Instance = {
@@ -12,13 +14,13 @@ type Instance = {
   completed: number;
   observed_at: string;
 };
-type AgentRuntime = {
+export type AgentRuntime = {
   agent_id: string;
   revision: number;
-  enabled: boolean;
-  replicas: number;
-  ready_replicas: number;
-  draining_replicas: number;
+  enabled: boolean | null;
+  replicas: number | null;
+  ready_replicas: number | null;
+  draining_replicas: number | null;
   state: string;
   manageable: boolean;
   runtime: string;
@@ -27,6 +29,12 @@ type AgentRuntime = {
   dependencies: string[];
   unavailable_reason: string | null;
   instances: Instance[];
+  observation_source?: string;
+  observed_at?: string;
+  consumers?: number | null;
+  messages_ready?: number | null;
+  observations?: BrokerObservation[];
+  activity?: { running: number; expired: number; completed: number };
 };
 const states: Record<string, string> = {
   ready: '준비됨',
@@ -39,6 +47,7 @@ const states: Record<string, string> = {
 };
 export const AgentOperations = ({ identity }: { identity: string }) => {
   const [runtime, setRuntime] = useState<AgentRuntime | null>(null);
+  const [brokerMode, setBrokerMode] = useState(false);
   const [enabled, setEnabled] = useState(false);
   const [replicas, setReplicas] = useState(1);
   const [revision, setRevision] = useState(0);
@@ -49,7 +58,7 @@ export const AgentOperations = ({ identity }: { identity: string }) => {
     runtime && (enabled !== runtime.enabled || (enabled && replicas !== runtime.replicas));
   const accept = (value: AgentRuntime) => {
     setRuntime(value);
-    setEnabled(value.enabled);
+    setEnabled(value.enabled ?? false);
     setReplicas(value.replicas || 1);
     setRevision(value.revision);
   };
@@ -101,6 +110,8 @@ export const AgentOperations = ({ identity }: { identity: string }) => {
           signal: controller.signal,
         });
         if (!controller.signal.aborted) {
+          setError('');
+          setBrokerMode(value.observation_source === 'amqp');
           if (initial) {
             accept(value);
             initial = false;
@@ -110,6 +121,8 @@ export const AgentOperations = ({ identity }: { identity: string }) => {
         }
       } catch (reason) {
         if (!controller.signal.aborted) {
+          setRuntime(null);
+          initial = true;
           setError(reason instanceof Error ? reason.message : '실행 상태를 불러오지 못했습니다.');
         }
       } finally {
@@ -124,6 +137,9 @@ export const AgentOperations = ({ identity }: { identity: string }) => {
       clearTimeout(timer);
     };
   }, [identity]);
+  if (!frontendOnly && brokerMode) {
+    return <BrokerAgentStatus runtime={runtime} error={error} />;
+  }
   return (
     <section className="agent-operations" aria-label="에이전트 운영 관리">
       <h2>운영 관리</h2>

@@ -5,6 +5,8 @@ import { Pagination, usePagination } from './Pagination';
 import { request } from './api';
 import { AgentInformation } from './AgentInformation';
 import { AgentOperations } from './AgentOperations';
+import type { AgentRuntime } from './AgentOperations';
+import { brokerStatusView } from './broker-agent-status';
 import { frontendOnly, renewalBackend } from './preview';
 
 export type Agent = {
@@ -52,6 +54,8 @@ export const AgentCatalog = ({
   onLabel?: (label: string) => void;
 }) => {
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [runtimes, setRuntimes] = useState<Record<string, AgentRuntime> | null>(null);
+  const [runtimeError, setRuntimeError] = useState('');
   const [loading, setLoading] = useState(true),
     [error, setError] = useState('');
   const selected = agents.find((agent) => agent.id === identity);
@@ -84,6 +88,40 @@ export const AgentCatalog = ({
   useEffect(() => {
     onLabel?.(selected?.label || '');
   }, [selected?.label, onLabel]);
+  useEffect(() => {
+    if (!renewalBackend || identity) {
+      return;
+    }
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout>;
+    const poll = async () => {
+      try {
+        const value = await request<{ agents: AgentRuntime[] }>('/admin/agents', {
+          signal: controller.signal,
+        });
+        if (!controller.signal.aborted) {
+          setRuntimes(
+            Object.fromEntries(value.agents.map((runtime) => [runtime.agent_id, runtime])),
+          );
+          setRuntimeError('');
+        }
+      } catch (reason) {
+        if (!controller.signal.aborted) {
+          setRuntimes(null);
+          setRuntimeError(reason instanceof Error ? reason.message : '실행 상태 조회 실패');
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          timer = setTimeout(poll, 3000);
+        }
+      }
+    };
+    void poll();
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [identity]);
   return (
     <main className="ui02-catalog">
       <PageTitle>{identity ? selected?.label || '에이전트 상세' : '에이전트'}</PageTitle>
@@ -119,6 +157,17 @@ export const AgentCatalog = ({
                 <p className="ui02-list-meta">
                   {ports(agent.inputs)} → {ports(agent.outputs)}
                 </p>
+                {renewalBackend && (
+                  <span aria-label={`${agent.label} 상태`}>
+                    {runtimeError
+                      ? '관측 실패 · 최신 상태 확인 불가'
+                      : runtimes?.[agent.id]?.observation_source === 'amqp'
+                        ? brokerStatusView(runtimes[agent.id]).title
+                        : runtimes?.[agent.id]
+                          ? runtimes[agent.id].state
+                          : '실행 상태 확인 중'}
+                  </span>
+                )}
               </div>
               <code className="ui02-revision">{agent.id}</code>
             </a>

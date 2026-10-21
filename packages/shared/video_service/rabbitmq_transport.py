@@ -326,6 +326,26 @@ class RabbitClient:
         if threading.get_ident() != self.owner_thread:
             raise BrokerError("broker_thread_mismatch")
 
+    def observe(self, role):
+        """Read queue connectivity only; no declaration, consumption or readiness claim."""
+        self._owner()
+        queue = self.config.queue(role)
+        try:
+            result = self.channel.queue_declare(queue=queue, passive=True).method
+            return {
+                "consumers": result.consumer_count,
+                "messages_ready": result.message_count,
+            }
+        except self.sdk.exceptions.ChannelClosedByBroker as exc:
+            code = (
+                "broker_observation_forbidden"
+                if exc.reply_code == 403
+                else "broker_observation_failed"
+            )
+            raise BrokerError(code) from None
+        except (OSError, self.sdk.exceptions.AMQPError):
+            raise BrokerError("broker_observation_failed") from None
+
     def declare(self):
         """Explicit provisioning only; never called by connect or serve."""
         self._owner()

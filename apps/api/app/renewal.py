@@ -165,7 +165,12 @@ def create_app(
         raise ValueError(
             "CPU fleet requires explicit local execution and no competing executor"
         )
-    fleet = Fleet(database, cpu_driver)
+    if broker_factory is not None:
+        from video_service.postgres.broker_fleet import BrokerFleet
+
+        fleet = BrokerFleet(database, broker_factory)
+    else:
+        fleet = Fleet(database, cpu_driver)
 
     @asynccontextmanager
     async def lifespan(app):
