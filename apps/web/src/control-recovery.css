@@ -1,0 +1,65 @@
+.control-recovery {
+  border-top: 1px solid var(--border, #d5d8df);
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  min-width: 0;
+}
+.control-recovery code,
+.control-recovery p,
+.control-recovery dd {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.control-recovery form,
+.control-recovery label {
+  display: grid;
+  gap: 0.6rem;
+  min-width: 0;
+}
+.control-recovery form {
+  gap: 1rem;
+  margin-block: 1rem;
+}
+.control-recovery textarea {
+  min-height: 6rem;
+  resize: vertical;
+}
+.control-recovery select,
+.control-recovery textarea {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.control-recovery .page-actions {
+  flex-wrap: wrap;
+}
+.control-recovery dl {
+  border: 1px solid var(--border, #d5d8df);
+  padding: 0.8rem;
+}
+.control-recovery dl > div {
+  display: grid;
+  grid-template-columns: 8rem minmax(0, 1fr);
+  gap: 0.5rem;
+  margin-block: 0.5rem;
+}
+.control-recovery dd {
+  margin: 0;
+  min-width: 0;
+}
+.control-recovery summary {
+  cursor: pointer;
+  padding-block: 0.6rem;
+}
+.control-recovery li {
+  margin-block: 1rem;
+}
+@media (max-width: 600px) {
+  .control-recovery dl > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.2rem;
+  }
+  .control-recovery ol {
+    padding-left: 1.2rem;
+  }
+}

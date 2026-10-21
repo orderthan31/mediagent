@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ApiError, request } from './api';
 import { Button } from './hangyeol/primitives/button';
 import type { AgentRuntime } from './AgentOperations';
+import { ControlRecoveryPanel } from './ControlRecoveryPanel';
 
 type Intent = { revision: number; enabled: boolean; replicas: number; request_id: string };
 export const RemoteAgentControl = ({
@@ -173,6 +174,13 @@ export const RemoteAgentControl = ({
       </form>
       {phase && <p role="status">{phase === 'unknown' ? '제어 결과 확인 불가' : '적용 중'}</p>}
       {error && <p role="alert">{error}</p>}
+      {runtime.observation_source === 'fixed_host' && (
+        <ControlRecoveryPanel
+          key={runtime.agent_id}
+          identity={runtime.agent_id}
+          unavailable={unavailable || !runtime.collector?.healthy}
+        />
+      )}
     </section>
   );
 };
