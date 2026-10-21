@@ -74,6 +74,7 @@ class AgentConfiguration(Body):
     revision: StrictInt = Field(ge=0)
     enabled: StrictBool
     replicas: StrictInt = Field(ge=0, le=8)
+    request_id: str | None = Field(default=None, pattern=r"^[a-f0-9]{32}$")
 
 
 class SourceMetadata(Body):
@@ -134,6 +135,7 @@ def create_app(
     cpu_driver=None,
     broker_factory=None,
     credential_store=None,
+    remote_control=None,
 ):
     origins = frozenset(allowed_origins)
     if not origins or any(
@@ -172,6 +174,12 @@ def create_app(
         fleet = BrokerFleet(database, broker_factory, telemetry=WorkerTelemetry(database))
     else:
         fleet = Fleet(database, cpu_driver)
+
+    if remote_control is not None:
+        if cpu_driver is not None:
+            raise ValueError("Fixed-host control cannot share a local process controller")
+        from video_service.postgres.remote_control import ControlledFleet
+        fleet = ControlledFleet(fleet, remote_control)
 
     @asynccontextmanager
     async def lifespan(app):
@@ -488,7 +496,12 @@ def create_app(
     def agent_configuration(
         identity: str, body: AgentConfiguration, value=administrator_dependency
     ):
-        return fleet.configure(value["user"]["id"], identity, **body.model_dump())
+        configuration = body.model_dump(exclude={"request_id"})
+        if remote_control is not None:
+            if body.request_id is None:
+                raise HTTPException(422, "제어 요청 ID가 필요합니다.")
+            configuration["request_id"] = body.request_id
+        return fleet.configure(value["user"]["id"], identity, **configuration)
 
     if content_store is not None:
         from video_service.postgres.execution import Execution

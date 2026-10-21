@@ -168,8 +168,10 @@ export const AgentCatalog = ({
                   <span className="agent-status-badge" aria-label={`${agent.label} 상태`}>
                     {runtimeError
                       ? '확인 불가'
-                      : runtimes?.[agent.id]?.observation_source === 'amqp'
-                        ? brokerStatusView(runtimes[agent.id]).title
+                      : ['amqp', 'fixed_host'].includes(
+                            runtimes?.[agent.id]?.observation_source ?? '',
+                          )
+                        ? brokerStatusView(runtimes?.[agent.id] ?? { state: 'unknown' }).title
                         : runtimes?.[agent.id]
                           ? runtimes[agent.id].state
                           : '확인 중'}

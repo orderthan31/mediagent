@@ -6,19 +6,29 @@
 
 ## 현재 상태
 
-### 다음 UI 묶음 — 소스 검증 완료, 검토·운영 반영 전
+### 실제 제어 연결 — 고정 대상 격리 API/UI 체크포인트, 운영 적용 전
+
+- `create_app(remote_control=...)`의 명시 opt-in으로 관리자·CSRF·요청 ID 멱등성과 revision/CAS·처리 중 요청 덮어쓰기 거부를 연결했다. PostgreSQL에 먼저 요청을 저장하고 별도 호스트 제어기가 고정 container/image/label/worker ID만 조작한다. API에는 Docker CLI/socket·호스트 설정을 주지 않으며, API DB 역할도 관측값·대상 계약·요청 완료 상태를 쓸 수 없다. 기본 bootstrap은 바꾸지 않았다.
+- 제품의 같은 관리 API와 production bundle 버튼에서 **실제 임시 대상 0→1→2→1→0**을 실행하고 매번 API 재조회와 화면의 실제 개수 반영을 기다렸다. 원래 요청 재전송은 같은 revision을 반환하고 stale revision·일반 사용자·임의 container ID 입력을 거부했다. PC/390px 모바일을 확인했다.
+- 합성 작업 처리 중 2→1 축소에서 해당 ID의 현재 작업을 유지한 채 중지 중을 표시했다. 추가 2→0 시험에서는 제거 대상 모두에 병렬로 종료 요청을 보내 각 작업 완료를 기다렸다. 작업 중인 실제 FFmpeg 영상은 완료·bytes/SHA 보존, 뒤에 넣은 작업은 배정되지 않은 queued 상태, 대상 종료 코드0을 확인했다. 제한시간 SIGKILL이나 결과 불명 요청 자동 재신호는 없다.
+- **검증 대상은 전용 PG와 제한 역할을 쓰는 합성 처리용 컨테이너다.** 이는 실제 Docker 대상에 대한 제품 제어 경로의 수용 자료이지 운영 RabbitMQ consumer·제품 DAG/ticket·운영 에이전트 축소 수용이 아니다. fixture의 작업번호·PG bytea 산출물을 제품 티켓/CAS 저장 완료로 취급하지 않는다. 기존 공용 자료함·인스턴스 exchange WIP는 섞지 않았다.
+- 신규 Python/PG/API 및 기존 primitive 범위 8 passed, 실제 브라우저/프로세스 증적을 확보했다. 운영 제어 전 소스·격리 결과를 혜지에게 검토받는다. **운영 웹 `6eb22e2`, API/agents `6986b614`·`manageable=false`는 유지**한다. 실제 브로커 인스턴스별 인증/collector 연결·운영 bootstrap/고정 슬롯 provisioning·장시간/제어기 중단의 결과 불명 복구 정책은 미완료이며 검토 없이 운영 제어를 켜지 않는다.
+
+### UI 묶음 운영 반영 완료 — 실제 제어 연결은 별도
+
+- 혜지의 수용/App push 후 원격 `6eb22e2308cc955f24ebc38614435168d522fe87`를 읽고 해당 clean archive의 웹만 반영했다. 기존 소스 시험·재제출·재push는 반복하지 않았다. 실제 HTTPS PC/모바일에서 encode ID `81831977b4214488b19fb78fca17c213`의 축약/펼침과 정상·1개·작업 없음, 일반 작업 셀 이동, 처리 에이전트 목록 분류, 원본/산출물 WebM 안내 삭제와 다운로드 링크 보존을 확인했다. 브라우저의 실제 GET 지연 중 media skeleton과 응답 후 복귀도 확인하고 지연 설정은 복구했다. HTTPS JS/CSS는 실행 image bytes와 일치한다. 비웹17개·bootstrap96파일·기존 WIP42경로·롤백을 보존했으며 API/에이전트는 `6986b614…` 그대로다. 실제 API의 `manageable=false`도 재확인했다. 이번 배포로 제품 start/stop/scale이 새로 연결된 것은 아니다.
 
 - 소스 `67b493bceb4aa71fae5dcaa3e639534550db64f0`의 28경로만 분리했다. 단일/복수 실제 ID 필드의 축약·전체 펼침·실제 클립보드 복사, 각 ID와 상태/현재 작업 결합, 관측 실패 시 ID/마지막 응답 보존과 과거 busy 숨김을 격리 PC/390px 브라우저로 확인했다. 모바일은 가로로 상태가 잘리지 않도록 카드로 표시한다. 이는 계약 fixture UI 수용이며 운영 다중 인스턴스·scale 수용이 아니다.
 - 작업 행 일반 셀 클릭·Enter·Space 이동과 별도 버튼/체크박스·수정키의 비간섭을 확인했다. 처리 에이전트 목록에서 제어/사람 검수를 제외하고, 기존 workflow 노드는 보존하면서 추가 메뉴·편집/실행 canvas에 일관된 제어/사람 검수 아이콘을 적용했다. 분류 메뉴 조작으로 위치/연결/실행 설정을 저장하지 않았다.
 - 목록·표·플레이어/정보·폼·캔버스·실행 현황별 초기 GET 스켈레톤을 적용했다. 실제 지연·첫 실패·갱신 지연/실패/복귀 fixture에서 빈 목록과 구분하고 기존 목록을 유지하는 것을 확인했다. 기존 PG에서 미제공인 시스템/역할 설정 경계는 열지 않았다. legacy 설정·저장 공간·검수·자막 페이지의 placeholder 교체는 소스/build 범위이며 해당 legacy 제품 여정 전체 수용은 아니다.
 - 설치 API `6986b614` + 별도 일회용 PG/tmpfs CAS로 일반 사용자 PC/모바일의 중단→동일 세션 재개→등록을 다시 실행했고, **완료 후 reload/이동 없이 원본 목록 자동 갱신**과 UI 다운로드 SHA 일치를 확인했다. 운영 재시험이 아니며 backend WIP overlay·가짜 성공 응답은 없었다. 일회용 자원은 정리했다.
-- renewal typecheck/build·Node50·격리 UI14 묶음·broker UI36 통과. 변경 포맷 통과, 신규 lint 오류0이며 기존 3파일의 17개 lint 오류는 baseline 비교로 분리했다. 기존 WIP42경로 bytes를 보존했다. source의 부모에 수용/push된 WebM 삭제 `99e4a7b`가 포함된다. 아직 새 묶음은 push/운영 미반영이며 운영 웹은 `ad38393`, API/에이전트는 `6986b614`다. 실제 제어 WIP와 공용 자료함 WIP는 이번 소스/이미지에 포함하지 않는다.
+- 배포 전 renewal typecheck/build·Node50·격리 UI14 묶음·broker UI36 통과. 변경 포맷 통과, 신규 lint 오류0이며 기존 3파일의 17개 lint 오류는 baseline 비교로 분리했다. source의 부모에 수용/push된 WebM 삭제 `99e4a7b`도 함께 반영됐다. 현재 운영 웹은 `6eb22e2`, API/에이전트는 `6986b614`다. 실제 제어 WIP와 공용 자료함 WIP는 이번 소스/이미지에 포함하지 않았다.
 
 ### 업로드 복구 운영 반영 — 2026-10-22
 
 - 혜지의 소스 수용/App push 후 `origin/renewal == ad38393b5a789dc1a1b69488e914f7a30e5d6f2f`를 읽어 확인했다. 해당 clean archive의 웹만 교체하고 실행 image ID/revision과 실제 HTTPS JS/CSS bytes 일치를 확인했다. API·에이전트는 `6986b614…` 그대로이며 비웹 running17개 ID/image/start/mount/env와 bootstrap96파일 hash, 기존 WIP bytes를 보존했다. 이전 웹 `8935793` 롤백과 canonical override의 웹 image/label도 보존·갱신했다.
 - 실제 vault 로그인 후 PC/390px 모바일 원본 목록의 업로드 버튼과 상태 접근을 확인했다. 모바일에서 합성 영상 `upload-web-ad38393-synthetic.mp4`를 파일 입력으로 실제 업로드해 100% 완료를 보고, 페이지 재조회 후 원본 `500a823526d74a0ea3f8187ad24cb32a` 등록·상세를 확인했다. 상세의 원본 다운로드 URL을 통해 실제 받은 4,265,166 bytes의 SHA가 입력과 일치했다. 기존 원본은 삭제하지 않았다. 운영에서 실패/재개를 재현한 것은 아니며 해당 수용은 앞선 격리 설치 API 증적이다. 완료 직후 목록 자동 갱신까지 검증한 것으로 확대하지 않는다.
-- 후속 WebM 설명문은 원본/산출물 두 상세 소스에서 삭제했고 재생·원본/WebM 다운로드 링크는 유지했다. 별도 source commit `99e4a7b480e04c0bab6670a0cb570740dfd48082`, 범위 RED→GREEN·Node 회귀·변경 lint·renewal build 통과. **혜지 검토/App push 완료, 운영 반영 전이며 현재 운영 상세에는 기존 안내가 남는다.** 다음 UI 소스와 함께 웹 반영할 대상이다. 제품 제어는 여전히 미완료다.
+- 후속 WebM 설명문은 원본/산출물 두 상세 소스에서 삭제했고 재생·원본/WebM 다운로드 링크는 유지했다. 별도 source commit `99e4a7b480e04c0bab6670a0cb570740dfd48082`, 범위 RED→GREEN·Node 회귀·변경 lint·renewal build 통과. **당시 혜지 검토/App push 완료였고, 이후 `6eb22e2` 웹에 포함해 운영 반영·원본/산출물 화면 확인까지 끝났다.** 제품 제어는 여전히 미완료다.
 
 ### 이전 운영 웹 반영 및 제어 어댑터 진행
 

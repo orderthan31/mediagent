@@ -1,13 +1,16 @@
 import type { AgentRuntime } from './AgentOperations';
 import { brokerStatusView } from './broker-agent-status';
 import { InstanceIdentity } from './InstanceIdentity';
+import { RemoteAgentControl } from './RemoteAgentControl';
 
 export const BrokerAgentStatus = ({
   runtime,
   error,
+  onObserved,
 }: {
   runtime: AgentRuntime | null;
   error: string;
+  onObserved?: (value: AgentRuntime) => void;
 }) => {
   const current = error ? null : runtime;
   const state = current?.state ?? 'unknown';
@@ -27,9 +30,15 @@ export const BrokerAgentStatus = ({
     ['connected', 'ready', 'busy', 'stopping'].includes(agent.state),
   );
   const working = current?.collector?.healthy
-    ? agents.filter((agent) => agent.state === 'busy' && agent.ticket_id)
+    ? agents.filter((agent) => ['busy', 'stopping'].includes(agent.state) && agent.ticket_id)
     : [];
-  const responses = agents.map((agent) => Date.parse(agent.received_at)).filter(Number.isFinite);
+  const responses = agents
+    .map((agent) => (agent.received_at ? Date.parse(agent.received_at) : NaN))
+    .filter(Number.isFinite);
+  const actualCount =
+    current?.observation_source === 'fixed_host' && current.collector?.healthy
+      ? current.observed_replicas
+      : null;
   const latestResponse = responses.length ? Math.max(...responses) : null;
   return (
     <section className="agent-operations" role="region" aria-label="에이전트 현황">
@@ -40,7 +49,13 @@ export const BrokerAgentStatus = ({
       <dl className="agent-operation-facts">
         <div>
           <dt>실행 중</dt>
-          <dd>{known ? `${active.length}개` : '확인 불가'}</dd>
+          <dd>
+            {typeof actualCount === 'number'
+              ? `${actualCount}개`
+              : known
+                ? `${active.length}개`
+                : '확인 불가'}
+          </dd>
         </div>
         <div>
           <dt>현재 작업</dt>
@@ -66,6 +81,9 @@ export const BrokerAgentStatus = ({
           </dd>
         </div>
       </dl>
+      {runtime?.control && onObserved && (
+        <RemoteAgentControl runtime={runtime} unavailable={!!error} onObserved={onObserved} />
+      )}
       {agents.length > 0 && (
         <div
           className="agent-instance-scroll"
@@ -98,7 +116,7 @@ export const BrokerAgentStatus = ({
                     </span>
                   </td>
                   <td>
-                    {agent.state === 'busy' && agent.ticket_id ? (
+                    {['busy', 'stopping'].includes(agent.state) && agent.ticket_id ? (
                       <a href={`#/jobs/${agent.ticket_id}`}>
                         #{agent.ticket_number ?? agent.ticket_id.slice(0, 8)}
                       </a>
@@ -108,7 +126,9 @@ export const BrokerAgentStatus = ({
                       '없음'
                     )}
                   </td>
-                  <td>{new Date(agent.received_at).toLocaleString()}</td>
+                  <td>
+                    {agent.received_at ? new Date(agent.received_at).toLocaleString() : '확인 불가'}
+                  </td>
                 </tr>
               ))}
             </tbody>

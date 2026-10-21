@@ -6,9 +6,11 @@
 
 ## 현재 상태
 
-현재 웹은 `ad38393b5a789dc1a1b69488e914f7a30e5d6f2f`, API·에이전트는 `6986b614…`다. 업로드 복구 커밋의 clean archive로 웹만 교체했다. 실제 HTTPS PC/모바일 원본 버튼·상태 접근과 모바일 합성 파일 업로드→목록 재조회→상세→원본 다운로드 SHA 일치를 확인했다. 운영 실패/재개는 새로 시험하지 않았으며 격리 설치 API 수용과 구분한다. 비웹17개·기존 데이터 mount·bootstrap96파일·WIP·롤백을 보존했다. 후속 WebM 설명 삭제 소스 `99e4a7b`는 운영에 포함하지 않았다.
+현재 웹은 `6eb22e2308cc955f24ebc38614435168d522fe87`, API·에이전트는 `6986b614…`다. 수용/push된 clean archive의 웹만 교체해 실제 PC/모바일 ID 표시, 작업 일반 셀 이동, 처리 에이전트 목록, 원본/산출물 WebM 안내 삭제와 다운로드 링크, 실제 GET 지연 중 상세 스켈레톤을 확인했다. 비웹17개·기존 데이터 mount·bootstrap96파일·WIP·롤백을 보존했다. 제품 제어는 여전히 미연결(`manageable=false`)이며 ID 화면 수용을 다중 실행·start/stop/scale 수용으로 취급하지 않는다. 기존 업로드 수용·격리 API 자동 목록 갱신 수용은 유지하며 이번 배포에서 운영 실패/재개를 다시 시험하지 않았다.
 
 Windows API·에이전트 배포 `6986b614…`에서 PG/S3/TLS RabbitMQ·독립 CPU와 고정 local engine의 합성 영상 제품 job 및 단일 인스턴스별 worker telemetry를 실제 확인했다. 상태 발행 전용 broker 권한과 제한 PG collector를 사용하며 API는 PG의 수신 기록을 읽는다. 기존 controller의 passive 관측403 권한은 넓히지 않았다. 일반 provider·순수 UI 생성·공용 자료함·티켓별 저장·원격 fleet 제어까지 완료된 것은 아니다. 공용 자료함 소스 WIP는 운영 배포에서 제외했다.
+
+별도 opt-in 격리 제어 경로를 추가했다. 제품 관리 API는 관리자·CSRF·멱등 request ID·revision/CAS를 확인해 PG mailbox에 원하는 개수만 저장한다. API와 분리한 호스트 제어기가 사전 고정한 container/image/label/worker ID를 검사하고 실제 관측값을 게시한다. 두 임시 대상의 실제 제품 버튼 0→1→2→1→0, 합성 작업을 유지한 축소와 전체 동시 drain→정상 종료를 검증했다. API DB 역할은 관측/대상 계약/완료 상태 쓰기를 못 하고, 호스트 역할은 제품 job/비밀번호를 읽지 못했다. API에 Docker CLI/socket을 주지 않았다. **이 경로는 운영 bootstrap에 연결하지 않았고 실제 RabbitMQ 다중 인스턴스 제어 수용은 아니다.** 합성 fixture의 PG 작업/산출물은 제품 DAG·티켓/CAS 계약과 분리한다. 소스·격리 결과의 PM 검토 뒤 실제 broker identity/provisioning 및 장시간/결과 불명 정책을 이어가며 운영 `manageable=false`는 유지한다.
 
 ## 주요 내용
 
@@ -34,6 +36,10 @@ flowchart LR
   Collector --> PG
   Admin --> Observation[BrokerFleet / read-only 관측]
   Observation --> PG
+  Admin -. 격리 opt-in / 관리자 CAS·멱등 admission .-> Mailbox[PG 고정 대상 제어 요청]
+  Mailbox --> FixedHost[별도 호스트 제어기 / 고정 대상 pin]
+  FixedHost --> FixedSlots[사전 생성 슬롯 / 실제 inspect·cooperative drain]
+  FixedSlots -. 격리 인스턴스별 제한 보고 .-> Mailbox
 ```
 
 - 에이전트는 DB·전체 workflow·다음 노드·웹 세션을 모른다. 애플리케이션이 승인·의존성·검수·취소 generation과 결과 채택을 소유한다.

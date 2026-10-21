@@ -24,6 +24,8 @@ export type AgentRuntime = {
   draining_replicas: number | null;
   state: string;
   manageable: boolean;
+  observed_replicas?: number | null;
+  control?: { request_id: string | null; phase: string | null; error_code?: string | null };
   runtime: string;
   max_replicas: number;
   concurrency_per_instance: number;
@@ -45,7 +47,7 @@ export type AgentRuntime = {
     family: string;
     role: string;
     state: string;
-    received_at: string;
+    received_at: string | null;
     ticket_id: string | null;
     ticket_number: number | null;
     node_id: string | null;
@@ -134,7 +136,7 @@ export const AgentOperations = ({ identity }: { identity: string }) => {
         });
         if (!controller.signal.aborted) {
           setError('');
-          observedBroker = value.observation_source === 'amqp';
+          observedBroker = ['amqp', 'fixed_host'].includes(value.observation_source ?? '');
           setBrokerMode(observedBroker);
           if (initial) {
             accept(value);
@@ -165,7 +167,7 @@ export const AgentOperations = ({ identity }: { identity: string }) => {
     };
   }, [identity]);
   if (!frontendOnly && brokerMode) {
-    return <BrokerAgentStatus runtime={runtime} error={error} />;
+    return <BrokerAgentStatus runtime={runtime} error={error} onObserved={accept} />;
   }
   return (
     <section className="agent-operations" aria-label="에이전트 운영 관리">
