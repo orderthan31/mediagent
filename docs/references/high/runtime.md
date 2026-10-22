@@ -6,6 +6,15 @@
 
 ## 현재 상태
 
+### 순수 제품 UI와 정식 실행 경로의 통합 관측
+
+- 격리 원본/등록 모델/편집 예제만 준비한 뒤 기존 product UI에서 모델/선택형 폴백 저장·재조회→원본/언어 선택(en→ko)→실행 전 확인/티켓 생성→계획 확인/동의→실행 요청→후보 실패/전환/최종 채택→산출물/manifest 다운로드를 밟았다. 티켓을 seed하거나 시험 코드가 생성/confirm/admit/run/cancel POST 본문을 대신 만들지 않았다. 별도 PG·TLS RabbitMQ/MinIO·새 CPU consumer/정식 app.server·독립 results/model consumer와 통제 HTTP이며 운영이 아니다.
+- 실제 화면 값/저장 정의/고정 snapshot/실행 request와 통제 peer의 node_run_id/request SHA/model/connection/key-match/language를 대조했다. ASR은 source_language=en, 번역은 en→ko다. 성공 두 출력은 UI download-event의 실제 파일 SHA가 API 참조와 같고 UI manifest에 포함된다. PC/390px 취소는 호출 중 동작하여 후속 후보/번역0, 늦은 결과1 격리·정상 모델 산출물0이다. 언어는 발급 티켓에서 reload하여 확인했으며 별도 생성 폼의 언어 기본값 선호 저장을 새로 추가한 것은 아니다.
+- 독립 단계가 job 개정을 갱신해 기존 화면 개정으로 취소409가 발생했다. RenewalJobDetail은 클릭 시 최신 정상 GET의 권한·상태를 확인하고 그 revision으로 취소를 한 번 전송한다. CAS/권한/비용 보호는 그대로고 자동 retry·실패 티켓 재발행은 없다. 변경 전 PC 성공을 인정했고 수정 뒤 PC 취소와 모바일 성공/취소를 좁게 재확인했다. 관측4경우를 단일 all-pass 배치로 표현하지 않는다. 원 결함/하네스 실패도 남긴다.
+- 관측 도구는 읽기 전용 PG/통제 peer journal만 사용하고 business UI 응답을 mock하지 않는다. 브라우저 암호/cookie/raw trace는 private에만 둔다. 결과 위치는 product-ui-14dcdfca ops의 journey/actual-request-audit와 screenshots다. 타입/build/변경 frontend lint/format·fixture scoped Ruff 통과, 기존 Radix/Node/Starlette 경고는 남긴다.
+- 정상 검증 child API -15·application/CPU/infra0 종료 및 제거, 기존24개 container 설정/시작·실행 상태/WIP21 hash 동일이다. 초기 준비 실패 컨테이너는 API/모델 실행 전 예제 정의 검증 실패 후 SIGTERM1에도 running이어서 강제/재신호 없이 전용망과 보류했다. cleanup-preservation.json의 exact ID가 정리 판단 대상이며 운영 컨테이너가 아니다. 운영 DB/원본 전체 해시 재검사를 했다고 주장하지 않는다. 소스 수용/push와 이 정리1건은 검토 대기다.
+- 실제 공급자 인증/품질·유료 호출·멀티 머신·운영 배포/서비스/DB/키·012/019·원본17개/#5/DLQ·정상 접수 재개는 제외다. 격리 UI의 작업 번호와 운영 #5를 혼동하지 않는다.
+
 ### 등록 모델 전사·번역의 정식 설치 전달
 
 - 기본은 꺼짐이다. broker 의존성을 포함한 기존 `Dockerfile`의 broker target 계열 이미지에서 `app.server --admission-mode normal --enable-broker --enable-registered-models`를 명시해야 한다. 서버는 같은 CredentialStore/DB, 독립 S3와 등록 모델 broker/runtime/정책 SHA 결속을 검사한다. 이전 local 전달 주입도 유지하며 maintenance·경쟁 local executor·임의 broker/runtime 조합은 허용하지 않는다. API의 모델 runtime은 plan/eligibility에 사용하고 실제 provider 요청은 아래 독립 애플리케이션 consumer에서 실행한다.
@@ -30,7 +39,7 @@ python -m app.server --bootstrap-file /run/round/api.json --admission-mode norma
 - 실제 설치 확인은 새 PG·TLS RabbitMQ/MinIO와 새 CPU extract_audio/preprocess_audio consumer, 독립 API/results/model 프로세스, 서로 다른 캐시 및 loopback 통제 HTTP를 사용했다. 의존성 보존 후보 이미지의 site-packages9모듈 SHA를 clean source와 대조했고 API/provider 코드를 RO source/PYTHONPATH로 바꾸지 않았다. 정상 인증/CSRF·실제 preview/create/plan/confirm/admit/run→CPU 결과→전사/번역→manifest/모델 출력2개 다운로드 SHA를 확인했다. API를 모델 실행 없이도 조회/취소할 수 있고, head/endpoint/key 변경 후에도 고정된 실제 요청 모델·주소·키/언어·후보 순서/오디오 SHA가 일치한다.
 - 새 프로세스의 완료 참조 재수신은 HTTP0 추가, 호출 중 취소 후503은 뒤 후보/번역0·quarantine1/정상 모델 manifest0이다. 잘못된 SHA/없는 attempt2개는 이 격리 전용 dead queue에 보존되고 기존 완료 receipt/manifest/HTTP 수를 바꾸지 않는다. installed 단위9+설치 경계4 통과이며 전체 adapter/영상/MQ 회귀·UI 시험을 다시 한 것이 아니다. scoped Ruff는 실제 Git mode0644를 재현한 full-tree에서 신규0/기존 I0012이고 NTFS EXE002/cache 권한 진단을 제품 위반과 구분한다. 기존 Starlette/httpx 경고는 그대로다.
 - API 자식 SIGTERM 실제 -15, application/CPU consumer0·PG/MQ/S3 0으로 종료하고 전용 임시 container/network를 제거했다. 기존24개 container ID/image/config/mount/시작·실행 상태와 WIP21 hash는 보존했다. 운영 DB 전체/원본 전체 해시 재시험이나 운영 fault 주입을 하지 않았으며 운영 서비스·DB/키/012/019·원본17개/#5/DLQ/정상 접수에는 변경 명령을 실행하지 않았다.
-- **소스 수용·App push 대기, 운영 미반영**이다. 같은 호스트의 독립 프로세스/저장 경계 확인이지 실제 여러 컴퓨터 설치·운영 bootstrap/권한/외부 egress 승인·공급자 인증/ASR 정확도/번역 품질 수용이 아니다. Anthropic/TTS·긴 음성/장문 분할·기존 native host/target/다른 역할 lifecycle은 이번에 확장하지 않는다.
+- **설치14dcdfca는 PM1562928568521068615에서 수용·App push/원격 SHA 확인으로 종료, 운영 미반영**이다. 같은 호스트의 독립 프로세스/저장 경계 확인이지 실제 여러 컴퓨터 설치·운영 bootstrap/권한/외부 egress 승인·공급자 인증/ASR 정확도/번역 품질 수용이 아니다. Anthropic/TTS·긴 음성/장문 분할·기존 native host/target/다른 역할 lifecycle은 이번에 확장하지 않는다.
 
 ### 공통 캔버스 배치·연결선·전체 보기
 

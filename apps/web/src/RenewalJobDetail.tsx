@@ -551,7 +551,16 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
                     void (async () => {
                       setCancelBusy(true);
                       try {
-                        await jsonPost(base + '/cancel', { revision: job.revision });
+                        const current = await reload();
+                        if (
+                          current.access?.can_manage !== true ||
+                          !['draft', 'waiting', 'running', 'review_required'].includes(
+                            current.status,
+                          )
+                        ) {
+                          return;
+                        }
+                        await jsonPost(base + '/cancel', { revision: current.revision });
                         setConsent(null);
                         setPlan(null);
                         await reload();

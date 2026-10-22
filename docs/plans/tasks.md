@@ -6,14 +6,21 @@
 
 ## 현재 상태
 
-### 등록 모델 전사·번역의 실제 설치 진입점 — 구현·격리 설치 확인 완료, 운영 미반영
+### 순수 제품 UI 최종 연결 — 대표 동선 확인·취소 개정 결함 보정, 정리 1건 보류
+
+- [x] 기존 모델 선택/선택형 폴백 저장·재조회, 원본/워크플로우/언어 선택→실행 전 확인→작업 생성→계획 동의→실행 요청→후보 기록·결과/manifest 받기를 실제 production UI로 조작했다. 초기 자료는 격리 원본/등록 모델/편집 가능한 예제 정의뿐이며 최종 티켓 seed나 시험 코드의 생성·승인·실행 POST는 없다. 로그인/CSRF/권한/비용 동의·불변 티켓과 정식 API/전용 MQ/독립 모델 consumer를 유지했다.
+- [x] 별도 PG·TLS RabbitMQ/MinIO/CPU consumer와 통제 HTTP에서 PC1440/390px 성공·호출 중 취소의 대표 4경우를 관측했다. 화면 저장값/재조회→고정 티켓→DB 실행 요청→실제 HTTP의 모델·연결·키/언어·순서/request SHA를 대조했고 성공 출력은 UI 다운로드 SHA·manifest와 같았다. 취소는 후속 후보/번역0·늦은 결과 격리1/정상 모델 manifest0이다. 실제 공급자 인증·품질 검사가 아니다.
+- [x] 비동기 단계 진행 뒤 화면의 오래된 개정으로 취소가 거부되는 실제 결함을 RED→GREEN 보정했다. 취소 클릭 시 정상 GET으로 최신 권한/상태/개정을 읽고 취소 POST는 1회만 전송한다. 기존 CAS를 우회하거나 409/불명확 요청을 자동 재시도하지 않는다. PC 성공은 변경 전 기존 기능 통과, 변경 뒤 PC 취소·모바일 성공/취소만 좁게 확인했으며 한 배치 4개 전부 통과로 표현하지 않는다.
+- 타입/production build·변경 frontend lint/format·격리 fixture scoped Ruff 통과. 준비 시 문서 응답 필드/관측 SQL/모바일 숨김 저장 상태를 잘못 가정한 하네스 실패는 제품 결함과 분리해 보존했다. 정상 검증 프로세스/API 자식 -15·consumer/PG/MQ/S3 0을 확인하고 제거했다. 초기 준비 실패 컨테이너 1개는 API/모델 시작 전 실패, SIGTERM 1회 뒤에도 남아 강제 종료/재신호 없이 전용망과 보류했다. 기존24개/WIP21 보존. 소스 수용·push 및 이 정리 1건은 검토 대기이며 운영 미반영이다.
+
+### 등록 모델 전사·번역의 실제 설치 진입점 — PM 수용·App push 완료, 운영 미반영
 
 - [x] 정식 `app.server`에 기본 꺼짐인 `--enable-registered-models`를 연결했다. normal admission/명시 broker/S3/private 정책·기존 암호화 키 resolver가 함께 있어야 하며, API는 모델을 동기 실행하지 않고 전용 등록 모델 큐로 전달한다. `app.operator consume-registered-models`는 독립된 신뢰 애플리케이션 프로세스로 같은 Execution의 실행·intent/receipt·채택을 재사용한다. CPU/GPU 물리 에이전트에 DB/모델 키를 전달하지 않는다.
 - [x] 기존 local delivery 조건을 지우지 않고, 같은 credential/database와 명시 S3·등록 broker factory/runtime·정책 SHA의 결속을 검사하는 별도 전달 경계를 추가했다. MQ에는 owner/job/attempt/request SHA만 보내며 수신기는 commit된 outbox와 원 요청을 확인한다. 모델/연결/키 개정·언어/후보 순서를 실제 요청까지 유지하고, 정상 정책은 승인 origin/공인 IP에만 HTTPS Host/SNI/인증서 검증으로 연결한다. 프록시·리다이렉트·다른 IP 자동 재시도는 없다. loopback HTTP는 격리 정책+명시 시험 flag+disposable 환경 모두가 있을 때만 허용한다.
 - [x] 별도 PG·실제 TLS RabbitMQ/MinIO·서로 다른 API/results/model 캐시·새 격리 CPU consumer와 통제 HTTP로 정식 설치 명령→CPU 결과 수신→등록 모델 전달→전사/번역→채택/티켓 manifest·파일 다운로드를 확인했다. 발급 후 head/endpoint/key를 바꿔도 이전 개정의 실제 주소·모델·키/언어·후보 순서를 사용한다. 정상 모델 출력2개의 실제 S3/ticket 바이트·API 다운로드 SHA가 같고, 새 프로세스의 같은 완료 참조 수신은 HTTP를 반복하지 않는다.
 - [x] 호출 중 취소 뒤 503이 반환돼도 후속 후보/번역 요청은0이며 늦은 receipt1은 quarantine/정상 모델 manifest0으로 남는다. 틀린 SHA/존재하지 않는 attempt 참조2개는 격리 전용 dead queue로 거부하고 기존 완료 manifest/receipt/HTTP 횟수를 바꾸지 않는다. 기존 adapter/영상/MQ 전체 회귀는 반복하지 않았다.
 - 설치된 site-packages 실제 코드9모듈 SHA를 대조했다. installed 단위9·실제 설치 경계4 통과이며 frontend 변경/화면 시험은 없다. scoped Ruff는 Git mode0644/full-tree 조건에서 신규0·부모에도 있는 I0012다. 기존 Starlette/httpx 경고는 남긴다. API 자식의 실제 SIGTERM -15와 application/CPU consumer0, PG/MQ/S3 0을 구분해 기록하고 임시 container/network를 제거했다. 기존24개 container 설정/실행 상태·WIP21 hash를 보존했다.
-- 이 묶음은 **소스 수용·App push 검토 대기**다. 의존성 보존 후보 이미지의 정식 CLI/격리 요청·실행 연결 검증이며 실제 공급자 인증·인식/번역 품질·공인 egress 승인이나 여러 컴퓨터 설치 수용이 아니다. 운영 배포·서비스/DB/키·012/019·원본17개·#5/DLQ·정상 접수 재개는 수행하지 않았다. 기존 native lifecycle/고정 호스트와 다른 실행 역할도 그대로다.
+- 설치 소스 `14dcdfca3002d86eab92ce21cb8349f227532a21`는 PM1562928568521068615에서 **수용·App push/원격 SHA 일치 확인으로 종료**했다. 운영 배포는 아니다. 의존성 보존 후보 이미지의 정식 CLI/격리 요청·실행 연결 검증이며 실제 공급자 인증·인식/번역 품질·공인 egress 승인이나 여러 컴퓨터 설치 수용이 아니다. 운영 배포·서비스/DB/키·012/019·원본17개·#5/DLQ·정상 접수 재개는 수행하지 않았다. 기존 native lifecycle/고정 호스트와 다른 실행 역할도 그대로다.
 
 ### 공통 캔버스 자동 정렬·연결선 정리·전체 보기 — 구현·격리 확인 완료, 운영 미반영
 
