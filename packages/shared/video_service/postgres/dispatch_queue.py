@@ -46,7 +46,7 @@ class DispatchQueue:
                    "(SELECT 1 FROM result_quarantine x WHERE x.node_run_id=r.id))", (agent,))
         db.execute("UPDATE broker_dispatch_queue q SET phase='cancelled',updated_at=now() FROM jobs j "
                    "WHERE q.owner_id=j.owner_id AND q.job_id=j.id AND q.agent_id=%s "
-                   "AND q.phase='pending' AND (j.cancel_requested OR j.active_claim_id IS NULL)", (agent,))
+                   "AND q.phase='pending' AND (j.cancel_requested OR j.active_claim_id IS NULL OR j.status NOT IN ('waiting','running'))", (agent,))
         db.execute("UPDATE node_runs r SET status='cancelled',completed_at=now() FROM broker_dispatch_queue q "
                    "WHERE q.node_run_id=r.id AND q.agent_id=%s AND q.phase='cancelled' AND r.status='waiting'", (agent,))
 
@@ -63,7 +63,7 @@ class DispatchQueue:
             return False
         run = db.execute('SELECT * FROM node_runs WHERE owner_id=%s AND job_id=%s AND id=%s FOR UPDATE',
                          (q['owner_id'], q['job_id'], q['node_run_id'])).fetchone()
-        if (job['cancel_requested'] or job['generation'] != run['generation']
+        if (job['status'] not in ('waiting', 'running') or job['cancel_requested'] or job['generation'] != run['generation']
                 or job['active_claim_id'] != run['claim_id'] or run['status'] != 'waiting'):
             db.execute("UPDATE broker_dispatch_queue SET phase='cancelled',updated_at=now() WHERE node_run_id=%s", (run['id'],))
             return False
@@ -103,7 +103,7 @@ class DispatchQueue:
         q = db.execute('SELECT * FROM broker_dispatch_queue WHERE node_run_id=%s FOR UPDATE', (run['id'],)).fetchone()
         if not q or q['phase'] != 'sent' or run['status'] != 'waiting':
             return run
-        if (job['cancel_requested'] or job['generation'] != run['generation']
+        if (job['status'] not in ('waiting', 'running') or job['cancel_requested'] or job['generation'] != run['generation']
                 or job['active_claim_id'] != run['claim_id']):
             return run
         event = db.execute("SELECT received_at FROM worker_observation_events WHERE worker_id=%s AND boot_id=%s AND ticket_id=%s AND attempt_id=%s AND state IN ('busy','stopping') AND received_at>=%s ORDER BY received_at LIMIT 1",

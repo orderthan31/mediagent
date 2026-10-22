@@ -173,3 +173,14 @@ def test_waiting_branch_does_not_hide_an_already_running_branch(db, admin, movie
     state = ctl.dispatch(owner, job['id'])
     assert sorted(r['status'] for r in state['runs']) == ['running', 'waiting']
     assert state['status'] == 'running'
+
+
+def test_terminal_job_with_an_old_waiting_attempt_is_not_dispatched(db, admin, movie, tmp_path):
+    rt, owner, job, control, worker, boot, pub, ctl = prepared(db, admin, movie, tmp_path)
+    ctl.dispatch(owner, job['id'])
+    with db.connection() as c:
+        c.execute("UPDATE jobs SET status='failed' WHERE id=%s", (job['id'],))
+    enable(db, control, worker, boot)
+    DispatchQueue(rt).tick(ctl, agent='encode')
+    assert pub.sent == []
+    assert rt.get(owner, job['id'])['status'] == 'failed'
