@@ -42,8 +42,11 @@ def mount_processing_review(app, runtime, administrator):
         owner, ref = service.quarantine_reference(
             value["user"]["id"], job_id, message_sha, port
         )
+        extension = {"video": "mp4", "audio": "wav", "subtitle": "srt"}.get(
+            ref["type"], "json"
+        )
         return FileResponse(
             runtime.store.path(owner, ref),
             media_type="application/octet-stream",
-            filename="quarantined-" + message_sha + "-" + port,
+            filename="quarantined-" + message_sha + "-" + port + "." + extension,
         )

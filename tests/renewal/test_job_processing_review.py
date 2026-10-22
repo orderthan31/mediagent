@@ -529,6 +529,49 @@ def test_failed_unknown_cannot_bypass_review_via_the_old_recover_route(
         runtime.recover(owner, job["id"], uuid4().hex, acknowledge_duplicate_risk=True)
 
 
+def test_quarantined_download_is_real_scoped_media_with_a_usable_extension(
+    runtime, admin, movie
+):
+    import hashlib
+    from fastapi.testclient import TestClient
+    from test_foundation import login
+    from app.renewal import create_app
+    from video_service.postgres.job_processing_review import JobProcessingReview
+
+    owner = admin[0]["id"]
+    job, command, result = uncertain(runtime, owner, movie, execute=True)
+    runtime.get(owner, job["id"])
+    runtime.accept(owner, command, result)
+    state = JobProcessingReview(runtime).status(owner, job["id"])
+    receipt = state["evidence"]["quarantined_results"][0]
+    ref = receipt["outputs"]["video"]
+    app = create_app(
+        runtime.database,
+        allowed_origins=("http://testserver",),
+        secure_cookies=False,
+        content_store=runtime.store,
+        local_execution=True,
+    )
+    with TestClient(app) as client:
+        endpoint = (
+            "/api/admin/jobs/"
+            + job["id"]
+            + "/processing-review/quarantine/"
+            + receipt["message_sha256"]
+            + "/video"
+        )
+        assert client.get(endpoint).status_code == 401
+        login(client, admin)
+        response = client.get(endpoint)
+        assert response.status_code == 200
+        assert (
+            hashlib.sha256(response.content).hexdigest() == ref["sha256"]
+            and len(response.content) == ref["bytes"]
+        )
+        assert ".mp4" in response.headers["content-disposition"]
+        assert client.get(endpoint.replace(job["id"], "0" * 32)).status_code == 404
+
+
 def test_legacy_lease_classification_uses_database_clock_not_api_host_clock(
     runtime, admin, movie, monkeypatch
 ):
