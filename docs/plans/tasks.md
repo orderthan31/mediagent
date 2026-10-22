@@ -6,8 +6,15 @@
 
 ## 현재 상태
 
+### 접속 화면 상태 구분 — 구현·격리 확인 완료, 운영 미반영
+
+- [x] `/capabilities`의 정확한 HTTP503 + `maintenance_admission_closed`를 **유지보수 중 · 작업 이용 제한**으로 안내한다. 일반 통신/서버 응답 실패와401 로그인 필요를 구분하고, 확인하지 않은 DB 상태를 정상/끊김으로 단정하지 않는다. capabilities가 작업 기능을 광고하지 않는 정상 응답도 PostgreSQL 미연결로 추측하지 않는다.
+- [x] production frontend와 명시적인 응답 fixture에서 PC1440/390px의 유지보수·일반503·네트워크 실패·HTML503·다른 상태 코드·기존 세션 만료/로그인·token 미보유401·기능 미제공 안내를 확인했다. 관련 브라우저16개/기존 인증 세션 단위3개·타입/build·변경 frontend lint/format 통과다. UI 응답 계약 검증이지 실제 DB/운영 가용성 검증이 아니다.
+- 제품 수정은 VideoWorkspace.tsx뿐이다. 인증/CSRF·관리자 허용 경로·API 정책을 바꾸거나 진단 endpoint를 추가하지 않았다. 전사/영상/MQ 전체 시험, 운영 배포·접수 재개·서비스/DB/키 변경은 없고 기존 WIP와 컨테이너를 보존했다. 이 화면 보정 소스는 PM 수용·App push 검토 대기다.
+
 ### 등록 모델 API 음성 전사 — 구현·격리 요청/실행 검증 완료, 운영 미반영
 
+- **소스 수용·push 완료:** `75793b1ae81b165f4492cdc9767f41b852747e8d`를 PM이 수용·App push했고 Windows에서도 원격 renewal SHA 일치를 확인했다. 제출 증적과 PM의 별도 MockTransport 확인을 구분하며 전사 묶음은 닫는다. 운영 배포·실제 공급자 인증/인식 정확도 수용은 아니다.
 - [x] 전사 모델/원문 언어/선택형 순서 폴백을 저장·재조회하고 기존 티켓 snapshot/실행 command에 모델·연결 개정을 고정한다. 전사 가능성은 audio→text/speech_recognition 선언과 구현된 규격으로 따로 판정한다. 텍스트 번역 지원만으로 전사를 허용하지 않으며 로컬 Whisper 대체는 없다.
 - [x] Gemini 네이티브 inline audio와 구조화된 초 단위 구간 응답, OpenAI/호환 음성 endpoint의 whisper-1 multipart/verbose_json/segment timestamps를 연결한다. gpt-4o-transcribe의 일반 JSON/텍스트 규격, Anthropic/TTS는 이번 시간 구간 계약의 실행 대상으로 표시하지 않는다. 실제 공급자 가용성/인증/인식 정확도는 미확인이다.
 - [x] 검증된 원본→기존 CPU 음성 추출/전처리 off→PCM WAV→API→시간 구간 전사→기존 번역 입력→결과 다운로드를 별도 PG/CAS·통제 HTTP로 확인했다. PCM16/mono/16kHz·60초/2MiB·100구간/16KB 이내만 지원하며 시간 정보가 없거나 음성 범위를 벗어난 응답은 거부한다. 기존 audio_clock으로 보존된 원본 시각에 대응하며 클라이언트가 시각을 만들어 넣지 않는다.
@@ -17,12 +24,12 @@
 
 ### 등록 모델 번역·선택형 다단계 폴백 — 구현·격리 HTTP 계약 검증 완료, 운영 미반영
 
-- Gemini 응답 보정: promptFeedback.blockReason의 명시 차단은 후보 조회 전 request_rejected/후속 후보0으로 중단한다. STOP 최종 텍스트의 thoughtSignature·문서화된 메타데이터는 허용하지만 thought=true·서명·도구/미디어 데이터는 번역문에서 제외한다. 최종 텍스트 없음/잘못된 자막 형식은 거부한다. 해당 network-none MockTransport 응답 fixture5개 RED→GREEN만 확인했고 기존 티켓/순서/취소·화면/영상/MQ 증적은 재실행 없이 이어 인정한다. 최종 소스 수용·push는 PM 검토 대기다.
+- Gemini 응답 보정: promptFeedback.blockReason의 명시 차단은 후보 조회 전 request_rejected/후속 후보0으로 중단한다. STOP 최종 텍스트의 thoughtSignature·문서화된 메타데이터는 허용하지만 thought=true·서명·도구/미디어 데이터는 번역문에서 제외한다. 최종 텍스트 없음/잘못된 자막 형식은 거부한다. 해당 network-none MockTransport 응답 fixture5개 RED→GREEN만 확인했고 기존 티켓/순서/취소·화면/영상/MQ 증적은 재실행 없이 이어 인정한다. 번역 ac55d7bf와 보정4949d8f5는 PM 수용·App push 완료이며 운영 미반영이다.
 
 - [x] 워크플로우의 번역 모델/불변 개정과 선택형 폴백(없음·추가·삭제·순서 변경, 최대 3개)을 저장·재조회하고, 작업 화면의 원문/대상 언어와 함께 기존 티켓 snapshot·실행 command에 고정한다. 기존 암호화 CredentialStore/model resolver와 CAS/동의/claim/결과 채택을 재사용하며 로컬 모델로 대체하지 않는다.
 - [x] Gemini 네이티브 generateContent와 기존 OpenAI/OpenAI-compatible를 연결한다. 후보별 사용 가능 여부와 origin/키/능력을 재확인하고, 한 후보당 한 번·최대 4개만 시도한다. 사용 불가·429·5xx·유효하지 않은 결과만 다음 후보로 전환하고 인증/요청 거부·전송 결과 불명·취소는 중단한다. 실제 HTTP 전 후보 intent를 영속 저장하며 시도/실패/전환/최종 채택을 구분해 화면에 표시한다.
 - [x] 별도 PG/CAS와 loopback HTTP 서버에서 화면→설정 저장/재조회→티켓→동의/실행→결과 다운로드, 폴백 없음·복수 실패 후 성공·전체 실패·호출 중 취소/다음 모델 미호출을 확인했다. 발급 후 모델 head/키를 바꿔도 기존 모델/연결 개정으로 호출했다. PC/390px 화면, 관련 Python 33 pass/기존 browser opt-in 1 skip, 실제 브라우저 2 pass·Node53·타입/build/format을 확인했다. 변경 범위 lint는 신규0이며 부모에도 있는 Python F401 1개/프론트 effect-order 1개가 남는다.
-- 이 완료는 합성 자막/통제된 HTTP의 요청·실행 계약 검증이다. 기존 video DAG의 번역 입력과 별도로, `transcript` 외부 입력만 있는 정의는 선택한 원본을 출처로 유지하면서 수동 자막 JSON(100개/16KB 이내)을 기존 CAS에 고정할 수 있다. 실제 공급자 인증·번역 품질, Anthropic 실행·음성 전사, 대용량 분할 번역은 완료로 표시하지 않는다.
+- 이 완료는 합성 자막/통제된 HTTP의 요청·실행 계약 검증이다. 기존 video DAG의 번역 입력과 별도로, `transcript` 외부 입력만 있는 정의는 선택한 원본을 출처로 유지하면서 수동 자막 JSON(100개/16KB 이내)을 기존 CAS에 고정할 수 있다. 실제 공급자 인증·번역 품질·Anthropic 실행·대용량 분할 번역은 완료로 표시하지 않는다. 음성 전사는 위 별도 수용 묶음이다.
 - transport/origin을 명시 주입한 로컬 전달 경로만 연결했다. 배포용 bootstrap/브로커 경로와 실제 외부 egress 설치는 미적용이며, external 모드는 후보 전체의 비용 동의와 티켓/실행 승인을 요구한다. 운영 유지보수·중지 서비스·운영 DB/키·012/019·대상/원본/#5/DLQ는 변경하지 않았다.
 
 ### 주요 공급자 연결 등록·Gemini 키 — 구현·격리 검증 완료, 운영 미반영

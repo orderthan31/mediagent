@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, FileVideo, FolderOpen, Plus, Search, Trash2, Upload, X } from 'lucide-react';
-import { mediaUrl, Job, request, resumeUpload, uploadRequest } from './api';
+import { ApiError, mediaUrl, Job, request, resumeUpload, uploadRequest } from './api';
 import { PageTitle } from './PageTitle';
 import { Pagination, usePagination } from './Pagination';
 import { frontendOnly, renewalBackend } from './preview';
@@ -55,7 +55,10 @@ export const VideoWorkspace = () => {
   const administrator = frontendOnly || auth?.session.user?.role === 'admin';
   const [runtimeReady, setRuntimeReady] = useState(!renewalBackend);
   const [capabilitiesLoading, setCapabilitiesLoading] = useState(renewalBackend);
-  const [capabilitiesError, setCapabilitiesError] = useState('');
+  const [capabilitiesError, setCapabilitiesError] = useState<{
+    title: string;
+    description: string;
+  } | null>(null);
   const [agentLabel, setAgentLabel] = useState('');
   const agentIdentity = location.hash.startsWith('#/agents/')
     ? decodeURIComponent(location.hash.slice('#/agents/'.length))
@@ -359,9 +362,29 @@ export const VideoWorkspace = () => {
           setRuntimeReady(value.features.includes('verified_uploads'));
         }
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if (!controller.signal.aborted) {
-          setCapabilitiesError('작업 공간 조회 실패');
+          setCapabilitiesError(
+            error instanceof ApiError &&
+              error.status === 503 &&
+              error.message === 'maintenance_admission_closed'
+              ? {
+                  title: '유지보수 중 · 작업 이용 제한',
+                  description:
+                    '서버가 유지보수로 업무 요청을 제한하고 있습니다. 로그인과 허용된 관리자 경로는 기존 정책을 따릅니다. 이 안내는 DB 연결 상태를 뜻하지 않습니다.',
+                }
+              : error instanceof ApiError && error.status === 401
+                ? {
+                    title: '로그인 필요',
+                    description:
+                      '로그인 상태를 확인할 수 없습니다. 새로고침 후 다시 로그인해 주세요.',
+                  }
+                : {
+                    title: '작업 공간 응답 확인 불가',
+                    description:
+                      '통신 또는 서버 응답을 확인하지 못했습니다. 잠시 후 새로고침해 주세요. DB 연결 상태는 확인되지 않았습니다.',
+                  },
+          );
         }
       })
       .finally(() => {
@@ -541,11 +564,16 @@ export const VideoWorkspace = () => {
                       ? '원본'
                       : '작업'}
             </PageTitle>
-            {capabilitiesError && <p role="alert">{capabilitiesError}</p>}
+            {capabilitiesError && (
+              <div role="alert">
+                <strong>{capabilitiesError.title}</strong>
+                <p>{capabilitiesError.description}</p>
+              </div>
+            )}
             {!capabilitiesError && (
               <p role="status">
-                이 화면의 PostgreSQL 연동은 아직 준비 중입니다. 기존 데이터나 실행기는 연결하지
-                않았습니다.
+                현재 이 서버에서는 작업 기능을 사용할 수 없습니다. 이 안내는 DB 연결 상태를 뜻하지
+                않습니다.
               </p>
             )}
             {administrator && (

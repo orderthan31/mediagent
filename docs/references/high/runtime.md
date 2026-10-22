@@ -6,8 +6,16 @@
 
 ## 현재 상태
 
+### 접속 화면의 유지보수·로그인·통신 오류 구분
+
+- VideoWorkspace의 capabilities 요청은 HTTP503과 ApiError.message의 정확한 `maintenance_admission_closed`가 함께 맞을 때만 **유지보수 중 · 작업 이용 제한**으로 안내한다. 다른503/네트워크 실패/HTML 응답/다른 상태 코드는 **작업 공간 응답 확인 불가**이며 DB 연결 상태는 미확인이라고 표시한다. capabilities가 작업 기능을 광고하지 않아도 DB 미연결로 추정하지 않는다.
+- 401의 기존 authenticatedFetch→expired→AuthGate 재로그인 경로는 그대로다. 캐시된 CSRF token이 없어 expired 이벤트를 내지 않는401도 **로그인 필요**로 구분한다. 인증/CSRF·서버의 유지보수/관리자 allowlist·업무 admission을 바꾸거나 진단 endpoint를 만들지 않는다.
+- clean source의 renewal production build와 명시적인 브라우저 응답 fixture로 PC1440/390px의 상태 구분16개·기존 auth-session 단위3개를 확인했다. 정상 계정을 생성/변경하거나 운영 로그인을 우회한 것이 아니라 UI 응답 계약 fixture다. 실제 DB/관리자 서버 응답·운영 가용성 검증으로 확대하지 않는다. 타입/build·변경 frontend lint/format 통과, 기존 Radix bundle 경고와 Node Playwright deprecation 경고는 남는다.
+- 전사/영상/MQ 전체 시험은 반복하지 않았고 운영 서비스/DB/키·정상 접수·012/019·대상/원본/#5/DLQ는 변경하지 않았다. 소스 수용·App push는 PM 검토 대기이며 접속 사이트에 설치한 상태가 아니다.
+
 ### 등록 모델 API 전사의 개발 계약
 
+- **수용 상태:** `75793b1ae81b165f4492cdc9767f41b852747e8d`는 PM 수용·App push 완료이며 Windows의 원격 renewal SHA도 일치한다. PM은 제출 PG/브라우저 증적 검토와 별도 합성 MockTransport adapter 검사를 구분했다. 전사 묶음은 종료하며 운영 설치·실제 공급자 인증/인식 품질은 미확인이다.
 - 전사 규격은 model_profile.supports_transcription으로 텍스트 번역과 분리한다. audio 입력/text 출력/speech_recognition 선언이 필요하다. Gemini는 네이티브 음성 포함 generateContent와 구조화된 start/end 숫자 초·text 응답, OpenAI/호환은 whisper-1의 multipart `/audio/transcriptions`/verbose_json/segment timestamps만 지원한다. 일반 gpt-4o-transcribe JSON/텍스트 및 Anthropic/TTS는 이 시간 구간 계약 미지원이다. 선언/규격 지원은 실제 공급자 가용성·인증·정확도 증명이 아니다.
 - 원본을 기존 Intake로 검증하고 CPU extract_audio/preprocess_audio off 결과의 PCM16/mono/16kHz WAV를 보낸다. 실제 WAV bytes/duration/hash와 timeline SHA를 결과에 보존한다. 최대60초/2MiB·100구간/16KB이며 장시간 분할은 없다. 제공된 시각을 parse_segments와 음성 길이로 확인하고 기존 audio_clock에 따라 원본 시각으로 대응한다. 시각 누락/문자열 시각·범위 초과·형식 오류를 임의 시각/성공으로 보완하지 않는다. 범위 밖 음성/clock은 HTTP 전 실패 receipt로 정리한다.
 - 기존 TranslationRuntime의 순서 후보 runner를 공통 `_run`으로 추출해 재사용한다. TranscriptionRuntime는 사용 가능성·오디오 adapter·timed decode만 선택한다. 후보는 기본1+선택3/각1회, HTTP 전 started intent 영속·정확한 delivery 재실행 차단/사용 불가·429·5xx·형식 오류만 다음 후보/거부·불명·취소 중단을 유지한다. model/connection revision과 원문 언어는 snapshot과 command에 고정하고 CredentialStore.model/resolve를 일시 재사용한다. 원격 API 모델 이름 whisper-1이지 로컬 Whisper 실행이 아니다.
@@ -50,7 +58,7 @@
 - 기존 공급자 목록의 OpenAI는 `https://api.openai.com/v1`/`openai`, Gemini는 `https://generativelanguage.googleapis.com/v1beta`/`gemini`, Anthropic은 `https://api.anthropic.com`/`anthropic`을 명시 선택할 때 채운다. 사용자 지정 서버는 빈 주소/`openai_compatible`에서 직접 입력한다. 기존 저장 개정을 읽을 때 preset을 적용하지 않으므로 사용자 지정 주소·방식·개정은 그대로다. 새로 입력 중인 키는 다른 공급자 선택 시 지워 자동 이전하지 않는다.
 - 막힘은 Gemini 선택만 변경하고 필수 endpoint와 protocol은 바꾸지 않던 폼에 있었다. 기존 Registry·CredentialStore·관리자/CSRF·개정 CAS·불변 revision·암호화/키 참조 계약은 재사용했다. 이름만 수정하면 기존 키 참조가 유지되고 명시 키 교체는 새 불변 개정에 연결된다. 과거 참조를 덮어쓰거나 키를 응답/재조회 폼에 돌려주지 않는다.
 - 실제 설치 API와 별도 PG에서 production frontend의 Gemini 입력→API 저장→재조회·이름 수정→키 교체와 사용자 지정 주소/키 연결 보존을 확인했다. 저장 후 원문 비노출·ciphertext 비평문·이전/현재 키 참조의 실제 복호화 일치도 확인했다. API/backend 등록 구현은 변경하지 않았으며 설치된 관련3개 모듈 bytes가 기존 소스와 같다. 이는 합성 키의 등록·저장 검증이지 실제 공급자 인증·연결·모델 추론 검증이 아니다. 화면의 연결 확인은 계속 미확인이다.
-- 운영 유지보수 API·중지한 encode/송신3개·host267·운영 DB/키는 이 개발에서 변경하지 않았다. 공급자 등록을 이유로 normal 재개·provider egress·유료 호출을 허용하지 않는다. 전사/번역 실제 adapter와 유한 동적 폴백은 별도 미완료 범위다.
+- 운영 유지보수 API·중지한 encode/송신3개·host267·운영 DB/키는 이 개발에서 변경하지 않았다. 공급자 등록을 이유로 normal 재개·provider egress·유료 호출을 허용하지 않는다. 전사/번역 adapter와 유한 동적 폴백은 위 별도 구현·격리 검증 수용 범위이며 실제 공급자 인증/품질·운영 연결은 미완료다.
 
 ### 실행·데이터 보호
 
