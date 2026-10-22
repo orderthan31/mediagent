@@ -13,11 +13,18 @@
 - **그 뒤 송신3개만 정지:** 실제 설치된 `app.dispatch`는 진행 tick 후 loop를 마치고, 두 `app.operator` 수신기는 신규 소비 취소→진행 handler의 accept/후속 dispatch 완료→ACK→thread/connection 정리 순서다. `dispatch-encode`·`results`·`engine-results` 각각 정확한 ID에 TERM 한 번/timeout=-1로 대기했고 모두 exit0/PID0·OOM/재시작 없음이다. 사전 결과 channel의 unacked/unconfirmed/uncommitted/acks_uncommitted·send_pend0, 사후 두 결과 consumer/connection 소멸과 업무/outbox/inbox 해시 동일을 함께 확인했다. 뒤늦은 Docker lifecycle event 조회는 빈 결과라 신호 횟수 증거로 쓰지 않으며, 실행 전 저장한 서비스별 단일 stop 명령·반환값·실제 종료 상태를 근거로 한다. broker 안의 진단 CLI는 PID 제한 오류가 나 같은 정확한 이미지/기존 cookie volume RO의 임시 CLI로 읽기만 했고 broker 재시작·제한/인증 변경은 없다.
 - **보존·미승인 경계:** #5 raw running/needs_review·원 발행/수신 이력, 미발행 accepted-result20·encode DLQ ready1과 기존 제어/ACK 행은 그대로다. 새 Stop0 제어 기록만 추가했고 삭제/완료 처리/재발행으로 수를 맞추지 않았다. 유지보수 API·웹·host267·나머지 실행 역할·DB/MQ/S3는 계속 실행하며 다른16개 container의 ID/image/StartedAt/config/목적지별 mount를 보존했다. host267의 원 소유권은 아직 반납하지 않았고012/019·GRANT·host 코드/실행 이미지·대상 전환·원본17 이관·#5/DLQ 복구·정상 접수 재개는 미실행이다. 다른 역할의 결과 발행까지 전역 차단한 상태나 전체 작업 완료로 해석하지 않는다. 기존 업무 UI의 일반 조회 오류는 유지보수 차단이며 새 유지보수 UI 수용은 아니다.
 
-아래는 구현 계약과 선행 검증의 범위다. 운영 현재 상태는 위 체크포인트를 우선하며, 이번 안전 정지 결과의 PM 검토와 이후 설치 승인은 구분한다.
+아래는 구현 계약과 선행 검증의 범위다. 운영 현재 상태는 위 체크포인트를 우선한다. API 선행 설치와 안전 정지는 PM 수용됐으며 이후 설치 승인은 별개다.
 
 검증 업로드·불변 workflow/티켓·PostgreSQL 상태·독립 CPU 프로세스·로컬/S3-compatible CAS·검수/승인/취소/복구·WebM과 이중 다운로드를 구현했다. renewal 관리자 경계와 실제 로컬 CPU fleet에 이어 opt-in RabbitMQ adapter·독립 수신기·결과 제어기와 공통 이미지 build graph를 추가했다. SDK/채널 대역과 실제 격리 TLS RabbitMQ 4.2.9·source-pinned MinIO·독립 CPU 두 process·결과 소비 process·PG의 합성 영상 완료/ACK/DLQ/결과 SHA를 구분해 수용했다. 컨테이너 fleet 제어·다중 머신·GPU/provider·운영 전환은 미검증이다.
 
 ## 주요 내용
+
+### 공급자 연결 등록 — 개발본 검증, 운영 미반영
+
+- 기존 공급자 목록의 OpenAI는 `https://api.openai.com/v1`/`openai`, Gemini는 `https://generativelanguage.googleapis.com/v1beta`/`gemini`, Anthropic은 `https://api.anthropic.com`/`anthropic`을 명시 선택할 때 채운다. 사용자 지정 서버는 빈 주소/`openai_compatible`에서 직접 입력한다. 기존 저장 개정을 읽을 때 preset을 적용하지 않으므로 사용자 지정 주소·방식·개정은 그대로다. 새로 입력 중인 키는 다른 공급자 선택 시 지워 자동 이전하지 않는다.
+- 막힘은 Gemini 선택만 변경하고 필수 endpoint와 protocol은 바꾸지 않던 폼에 있었다. 기존 Registry·CredentialStore·관리자/CSRF·개정 CAS·불변 revision·암호화/키 참조 계약은 재사용했다. 이름만 수정하면 기존 키 참조가 유지되고 명시 키 교체는 새 불변 개정에 연결된다. 과거 참조를 덮어쓰거나 키를 응답/재조회 폼에 돌려주지 않는다.
+- 실제 설치 API와 별도 PG에서 production frontend의 Gemini 입력→API 저장→재조회·이름 수정→키 교체와 사용자 지정 주소/키 연결 보존을 확인했다. 저장 후 원문 비노출·ciphertext 비평문·이전/현재 키 참조의 실제 복호화 일치도 확인했다. API/backend 등록 구현은 변경하지 않았으며 설치된 관련3개 모듈 bytes가 기존 소스와 같다. 이는 합성 키의 등록·저장 검증이지 실제 공급자 인증·연결·모델 추론 검증이 아니다. 화면의 연결 확인은 계속 미확인이다.
+- 운영 유지보수 API·중지한 encode/송신3개·host267·운영 DB/키는 이 개발에서 변경하지 않았다. 공급자 등록을 이유로 normal 재개·provider egress·유료 호출을 허용하지 않는다. 전사/번역 실제 adapter와 유한 동적 폴백은 별도 미완료 범위다.
 
 ### 실행·데이터 보호
 

@@ -13,6 +13,16 @@ export type ServingConnection = {
   active?: boolean;
   credential: 'not_set' | 'reference_set';
 };
+// Registration defaults only. Loading an existing revision must not apply them.
+export const connectionDefaults: Record<string, { endpoint: string; protocol: string }> = {
+  openai_compatible: { endpoint: '', protocol: 'openai_compatible' },
+  openai: { endpoint: 'https://api.openai.com/v1', protocol: 'openai' },
+  gemini: {
+    endpoint: 'https://generativelanguage.googleapis.com/v1beta',
+    protocol: 'gemini',
+  },
+  anthropic: { endpoint: 'https://api.anthropic.com', protocol: 'anthropic' },
+};
 export const seedConnections = (): ServingConnection[] => [
   {
     id: '00000000000000000000000000000385',

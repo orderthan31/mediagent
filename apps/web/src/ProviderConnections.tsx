@@ -5,7 +5,11 @@ import { Pagination, usePagination } from './Pagination';
 import { request } from './api';
 import { Button } from './hangyeol/primitives/button';
 import { Input } from './hangyeol/primitives/input';
-import { connectionsEndpoint, type ServingConnection } from './serving-connection';
+import {
+  connectionDefaults,
+  connectionsEndpoint,
+  type ServingConnection,
+} from './serving-connection';
 import { renewalBackend } from './preview';
 import './serving-connections.css';
 
@@ -171,10 +175,28 @@ export const ProviderConnections = ({ route, query }: { route: string; query: st
             </label>
             <label>
               공급자
-              <select value={provider} onChange={(event) => setProvider(event.target.value)}>
+              <select
+                value={provider}
+                onChange={(event) => {
+                  const next = event.target.value;
+                  setProvider(next);
+                  if (renewalBackend) {
+                    const defaults = connectionDefaults[next];
+                    if (defaults) {
+                      setEndpoint(defaults.endpoint);
+                      setProtocol(defaults.protocol);
+                    }
+                    // Never carry a newly typed key to a different provider.
+                    setSecret('');
+                    setRemoveSecret(false);
+                  }
+                }}
+              >
                 {Object.entries(providers).map(([id, label]) => (
                   <option key={id} value={id}>
-                    {label}
+                    {renewalBackend && id === 'openai_compatible'
+                      ? '사용자 지정 서버 (OpenAI-compatible)'
+                      : label}
                   </option>
                 ))}
               </select>
@@ -185,8 +207,8 @@ export const ProviderConnections = ({ route, query }: { route: string; query: st
                 <select value={protocol} onChange={(event) => setProtocol(event.target.value)}>
                   <option value="openai_compatible">OpenAI-compatible</option>
                   <option value="openai">OpenAI</option>
-                  <option value="gemini">Gemini · 실행 연결 준비 중</option>
-                  <option value="anthropic">Anthropic · 실행 연결 준비 중</option>
+                  <option value="gemini">Gemini API</option>
+                  <option value="anthropic">Anthropic API</option>
                 </select>
               </label>
             )}
@@ -230,6 +252,7 @@ export const ProviderConnections = ({ route, query }: { route: string; query: st
               </label>
             )}
           </fieldset>
+          {renewalBackend && <p>등록은 연결·모델 호출 성공을 뜻하지 않습니다.</p>}
           <div className="page-actions">
             <Button
               type="submit"
