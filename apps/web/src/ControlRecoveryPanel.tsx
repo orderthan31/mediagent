@@ -395,7 +395,13 @@ export const ControlRecoveryPanel = ({
         status && (
           <>
             <p>
-              원 요청: <code>{status.request_id ?? '현재 미확정 요청 없음'}</code>
+              {status.request_id ? (
+                <>
+                  원 요청: <code>{status.request_id}</code>
+                </>
+              ) : (
+                '복구할 요청 없음'
+              )}
             </p>
             {status.quarantined && (
               <p role="status">실패 확인 · 격리 유지. 재기동하거나 작업을 재실행하지 않습니다.</p>
