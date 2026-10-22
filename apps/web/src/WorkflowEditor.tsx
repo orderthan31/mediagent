@@ -220,11 +220,28 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
             type={node.type}
             modelRole={spec.model_role}
             value={node.model_ref}
+            fallbacks={node.fallback_refs}
+            fallbackChanged={(refs) =>
+              change({
+                ...doc,
+                nodes: doc.nodes.map((item) =>
+                  item.id === node.id ? { ...item, fallback_refs: refs } : item,
+                ),
+              })
+            }
             changed={(reference) =>
               change({
                 ...doc,
                 nodes: doc.nodes.map((item) =>
-                  item.id === node.id ? { ...item, model_ref: reference } : item,
+                  item.id === node.id
+                    ? {
+                        ...item,
+                        model_ref: reference,
+                        fallback_refs: reference
+                          ? item.fallback_refs?.filter((ref) => ref.model_id !== reference.model_id)
+                          : undefined,
+                      }
+                    : item,
                 ),
               })
             }

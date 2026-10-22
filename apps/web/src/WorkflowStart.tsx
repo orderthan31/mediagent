@@ -47,6 +47,9 @@ export const WorkflowStart = () => {
   const [choices, setChoices] = useState<Record<string, string>>({});
   const [plan, setPlan] = useState<StartPlan | null>(null);
   const [paid, setPaid] = useState(false);
+  const [sourceLanguage, setSourceLanguage] = useState('auto');
+  const [targetLanguage, setTargetLanguage] = useState('ko');
+  const [transcript, setTranscript] = useState('');
   const [ticketId, setTicketId] = useState('');
   const [requestId, setRequestId] = useState(() => crypto.randomUUID());
   const [loading, setLoading] = useState(true);
@@ -141,8 +144,11 @@ export const WorkflowStart = () => {
     definition_id: definitionId,
     definition_revision: inspection?.definition_revision,
     options: {
-      source_language: 'auto',
-      target_language: 'ko',
+      source_language: sourceLanguage,
+      target_language: targetLanguage,
+      ...(definition?.inputs.transcript === 'transcript'
+        ? { transcript: JSON.parse(transcript) }
+        : {}),
       video_description: '',
       branch_choices: choices,
     },
@@ -214,6 +220,61 @@ export const WorkflowStart = () => {
       ) : (
         <div className="work-entry-layout">
           <section className="entry-selection" aria-label="작업 구성">
+            <label className="form-row">
+              <span>원문 언어</span>
+              <select
+                aria-label="원문 언어"
+                value={sourceLanguage}
+                disabled={busy}
+                onChange={(e) => {
+                  setSourceLanguage(e.target.value);
+                  invalidate();
+                }}
+              >
+                {['auto', 'en', 'ko', 'ja', 'zh', 'de', 'fr', 'es'].map((lang) => (
+                  <option key={lang} value={lang}>
+                    {lang === 'auto' ? '자동 감지' : lang}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="form-row">
+              <span>대상 언어</span>
+              <select
+                aria-label="대상 언어"
+                value={targetLanguage}
+                disabled={busy}
+                onChange={(e) => {
+                  setTargetLanguage(e.target.value);
+                  invalidate();
+                }}
+              >
+                {['ko', 'en', 'ja', 'zh', 'de', 'fr', 'es'].map((lang) => (
+                  <option key={lang} value={lang}>
+                    {lang}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {definition?.inputs.transcript === 'transcript' && (
+              <label className="form-row">
+                <span>번역할 자막 JSON</span>
+                <textarea
+                  aria-label="번역할 자막 JSON"
+                  value={transcript}
+                  disabled={busy}
+                  onChange={(e) => {
+                    setTranscript(e.target.value);
+                    invalidate();
+                  }}
+                  placeholder='[{"start":0,"end":1,"text":"자막"}]'
+                />
+                <small>
+                  원본은 작업 출처로 보존하고, 입력한 자막과 시각을 티켓에 고정합니다. 최대
+                  100개/16KB.
+                </small>
+              </label>
+            )}
             <label className="form-row">
               <span>원본</span>
               <div>

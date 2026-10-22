@@ -2,6 +2,8 @@ export type ModelReference = { model_id: string; revision: number };
 export type RegisteredVersion = ModelReference & {
   name: string;
   provider: string;
+  protocol?: string;
+  translation_supported?: boolean;
   connection_id?: string;
   connection_revision?: number;
   model: string;

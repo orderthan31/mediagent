@@ -90,7 +90,7 @@ class Registry:
                 return {'model_types': [], 'reason': '사용 중지된 공급자 연결입니다.', 'verified': False}
             return {'model_types': sorted(MODEL_TYPES), 'modalities': sorted(MODALITIES),
                     'capabilities': sorted(CAPABILITIES), 'verified': False,
-                    'adapter_capabilities': ['text_generation'] if row['protocol'] in ('openai', 'openai_compatible') else [],
+                    'adapter_capabilities': ['text_generation'] if row['protocol'] in ('openai', 'openai_compatible', 'gemini') else [],
                     'reason': '등록 가능한 메타데이터입니다. 모델 능력·실제 연결은 확인하지 않았습니다.'}
 
     def _model(self, db, owner, identity):
@@ -98,9 +98,9 @@ class Registry:
         if not parent:
             raise Missing('등록 모델을 찾을 수 없습니다.')
         versions = {}
-        for row in db.execute('SELECT mr.*,cr.provider FROM model_revisions mr JOIN connection_revisions cr ON cr.owner_id=mr.owner_id AND cr.connection_id=mr.connection_id AND cr.revision=mr.connection_revision WHERE mr.owner_id=%s AND mr.model_id=%s ORDER BY mr.revision', (owner, identity)):
+        for row in db.execute('SELECT mr.*,cr.provider,cr.protocol FROM model_revisions mr JOIN connection_revisions cr ON cr.owner_id=mr.owner_id AND cr.connection_id=mr.connection_id AND cr.revision=mr.connection_revision WHERE mr.owner_id=%s AND mr.model_id=%s ORDER BY mr.revision', (owner, identity)):
             versions[str(row['revision'])] = {'model_id': identity, 'revision': row['revision'], 'name': row['name'],
-                'provider': row['provider'], 'connection_id': row['connection_id'], 'connection_revision': row['connection_revision'],
+                'provider': row['provider'], 'protocol': row['protocol'], 'translation_supported': row['protocol'] in ('openai', 'openai_compatible', 'gemini') and 'text_generation' in row['capabilities'], 'connection_id': row['connection_id'], 'connection_revision': row['connection_revision'],
                 'model': row['remote_model'], 'model_types': row['model_types'],
                 'input_modalities': row['input_modalities'], 'output_modalities': row['output_modalities'],
                 'capabilities': row['capabilities'] if row['model_types'] else [],

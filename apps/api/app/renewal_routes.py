@@ -286,7 +286,8 @@ def mount_runtime(
                     "selection": selection.model_dump(),
                 }
             ),
-            "paid_roles": [],
+            "paid_roles": ["translation"] if runtime.translation_runtime and runtime.translation_runtime.mode == "external"
+                          and any(n["type"] == "translate" and n.get("model_ref") for n in definition["nodes"]) else [],
             "notice": "작업 생성은 저장만 합니다. 작업 상세에서 계획 확인과 별도 실행이 필요합니다.",
         }
 
@@ -305,7 +306,10 @@ def mount_runtime(
         selection = Selection(
             **body.model_dump(exclude={"request_id", "token", "paid_confirmed"})
         )
-        if selection_plan(owned, selection)["token"] != body.token:
+        plan = selection_plan(owned, selection)
+        if plan["paid_roles"] and not body.paid_confirmed:
+            raise HTTPException(403, "번역 후보 전체의 외부 호출 비용 동의가 필요합니다.")
+        if plan["token"] != body.token:
             raise Conflict("입력/정의가 변경됐습니다. 다시 확인하세요.")
         return runtime.create(
             owned,
@@ -314,6 +318,7 @@ def mount_runtime(
             body.definition_revision,
             request_id=body.request_id,
             options=body.options,
+            paid_confirmed=body.paid_confirmed,
         )
 
     @app.get("/api/jobs")

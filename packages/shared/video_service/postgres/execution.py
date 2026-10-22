@@ -40,11 +40,13 @@ class Execution(Intake):
         agent_executor=None,
         fleet=None,
         engine_runtime_enabled=False,
+        translation_runtime=None,
     ):
         super().__init__(database, store)
         self.agent_executor = agent_executor
         self.fleet = fleet
         self.engine_runtime_enabled = bool(engine_runtime_enabled)
+        self.translation_runtime = translation_runtime
 
     def catalog(self):
         from ..renewal_contracts import catalog
@@ -78,6 +80,8 @@ class Execution(Intake):
 
     @staticmethod
     def _engine_role(node):
+        if node["type"] == "translate" and node.get("model_ref"):
+            return None
         if node["type"] in {"transcribe", "translate", "faceswap"}:
             return node["type"]
         if (
@@ -105,7 +109,7 @@ class Execution(Intake):
                 }
         return bindings
 
-    def _execution_reasons(self, db, definition, bindings, options, done_nodes=()):
+    def _execution_reasons(self, db, definition, bindings, options, done_nodes=(), model_bindings=None):
         from .engine_runtimes import EngineRuntimes
 
         reasons = []
@@ -114,7 +118,10 @@ class Execution(Intake):
                 continue
             role = self._engine_role(node)
             if node.get("model_ref"):
-                reasons.append("등록 모델의 실행 transport 미지원: " + node["id"])
+                pin = (model_bindings or {}).get(node["id"])
+                if (node["type"] != "translate" or self.translation_runtime is None or not pin
+                        or not any(self.translation_runtime.available(p) for p in [pin, *pin.get("fallbacks", [])])):
+                    reasons.append("등록 모델의 실행 transport/사용 가능한 후보 없음: " + node["id"])
             elif role:
                 pin = bindings.get(node["id"])
                 if not self.engine_runtime_enabled or not pin:
@@ -165,10 +172,15 @@ class Execution(Intake):
         return row
 
     def _runs(self, db, owner, identity):
-        return db.execute(
-            "SELECT * FROM node_runs WHERE owner_id=%s AND job_id=%s ORDER BY started_at NULLS LAST,id",
+        rows = db.execute(
+            "SELECT n.*,d.result AS delivery_result FROM node_runs n LEFT JOIN agent_deliveries d ON d.owner_id=n.owner_id AND d.job_id=n.job_id AND d.node_run_id=n.id WHERE n.owner_id=%s AND n.job_id=%s ORDER BY n.started_at NULLS LAST,n.id",
             (owner, identity),
         ).fetchall()
+        for row in rows:
+            delivery = row.pop("delivery_result") or {}
+            if "translation" in delivery:
+                row["translation"] = delivery["translation"]
+        return rows
 
     def _view(self, db, job):
         owner, identity = job["owner_id"], job["id"]
@@ -215,13 +227,13 @@ class Execution(Intake):
         value["access"] = {"can_manage": actor == state["owner_id"]}
         run_keys = {"id", "node_id", "node_type", "status", "options", "inputs", "error_code",
                     "input_sha256", "settings_sha256", "attempt", "iteration", "generation",
-                    "started_at", "completed_at", "result", "dispatch"}
+                    "started_at", "completed_at", "result", "dispatch", "translation"}
         value["runs"] = []
         for run in state.get("runs", []):
             public_run = {k: run[k] for k in run_keys if k in run}
             if run.get("result"):
                 public_run["result"] = {k: v for k, v in run["result"].items()
-                                        if k in {"status", "outputs", "previews", "reused_from"}}
+                                        if k in {"status", "outputs", "previews", "reused_from", "translation"}}
             value["runs"].append(public_run)
         review_keys = {"id", "node_run_id", "revision", "status", "draft", "contract"}
         value["reviews"] = [{k: v for k, v in r.items() if k in review_keys} for r in state.get("reviews", [])]
@@ -262,11 +274,13 @@ class Execution(Intake):
         reasons = []
         with self.database.connection() as db:
             bindings = self._engine_bindings(db, definition)
+            workflow_owner, _ = self._job_definition(db, owner, identity, revision)
+            models = self._bindings(db, workflow_owner, definition, active=False)
             reasons += [
                 {"node_id": None, "message": message}
-                for message in self._execution_reasons(db, definition, bindings, None)
+                for message in self._execution_reasons(db, definition, bindings, None, model_bindings=models)
             ]
-        if definition["inputs"] != {"video": "video"}:
+        if definition["inputs"] not in ({"video": "video"}, {"transcript": "transcript"}):
             reasons.append(
                 {
                     "node_id": None,
@@ -308,6 +322,7 @@ class Execution(Intake):
         request_id,
         options=None,
         parent_id=None,
+        paid_confirmed=False,
     ):
         globals()["request_id"](request_id)
         if type(definition_revision) is not int or definition_revision < 1:
@@ -318,9 +333,10 @@ class Execution(Intake):
             "target_language",
             "video_description",
             "branch_choices",
+            "transcript",
         }:
             raise ValueError("작업 옵션 오류")
-        if len(canonical(options)) > 4096:
+        if len(canonical(options)) > 20000:
             raise ValueError("작업 옵션 크기 초과")
         creation = {
             "asset_id": asset_id,
@@ -328,6 +344,7 @@ class Execution(Intake):
             "definition_revision": definition_revision,
             "options": options,
             "parent_id": parent_id,
+            **({"paid_confirmed": True} if paid_confirmed else {}),
         }
         with self.database.connection() as db:
             previous = db.execute(
@@ -348,6 +365,14 @@ class Execution(Intake):
             )
             bindings = self._bindings(db, workflow_owner, definition, active=False)
             engine_bindings = self._engine_bindings(db, definition)
+            input_refs = {"video": reference}
+            if definition["inputs"] == {"transcript": "transcript"}:
+                from .translation import segments
+                text = segments(options.get("transcript"))
+                input_refs = {"transcript": self.store.put(owner, [canonical(text)], "transcript")}
+            if any(n["type"] == "translate" and n.get("model_ref") for n in definition["nodes"]):
+                from .translation import languages
+                languages(options.get("source_language"), options.get("target_language"))
             parent = self._job(db, owner, parent_id) if parent_id else None
             from .job_processing_review import JobProcessingReview
             if parent and JobProcessingReview.blocked_in(db, owner, parent_id):
@@ -359,11 +384,12 @@ class Execution(Intake):
             snapshot = {
                 "version": 1,
                 "asset": public_asset(asset),
-                "inputs": {"video": reference},
+                "inputs": input_refs,
                 "definition": definition,
                 "options": options,
                 "model_bindings": bindings,
                 "engine_bindings": engine_bindings,
+                "translation_paid_authorized": bool(paid_confirmed),
                 "recovery": {
                     "parent_id": parent_id,
                     "snapshot_sha256": parent["snapshot_sha256"],
@@ -423,7 +449,7 @@ class Execution(Intake):
         reasons = []
         if not job["recovery_ready"]:
             reasons.append("복구 receipt 검증이 끝나지 않았습니다.")
-        if definition["inputs"] != {"video": "video"}:
+        if definition["inputs"] not in ({"video": "video"}, {"transcript": "transcript"}):
             reasons.append("추가 외부 입력 binding이 필요합니다.")
         reasons += self._execution_reasons(
             db,
@@ -431,6 +457,7 @@ class Execution(Intake):
             job["snapshot"].get("engine_bindings", {}),
             job["snapshot"]["options"],
             {r["node_id"] for r in runs if r["status"] in {"completed", "skipped"}},
+            job["snapshot"].get("model_bindings", {}),
         )
         if self.fleet is not None:
             done_nodes = {
@@ -448,7 +475,16 @@ class Execution(Intake):
             reasons.append("현재 상태에서 새 실행 승인을 만들 수 없습니다.")
         if any(r["status"] != "confirmed" for r in reviews):
             reasons.append("검수 내용을 먼저 저장하고 확정하세요.")
+        pending = [n for n in definition["nodes"] if n["type"] == "translate" and n.get("model_ref")
+                   and not any(r["node_id"] == n["id"] and r["status"] == "completed" for r in runs)]
+        external = bool(pending and self.translation_runtime and self.translation_runtime.mode == "external")
+        if external and not job["snapshot"].get("translation_paid_authorized"):
+            reasons.append("번역 후보 전체의 외부 호출 비용 동의가 필요합니다.")
         plan = {
+            "translation_mode": self.translation_runtime.mode if pending and self.translation_runtime else None,
+            "translation_usage": [self.translation_runtime.available(p) for n in pending
+                                  for pin in [job["snapshot"]["model_bindings"][n["id"]]]
+                                  for p in [pin, *pin.get("fallbacks", [])]] if self.translation_runtime else [],
             "snapshot_sha256": job["snapshot_sha256"],
             "generation": job["generation"],
             "revision": job["revision"],
@@ -463,16 +499,16 @@ class Execution(Intake):
                 for r in runs
             ],
             "reviews": reviews,
-            "cost": {"classification": "verified_no_external_calls", "amount": None},
+            "cost": {"classification": "external_unpriced" if external else "verified_no_external_calls", "amount": None},
             "reasons": sorted(set(reasons)),
         }
         return {
             "token": digest(plan),
             "ready": not reasons,
             "reasons": plan["reasons"],
-            "paid_roles": [],
+            "paid_roles": ["translation"] if external else [],
             "cost": plan["cost"],
-            "notice": "외부 유료 호출 없는 로컬 실행입니다. 동의 저장과 실행 요청은 별개입니다.",
+            "notice": "등록 번역 후보의 외부 호출은 비용이 발생할 수 있습니다. 금액은 미산정입니다." if external else "외부 유료 호출 없는 로컬/통제 HTTP 실행입니다. 동의 저장과 실행 요청은 별개입니다.",
             "snapshot_sha256": job["snapshot_sha256"],
             "generation": job["generation"],
         }
@@ -590,7 +626,15 @@ class Execution(Intake):
             "inputs": inputs,
             "options": node["options"],
         }
-        if self._engine_role(node) and status == "running":
+        if node["type"] == "translate" and node.get("model_ref") and status == "running":
+            pin = job["snapshot"]["model_bindings"][node["id"]]
+            command["translation"] = {
+                "candidates": [pin, *pin.get("fallbacks", [])],
+                "source_language": job["snapshot"]["options"]["source_language"],
+                "target_language": job["snapshot"]["options"]["target_language"],
+                "paid_authorized": job["snapshot"].get("translation_paid_authorized", False),
+            }
+        elif self._engine_role(node) and status == "running":
             from ..engine_protocol import make_command
 
             if not self.engine_runtime_enabled:
@@ -843,9 +887,10 @@ class Execution(Intake):
                         )
                         indexed[node["id"]] = {**row, "status": "failed"}
                     continue
-                if (
+                if not command.get("translation") and (
                     node["type"] not in CPU_AGENTS and not self._engine_role(node)
-                ) or node.get("model_ref"):
+                    or node.get("model_ref")
+                ):
                     raise Conflict("비활성 실행 경로")
                 message_type = (
                     "agent.engine.command.v2"
@@ -921,6 +966,13 @@ class Execution(Intake):
                 "INSERT INTO agent_deliveries(owner_id,job_id,node_run_id,command_sha256,status) VALUES (%s,%s,%s,%s,'started')",
                 (owner, command["run_id"], command["attempt_id"], digest(command)),
             )
+        if command.get("translation"):
+            from .translation import execute_translation
+            result = execute_translation(self, owner, command)
+            with self.database.connection() as db:
+                db.execute("UPDATE agent_deliveries SET status='completed',result=%s WHERE owner_id=%s AND job_id=%s AND node_run_id=%s AND status='started'",
+                           (Jsonb(result), owner, command["run_id"], command["attempt_id"]))
+            return result
         root = self.store.owner_root(owner)
         if self.fleet is not None:
             try:
@@ -1065,6 +1117,12 @@ class Execution(Intake):
         values = result.get("outputs")
         if not isinstance(values, dict) or set(values) != set(expected):
             raise ValueError("Agent output ports differ")
+        if result.get("transport") == "registered_http" and command.get("translation"):
+            for port, reference in values.items():
+                if reference.get("type") != expected[port]:
+                    raise ValueError("Translation output type differs")
+                self.store.path(owner, reference)
+            return values
         if result.get("transport") in {"s3_subprocess", "s3_engine"}:
             if getattr(self.store, "storage_kind", None) != "s3":
                 raise ValueError("Object results require an explicit object store")
@@ -1228,6 +1286,7 @@ class Execution(Intake):
                             "transport",
                             "process_exit_code",
                             "agent_instance_id",
+                            "translation",
                         )
                     }
                     receipt["outputs"] = outputs
@@ -1266,6 +1325,7 @@ class Execution(Intake):
                                     "transport": "subprocess",
                                     "error": "agent_failed_or_unknown",
                                     "retryable": False,
+                                    **({"translation": result["translation"]} if command.get("translation") and "translation" in result else {}),
                                 }
                             ),
                             owner,

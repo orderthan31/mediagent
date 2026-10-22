@@ -429,6 +429,14 @@ class Intake:
                     "capabilities",
                 )
             }
+        for node in definition["nodes"]:
+            if node.get("model_ref"):
+                bindings[node["id"]]["owner_id"] = owner
+            if node.get("fallback_refs"):
+                extra = {"nodes": [{"id": str(i), "model_ref": ref}
+                                   for i, ref in enumerate(node["fallback_refs"])]}
+                resolved = self._bindings(db, owner, extra, active=active)
+                bindings[node["id"]]["fallbacks"] = list(resolved.values())
         return bindings
 
     def save_definition(self, owner, identity, payload, *, provenance=None):

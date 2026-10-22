@@ -6,6 +6,19 @@
 
 ## 현재 상태
 
+### 등록 모델 번역·선택형 폴백의 개발 계약
+
+- `TranslationRuntime`는 기존 CredentialStore의 불변 model/connection 개정과 일시적 키 resolve를 재사용한다. Gemini는 `/models/{model}:generateContent`와 header-only `x-goog-api-key`, OpenAI 계열은 기존 `/chat/completions` adapter다. Anthropic은 실행 미지원으로 제공한다. 저장/실행 가능 표시는 실제 인증/품질 성공이 아니다.
+- `translate.model_ref`와 선택 `fallback_refs`(고유 모델 최대3개)를 기존 정의에 저장한다. 원문/대상 언어·모델/연결 개정·순서를 기존 job snapshot과 exact command hash에 고정한다. 뒤에 model head/connection key를 바꿔도 티켓을 retarget하지 않는다. 기존 로컬 engine 경로를 등록 모델 대신 몰래 선택하지 않는다.
+- 후보 dispatch마다 owner/활성/불변 내용/능력/키/승인 origin을 재확인한다. 후보 시작 intent는 기존 agent_deliveries의 started 행에 별도 transaction으로 HTTP 전에 commit한다. 전달 불명은 자동 재실행하지 않으며 기존 exact-delivery fence/취소·세대·claim·lease/늦은 결과 격리를 유지한다. 성공/실패와 취소의 후보 기록은 공용 DTO에서도 키/endpoint 없이 조회한다.
+- 사용 불가·429·5xx·잘못된 완성 응답만 다음 후보로 간다. 인증/요청 거부·HTTP 전달 결과 불명·취소는 중단하고 같은 후보를 자동 재시도하지 않는다. 최대4개/각1회다. HTTP 진행 중 취소 버튼은 별도 요청으로 동작하고 반환된 결과는 정상 채택하지 않는다. 이미 보낸 HTTP 자체가 provider 쪽에서 중단됐다는 보장은 아니다.
+- 기존 video 입력 DAG 외에 `{transcript: transcript}` 정의는 기존 원본을 출처로 선택하고 입력한 자막 JSON을 CAS/snapshot에 고정한다. 자막100개/16KB 이내, 시각/화자 보존·같은 개수/순서의 텍스트 응답만 채택한다. 이 제한을 넘어서는 분할·장문 최적화나 전사는 이번 범위가 아니다.
+- API 생성 시 명시 `translation_runtime`/동일 credential store/기존 content store/local execution이 필요하다. 기본 transport는 없고 maintenance와 broker_factory 병용은 거부한다. `controlled_http`는 승인 origin이127.0.0.1만 가능하다. `external`은 생성 시 비용 동의→동의된 plan/claim→각 후보의 동결된 paid_authorized를 요구한다. 외부 호출 보호나 bootstrap/브로커 설치가 자동 활성화되는 것은 아니다.
+- 실제 별도 PG/CAS/loopback HTTP에서 폴백 없음·A실패/B실패/C성공·모두 실패·전송 중 취소와 늦은 결과 미채택을 확인했다. 발급 뒤 model head/키 교체에도 기존 요청을 사용했다. 최종 Python33 pass/기존 opt-in browser1 skip, 실제 production UI2 pass/Node53/타입·build·format이다. scoped lint 신규0·기존 Python F4011/frontend effect-order1이며 전체 lint 통과가 아니다. NTFS bind의 EXE002는 archive와 같은 파일시스템 진단이라 분리했다.
+- 브라우저 fixture의 저장 문구/로그인 완료 대기·새 fixture state·barrier release JSON 누락과 초기 viewport capture 실패는 따로 보존했다. 최종 fresh fixture에서 release 응답200·API exception없음과 mobile 후보3개 표시를 확인했다. 시험 서버의 합성 응답을 공급자 인증/번역 품질로 보고하지 않는다.
+- 운영은 유지보수 API/중지 sender·encode/host267 그대로다. 별도 임시 API/PG만 사용하고 정리한다. 운영 DB/키·012/019·대상 교체·원본 이관·#5/DLQ 복구나 외부 유료 호출은 미실행이다.
+
+
 ### 운영 체크포인트 — 018 API 선행 설치와 안전 정지 분리
 
 - **수용된 API 선행 설치:** `28c14fd3e85f59f02222719bd35bfe1056eb2364`의 API만 명시 maintenance/control·`handover=false`로 운영 설치했다. 공유 c106 `api.json`을 바꾸지 않고 전용 정책/기존 DSN의 두 RO 파일 mount를 사용한다. API의 content RW mount만 제거하고 미디어 volume·기존 파일은 보존했다. 이전 normal API는 TERM1회·timeout=-1 대기 뒤 실제 exit143·listener/init/Python 종료 및 영속 기록 대조 후 교체했다. 기존 HTTPS/vault 로그인·session/지정 관리자 조회200·업무503과 쿠키 Secure/HttpOnly/Strict를 확인했다. 외부 `/healthz`200은 web 응답이지 API 모드 증거가 아니다. web reload는 필요 없어 실행하지 않았다.

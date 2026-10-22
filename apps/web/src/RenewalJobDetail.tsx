@@ -16,6 +16,19 @@ import './job-execution.css';
 import './renewal-runtime.css';
 
 type Reference = { storage_key: string; sha256: string; bytes: number; type: string };
+type TranslationTrace = {
+  selected?: { remote_model: string } | null;
+  attempts: {
+    index: number;
+    remote_model: string;
+    protocol: string;
+    revision: number;
+    connection_revision: number;
+    status: string;
+    error?: string;
+    transition?: string;
+  }[];
+};
 type Run = {
   id: string;
   node_id: string;
@@ -25,10 +38,12 @@ type Run = {
   options: Record<string, string>;
   inputs: Record<string, Reference>;
   error_code?: string;
+  translation?: TranslationTrace;
   result: {
     outputs: Record<string, Reference>;
     previews?: Record<string, { status: string }>;
     reused_from?: { job_id: string };
+    translation?: TranslationTrace;
   } | null;
 };
 type Review = {
@@ -52,11 +67,30 @@ type State = {
   snapshot: {
     asset: { asset_id: string; original_filename: string; uploaded_by?: string };
     definition: CanvasDefinition;
+    options?: { source_language?: string; target_language?: string };
   };
   runs: Run[];
   reviews: Review[];
 };
 type Plan = { token: string; ready: boolean; reasons: string[]; notice: string };
+const translationLabels: Record<string, string> = {
+  completed: '완료',
+  failed: '실패',
+  skipped: '사용 불가',
+  started: '호출 중',
+  cancelled: '취소',
+  next_candidate: '다음 후보',
+  stop: '중단',
+  exhausted: '후보 소진',
+  adopted: '최종 채택',
+  rate_limited: '요청 한도',
+  upstream_failure: '서버 오류',
+  invalid_response: '응답 형식 오류',
+  unavailable: '사용 불가',
+  outcome_unknown: '전송 결과 불명',
+  authentication_failed: '인증 거부',
+  request_rejected: '요청 거부',
+};
 const labels: Record<string, string> = {
   draft: '실행 전',
   waiting: '실행 대기',
@@ -78,6 +112,7 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
   const [plan, setPlan] = useState<Plan | null>(null);
   const [consent, setConsent] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [cancelBusy, setCancelBusy] = useState(false);
   const [error, setError] = useState('');
   const [risk, setRisk] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, FormData>>({});
@@ -112,6 +147,7 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
   const node = job?.snapshot.definition.nodes.find((item) => item.id === selected);
   const review = job?.reviews.find((item) => item.node_run_id === run?.id);
   const outputs = run?.result?.outputs || {};
+  const translation = run?.result?.translation || run?.translation;
   const url = (port: string) =>
     mediaUrl(`${base}/artifacts/${run?.id}/${encodeURIComponent(port)}`);
   useEffect(() => {
@@ -178,6 +214,12 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
               </div>
             </dl>
           </section>
+          {job.snapshot.options?.target_language && (
+            <p>
+              번역 언어: {job.snapshot.options.source_language} →{' '}
+              {job.snapshot.options.target_language} · 티켓 고정 설정
+            </p>
+          )}
           {job.parent_id && (
             <p>
               원 작업 <a href={'#/jobs/' + job.parent_id}>복구 출처 열기</a> · 원 기록은 변경하지
@@ -257,6 +299,27 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
                         </a>
                       </section>
                     ))}
+                    {translation && (
+                      <section aria-label="번역 실행 기록">
+                        <h4>번역 실행 기록</h4>
+                        <p>최종 채택: {translation.selected?.remote_model || '없음'}</p>
+                        <ol>
+                          {translation.attempts.map((attempt) => (
+                            <li key={attempt.index}>
+                              {attempt.remote_model} · {attempt.protocol} · 모델 개정{' '}
+                              {attempt.revision} / 연결 개정 {attempt.connection_revision} ·{' '}
+                              {translationLabels[attempt.status] || attempt.status}
+                              {attempt.error
+                                ? ` · ${translationLabels[attempt.error] || attempt.error}`
+                                : ''}
+                              {attempt.transition
+                                ? ` · ${translationLabels[attempt.transition] || attempt.transition}`
+                                : ''}
+                            </li>
+                          ))}
+                        </ol>
+                      </section>
+                    )}
                     {run?.error_code && (
                       <p role="alert">{run.error_code} · 자동 재실행하지 않습니다.</p>
                     )}
@@ -451,13 +514,21 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
               {['draft', 'waiting', 'running', 'review_required'].includes(job.status) && (
                 <Button
                   variant="secondary"
-                  disabled={busy}
+                  disabled={cancelBusy}
                   onClick={() =>
-                    void action(async () => {
-                      await jsonPost(base + '/cancel', { revision: job.revision });
-                      setConsent(null);
-                      setPlan(null);
-                    })
+                    void (async () => {
+                      setCancelBusy(true);
+                      try {
+                        await jsonPost(base + '/cancel', { revision: job.revision });
+                        setConsent(null);
+                        setPlan(null);
+                        await reload();
+                      } catch (reason) {
+                        setError(reason instanceof Error ? reason.message : '취소 요청 실패');
+                      } finally {
+                        setCancelBusy(false);
+                      }
+                    })()
                   }
                 >
                   작업 취소

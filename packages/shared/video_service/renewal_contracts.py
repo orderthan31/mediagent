@@ -174,10 +174,9 @@ def validate(payload):
         }
     indexed, specs = {}, {}
     for n in nodes:
-        if not isinstance(n, dict) or set(n) not in (
-            {"id", "type", "position", "options"},
-            {"id", "type", "position", "options", "model_ref"},
-        ):
+        if (not isinstance(n, dict)
+                or not {"id", "type", "position", "options"} <= set(n)
+                or set(n) - {"id", "type", "position", "options", "model_ref", "fallback_refs"}):
             fail("노드 필드 오류")
             continue
         identity = n["id"]
@@ -252,6 +251,15 @@ def validate(payload):
                 from .model_reference import valid_reference
 
                 valid_reference(n["model_ref"])
+            if "fallback_refs" in n:
+                from .model_reference import valid_reference
+
+                refs = n["fallback_refs"]
+                if n["type"] != "translate" or not n.get("model_ref") or not isinstance(refs, list) or len(refs) > 3:
+                    raise ValueError("번역 폴백은 선택한 기본 모델 뒤 최대 3개입니다.")
+                pins = [n["model_ref"], *[valid_reference(ref) for ref in refs]]
+                if len({ref["model_id"] for ref in pins}) != len(pins):
+                    raise ValueError("같은 모델은 한 번만 선택하세요.")
             pos = n["position"]
             if (
                 not isinstance(pos, dict)

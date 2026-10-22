@@ -25,6 +25,7 @@ export type CanvasDefinition = {
     position: { x: number; y: number };
     options: Record<string, string>;
     model_ref?: { model_id: string; revision: number };
+    fallback_refs?: { model_id: string; revision: number }[];
   }[];
   edges: { id: string; source: Endpoint; target: Endpoint }[];
 };

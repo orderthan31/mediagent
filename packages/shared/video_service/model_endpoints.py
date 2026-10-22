@@ -16,7 +16,7 @@ PROVIDERS = {'openai_compatible': 'OpenAI-compatible', 'openai': 'OpenAI',
              'gemini': 'Gemini', 'anthropic': 'Anthropic'}
 # Implemented adapter capabilities, not a model-name heuristic or a live probe.
 PROTOCOL_USES = {'openai_compatible': ['translation'], 'openai': ['translation'],
-                 'gemini': [], 'anthropic': []}
+                 'gemini': ['translation'], 'anthropic': []}
 
 
 def validate_endpoint(value):
@@ -59,6 +59,10 @@ def canonical_hash(value):
 class EndpointFailure(RuntimeError):
     """Sanitized failure: raw upstream errors/responses never become API errors."""
 
+    def __init__(self, message, *, code='invalid_response'):
+        super().__init__(message)
+        self.code = code
+
 
 class OpenAITextAdapter:
     def __init__(self, endpoint, *, transport, approved_origins, api_key=None):
@@ -81,7 +85,11 @@ class OpenAITextAdapter:
         try:
             with self._client.stream(method, self.endpoint + suffix, json=payload) as response:
                 if response.status_code != 200:
-                    raise EndpointFailure('모델 서버 요청 실패 · 자동 재시도하지 않습니다.')
+                    code = ('rate_limited' if response.status_code == 429 else
+                            'upstream_failure' if response.status_code >= 500 else
+                            'authentication_failed' if response.status_code in (401, 403) else
+                            'request_rejected')
+                    raise EndpointFailure('모델 서버 요청 실패 · 자동 재시도하지 않습니다.', code=code)
                 body = bytearray()
                 for chunk in response.iter_bytes():
                     body.extend(chunk)
@@ -104,7 +112,9 @@ class OpenAITextAdapter:
             return value
         except EndpointFailure:
             raise
-        except (httpx.HTTPError, ValueError, TypeError, RecursionError, UnicodeError):
+        except httpx.HTTPError:
+            raise EndpointFailure('모델 서버 통신 결과 불명 · 자동 재시도하지 않습니다.', code='outcome_unknown') from None
+        except (ValueError, TypeError, RecursionError, UnicodeError):
             raise EndpointFailure('모델 서버 통신 또는 응답 형식 오류 · 자동 재시도하지 않습니다.') from None
 
     def models(self):
@@ -136,3 +146,35 @@ class OpenAITextAdapter:
             return content
         except (KeyError, IndexError, TypeError, ValueError):
             raise EndpointFailure('완료된 텍스트 응답이 아닙니다.') from None
+
+
+class GeminiTextAdapter(OpenAITextAdapter):
+    """Native generateContent; key is header-only, no SDK-internal retries."""
+
+    def __init__(self, endpoint, *, transport, approved_origins, api_key=None):
+        super().__init__(endpoint, transport=transport, approved_origins=approved_origins, api_key=api_key)
+        self._client.headers.pop('Authorization', None)
+        if api_key:
+            self._client.headers['x-goog-api-key'] = api_key
+
+    def chat(self, model, messages):
+        if not isinstance(model, str) or not re.fullmatch(r'[A-Za-z0-9._-]{1,200}', model):
+            raise ValueError('Gemini 모델 ID 형식 오류')
+        if (not isinstance(messages, list) or len(messages) != 2
+                or [item.get('role') for item in messages] != ['system', 'user']
+                or any(not isinstance(item.get('content'), str) or len(item['content']) > 16000 for item in messages)):
+            raise ValueError('번역 메시지 형식 오류')
+        value = self._request('POST', '/models/' + model + ':generateContent', {
+            'systemInstruction': {'parts': [{'text': messages[0]['content']}]},
+            'contents': [{'role': 'user', 'parts': [{'text': messages[1]['content']}]}],
+        })
+        try:
+            candidate = value['candidates'][0]
+            if candidate['finishReason'] != 'STOP':
+                raise EndpointFailure('Gemini 응답이 차단되었거나 미완료입니다.', code='request_rejected')
+            parts = candidate['content']['parts']
+            if not parts or any(set(part) != {'text'} or not isinstance(part['text'], str) for part in parts):
+                raise ValueError()
+            return ''.join(part['text'] for part in parts)
+        except (KeyError, IndexError, TypeError, ValueError):
+            raise EndpointFailure('완료된 Gemini 텍스트 응답이 아닙니다.') from None
