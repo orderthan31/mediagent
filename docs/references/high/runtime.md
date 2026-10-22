@@ -4,7 +4,21 @@
 
 격리 CPU 경로의 실제 책임·재현 진입점과 운영 전환 경계를 관리한다.
 
-## 현재 상태
+## 현재 운영 — 2026-10-23 정상 조회·단일 CPU 동선 복구
+
+- 사용자 승인1562955180637425845/실행 지시1562955522100166789로 기존 사설 HTTPS의 명시 normal/broker/control을 재개했다. 정상 vault 로그인 후 실제 목록은 **원본21개(기존4+보존17), 작업7개(기존6+새 합성#7)**다. 실제 경로는 `/api/videos`, `/api/jobs`이며 미존재 경로를 위한 전체 GET 예외는 없다.
+- 최신 DB backup 실제 별도 복원(schema/data no-owner/no-privileges, 역할 backup 별도)→host267 단일 SIGTERM/exit0·소유권반납→012/019·기존 업무행 불변→HTTPS/CSRF/CAS 관리자 candidate/decision→host apply·별도 exact binding→명시 Start 완료. capacity1/epoch1/새 encode1을 유지한다. 이전 요청/계약/ACK는 보존한다. API에는 socket/DDL/계약완료 쓰기가 없고, API/실행·host의 실제 제한 권한을 확인했다.
+- 수용본252d3f52 기준 clean 설치/reader9개 정상종료0·교체 후 API/웹·수신/송신을 맞췄다. 대용량 보존 읽기 수정 **c82636d534579116cbd4465e32901685e53d587a**를 API/웹/수신·송신에 설치했다. 물리 reader/host의252d 입력 계약과256MiB 처리 한도는 변경하지 않았다. 새 소스는 직접 push하지 않았으며 운영 적용과 PM 소스 수용/push를 구분한다.
+- 실제 화면에서 합성#7 `8b5b48b650cf469a812c014b468d75cb` 생성→계획 동의→실행→인코딩/검증 완료·산출물2개를 확인했다. UI 실제 파일83,270bytes/SHA `d80510839fe2c9b8d3346756a4fede26eb9484f49c8762aac648f69a2c439bdd`가 결과와 같다. 티켓 seed/기존#5 재실행/provider 호출은 없다.
+- 보존17개 **29,073,982,271bytes**는 변경 없는 원파일에서 conditional S3 PUT→실제 remote 전체 GET/SHA 검증 후 공용 등록했다. 원 업로더 미상은 미상이며, 실제 import계정은 저장 custodian으로 별도 감사한다. 기존 원파일/asset.json·기존assets4/jobs6·archive117행은 불변이다. 일반 업로드/실행은256MiB, 저장 참조/읽기는8GiB·명시 보존 importer는4GiB로 분리했다.
+- 17개 모두 WebM **앞부분30초**이며 화면에도 범위를 표시한다. 대표340,261,063bytes는 실제 브라우저 파일/SHA 및 ended30.007초/450frames를 확인했다. 최대4,135,723,983bytes는 HTTP200 전체 전송 완료를 서버 로그로 확인했다. 최대 파일의 브라우저 로컬 경로/해시와 별도 재생 관측을 완료로 합성하지 않는다.
+- #5 rawrunning/snapshot·기존 미발행accepted-result20개 정확한 행·DLQ·원키/ACK108파일hash·WIP21·원본/backup/rollback을 보존한다. #7의 새 이벤트는 별개다. 실제 provider 주소/모델/비용 승인 전 등록 모델 호출/독립 consumer는 활성화하지 않았다. initializer fdfa37bb17fc… 강제 정리도 미승인으로 실행하지 않았다.
+- 남은 범위: >256MiB 작업 입력·전체길이 비동기 WebM, 실제 provider 인증/품질·비용 승인, Loop/Fallback 제어 실행, 다른 역할/다중 슬롯/멀티머신·장애복구·장기 저장정책. 이 개발 동안 정상 조회를 유지한다.
+- 실제 배포/증적 정본은 `mediagent-renewal-ops/restore-normal-252d3f52/`의 canonical/current handles, actual API modules, original17-preservation-final, original-records-preserved-final, actual-original-download, small-original-browser-proof, largest-download-server-completion이다. 이전 maintenance Compose는 역사/rollback이며 현재 배포 recipe로 재사용하지 않는다. 고정 대상 재생성에는 새 audited handover가 필요하다.
+
+## 이전 개발·격리 수용 기록
+
+아래의 운영 미반영/미완료·제외는 각 개발 당시 기록이다. 현재 운영·승인 범위는 위 절을 우선하며 실제 provider 미수용과 보류 자원은 계속 분리한다.
 
 ### 순수 제품 UI와 정식 실행 경로 — 개발·격리 확인 및 PM 수용·App push 완료 / 운영 연결 미완료
 
