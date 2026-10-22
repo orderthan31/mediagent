@@ -6,13 +6,13 @@
 
 ## 현재 상태
 
-### 순수 제품 UI와 정식 실행 경로의 통합 관측
+### 순수 제품 UI와 정식 실행 경로 — 개발·격리 확인 및 PM 수용·App push 완료 / 운영 연결 미완료
 
 - 격리 원본/등록 모델/편집 예제만 준비한 뒤 기존 product UI에서 모델/선택형 폴백 저장·재조회→원본/언어 선택(en→ko)→실행 전 확인/티켓 생성→계획 확인/동의→실행 요청→후보 실패/전환/최종 채택→산출물/manifest 다운로드를 밟았다. 티켓을 seed하거나 시험 코드가 생성/confirm/admit/run/cancel POST 본문을 대신 만들지 않았다. 별도 PG·TLS RabbitMQ/MinIO·새 CPU consumer/정식 app.server·독립 results/model consumer와 통제 HTTP이며 운영이 아니다.
 - 실제 화면 값/저장 정의/고정 snapshot/실행 request와 통제 peer의 node_run_id/request SHA/model/connection/key-match/language를 대조했다. ASR은 source_language=en, 번역은 en→ko다. 성공 두 출력은 UI download-event의 실제 파일 SHA가 API 참조와 같고 UI manifest에 포함된다. PC/390px 취소는 호출 중 동작하여 후속 후보/번역0, 늦은 결과1 격리·정상 모델 산출물0이다. 언어는 발급 티켓에서 reload하여 확인했으며 별도 생성 폼의 언어 기본값 선호 저장을 새로 추가한 것은 아니다.
 - 독립 단계가 job 개정을 갱신해 기존 화면 개정으로 취소409가 발생했다. RenewalJobDetail은 클릭 시 최신 정상 GET의 권한·상태를 확인하고 그 revision으로 취소를 한 번 전송한다. CAS/권한/비용 보호는 그대로고 자동 retry·실패 티켓 재발행은 없다. 변경 전 PC 성공을 인정했고 수정 뒤 PC 취소와 모바일 성공/취소를 좁게 재확인했다. 관측4경우를 단일 all-pass 배치로 표현하지 않는다. 원 결함/하네스 실패도 남긴다.
 - 관측 도구는 읽기 전용 PG/통제 peer journal만 사용하고 business UI 응답을 mock하지 않는다. 브라우저 암호/cookie/raw trace는 private에만 둔다. 결과 위치는 product-ui-14dcdfca ops의 journey/actual-request-audit와 screenshots다. 타입/build/변경 frontend lint/format·fixture scoped Ruff 통과, 기존 Radix/Node/Starlette 경고는 남긴다.
-- 정상 검증 child API -15·application/CPU/infra0 종료 및 제거, 기존24개 container 설정/시작·실행 상태/WIP21 hash 동일이다. 초기 준비 실패 컨테이너는 API/모델 실행 전 예제 정의 검증 실패 후 SIGTERM1에도 running이어서 강제/재신호 없이 전용망과 보류했다. cleanup-preservation.json의 exact ID가 정리 판단 대상이며 운영 컨테이너가 아니다. 운영 DB/원본 전체 해시 재검사를 했다고 주장하지 않는다. 소스 수용/push와 이 정리1건은 검토 대기다.
+- 정상 검증 child API -15·application/CPU/infra0 종료 및 제거, 기존24개 container 설정/시작·실행 상태/WIP21 hash 동일이다. 초기 준비 실패 컨테이너는 API/모델 실행 전 예제 정의 검증 실패 후 SIGTERM1에도 running이어서 강제/재신호 없이 전용망과 보류했다. cleanup-preservation.json의 exact ID가 정리 판단 대상이며 운영 컨테이너가 아니다. 운영 DB/원본 전체 해시 재검사를 했다고 주장하지 않는다. 제품 소스 `62d4fdf2301996638a2d3cf923bed3f6cdbf7c66`는 PM1562941603591618693에서 수용·App push, Git/GitHub API 원격 SHA 일치로 종료했다. PM 검토는 소스/증적/화면 대조이며 Windows 실행 재시험이 아니다. 추가 제품 시험은 하지 않는다. 운영 연결은 미완료이고 initializer 정리1건만 별도 승인 대기로 유지한다. 강제 종료·제거·재신호는 승인 전 실행하지 않으며 전체 정리 완료로 쓰지 않는다. 수용된 제품 흐름을 이 잔여 자원 때문에 다시 열지 않는다.
 - 실제 공급자 인증/품질·유료 호출·멀티 머신·운영 배포/서비스/DB/키·012/019·원본17개/#5/DLQ·정상 접수 재개는 제외다. 격리 UI의 작업 번호와 운영 #5를 혼동하지 않는다.
 
 ### 등록 모델 전사·번역의 정식 설치 전달
