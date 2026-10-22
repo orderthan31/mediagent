@@ -169,12 +169,35 @@ class GeminiTextAdapter(OpenAITextAdapter):
             'contents': [{'role': 'user', 'parts': [{'text': messages[1]['content']}]}],
         })
         try:
+            feedback = value.get('promptFeedback') if isinstance(value, dict) else None
+            if (isinstance(feedback, dict) and feedback.get('blockReason')
+                    and feedback['blockReason'] != 'BLOCK_REASON_UNSPECIFIED'):
+                raise EndpointFailure('Gemini 요청이 차단되었습니다.', code='request_rejected')
             candidate = value['candidates'][0]
             if candidate['finishReason'] != 'STOP':
                 raise EndpointFailure('Gemini 응답이 차단되었거나 미완료입니다.', code='request_rejected')
             parts = candidate['content']['parts']
-            if not parts or any(set(part) != {'text'} or not isinstance(part['text'], str) for part in parts):
+            if not isinstance(parts, list) or not parts:
                 raise ValueError()
-            return ''.join(part['text'] for part in parts)
+            metadata = {'thought', 'thoughtSignature', 'partMetadata', 'mediaResolution',
+                        'mediaProcessing', 'audioTranscription', 'speechMetadata', 'videoMetadata'}
+            texts = []
+            for part in parts:
+                if not isinstance(part, dict):
+                    raise TypeError()
+                # Only final text is translation input, never thoughts, signatures
+                # or a Part.data tool/media variant (including ambiguous unions).
+                if part.get('thought') is True or 'text' not in part:
+                    continue
+                if set(part) - ({'text'} | metadata):
+                    continue
+                if (not isinstance(part['text'], str)
+                        or 'thought' in part and type(part['thought']) is not bool):
+                    raise ValueError()
+                texts.append(part['text'])
+            text = ''.join(texts)
+            if not text.strip():
+                raise ValueError()
+            return text
         except (KeyError, IndexError, TypeError, ValueError):
             raise EndpointFailure('완료된 Gemini 텍스트 응답이 아닙니다.') from None

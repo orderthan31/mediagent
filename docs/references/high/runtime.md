@@ -8,6 +8,8 @@
 
 ### 등록 모델 번역·선택형 폴백의 개발 계약
 
+- **Gemini 응답 보정:** 명시 promptFeedback.blockReason 차단은 candidates 접근 전에 request_rejected로 반환하여 폴백하지 않는다. STOP 응답의 Part는 최종 text만 결합하며 thought=true는 제외하고 thoughtSignature/partMetadata 등 문서화된 메타데이터는 텍스트로 복사하지 않는다. 도구/미디어 union 및 혼합된 data Part도 채택하지 않는다. 최종 텍스트 없음·자막 배열 형식 오류는 기존 invalid_response다. 별도 network-none MockTransport fixture5개로 차단→후속 호출0, 서명 포함 최종문 채택, 생각/서명/도구/미디어 미채택과 두 거부 경계를 확인했다. 기존33/브라우저2 등 수용 증적을 반복하지 않았고 운영 변경/공급자 호출은 없다. translation.py의 끝 빈 줄만 함께 정리했다.
+
 - `TranslationRuntime`는 기존 CredentialStore의 불변 model/connection 개정과 일시적 키 resolve를 재사용한다. Gemini는 `/models/{model}:generateContent`와 header-only `x-goog-api-key`, OpenAI 계열은 기존 `/chat/completions` adapter다. Anthropic은 실행 미지원으로 제공한다. 저장/실행 가능 표시는 실제 인증/품질 성공이 아니다.
 - `translate.model_ref`와 선택 `fallback_refs`(고유 모델 최대3개)를 기존 정의에 저장한다. 원문/대상 언어·모델/연결 개정·순서를 기존 job snapshot과 exact command hash에 고정한다. 뒤에 model head/connection key를 바꿔도 티켓을 retarget하지 않는다. 기존 로컬 engine 경로를 등록 모델 대신 몰래 선택하지 않는다.
 - 후보 dispatch마다 owner/활성/불변 내용/능력/키/승인 origin을 재확인한다. 후보 시작 intent는 기존 agent_deliveries의 started 행에 별도 transaction으로 HTTP 전에 commit한다. 전달 불명은 자동 재실행하지 않으며 기존 exact-delivery fence/취소·세대·claim·lease/늦은 결과 격리를 유지한다. 성공/실패와 취소의 후보 기록은 공용 DTO에서도 키/endpoint 없이 조회한다.

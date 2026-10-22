@@ -181,4 +181,3 @@ def execute_translation(runtime, owner, command):
     return {**{k: command[k] for k in ('protocol_version', 'run_id', 'attempt_id', 'generation', 'agent')},
             'request_sha256': digest(command), 'status': translated['status'], 'outputs': outputs,
             'transport': 'registered_http', 'translation': metadata}
-

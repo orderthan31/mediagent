@@ -8,6 +8,8 @@
 
 ### 등록 모델 번역·선택형 다단계 폴백 — 구현·격리 HTTP 계약 검증 완료, 운영 미반영
 
+- Gemini 응답 보정: promptFeedback.blockReason의 명시 차단은 후보 조회 전 request_rejected/후속 후보0으로 중단한다. STOP 최종 텍스트의 thoughtSignature·문서화된 메타데이터는 허용하지만 thought=true·서명·도구/미디어 데이터는 번역문에서 제외한다. 최종 텍스트 없음/잘못된 자막 형식은 거부한다. 해당 network-none MockTransport 응답 fixture5개 RED→GREEN만 확인했고 기존 티켓/순서/취소·화면/영상/MQ 증적은 재실행 없이 이어 인정한다. 최종 소스 수용·push는 PM 검토 대기다.
+
 - [x] 워크플로우의 번역 모델/불변 개정과 선택형 폴백(없음·추가·삭제·순서 변경, 최대 3개)을 저장·재조회하고, 작업 화면의 원문/대상 언어와 함께 기존 티켓 snapshot·실행 command에 고정한다. 기존 암호화 CredentialStore/model resolver와 CAS/동의/claim/결과 채택을 재사용하며 로컬 모델로 대체하지 않는다.
 - [x] Gemini 네이티브 generateContent와 기존 OpenAI/OpenAI-compatible를 연결한다. 후보별 사용 가능 여부와 origin/키/능력을 재확인하고, 한 후보당 한 번·최대 4개만 시도한다. 사용 불가·429·5xx·유효하지 않은 결과만 다음 후보로 전환하고 인증/요청 거부·전송 결과 불명·취소는 중단한다. 실제 HTTP 전 후보 intent를 영속 저장하며 시도/실패/전환/최종 채택을 구분해 화면에 표시한다.
 - [x] 별도 PG/CAS와 loopback HTTP 서버에서 화면→설정 저장/재조회→티켓→동의/실행→결과 다운로드, 폴백 없음·복수 실패 후 성공·전체 실패·호출 중 취소/다음 모델 미호출을 확인했다. 발급 후 모델 head/키를 바꿔도 기존 모델/연결 개정으로 호출했다. PC/390px 화면, 관련 Python 33 pass/기존 browser opt-in 1 skip, 실제 브라우저 2 pass·Node53·타입/build/format을 확인했다. 변경 범위 lint는 신규0이며 부모에도 있는 Python F401 1개/프론트 effect-order 1개가 남는다.
