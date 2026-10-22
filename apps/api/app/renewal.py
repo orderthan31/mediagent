@@ -84,6 +84,17 @@ class ControlReviewDecision(Body):
     reason: str = Field(min_length=1, max_length=1000)
 
 
+class TargetHandoverPreview(Body):
+    candidate_id: str = Field(pattern=r"^[a-f0-9]{32}$")
+
+
+class TargetHandoverDecision(Body):
+    plan_id: str = Field(pattern=r"^[a-f0-9]{32}$")
+    decision_id: str = Field(pattern=r"^[a-f0-9]{32}$")
+    reason: str = Field(min_length=10, max_length=1000)
+    acknowledge: StrictBool
+
+
 class SourceMetadata(Body):
     filename: str = Field(min_length=1, max_length=255)
     artifact_ref: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
@@ -144,6 +155,7 @@ def create_app(
     credential_store=None,
     remote_control=None,
     control_recovery=None,
+    target_handover=None,
 ):
     origins = frozenset(allowed_origins)
     if not origins or any(
@@ -185,6 +197,8 @@ def create_app(
 
     if control_recovery is not None and (remote_control is None or control_recovery.store is not remote_control or control_recovery.database is not database):
         raise ValueError("Recovery requires the same explicit fixed-host mailbox")
+    if target_handover is not None and (remote_control is None or target_handover.store is not remote_control or target_handover.database is not database):
+        raise ValueError("Target handover requires the same explicit fixed-host mailbox")
     if remote_control is not None:
         if cpu_driver is not None:
             raise ValueError("Fixed-host control cannot share a local process controller")
@@ -493,6 +507,19 @@ def create_app(
     @app.put("/api/source-metadata/{identity}")
     def source_register(identity: str, body: SourceMetadata, value=session_dependency):
         return sources.register(value["user"]["id"], identity, **body.model_dump())
+
+    if target_handover is not None:
+        @app.get("/api/admin/agents/{identity}/target-handover")
+        def target_handover_status(identity: str, value=administrator_dependency):
+            return target_handover.status(value["user"]["id"], identity)
+
+        @app.post("/api/admin/agents/{identity}/target-handover/preview")
+        def target_handover_preview(identity: str, body: TargetHandoverPreview, value=administrator_dependency):
+            return target_handover.preview(value["user"]["id"], identity, body.candidate_id)
+
+        @app.post("/api/admin/agents/{identity}/target-handover/decisions")
+        def target_handover_decision(identity: str, body: TargetHandoverDecision, value=administrator_dependency):
+            return target_handover.submit(value["user"]["id"], identity, **body.model_dump())
 
     if control_recovery is not None:
         @app.get("/api/admin/agents/{identity}/recovery")

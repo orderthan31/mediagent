@@ -71,13 +71,13 @@ class RemoteControl:
         if fresh and observed:
             state=next((candidate for candidate in ('stopping','busy','unknown','connected','ready','stopped') if any(w['state']==candidate for w in workers)),'unknown')
         return {'agent_id':row['agent_id'],'revision':row['revision'],'enabled':row['enabled'],'replicas':row['replicas'],
-                'max_replicas':row['capacity'],'manageable':fresh and phase!='unknown' and not row.get('quarantined',False),'runtime':'fixed_host',
+                'max_replicas':row['capacity'],'manageable':fresh and phase!='unknown' and not row.get('quarantined',False) and not row.get('pending_handover'),'runtime':'fixed_host',
                 'observation_source':'fixed_host','telemetry':True,'collector':{'healthy':fresh,'received_at':row['observed_at'].isoformat() if row['observed_at'] else None},
                 'observed_replicas':actual,'ready_replicas':sum(w['state']=='ready' for w in workers) if fresh else None,
                 'draining_replicas':sum(w['state']=='stopping' for w in workers) if fresh else None,
                 'workers':workers,'instances':[],'dependencies':[],'concurrency_per_instance':1,'state':state,
                 'control':{'request_id':request['request_id'] if request else None,'phase':phase,'error_code':request['error_code'] if request else None},
-                'unavailable_reason':None if fresh else 'control_observation_unavailable'}
+                'unavailable_reason':'target_handover_pending' if row.get('pending_handover') else None if fresh else 'control_observation_unavailable'}
 
     def get(self, agent):
         with self.database.connection() as db:

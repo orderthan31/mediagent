@@ -101,3 +101,17 @@ Python 3.12+와 FFmpeg/FFprobe가 필요하다. `packages/shared[postgres,models
 ## 관련 문서
 
 - [구조](../../plans/architect.md) · [태스크](../../plans/tasks.md) · [격리 테스트](../../../tests/renewal/README.md) · [배포 경계](../../rules/deploy.md)
+
+## 논리 슬롯1의 감사 가능한 대상 교체 (미배포)
+
+019는 기존 control source 열/요청/ACK를 보존하고 계약 버전·후보·계획·교체/이벤트를 추가한다. 이 기능의 native 검사·완료는 새 host 실행 코드가 필요하다. 기존267 호스트/설정을 운영에서 바꾼 것은 아니다.
+
+절차는 다음과 같다. 기존 제품 제어로 신규 배정을 막고 같은 boot 정상 종료0·signed ACK·미해결 제어 없음/발행 guard 자유를 확보한다. 기존 host를 정상 종료해 원래 exclusive lock을 반납한 뒤 정확한 candidate manifest를 준비한다. host 전용 `python -m video_service.target_handover --config-file <기존 host.json> --candidate-file <별도 manifest.json> --operation prepare --enable-handover`가 native inspect/서명을 검증하고 후보ID를 발급한다. manifest는 `agent`, `old`, `new`만 가지며 각 descriptor는 정확한 `container_id`, `image_id`, `labels`, `worker_id`다. 등록 슬롯은 늘리지 않는다.
+
+관리자는 `/api/admin/agents/{agent}/target-handover`에서 준비된 후보와 이력을 읽고, `/preview`에 `candidate_id`, `/decisions`에 `plan_id`, `decision_id`, 10자 이상 `reason`, `acknowledge:true`를 정상 세션/CSRF로 보낸다. API는 임의 container/image/socket을 입력받지 않는다. 호스트는 같은 파일과 `--operation apply --transition-id <decision_id> --enable-handover`로 명시 실행한다. apply에는 기존 exclusive lock과 sender guard가 필요하고 이전/새 정확한 물리 정지·서명·권한·CAS를 다시 확인한다. 실제 전환은 계약 버전 추가·current epoch 갱신·applied 기록을 한 transaction에 반영한다. 이벤트에는 DB session actor/PID와 시각을 남긴다.
+
+재기동할 host는 원래 config와 별도 `--handover-bindings-file`을 사용한다. 바인딩 JSON은 `{agent: 승인된 exact descriptor}`이며 DB에 기록됐다는 이유만으로 자동 채택하지 않는다. desired0을 유지하고 새 target을 자동 시작하지 않는다. 새 등록 상태와 관측을 확인한 뒤 별도의 명시 Start가 필요하다. 중단된 applying은 held로 남고, 오류 해소만으로 자동 재개되지 않는다. held의 해제/새 판단은 이번 범위가 아니다. 기존 Native adapter를 root 권한으로 직접 호출하는 것은 제품 host/요청 권한 경계 밖이며 이 기능이 범용 Docker administrator를 통제한다고 주장하지 않는다.
+
+역할 권한은 새 테이블에도 분리한다. API는 후보/계약/이력 SELECT, 계획·planned 결정 INSERT와 group의 revision/pending_handover 입장 쓰기만 추가한다. 계약/후보 등록·phase 완료/이벤트 직접 쓰기·native 권한을 주지 않는다. 기존 host 전용 역할은 필요한 control/ACK/전송 근거 SELECT와 accounts의 id/role/active만 읽으며, 후보/불변 계약 INSERT와 승인된 transition phase 및 group current-pointer 갱신만 수행한다. events는 보호된 trigger가 append한다. 계정 비밀번호·원본/키/backup 쓰기 권한은 추가하지 않는다. 실제 운영 역할별 GRANT/이미지 설치는 별도 검토·승인 후 수행한다.
+
+검증은 새 교체 경계의 실제 PG와 통제된 native adapter/인증 ASGI, 별도 실제 idle native 컨테이너/CLI·signed ACK 범위다. native 시험의 PG 상태 보고를 운영 MQ/제품 영상 E2E로 확대하지 않는다. 기존 MQ 영상·A/B 여정·#5 복구는 재실행하지 않는다.

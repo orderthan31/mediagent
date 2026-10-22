@@ -7,10 +7,10 @@ Database/storage locations are independent of the engine socket's machine.
 import argparse
 import http.client
 import json
-from pathlib import Path
 import signal
 import socket
 import threading
+from pathlib import Path
 
 from .agent_control import ControlError, Target
 
@@ -69,7 +69,7 @@ class PinnedEngine:
             raise ControlError('invalid_control_observation') from None
 
 
-def run(config):
+def run(config, *, handover_bindings=None):
     from .control_ack_receipts import AckReceipts
     from .durable_control import BrokerReports, DurableHost, SignalControl
     from .postgres import Database
@@ -92,14 +92,27 @@ def run(config):
         groups[group] = tuple(Target(row['container_id'], row['image_id'],
                                     tuple(sorted(row['labels'].items()))) for row in spec['slots'])
         slots[group] = [row['worker_id'] for row in spec['slots']]
+    database = Database(Path(config['database_dsn_file']).read_text().strip())
+    store = RemoteControl(database)
+    from .postgres.target_handover import TargetHandover
+    from .target_handover import descriptor, resolve_active, target_from
+    approved = handover_bindings or {}
+    if not isinstance(approved, dict) or set(approved) - set(groups):
+        raise ControlError('invalid_handover_bindings')
+    for group, bound in groups.items():
+        if store.has(group):
+            if len(bound) != 1 and group in approved:
+                raise ControlError('handover_requires_exactly_one_slot')
+            if len(bound) == 1:
+                configured = descriptor(bound[0], slots[group][0])
+                resolved = resolve_active(TargetHandover(store), group, configured, approved.get(group))
+                groups[group] = (target_from(resolved),)
     targets = tuple(target for group in groups.values() for target in group)
     engine = PinnedEngine(config['docker_socket'], targets)
     adapter = SignalControl(groups, runner=engine)
     # Validate every local pin/policy before provisioning even one mailbox group.
     for group in groups:
         adapter.details(group)
-    database = Database(Path(config['database_dsn_file']).read_text().strip())
-    store = RemoteControl(database)
     receipts = AckReceipts(config['receipt_root'], Path(config['receipt_key_file']).read_bytes())
     host = DurableHost(store, adapter, slots, BrokerReports(database, profiles),
                        receipts=receipts, recovery=ControlRecovery(store))
@@ -118,6 +131,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--config-file', required=True)
     parser.add_argument('--enable-control', action='store_true')
+    parser.add_argument('--handover-bindings-file')
     args = parser.parse_args()
     if not args.enable_control:
         parser.error('Host enrollment and execution require --enable-control')
@@ -125,7 +139,13 @@ def main():
         raw = Path(args.config_file).read_bytes()
         if len(raw) > 32768:
             raise ControlError('invalid_host_configuration')
-        run(json.loads(raw))
+        bindings = None
+        if args.handover_bindings_file:
+            binding_raw = Path(args.handover_bindings_file).read_bytes()
+            if len(binding_raw) > 32768:
+                raise ControlError('invalid_handover_bindings')
+            bindings = json.loads(binding_raw)
+        run(json.loads(raw), handover_bindings=bindings)
     except Exception:
         # Never expose DSNs, engine inspect environment or native diagnostics.
         print(json.dumps({'status': 'failed', 'code': 'fixed_host_control_stopped'}), flush=True)

@@ -4,6 +4,7 @@ SIGTERM only: never SIGKILL, never a timed kill of the media process. The native
 CLI timeout bounds only delivery of a signal, not the duration of job draining.
 """
 import json
+from contextlib import contextmanager, nullcontext
 
 from .agent_control import ControlError, DockerControl
 
@@ -34,7 +35,7 @@ class SignalControl(DockerControl):
         targets=self._targets(group)
         if type(index) is not int or not 0<=index<len(targets) or action not in ('start','stop'):
             raise ControlError('invalid_control_signal')
-        with self.locks[group]:
+        with self.locks[group], (self.native_authority(group) if hasattr(self, "native_authority") else nullcontext()):
             observed=self.details(group)
             running=observed['instances'][index]['running']
             if action=='start' and not running:
@@ -63,6 +64,7 @@ class BrokerReports:
 
 
 from datetime import datetime, timezone
+
 from .control_host import HostControl, _time
 from .postgres.control_journal import ControlJournal
 
@@ -76,6 +78,17 @@ class DurableHost(HostControl):
         self.reports=reports
         super().__init__(store,adapter,slots)
         self.journal=ControlJournal(store)
+        self.adapter.native_authority = self._native_authority
+
+    @contextmanager
+    def _native_authority(self, group):
+        # Held original session + row share lock span inspect and native POST.
+        # Never reconnect a stale owner, and never act on a retired contract.
+        with self.owner.transaction():
+            row = self.owner.execute('SELECT contract_sha256,pending_handover FROM remote_control_groups WHERE agent_id=%s FOR SHARE', (group,)).fetchone()
+            if not row or row[0] != self.contracts[group] or row[1] is not None:
+                raise ControlError('retired_host_native_signal_blocked')
+            yield
 
     def observe(self, group):
         actual=self.adapter.details(group)

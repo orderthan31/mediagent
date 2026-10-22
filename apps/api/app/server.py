@@ -102,13 +102,15 @@ def main():
     store, credentials, broker_factory = runtime_components(
         database, config, enable_broker=args.enable_broker
     )
-    remote_control = control_recovery = None
+    remote_control = control_recovery = target_handover = None
     if args.enable_control:
-        from video_service.postgres.remote_control import RemoteControl
         from video_service.postgres.control_recovery import ControlRecovery
+        from video_service.postgres.remote_control import RemoteControl
 
         remote_control = RemoteControl(database)
         control_recovery = ControlRecovery(remote_control)
+        from video_service.postgres.target_handover import TargetHandover
+        target_handover = TargetHandover(remote_control)
     app = create_app(
         database,
         allowed_origins=tuple(config["allowed_origins"]),
@@ -119,6 +121,7 @@ def main():
         local_execution=args.enable_broker,
         remote_control=remote_control,
         control_recovery=control_recovery,
+        target_handover=target_handover,
     )
 
     @app.get("/healthz", include_in_schema=False)
