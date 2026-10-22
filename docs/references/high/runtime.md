@@ -6,6 +6,15 @@
 
 ## 현재 상태
 
+### 운영 체크포인트 — 018 API 선행 설치와 안전 정지 분리
+
+- **수용된 API 선행 설치:** `28c14fd3e85f59f02222719bd35bfe1056eb2364`의 API만 명시 maintenance/control·`handover=false`로 운영 설치했다. 공유 c106 `api.json`을 바꾸지 않고 전용 정책/기존 DSN의 두 RO 파일 mount를 사용한다. API의 content RW mount만 제거하고 미디어 volume·기존 파일은 보존했다. 이전 normal API는 TERM1회·timeout=-1 대기 뒤 실제 exit143·listener/init/Python 종료 및 영속 기록 대조 후 교체했다. 기존 HTTPS/vault 로그인·session/지정 관리자 조회200·업무503과 쿠키 Secure/HttpOnly/Strict를 확인했다. 외부 `/healthz`200은 web 응답이지 API 모드 증거가 아니다. web reload는 필요 없어 실행하지 않았다.
+- **다음 독립 승인으로 실행한 Stop0:** 기존 논리 슬롯 `81831977b4214488b19fb78fca17c213`, 이전 boot `18e0ba6ba253bef0052f1953495344e9`, target `fd6d07677ac6929cd75b6b7f6f0ec0da79fb1f5f3bdc69251416df1d900be1f5`를 그대로 대조했다. ready/현재 작업 없음·충돌 제어/새 미발행 명령/managed 미완료 전송 없음을 확인한 뒤 정상 HTTPS·CSRF·개정7/고유 요청으로 Stop0를 보냈다. 요청 `dcccf6fb8bd04f7684178f46163e8bd1`은 개정8/succeeded, action `dc4cb60c7bd447d1abd2cb25b5f89693`은 confirmed/issue_count1이다. 실제 host267 ACK reader가 HMAC·원 요청/boot/contract·정확한 target/image/native return0을 검증했고 물리 대상도 정상 종료0이다. capacity1·desired0·disabled·pending 없음이며 재신호/시작/복구는 없다.
+- **그 뒤 송신3개만 정지:** 실제 설치된 `app.dispatch`는 진행 tick 후 loop를 마치고, 두 `app.operator` 수신기는 신규 소비 취소→진행 handler의 accept/후속 dispatch 완료→ACK→thread/connection 정리 순서다. `dispatch-encode`·`results`·`engine-results` 각각 정확한 ID에 TERM 한 번/timeout=-1로 대기했고 모두 exit0/PID0·OOM/재시작 없음이다. 사전 결과 channel의 unacked/unconfirmed/uncommitted/acks_uncommitted·send_pend0, 사후 두 결과 consumer/connection 소멸과 업무/outbox/inbox 해시 동일을 함께 확인했다. 뒤늦은 Docker lifecycle event 조회는 빈 결과라 신호 횟수 증거로 쓰지 않으며, 실행 전 저장한 서비스별 단일 stop 명령·반환값·실제 종료 상태를 근거로 한다. broker 안의 진단 CLI는 PID 제한 오류가 나 같은 정확한 이미지/기존 cookie volume RO의 임시 CLI로 읽기만 했고 broker 재시작·제한/인증 변경은 없다.
+- **보존·미승인 경계:** #5 raw running/needs_review·원 발행/수신 이력, 미발행 accepted-result20·encode DLQ ready1과 기존 제어/ACK 행은 그대로다. 새 Stop0 제어 기록만 추가했고 삭제/완료 처리/재발행으로 수를 맞추지 않았다. 유지보수 API·웹·host267·나머지 실행 역할·DB/MQ/S3는 계속 실행하며 다른16개 container의 ID/image/StartedAt/config/목적지별 mount를 보존했다. host267의 원 소유권은 아직 반납하지 않았고012/019·GRANT·host 코드/실행 이미지·대상 전환·원본17 이관·#5/DLQ 복구·정상 접수 재개는 미실행이다. 다른 역할의 결과 발행까지 전역 차단한 상태나 전체 작업 완료로 해석하지 않는다. 기존 업무 UI의 일반 조회 오류는 유지보수 차단이며 새 유지보수 UI 수용은 아니다.
+
+아래는 구현 계약과 선행 검증의 범위다. 운영 현재 상태는 위 체크포인트를 우선하며, 이번 안전 정지 결과의 PM 검토와 이후 설치 승인은 구분한다.
+
 검증 업로드·불변 workflow/티켓·PostgreSQL 상태·독립 CPU 프로세스·로컬/S3-compatible CAS·검수/승인/취소/복구·WebM과 이중 다운로드를 구현했다. renewal 관리자 경계와 실제 로컬 CPU fleet에 이어 opt-in RabbitMQ adapter·독립 수신기·결과 제어기와 공통 이미지 build graph를 추가했다. SDK/채널 대역과 실제 격리 TLS RabbitMQ 4.2.9·source-pinned MinIO·독립 CPU 두 process·결과 소비 process·PG의 합성 영상 완료/ACK/DLQ/결과 SHA를 구분해 수용했다. 컨테이너 fleet 제어·다중 머신·GPU/provider·운영 전환은 미검증이다.
 
 ## 주요 내용
@@ -124,7 +133,7 @@ API는 정상 인증을 위해 accounts SELECT와 계정 발급의 지정 INSERT
 
 기존9ae 설치 연결 리허설의 일반 API는 private content root를 미리 준비해야 했고, 최초 누락 실패를 uid10001/mode0700 tmpfs로 해결했다. 새 유지보수 모드는 미디어/credential/broker initializer를 아예 호출하지 않으므로 content root를 생성하거나 새 공용 입력 route를 열지 않는다. 일반 normal 모드의 content root 조건은 그대로다. API는 private API leaf RO만, host는 config/DSN/key leaf RO·receipts RW와 지정 daemon socket만 가진다. host는 uid10001과 daemon group으로 실행했다. fixture 상태 발행자는 별도이며 PG 보고를 실제 MQ 처리로 확대하지 않는다.
 
-### 명시 유지보수 기동 계약 — 구현·격리 설치 확인, 운영 미승인
+### 명시 유지보수 기동 계약 — 구현·격리 확인 및018 API 운영 선행 설치 수용
 
 - `app.server --bootstrap-file … --admission-mode maintenance --enable-control`과 bootstrap의 `admission_policy`가 반드시 일치해야 한다. normal도 `--admission-mode normal`과 `{"mode":"normal"}`을 명시한다. 기존 bootstrap/Compose를 그대로 쓰면 새 HTTP 서버가 기동을 거부하며, 이를 normal fallback으로 해결하지 않는다. background operator/dispatch/result의 설정 소비와 API의 입장 정책은 별개다.
 - 유지보수 객체는 정확히 `{"mode":"maintenance","agent_id":"<기존 등록 agent>","slot_id":"<그대로 보존한 32hex worker slot>","handover":false}`다. 단일 capacity/slot 일치를 DB에서 읽기 전용 확인하며 enroll/provision·계약 수정은 하지 않는다. HTTPS origin·Secure cookie, control opt-in을 요구하고 broker 실행 opt-in은 거부한다. 설정 오류/DB preflight 실패는 sanitized error와 exit2, listener 미개방이다.
@@ -140,9 +149,9 @@ API는 정상 인증을 위해 accounts SELECT와 계정 발급의 지정 INSERT
 
 ### 승인 후에만 사용할 설치 순서
 
-1. 원본/DB/설정·키/WIP·운영 image/target·Serve 경로와 기존 요청을 보존한다. **012/019보다 먼저 입장 차단을 설치·확인한다.** 기존 HTTP API의 신규 연결을 닫고 종료 전 이미 들어온 요청/transaction을 graceful drain해 정리 여부를 대조한 뒤,018 호환 유지보수 API만 `handover=false`로 기동한다. 오래된 normal API를 겹쳐 남기거나 timeout을 이유로 강제 종료/요청 초기화하지 않는다. 기존 HTTPS·정확한 origin·vault/세션·CSRF·Secure cookie를 그대로 사용하고 liveness의 mode/phase, 관리자 정상 접속·지정 Stop0, 일반/관리자 신규 업무 변경 거부를 확인한다. 누락/불일치/기존 listener 잔존/차단 미확인이면 여기서 중단한다. **이 닫힌018 API 선행 설치만 공용 기능의 API-only 공개와 구분하는 예외**다. 이번에 운영에 설치한 것은 아니다.
-2. 정책 적용 이전에 이미 들어온 요청과 결과 수신·DAG 후속 발행은 입장 차단으로 취소/완료/중지되지 않는다. 기존 pending/sending/unknown·outbox/receipt·진행 노드와 각 송신 프로세스를 따로 대조하고 drain한다. 현재 승인된 host267 제어로 지정 encode Stop0를 접수해 새 배정을 막고 진행 작업 처리/ACK·동일 boot 정상 종료0·signed native ACK를 확인한다. #5/미확정 요청은 보존하며 자동 재발행·TTL 변경으로 통과시키지 않는다. 안전 정지/전송이 불명확하면 해당 교체를 보류한다.
-3. 결과 수신과 후속 발행 정리가 끝난 뒤 API 외 results/dispatch/engine-results 등 모든 송신 경로와 해당 소비자를 정리한다. 기존 host267은 정상 종료해 원래 exclusive session을 반납한다. 입장 정책이 이 별도 프로세스들을 멈췄다고 간주하지 않는다. 필요한 백업/별도 복원 검토를 완료한 뒤에만 승인된012/019·역할 설치 단계를 진행할 수 있다. 이 작업에서 수용 복원/영상 시험을 다시 반복하지 않았다.
+1. 원본/DB/설정·키/WIP·운영 image/target·Serve 경로와 기존 요청을 보존한다. **012/019보다 먼저 입장 차단을 설치·확인한다.** 기존 HTTP API의 신규 연결을 닫고 종료 전 이미 들어온 요청/transaction을 graceful drain해 정리 여부를 대조한 뒤,018 호환 유지보수 API만 `handover=false`로 기동한다. 오래된 normal API를 겹쳐 남기거나 timeout을 이유로 강제 종료/요청 초기화하지 않는다. 기존 HTTPS·정확한 origin·vault/세션·CSRF·Secure cookie를 그대로 사용하고 liveness의 mode/phase와 관리자 정상 접속·업무 차단을 확인한다. 누락/불일치/기존 listener 잔존/차단 미확인이면 여기서 중단한다. **이 닫힌018 API 선행 설치만 공용 기능의 API-only 공개와 구분하는 예외**이며 현재 이 선행 단계는 운영 수용됐다. Stop0는 다음 독립 승인 단계다.
+2. 정책 적용 이전에 이미 들어온 요청과 결과 수신·DAG 후속 발행은 입장 차단으로 취소/완료/중지되지 않는다. 기존 pending/sending/unknown·outbox/receipt·진행 노드와 각 송신 프로세스를 따로 대조하고 drain한다. 승인된 host267 제어로 지정 encode Stop0를 접수해 새 배정을 막고 진행 작업 처리/ACK·동일 boot 정상 종료0·signed native ACK를 확인한다. 현재 이 Stop0는 위 새 원 요청으로 성공했다. #5/미확정 요청은 보존하며 자동 재발행·TTL 변경으로 통과시키지 않는다. 안전 정지/전송이 불명확하면 해당 교체를 보류한다.
+3. 결과 수신과 후속 발행 정리 뒤 승인된 `results`·`dispatch-encode`·`engine-results`만 정상 종료한다. 현재 세 서비스 정지는 완료됐지만 **host267은 이번 승인에서 유지했고 원 exclusive session을 반납하지 않았다.** 다른 실행 역할도 계속 실행한다. 입장 정책이 별도 송신기를 멈췄다거나 전체 송신/작업이 끝났다고 간주하지 않는다. host267 정상 종료·소유권 반납, 필요한 백업/별도 복원과012/019·역할 설치는 각각 다음 승인 범위이며 자동 진행하지 않는다. 이 작업에서 수용 복원/영상 시험을 다시 반복하지 않았다.
 4. 별도 승인된012+019와 이미 검토된 지정 table/column 역할 계획을 적용한다. 앱4·CPU/model/GPU reader·웹의 origin 계약을 함께 맞추고 새 공용 입력을 정상 API만 먼저 노출하지 않는다. encode 후보는 같은 logical worker/역할·정확한 image/labels/mount·restart=no로 생성하되 미시작이다. API는 maintenance 유지와 명시 `handover=true` 재기동만 허용하고,019 catalog/역할 검토가 안 맞으면 미개방 상태로 멈춘다. auth/origin/cookie를 낮추거나 포괄 GRANT·새 ingress로 해결하지 않는다.
 5. **호스트 코드 교체:** 새 host 코드를 준비하지만 daemon을 먼저 띄우지 않는다. host.json·DSN/key·ACK leaf를 보존하고 별도 manifest로 host CLI prepare→정상 HTTPS 관리자 preview/승인→같은 host CLI offline apply를 명시 실행한다. 원 host/session·sender가 소유 중이면 거부하며 group은 desired0이다. 중단된 applying은 held, 완료 응답 유실은 같은 기록 조회만 한다.
 6. 승인된 exact descriptor만 든 별도 binding으로 새 host 진입점을 기동하고 계약/관측/desired0·새 target 미시작을 확인한다. **유지보수에서는 Start도 차단된다.** coordinated 설치·기존 기록·송신 fence와 복구 경계가 별도로 수용되기 전에는 유지보수/미개방 상태를 유지한다. 정상 접수 재개는 별도 승인 후 explicit normal bootstrap+기동 요구를 함께 바꾼 재기동으로만 하며, 오류 해소나 호스트 기동이 normal/Start를 뜻하지 않는다. 이후 Start 역시 별도 정상 인증/CSRF·개정에 따른 명시 조작이다.

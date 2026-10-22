@@ -6,12 +6,24 @@
 
 ## 현재 상태
 
-### 수용 소스의 운영 반영 — 단일 인코딩 대상 유지
+### 018 유지보수 API 선행 설치 — 운영 수용
+
+- [x] `28c14fd3`의 유지보수 API 한 서비스만 운영 설치하고 PM이 수용했다. API 전용 정책과 기존 DSN의 두 RO 파일 mount로 공유 `api.json`을 보존했다. `handover=false`·UID10001·기존 HTTPS/origin/Secure cookie·네트워크/별칭/healthcheck를 유지하며 저장소/브로커 initializer와 일반 업무 route를 열지 않는다.
+- [x] 기존 normal API에 SIGTERM 한 번·자동 강제 종료 없는 대기를 적용했다. 실제 exit143·listener/Python/init 종료·OOM/재시작 없음과 업무22개 테이블의 종료 전/후/인증 확인 후 동일 해시를 묶어 확인한 뒤 새 API를 기동했다. 같은 HTTPS의 vault 정상 로그인·세션/지정 관리자 조회200과 업무503을 확인했고 web reload는 하지 않았다. 기존 업무 UI의 조회 오류는 유지보수 차단이며 새 안내 화면 수용은 아니다.
+
+### 같은 등록 슬롯 Stop0·송신3개 정지 — 실행 확인, PM 결과 검토 대기
+
+- [x] 현재 물리 실행기는 같은 boot의 ready/작업 없음이고 충돌 제어·새 미발행 명령·managed 미완료 전송이 없음을 대조한 뒤 정상 HTTPS/vault·CSRF·개정7로 Stop0 한 번을 요청했다. 요청 `dcccf6fb8bd04f7684178f46163e8bd1`은 개정8/succeeded, action `dc4cb60c7bd447d1abd2cb25b5f89693`은 confirmed/issue_count1이다. host267의 실제 ACK reader로 서명·원 요청·원 boot·정확한 target/image를 검증했고 기존 대상은 정상 종료0이다. 논리 슬롯1·desired0·disabled·pending 없음이며 pin/image/계약을 바꾸지 않았다.
+- [x] 그 뒤 `dispatch-encode`·`results`·`engine-results`만 각각 정확한 ID에 TERM 한 번/timeout=-1로 정지했다. 세 프로세스 모두 exit0/PID0·OOM/재시작 없음이다. 처리·후속 발행·ACK 순서의 실제 설치 코드를 대조하고 결과 채널의 미ACK/미confirm/미commit이 없음을 확인했다. 종료 후 두 결과 consumer/연결은 없고 업무·outbox/inbox 해시는 그대로라 새 미확정 전송을 만들지 않았다. 별도 busy 영상 시험은 반복하지 않았다.
+- [x] 원 #5의 raw running/needs_review·발행/수신 이력, accepted-result 미발행20건·encode DLQ ready1과 과거 ACK/제어 기록을 보존했다. 변경은 새 Stop0 제어 기록뿐이며 API·웹·host267·다른 실행 역할·DB/MQ/S3는 계속 유지한다. 이는 전체 작업 완료·모든 실행 역할 정지·복구 완료가 아니다.
+- [ ] host267의 정상 종료/원 소유권 반납, 운영012/019·역할 GRANT·새 host/실행 이미지·대상 전환·원본17 이관·#5/DLQ 복구·정상 접수 재개는 이번 승인에 포함되지 않는다. 각각의 다음 명시 범위와 승인을 기다린다.
+
+### 선행 운영 이력 — c106 단일 인코딩 단계
 
 - API·CPU 결과 수신·인코딩 전송 대기·엔진 결과 수신과 웹은 `c106bf097d6ea0f84af47590e3d6dd837db944f9` 수용본으로 반영했다. 실제 설치 모듈·HTTPS JS/CSS와 정상 인증 조회를 확인했다. 호스트 `26710eb0`와 기존 인코딩 실행기 이미지·ID·`restart=no`는 유지하며 API에 Docker socket을 주지 않는다.
 - 운영 DB의 custom 백업을 별도 내부 PG에 복원한 뒤 migration018만 적용했다. 복원된 기존 46개 테이블의 원래 열 값이 동일했고, 원 작업을 바꾸지 않는 확인 기록 조회가 가능했다. 처리·전송 중 작업이 없음을 재확인하고 운영에도 018만 적용했다. 공용 자료함 WIP의 migration012는 포함하지 않았다. 백업·이전 이미지·설정과 롤백 경로는 비공개 운영 자료로 보존한다.
 - 실제 관리자 인증으로 작업 처리 확인 API·목록과 제품 PC/390px 화면을 조회했다. #5는 별도 확인 기록의 **처리 여부 확인 필요**로 표시하며 원 작업의 `running`·실행·요청·전송·수신 사실은 그대로다. 준비 계획·관리자 판단·새 복구 작업·예약 해제는 모두 0건이다. 실제 #5의 복구 판단·재발행·초기화는 수행하지 않았다.
-- 에이전트 화면은 정상 실행 1개·현재 작업 없음이며 #5 확인 목록으로 연결된다. 변경한 5개 프로그램 외 기존 15개 컨테이너와 기존 자료·설정/키·공용 자료함 WIP를 보존했다. 동일 영상 여정·운영 장애 주입은 반복하지 않았다. 설치 revision/모듈 SHA와 원 자료 대조·화면 증적은 저장소 밖 운영 인계에 보존한다.
+- 당시 에이전트 화면은 정상 실행 1개·현재 작업 없음이며 #5 확인 목록으로 연결됐다. 변경한 5개 프로그램 외 기존 15개 컨테이너와 기존 자료·설정/키·공용 자료함 WIP를 보존했다. 현재의 유지보수·안전 정지 상태는 위 별도 체크포인트를 따른다. 동일 영상 여정·운영 장애 주입은 반복하지 않았다. 설치 revision/모듈 SHA와 원 자료 대조·화면 증적은 저장소 밖 운영 인계에 보존한다.
 
 ### 구현·수용된 경계
 
@@ -28,15 +40,15 @@
 - 실제 pip 재설치한 API/CPU 패키지·별도 PG/local CAS에서 A 업로드→B의 원본 재사용/작업 생성/계획·동의·실행 UI→실제 encode/validate 완료→A의 결과 다운로드를 확인했다. 관리자 workflow 정의만 실제 API로 준비했으며 일반 모델/언어 선택 전체 제품 여정으로 확대하지 않는다. 일반 B의 다른 작업 읽기 전용과 관리자/credential 경로403, 비로그인401도 확인했다.
 - PC/390px 실제 브라우저 6개 최종 관찰에서 원본/결과 다운로드 SHA·파일명, 실제 재생 종료/디코딩과 업로더/실행 계정 가시성을 확인했다. 두 노드 모두 attempt1/정상 종료, 원 자산1개·원 hash/실제 경로 동일·실행자 원본 복사0이다. S3 호환 참조/독립 subprocess는 별도 emulator 경계이며 새 실제 MQ/물리 실행기 수용이 아니다.
 - 신규 설치본 관련 backend12개 통과(실패/오류/skip0, 기존 Starlette/httpx 경고1). 기존 처리 확인 projection이 공유 목록/상세에서 사라지는 회귀를 RED→GREEN으로 막았다. 018 적용 상태에012를 뒤늦게 추가해도 기존 snapshot/owner/원 자산이 보존됨을 별도 PG에서 확인했다. 이 검증은 운영012 적용이 아니다.
-- 운영 앱/웹은 c106, 문서 기준점55a8058c이며 운영012·구버전 원본17개 이관·#5 복구·추가 슬롯·배치 이전·유료 호출은 수행하지 않았다. 운영 반영은 PM 검토 뒤 별도 범위다. 특히 새 origin 입력을 읽는 실행단 설치본과 고정 host pin의 호환 검토 없이 API만 앞서 교체하지 않는다.
+- 공용 읽기 기능의 운영 반영은 아직 별도 범위다. 현재는 위018 유지보수 API와 안전 정지 체크포인트이며 일반 공용 입력/실행 route를 열지 않았다. 운영012·구버전 원본17개 이관·#5 복구·추가 슬롯·배치 이전·유료 호출은 수행하지 않았다. 새 origin 입력을 읽는 실행단 설치본과 고정 host pin의 호환 검토 없이 normal API만 앞서 공개하지 않는다.
 
-### 최소 유지보수 입장 정책 — 구현·격리 설치 검증, 운영 미반영
+### 최소 유지보수 입장 정책 — 구현·격리 검증 및018 API 선행 설치 수용
 
 - [x] `app.server`의 필수 `--admission-mode normal|maintenance`와 bootstrap의 명시 `admission_policy`가 일치해야 기동한다. 누락/불일치, 유지보수의 비보안 origin/cookie·broker·고정 mailbox/등록 슬롯 부재와019를 요구한 기동의 schema 미준비는 listener를 열지 않는다. 파일/기동 인자 재확인 없이 오류 해소나 재시작으로 normal이 되지 않는다.
 - [x] 유지보수 API는 저장소/credential/broker initializer와 media/execution route를 열지 않는다. request body 수신·업무 DB/파일/외부 호출 전에 미분류 경로도 기본 거부한다. 기존 일반/관리자 세션·직접 HTTP·binary PUT·새 GET handler도 차단했다. 정상 auth/session/logout, 지정 슬롯 관리자 조회·Stop0, 명시019 단계의 관리자 교체 preview/decision만 허용한다. `/admin`/GET 전체 허용은 없다.
 - [x] 018만 있는 별도 DB에서 현재267 host와 새 설치 API를 실제 TLS peer로 연결해 정상 로그인·기존 등록 슬롯 Stop0→실제 fixture 종료0·signed ACK를 확인했다. 이때012/019는 없고 새 media/public-origin API도 열리지 않았다. 별도019 적용과 명시 phase/restart 뒤 같은 HTTPS 세션으로 preview/decision→host CLI apply→조회가 연결됐고 desired0/새 target created를 유지했다. PG 보고 fixture이며 운영 MQ 영상 시험이 아니다.
 - [x] 새 경계만 설치 패키지에서 검사했다. 서버 재시작 후 기존 세션과 차단 유지, schema019 요구 실패 exit2/미개방, HTTP 보안·사유·개정·권한, Start/증설/다른 슬롯·변경된 슬롯 차단과 기존 role 권한 재사용을 포함한다. 수용47/MQ 영상/A-B는 반복하지 않았다.
-- [ ] PM 소스·설치 증적 검토/원격 반영과 운영 설치 승인은 별개다. 운영 c106/host267·012019/GRANT/이미지/pin/원본17/#5는 변경하지 않았다. 기존 요청 in-flight·결과 수신/DAG 후속 발행은 입장 정책으로 멈추거나 정리됐다고 판정하지 않으며 별도 drain/송신 fence를 대조한다.
+- [x] PM 소스·격리 증적 수용과 원격28c14fd3 반영 뒤 별도 승인으로018 유지보수 API 한 서비스의 운영 선행 설치를 수용했다. 결과 수신/DAG 후속 발행은 이 정책이 멈춘 것이 아니며, 위 Stop0·송신3개 정지는 그 다음 독립 승인과 실제 확인이다. 운영012/019·GRANT·host/실행 이미지·pin·원본17·#5 복구는 변경하지 않았다.
 
 ### 대상 교체 설치 연결 리허설 — 격리 확인, 운영 승인 아님
 
@@ -45,7 +57,7 @@
 - [x] 실제 설치 host 진입점에서 별도 binding 누락/불일치는 exit2로 차단하고 exact 파일만 채택했다. 기동 뒤 logical slot1/desired0/disabled와 새 native target created·미시작을 유지했다. config/key leaf는 RO, receipts만 RW이고 기존 config를 덮어쓰지 않았다.
 - [x] 같은 별도 운영 DB 복원본에 migration loader로012·019만 함께 적용했다. 기존51개 업무 table의 기존 열 값·기존 migration facts·원 snapshot/자산/#5 raw running·제어/ACK 이력이 보존됐으며 신규 교체/복구 기록은 만들지 않았다. --no-owner/--no-privileges schema/data 범위이며 전체 cluster ACL 복구 수용은 아니다.
 - [x] 이전 lint 보고를 정정한다. 수용 첨부 기준 **신규 위반0·기존 위반4**다. 2개 또는 전체 lint 통과로 기록하지 않는다. 이번은 기능/소스 변경 없이 설치 연결만 확인했고 수용47개·MQ 영상·A/B 전체를 반복하지 않았다.
-- [ ] 운영은 c106 앱/웹·host267/기존실행기 그대로다. 아래 runtime 설치 순서·실제 역할 GRANT/안전한 관리자 유지보수 접속을 검토하고 별도 승인해야 한다. 운영012/019·pin/이미지·원본17개 이관·#5 복구·추가 슬롯·유료 호출은 계속 제외한다.
+- [ ] 전체 대상 교체 설치는 별도 승인이다. 현재 유지보수 API 선행 설치와 기존 슬롯/송신3개 정지만 수행했으며 host267은 계속 실행 중이다. 아래 runtime의 실제 역할 GRANT·호스트 소유권 반납·설치/대상 전환을 검토해야 한다. 운영012/019·pin/실행 이미지·원본17개 이관·#5 복구·추가 슬롯·유료 호출은 계속 제외한다.
 
 ### 논리 슬롯1 대상 교체 — 소스·격리 검증 PM 수용, 운영 적용 대기
 
@@ -54,12 +66,12 @@
 - [x] 이전 host/session 소유권과 활성 sender가 있거나 진행/unknown 제어·미해결 전송이 있으면 교체를 막는다. 종료0·동일 boot·서명 ACK·no-restart와 새 대상 정지 상태를 재확인한다. 중단된 applying은 held, commit 뒤 응답 유실은 같은 완료 기록 반환이며 자동 교체/재신호/시작은 없다.
 - [x] 실제 PG의 새 경계·기존 제어/복구 회귀, 정상 인증/CSRF 관리자API, 실제 별도 native 컨테이너의 offline CLI와 signed ACK를 검사했다. native 시험의 상태 보고는 PG fixture이며 MQ 영상·모델/GPU 추론·A/B 브라우저 여정을 반복하지 않았다.
 - [x] PM source9ae90c4f 수용·App push와 격리 최소권한/실제 host 진입점·별도 바인딩 연결을 확인했다.
-- [ ] 실제 운영 역할 GRANT·호스트 설치·exact 바인딩과 유지보수 관리자 접속 검토·승인은 남아 있다. 이 기능을 쓸 때는 새 호스트 실행 코드도 필요하므로, 앞선 공용 입력 compatibility의 'host binary 유지 가능'을 이번 새 기능 설치 승인으로 해석하지 않는다.
-- [ ] 운영 적용은 별도 승인이다. 현재 c106 앱/웹·host267·기존 실행기·012 부재·원본17개·#5를 그대로 유지한다. 별도 신규 교체 UI는 없고 관리자API와 host 전용명령 범위다.
+- [ ] 실제 운영 역할 GRANT·새 호스트 설치·exact 바인딩과019 교체 승인 경로의 검토·승인은 남아 있다. 기존018의 정상 유지보수 관리자 접속은 위 선행 설치에서 수용됐다. 대상 교체에는 새 호스트 실행 코드가 필요하므로, 앞선 공용 입력 compatibility의 'host binary 유지 가능'을 이번 새 기능 설치 승인으로 해석하지 않는다.
+- [ ] 대상 교체의 운영 적용은 별도 승인이다. 유지보수 API 선행 설치와 기존 슬롯 Stop0가 완료돼도019/호스트 코드·계약·pin 전환은 미실행이다. 현재 상태는 위 체크포인트를 따르며012/019 부재·원본17개·#5 원기록을 유지한다. 별도 신규 교체 UI는 없고 관리자API와 host 전용명령 범위다.
 
 ### 공용 입력 운영 교체 전 호환성 — 검증 완료, 고정 대상 교체 gate 미해소
 
-- 공용 읽기 d4a628a8은 PM 수용·App push 완료다. 운영 앱/웹 c106·호스트26710eb0·기존 실행 이미지6986은 변경하지 않았다.
+- 공용 읽기 d4a628a8은 PM 수용·App push 완료다. 이 호환성 검증 당시 운영 앱/웹 c106·호스트26710eb0·기존 실행 이미지6986은 변경하지 않았다. 이후 유지보수 API 선행 설치와 안전 정지는 위 별도 체크포인트이며 공용 기능의 정상 공개가 아니다.
 - 별도 실제 TLS MQ/S3와 clean-source 후보 앱/CPU 이미지에서 기존 입력과 source_owner_id 공용 입력을 각각 encode→validate 완료했다. 두 작업 모두 각 노드 attempt1, 결과 inbox2/S3 receipt·원격 GET SHA/전체 decode 정상이며 최종 queue ready/unacked0이었다. A/B 브라우저 전체는 반복하지 않았다.
 - 실제 기존 앱/CPU/model/GPU reader는 새 참조를 거부하고 후보4군은 기존·새 참조를 읽었다. 경로 탈출 origin/digest-key 불일치도 후보에서 거부했다. 모델/GPU는 기존 image layer/환경/entrypoint를 보존한 shared 설치본 읽기·검증이며 모델별 추론·engine-v2 MQ 전체를 다시 수용한 것은 아니다.
 - 운영 백업을 별도 PG의 별도 DB에 복원해012만 적용했다. 기존51개 table의 기존 열 값·작업6개·immutable snapshot/원본/#5·제어 group/이력은 동일했다. 이전 c106 앱도012 상태의 기존 snapshot을 읽었지만, 새 공용 입력을 처리할 수 있다는 뜻은 아니다.
