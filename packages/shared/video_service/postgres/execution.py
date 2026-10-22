@@ -173,8 +173,10 @@ class Execution(Intake):
     def _view(self, db, job):
         owner, identity = job["owner_id"], job["id"]
         from .dispatch_queue import DispatchQueue
+        from .job_processing_review import JobProcessingReview
         return {
             **public(job),
+            "processing_review": JobProcessingReview(self).capture_in(db, job),
             "runs": [public(r) for r in DispatchQueue.decorate_in(db, self._runs(db, owner, identity))],
             "reviews": [
                 public(r)
@@ -187,17 +189,13 @@ class Execution(Intake):
 
     def get(self, owner, identity):
         with self.database.connection() as db:
-            return self._view(db, self._job(db, owner, identity))
+            return self._view(db, self._job(db, owner, identity, lock=True))
 
     def jobs(self, owner):
         with self.database.connection() as db:
-            return [
-                public(r)
-                for r in db.execute(
-                    "SELECT * FROM jobs WHERE owner_id=%s ORDER BY created_at DESC,id",
-                    (owner,),
-                )
-            ]
+            ids=[r['id'] for r in db.execute("SELECT id FROM jobs WHERE owner_id=%s ORDER BY created_at DESC,id",(owner,))]
+        # Release each row lock separately; never hold child then parent list locks.
+        return [self.get(owner,identity) for identity in ids]
 
     def inspect(self, owner, identity, revision):
         definition = self.job_definition(owner, identity, revision)
@@ -289,6 +287,9 @@ class Execution(Intake):
             bindings = self._bindings(db, workflow_owner, definition, active=False)
             engine_bindings = self._engine_bindings(db, definition)
             parent = self._job(db, owner, parent_id) if parent_id else None
+            from .job_processing_review import JobProcessingReview
+            if parent and JobProcessingReview.blocked_in(db, owner, parent_id):
+                raise Conflict("관리자 판단에 연결된 새 작업 절차를 사용하세요.")
             if parent and parent["status"] not in ("failed", "cancelled"):
                 raise Conflict(
                     "종료된 실패/취소 작업만 새 복구 작업으로 분리할 수 있습니다."
@@ -342,6 +343,9 @@ class Execution(Intake):
             return self._view(db, row)
 
     def _plan(self, db, job):
+        from .job_processing_review import JobProcessingReview
+        if JobProcessingReview(self).capture_in(db, job):
+            return {'token':digest({'job':job['id'],'processing_review':True}),'ready':False,'reasons':['관리자 처리 확인이 필요합니다.'],'notice':'원 실행을 다시 시작하지 않습니다.'}
         for ref in job["snapshot"]["inputs"].values():
             self.store.path(job["owner_id"], ref)
         runs = self._runs(db, job["owner_id"], job["id"])
@@ -640,6 +644,9 @@ class Execution(Intake):
     def claim_next(self, owner, identity):
         with self.database.connection() as db:
             job = self._job(db, owner, identity, lock=True)
+            from .job_processing_review import JobProcessingReview
+            if JobProcessingReview(self).capture_in(db, job):
+                return None
             if (
                 job["status"] not in ("waiting", "running")
                 or job["cancel_requested"]
@@ -819,6 +826,9 @@ class Execution(Intake):
         # outcome is unknown never automatically launches a second process.
         with self.database.connection() as db:
             job = self._job(db, owner, command["run_id"], lock=True)
+            from .job_processing_review import JobProcessingReview
+            if JobProcessingReview(self).capture_in(db, job):
+                raise Conflict("관리자 확인 중인 원 실행은 다시 시작하지 않습니다.")
             run = db.execute(
                 "SELECT *,lease_expires_at>now() AS lease_valid FROM node_runs WHERE owner_id=%s AND job_id=%s AND id=%s",
                 (owner, command["run_id"], command["attempt_id"]),
@@ -1080,6 +1090,11 @@ class Execution(Intake):
             )
             if not valid:
                 raise Conflict("결과가 실행 요청과 다릅니다.")
+            from .job_processing_review import JobProcessingReview
+            processing = JobProcessingReview(self)
+            processing.capture_in(db, job)
+            if processing.late_in(db, job, run, command, result):
+                return self._view(db, job)
             from .dispatch_queue import DispatchQueue
             run = DispatchQueue.received_in(db, job, run, from_result=True)
             lease = db.execute(
@@ -1330,6 +1345,9 @@ class Execution(Intake):
     def cancel(self, owner, identity, revision):
         with self.database.connection() as db:
             job = self._job(db, owner, identity, lock=True)
+            from .job_processing_review import JobProcessingReview
+            if JobProcessingReview(self).capture_in(db, job):
+                raise Conflict("확인 중인 원 기록은 초기화하거나 취소로 덮어쓰지 않습니다.")
             if job["status"] in ("completed", "failed", "cancelled"):
                 return self._view(db, job)
             if job["revision"] != revision:

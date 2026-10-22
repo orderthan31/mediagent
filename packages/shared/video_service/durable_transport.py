@@ -19,6 +19,9 @@ class DurableTransport:
             return queued
         with self.runtime.database.connection() as db:
             job = self.runtime._job(db, owner, job_id, lock=True)
+            from .postgres.job_processing_review import JobProcessingReview
+            if JobProcessingReview(self.runtime).capture_in(db, job):
+                return False
             row = db.execute(
                 "SELECT * FROM message_outbox WHERE owner_id=%s AND aggregate_id=%s AND id=%s FOR UPDATE",
                 (owner, job_id, message_id),

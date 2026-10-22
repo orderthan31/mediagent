@@ -535,22 +535,23 @@ def create_app(
 
         from .renewal_routes import mount_runtime
 
+        runtime = Execution(
+            database,
+            content_store,
+            agent_executor=agent_executor,
+            fleet=fleet if cpu_driver is not None else None,
+            engine_runtime_enabled=bool(getattr(broker_factory, "engine_factory", None)),
+        )
         mount_runtime(
             app,
-            Execution(
-                database,
-                content_store,
-                agent_executor=agent_executor,
-                fleet=fleet if cpu_driver is not None else None,
-                engine_runtime_enabled=bool(
-                    getattr(broker_factory, "engine_factory", None)
-                ),
-            ),
+            runtime,
             session,
             administrator,
             local_execution=local_execution,
             broker_factory=broker_factory,
         )
+        from .processing_review_routes import mount_processing_review
+        mount_processing_review(app, runtime, administrator)
     elif local_execution:
         raise ValueError("CPU execution requires an explicit private content store")
     return app

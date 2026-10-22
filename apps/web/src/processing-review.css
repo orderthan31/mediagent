@@ -1,0 +1,60 @@
+.processing-review {
+  min-width: 0;
+  max-width: 100%;
+  margin-top: 1.25rem;
+}
+.processing-review dl > div {
+  display: grid;
+  grid-template-columns: 9rem minmax(0, 1fr);
+  gap: 0.6rem;
+  margin: 0.55rem 0;
+}
+.processing-review dd {
+  min-width: 0;
+  margin: 0;
+}
+.processing-review code,
+.processing-review pre,
+.processing-review li {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.processing-review pre {
+  max-height: 24rem;
+  overflow: auto;
+  max-width: 100%;
+  padding: 0.75rem;
+  background: var(--surface-subtle, #f5f6f8);
+}
+.processing-review textarea {
+  width: 100%;
+  min-height: 5rem;
+  box-sizing: border-box;
+}
+.processing-review .processing-risk {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0.8rem 0;
+}
+.processing-review .processing-risk input {
+  width: auto;
+  flex: 0 0 auto;
+}
+.processing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.75rem 0;
+}
+@media (max-width: 600px) {
+  .processing-review dl > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.1rem;
+  }
+  .processing-actions > * {
+    max-width: 100%;
+  }
+}

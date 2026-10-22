@@ -126,6 +126,9 @@ class DispatchQueue:
 
     def _reserve_in(self, db, job, outbox):
         """Transaction 1: admission and a durable, non-replayable send intent."""
+        from .job_processing_review import JobProcessingReview
+        if JobProcessingReview(self.runtime).capture_in(db, job):
+            return False
         q = db.execute('SELECT * FROM broker_dispatch_queue WHERE node_run_id=%s FOR UPDATE', (outbox['id'],)).fetchone()
         if q is None:
             return None
@@ -143,7 +146,7 @@ class DispatchQueue:
         worker = self._ready_worker_in(db, q['agent_id'])
         if not worker:
             return False
-        active = db.execute("SELECT 1 FROM broker_dispatch_queue WHERE agent_id=%s AND phase IN ('sending','sent','received','unknown')", (q['agent_id'],)).fetchone()
+        active = db.execute("SELECT 1 FROM broker_dispatch_queue WHERE agent_id=%s AND phase IN ('sending','sent','received','unknown') AND release_decision_id IS NULL", (q['agent_id'],)).fetchone()
         if active:
             return False
         db.execute("UPDATE broker_dispatch_queue SET phase='sending',worker_id=%s,boot_id=%s,updated_at=now() WHERE node_run_id=%s", (worker['id'], worker['boot_id'], run['id']))

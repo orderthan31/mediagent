@@ -3,6 +3,7 @@ import { request } from './api';
 import { frontendOnly } from './preview';
 import { Button } from './hangyeol/primitives/button';
 import { BrokerAgentStatus } from './BrokerAgentStatus';
+import { ProcessingReviewInbox } from './JobProcessingReview';
 import { LoadingSkeleton } from './LoadingSkeleton';
 import type { BrokerObservation } from './broker-agent-status';
 import './agent-operations.css';
@@ -169,7 +170,12 @@ export const AgentOperations = ({ identity }: { identity: string }) => {
     };
   }, [identity]);
   if (!frontendOnly && brokerMode) {
-    return <BrokerAgentStatus runtime={runtime} error={error} onObserved={accept} />;
+    return (
+      <>
+        <BrokerAgentStatus runtime={runtime} error={error} onObserved={accept} />
+        {identity === 'encode' && <ProcessingReviewInbox />}
+      </>
+    );
   }
   return (
     <section className="agent-operations" aria-label="에이전트 운영 관리">

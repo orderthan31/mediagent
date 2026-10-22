@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { request, mediaUrl } from './api';
 import { jsonPost } from './video-api';
 import { dispatchLabel } from './dispatch-status';
+import { processingLabel, type ProcessingProjection } from './processing-review-state';
+import { JobProcessingReview } from './JobProcessingReview';
 import { PageTitle } from './PageTitle';
 import { LoadingSkeleton } from './LoadingSkeleton';
 import { Button } from './hangyeol/primitives/button';
@@ -38,6 +40,7 @@ type Review = {
   contract: { fields: FieldSchema; source: Reference };
 };
 type State = {
+  processing_review?: ProcessingProjection | null;
   id: string;
   ticket_number: number;
   revision: number;
@@ -151,7 +154,9 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
             <a href={'#/videos/' + job.snapshot.asset.asset_id}>
               {job.snapshot.asset.original_filename}
             </a>
-            <strong role="status">{labels[job.status] || job.status}</strong>
+            <strong role="status">
+              {processingLabel(job.processing_review) || labels[job.status] || job.status}
+            </strong>
             <Button variant="quiet" disabled={busy} onClick={() => void action(reload)}>
               새로고침
             </Button>
@@ -161,6 +166,9 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
               원 작업 <a href={'#/jobs/' + job.parent_id}>복구 출처 열기</a> · 원 기록은 변경하지
               않습니다.
             </p>
+          )}
+          {job.processing_review && (
+            <JobProcessingReview jobId={id} onChanged={() => void reload()} />
           )}
           <section className="job-execution">
             <WorkflowCanvas
@@ -172,7 +180,16 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
               nodeStates={Object.fromEntries(
                 job.runs.map((item) => [
                   item.node_id,
-                  { label: labels[item.status] || item.status, state: item.status },
+                  {
+                    label:
+                      job.processing_review?.source_attempt_id === item.id
+                        ? '원 실행 기록 보존'
+                        : labels[item.status] || item.status,
+                    state:
+                      job.processing_review?.source_attempt_id === item.id
+                        ? 'review_required'
+                        : item.status,
+                  },
                 ]),
               )}
               detailsLabel="노드 실행 결과"
@@ -336,7 +353,7 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
           <section
             className="ticket-panel"
             aria-label="실행 승인"
-            hidden={job.status === 'completed'}
+            hidden={job.status === 'completed' || !!job.processing_review}
           >
             {['draft', 'review_required'].includes(job.status) && (
               <>

@@ -99,7 +99,7 @@ def ledger(job):
     return {
         "job_id": job["id"],
         "ticket_number": str(job["ticket_number"]),
-        "status": statuses[job["status"]],
+        "status": 'PROCESSING_REVIEW' if job.get('processing_review') else statuses[job["status"]],
         "original_filename": snapshot["asset"]["original_filename"],
         "expected_size": snapshot["asset"]["size_bytes"],
         "uploaded_bytes": snapshot["asset"]["size_bytes"],
@@ -110,6 +110,8 @@ def ledger(job):
         "quality_profile": "balanced",
         "error": None,
         "metadata": {
+            "processing_review": job.get('processing_review'),
+            "raw_status": job['status'],
             "asset_id": job["asset_id"],
             "workflow": {
                 "definition_id": job["workflow_id"],

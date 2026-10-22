@@ -68,6 +68,7 @@ export const stageLabels: Record<string, string> = {
   validate_video: '결과 검증',
 };
 export const statusLabels: Record<string, string> = {
+  PROCESSING_REVIEW: '처리 여부 확인 필요',
   FACE_SWAPPING: '얼굴 합성 중',
   UPLOADING: '업로드 중',
   READY: '실행 대기',
