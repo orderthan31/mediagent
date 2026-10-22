@@ -38,6 +38,16 @@ def digest(value):
 
 
 def reference_path(root, reference):
+    if isinstance(reference, dict) and "source_owner_id" in reference:
+        from .content_store import reference_origin
+
+        actor_root = Path(root)
+        source, reference = reference_origin(actor_root.name, reference)
+        if actor_root.is_symlink() or actor_root.parent.is_symlink():
+            raise ValueError("Symlink input namespace denied")
+        root = actor_root.parent / source
+        if root.is_symlink():
+            raise ValueError("Symlink source namespace denied")
     if not isinstance(reference, dict) or set(reference) != {
         "storage_key",
         "sha256",

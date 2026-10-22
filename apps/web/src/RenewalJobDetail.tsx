@@ -41,13 +41,16 @@ type Review = {
 };
 type State = {
   processing_review?: ProcessingProjection | null;
+  access?: { can_manage: boolean };
+  executed_by?: string;
+  asset_owner_id?: string;
   id: string;
   ticket_number: number;
   revision: number;
   status: string;
   parent_id: string | null;
   snapshot: {
-    asset: { asset_id: string; original_filename: string };
+    asset: { asset_id: string; original_filename: string; uploaded_by?: string };
     definition: CanvasDefinition;
   };
   runs: Run[];
@@ -104,6 +107,7 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
       setBusy(false);
     }
   };
+  const canManage = job?.access?.can_manage === true;
   const run = job?.runs.find((item) => item.node_id === selected);
   const node = job?.snapshot.definition.nodes.find((item) => item.id === selected);
   const review = job?.reviews.find((item) => item.node_run_id === run?.id);
@@ -161,6 +165,19 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
               새로고침
             </Button>
           </div>
+          <section className="shared-job-custody" aria-label="자료와 실행 기록">
+            {!canManage && <strong>공용 읽기 전용</strong>}
+            <dl>
+              <div>
+                <dt>원본 업로더</dt>
+                <dd>{job.snapshot.asset.uploaded_by || job.asset_owner_id || '기록 없음'}</dd>
+              </div>
+              <div>
+                <dt>작업 생성·실행 계정</dt>
+                <dd>{job.executed_by || '기록 없음'}</dd>
+              </div>
+            </dl>
+          </section>
           {job.parent_id && (
             <p>
               원 작업 <a href={'#/jobs/' + job.parent_id}>복구 출처 열기</a> · 원 기록은 변경하지
@@ -292,7 +309,13 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
                         </p>
                       </section>
                     ))}
-                    {review && (
+                    {review && !canManage && (
+                      <section className="execution-review" aria-label="검수 내용 읽기 전용">
+                        <h4>검수 내용 · 읽기 전용</h4>
+                        <pre>{JSON.stringify(review.draft, null, 2)}</pre>
+                      </section>
+                    )}
+                    {review && canManage && (
                       <section aria-label="공통 검수">
                         <h4>자료 확인</h4>
                         <DataForm
@@ -350,122 +373,124 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
               }
             />
           </section>
-          <section
-            className="ticket-panel"
-            aria-label="실행 승인"
-            hidden={job.status === 'completed' || !!job.processing_review}
-          >
-            {['draft', 'review_required'].includes(job.status) && (
-              <>
+          {canManage && (
+            <section
+              className="ticket-panel"
+              aria-label="실행 승인"
+              hidden={job.status === 'completed' || !!job.processing_review}
+            >
+              {['draft', 'review_required'].includes(job.status) && (
+                <>
+                  <Button
+                    variant="secondary"
+                    disabled={busy}
+                    onClick={() =>
+                      void action(async () => {
+                        const next = await request<Plan>(base + '/plan');
+                        setPlan(next);
+                        setConsent(null);
+                        nonces.current.confirm = crypto.randomUUID();
+                        nonces.current.admit = crypto.randomUUID();
+                      })
+                    }
+                  >
+                    실행 계획 확인
+                  </Button>
+                  {plan && (
+                    <>
+                      <p>{plan.notice}</p>
+                      {plan.reasons.map((reason) => (
+                        <p key={reason} role="status">
+                          {reason}
+                        </p>
+                      ))}
+                      <Button
+                        disabled={busy || !plan.ready || !!consent}
+                        onClick={() =>
+                          void action(async () => {
+                            const response = await jsonPost<{ id: string }>(base + '/confirm', {
+                              token: plan.token,
+                              request_id: nonces.current.confirm,
+                            });
+                            setConsent(response.id);
+                          })
+                        }
+                      >
+                        계획 동의 저장
+                      </Button>
+                    </>
+                  )}
+                </>
+              )}
+              {consent && (
+                <Button
+                  disabled={busy}
+                  onClick={() =>
+                    void action(async () => {
+                      await jsonPost(base + '/admit', {
+                        consent_id: consent,
+                        request_id: nonces.current.admit,
+                      });
+                      setConsent(null);
+                      setPlan(null);
+                      await jsonPost(base + '/run', {});
+                    })
+                  }
+                >
+                  실행 요청
+                </Button>
+              )}
+              {['waiting', 'running'].includes(job.status) && (
+                <Button
+                  disabled={busy}
+                  onClick={() => void action(() => jsonPost(base + '/run', {}))}
+                >
+                  승인된 처리 진행
+                </Button>
+              )}
+              {['draft', 'waiting', 'running', 'review_required'].includes(job.status) && (
                 <Button
                   variant="secondary"
                   disabled={busy}
                   onClick={() =>
                     void action(async () => {
-                      const next = await request<Plan>(base + '/plan');
-                      setPlan(next);
+                      await jsonPost(base + '/cancel', { revision: job.revision });
                       setConsent(null);
-                      nonces.current.confirm = crypto.randomUUID();
-                      nonces.current.admit = crypto.randomUUID();
+                      setPlan(null);
                     })
                   }
                 >
-                  실행 계획 확인
+                  작업 취소
                 </Button>
-                {plan && (
-                  <>
-                    <p>{plan.notice}</p>
-                    {plan.reasons.map((reason) => (
-                      <p key={reason} role="status">
-                        {reason}
-                      </p>
-                    ))}
-                    <Button
-                      disabled={busy || !plan.ready || !!consent}
-                      onClick={() =>
-                        void action(async () => {
-                          const response = await jsonPost<{ id: string }>(base + '/confirm', {
-                            token: plan.token,
-                            request_id: nonces.current.confirm,
-                          });
-                          setConsent(response.id);
-                        })
-                      }
-                    >
-                      계획 동의 저장
-                    </Button>
-                  </>
-                )}
-              </>
-            )}
-            {consent && (
-              <Button
-                disabled={busy}
-                onClick={() =>
-                  void action(async () => {
-                    await jsonPost(base + '/admit', {
-                      consent_id: consent,
-                      request_id: nonces.current.admit,
-                    });
-                    setConsent(null);
-                    setPlan(null);
-                    await jsonPost(base + '/run', {});
-                  })
-                }
-              >
-                실행 요청
-              </Button>
-            )}
-            {['waiting', 'running'].includes(job.status) && (
-              <Button
-                disabled={busy}
-                onClick={() => void action(() => jsonPost(base + '/run', {}))}
-              >
-                승인된 처리 진행
-              </Button>
-            )}
-            {['draft', 'waiting', 'running', 'review_required'].includes(job.status) && (
-              <Button
-                variant="secondary"
-                disabled={busy}
-                onClick={() =>
-                  void action(async () => {
-                    await jsonPost(base + '/cancel', { revision: job.revision });
-                    setConsent(null);
-                    setPlan(null);
-                  })
-                }
-              >
-                작업 취소
-              </Button>
-            )}
-            {['failed', 'cancelled'].includes(job.status) && (
-              <>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={risk}
-                    onChange={(event) => setRisk(event.target.checked)}
-                  />
-                  미확정 처리의 중복 실행 위험을 확인했고, 새 복구 작업을 만들겠습니다.
-                </label>
-                <Button
-                  disabled={busy || !risk}
-                  onClick={() =>
-                    void action(async () => {
-                      const next = await jsonPost<{ id: string }>(base + '/recover', {
-                        request_id: nonces.current.recover,
-                        acknowledge_duplicate_risk: risk,
-                      });
-                      location.hash = '/jobs/' + next.id;
-                    })
-                  }
-                >
-                  새 복구 작업 만들기
-                </Button>
-              </>
-            )}
-          </section>
+              )}
+              {['failed', 'cancelled'].includes(job.status) && (
+                <>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={risk}
+                      onChange={(event) => setRisk(event.target.checked)}
+                    />
+                    미확정 처리의 중복 실행 위험을 확인했고, 새 복구 작업을 만들겠습니다.
+                  </label>
+                  <Button
+                    disabled={busy || !risk}
+                    onClick={() =>
+                      void action(async () => {
+                        const next = await jsonPost<{ id: string }>(base + '/recover', {
+                          request_id: nonces.current.recover,
+                          acknowledge_duplicate_risk: risk,
+                        });
+                        location.hash = '/jobs/' + next.id;
+                      })
+                    }
+                  >
+                    새 복구 작업 만들기
+                  </Button>
+                </>
+              )}
+            </section>
+          )}
         </>
       )}
     </main>

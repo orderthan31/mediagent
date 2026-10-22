@@ -38,6 +38,7 @@ def public_upload(row):
 def public_asset(row):
     return {
         "asset_id": row["id"],
+        "uploaded_by": row["owner_id"],
         "original_filename": row["filename"],
         "size_bytes": row["bytes"],
         "sha256": row["sha256"],
@@ -66,6 +67,14 @@ class Intake:
             raise Missing("원본을 찾을 수 없습니다.")
         return row
 
+    def _shared_asset(self, db, identity):
+        rows = db.execute("SELECT * FROM assets WHERE id=%s LIMIT 2", (resource_id(identity),)).fetchall()
+        if not rows:
+            raise Missing("원본을 찾을 수 없습니다.")
+        if len(rows) != 1:
+            raise Conflict("원본 식별자가 중복되어 공용 조회할 수 없습니다.")
+        return rows[0]
+
     @staticmethod
     def asset_reference(row):
         if (
@@ -82,34 +91,32 @@ class Intake:
 
     def asset(self, owner, identity):
         with self.database.connection() as db:
-            return public_asset(self._asset(db, owner, identity))
+            return public_asset(self._shared_asset(db, identity))
 
     def assets(self, owner):
         with self.database.connection() as db:
-            return [
-                public_asset(r)
-                for r in db.execute(
-                    "SELECT * FROM assets WHERE owner_id=%s ORDER BY created_at DESC,id",
-                    (owner,),
-                )
-            ]
+            rows = db.execute("SELECT * FROM assets ORDER BY created_at DESC,id,owner_id").fetchall()
+            if len({r["id"] for r in rows}) != len(rows):
+                raise Conflict("원본 식별자가 중복되어 공용 조회할 수 없습니다.")
+            return [public_asset(r) for r in rows]
 
     def asset_path(self, owner, identity):
         with self.database.connection() as db:
-            reference = self.asset_reference(self._asset(db, owner, identity))
-        return self.store.path(owner, reference)
+            row = self._shared_asset(db, identity)
+            reference = self.asset_reference(row)
+        return self.store.path(row["owner_id"], reference)
 
     def thumbnail_path(self, owner, identity):
         with self.database.connection() as db:
-            row = self._asset(db, owner, identity)
+            row = self._shared_asset(db, identity)
             reference = row["metadata"].get("thumbnail")
             if reference is None:
                 raise Missing("썸네일이 없습니다.")
-        return self.store.path(owner, reference)
+        return self.store.path(row["owner_id"], reference)
 
     def web_preview_path(self, owner, identity):
         with self.database.connection() as db:
-            row = self._asset(db, owner, identity)
+            row = self._shared_asset(db, identity)
             state = row["metadata"].get("web_preview", {})
         if (
             state.get("status") != "ready"
@@ -118,7 +125,7 @@ class Intake:
             raise Missing(
                 "웹 전용 WebM이 준비되지 않았습니다. 원본은 다운로드할 수 있습니다."
             )
-        return self.store.path(owner, state["reference"])
+        return self.store.path(row["owner_id"], state["reference"])
 
     def upload_create(self, owner, filename, size, nonce):
         request_id(nonce)

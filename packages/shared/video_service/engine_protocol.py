@@ -51,10 +51,14 @@ def validate_runtime(value):
     return value
 
 
-def reference(value):
+def reference(value, *, input_origin=False):
     if (
         not isinstance(value, dict)
-        or set(value) != {"storage_key", "sha256", "bytes", "type"}
+        or set(value) not in ({"storage_key", "sha256", "bytes", "type"},
+                              {"storage_key", "sha256", "bytes", "type", "source_owner_id"}
+                              if input_origin else {"storage_key", "sha256", "bytes", "type"})
+        or ("source_owner_id" in value and (not isinstance(value["source_owner_id"], str)
+            or not ID.fullmatch(value["source_owner_id"])))
         or not isinstance(value["sha256"], str)
         or not SHA.fullmatch(value["sha256"])
         or value["storage_key"] != "blobs/" + value["sha256"]
@@ -99,7 +103,7 @@ def validate_command(command):
     if not isinstance(command["inputs"], dict):
         raise ValueError("invalid_engine_inputs")
     for ref in command["inputs"].values():
-        reference(ref)
+        reference(ref, input_origin=True)
     validate_node(
         {
             "node": role,

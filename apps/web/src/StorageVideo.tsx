@@ -60,6 +60,10 @@ export const StorageVideoInfo = ({ video, assetId }: { video: VideoAsset; assetI
       <h2>영상 정보</h2>
       <dl>
         <div>
+          <dt>원본 업로더</dt>
+          <dd style={{ overflowWrap: 'anywhere' }}>{video.uploaded_by || '기록 없음'}</dd>
+        </div>
+        <div>
           <dt>재생시간</dt>
           <dd>{videoDuration(video)}</dd>
         </div>

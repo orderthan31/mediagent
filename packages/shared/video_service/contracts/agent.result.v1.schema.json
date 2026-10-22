@@ -3,22 +3,12 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "version",
-    "owner",
-    "command",
-    "result"
-  ],
+  "required": ["version", "owner", "command", "result"],
   "$defs": {
     "artifact": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "storage_key",
-        "sha256",
-        "bytes",
-        "type"
-      ],
+      "required": ["storage_key", "sha256", "bytes", "type"],
       "properties": {
         "storage_key": {
           "type": "string",
@@ -35,6 +25,33 @@
         },
         "type": {
           "type": "string"
+        }
+      }
+    },
+    "input_artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["storage_key", "sha256", "bytes", "type"],
+      "properties": {
+        "storage_key": {
+          "type": "string",
+          "pattern": "^blobs/[a-f0-9]{64}$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 268435456
+        },
+        "type": {
+          "type": "string"
+        },
+        "source_owner_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{32}$"
         }
       }
     }
@@ -80,10 +97,7 @@
         "agent": {
           "type": "object",
           "additionalProperties": false,
-          "required": [
-            "id",
-            "revision"
-          ],
+          "required": ["id", "revision"],
           "properties": {
             "id": {
               "enum": [
@@ -124,7 +138,7 @@
                 "video": {
                   "allOf": [
                     {
-                      "$ref": "#/$defs/artifact"
+                      "$ref": "#/$defs/input_artifact"
                     },
                     {
                       "properties": {
@@ -136,9 +150,7 @@
                   ]
                 }
               },
-              "required": [
-                "video"
-              ]
+              "required": ["video"]
             },
             "options": {
               "type": "object",
@@ -163,7 +175,7 @@
                 "video": {
                   "allOf": [
                     {
-                      "$ref": "#/$defs/artifact"
+                      "$ref": "#/$defs/input_artifact"
                     },
                     {
                       "properties": {
@@ -177,7 +189,7 @@
                 "subtitles": {
                   "allOf": [
                     {
-                      "$ref": "#/$defs/artifact"
+                      "$ref": "#/$defs/input_artifact"
                     },
                     {
                       "properties": {
@@ -189,40 +201,23 @@
                   ]
                 }
               },
-              "required": [
-                "video"
-              ]
+              "required": ["video"]
             },
             "options": {
               "type": "object",
               "additionalProperties": false,
               "properties": {
                 "subtitle_mode": {
-                  "enum": [
-                    "burn",
-                    "soft",
-                    "none"
-                  ]
+                  "enum": ["burn", "soft", "none"]
                 },
                 "video_codec": {
-                  "enum": [
-                    "h264",
-                    "hevc"
-                  ]
+                  "enum": ["h264", "hevc"]
                 },
                 "resolution": {
-                  "enum": [
-                    "original",
-                    "1080p",
-                    "720p"
-                  ]
+                  "enum": ["original", "1080p", "720p"]
                 },
                 "quality_profile": {
-                  "enum": [
-                    "balanced",
-                    "high",
-                    "compact"
-                  ]
+                  "enum": ["balanced", "high", "compact"]
                 }
               }
             }
@@ -230,9 +225,7 @@
           "if": {
             "properties": {
               "options": {
-                "required": [
-                  "subtitle_mode"
-                ],
+                "required": ["subtitle_mode"],
                 "properties": {
                   "subtitle_mode": {
                     "const": "none"
@@ -245,9 +238,7 @@
             "properties": {
               "inputs": {
                 "not": {
-                  "required": [
-                    "subtitles"
-                  ]
+                  "required": ["subtitles"]
                 }
               }
             }
@@ -255,9 +246,7 @@
           "else": {
             "properties": {
               "inputs": {
-                "required": [
-                  "subtitles"
-                ]
+                "required": ["subtitles"]
               }
             }
           }
@@ -278,7 +267,7 @@
                 "video": {
                   "allOf": [
                     {
-                      "$ref": "#/$defs/artifact"
+                      "$ref": "#/$defs/input_artifact"
                     },
                     {
                       "properties": {
@@ -290,9 +279,7 @@
                   ]
                 }
               },
-              "required": [
-                "video"
-              ]
+              "required": ["video"]
             },
             "options": {
               "type": "object",
@@ -317,7 +304,7 @@
                 "transcript": {
                   "allOf": [
                     {
-                      "$ref": "#/$defs/artifact"
+                      "$ref": "#/$defs/input_artifact"
                     },
                     {
                       "properties": {
@@ -329,9 +316,7 @@
                   ]
                 }
               },
-              "required": [
-                "transcript"
-              ]
+              "required": ["transcript"]
             },
             "options": {
               "type": "object",
@@ -356,7 +341,7 @@
                 "audio": {
                   "allOf": [
                     {
-                      "$ref": "#/$defs/artifact"
+                      "$ref": "#/$defs/input_artifact"
                     },
                     {
                       "properties": {
@@ -368,27 +353,17 @@
                   ]
                 }
               },
-              "required": [
-                "audio"
-              ]
+              "required": ["audio"]
             },
             "options": {
               "type": "object",
               "additionalProperties": false,
               "properties": {
                 "audio_filter": {
-                  "enum": [
-                    "off",
-                    "conservative",
-                    "strong",
-                    "silence3"
-                  ]
+                  "enum": ["off", "conservative", "strong", "silence3"]
                 },
                 "vad_mode": {
-                  "enum": [
-                    "off",
-                    "nvidia"
-                  ]
+                  "enum": ["off", "nvidia"]
                 }
               }
             }
@@ -410,7 +385,7 @@
                 "video": {
                   "allOf": [
                     {
-                      "$ref": "#/$defs/artifact"
+                      "$ref": "#/$defs/input_artifact"
                     },
                     {
                       "properties": {
@@ -422,9 +397,7 @@
                   ]
                 }
               },
-              "required": [
-                "video"
-              ]
+              "required": ["video"]
             },
             "options": {
               "type": "object",
@@ -469,10 +442,7 @@
         "agent": {
           "type": "object",
           "additionalProperties": false,
-          "required": [
-            "id",
-            "revision"
-          ],
+          "required": ["id", "revision"],
           "properties": {
             "id": {
               "enum": [
@@ -494,10 +464,7 @@
           "pattern": "^[a-f0-9]{64}$"
         },
         "status": {
-          "enum": [
-            "completed",
-            "failed"
-          ]
+          "enum": ["completed", "failed"]
         },
         "transport": {
           "const": "s3_subprocess"
@@ -511,10 +478,7 @@
         "error": {
           "type": "object",
           "additionalProperties": false,
-          "required": [
-            "code",
-            "retryable"
-          ],
+          "required": ["code", "retryable"],
           "properties": {
             "code": {
               "type": "string",
@@ -534,9 +498,7 @@
         }
       },
       "then": {
-        "required": [
-          "error"
-        ],
+        "required": ["error"],
         "properties": {
           "outputs": {
             "maxProperties": 0
@@ -545,9 +507,7 @@
       },
       "else": {
         "not": {
-          "required": [
-            "error"
-          ]
+          "required": ["error"]
         },
         "properties": {
           "outputs": {

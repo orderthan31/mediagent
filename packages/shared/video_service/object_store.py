@@ -14,7 +14,7 @@ import re
 import tempfile
 from urllib.parse import urlsplit
 
-from .content_store import HEX, ID, MAX_CONTENT, ContentStore
+from .content_store import HEX, ID, MAX_CONTENT, ContentStore, reference_origin
 
 
 class ObjectStoreError(ValueError):
@@ -115,6 +115,10 @@ class S3ContentStore(ContentStore):
                 body.close()
 
     def path(self, owner, reference):
+        try:
+            owner, reference = reference_origin(owner, reference)
+        except ValueError as exc:
+            raise ObjectStoreError("Invalid input origin/reference") from exc
         validate_reference(reference)
         key = self._key(owner, reference["storage_key"])
         with tempfile.TemporaryFile(dir=self.owner_root(owner)) as stream:

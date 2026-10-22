@@ -318,15 +318,15 @@ def mount_runtime(
 
     @app.get("/api/jobs")
     def jobs(owned=owner_dependency):
-        return {"jobs": [ledger(j) for j in runtime.jobs(owned)]}
+        return {"jobs": [ledger(j) for j in runtime.shared_jobs(owned)]}
 
     @app.get("/api/jobs/{identity}")
     def job(identity: str, owned=owner_dependency):
-        return ledger(runtime.get(owned, identity))
+        return ledger(runtime.shared_get(owned, identity))
 
     @app.get("/api/renewal/jobs/{identity}")
     def execution(identity: str, owned=owner_dependency):
-        return runtime.get(owned, identity)
+        return runtime.shared_get(owned, identity)
 
     @app.get("/api/renewal/jobs/{identity}/plan")
     def plan(identity: str, owned=owner_dependency):
@@ -392,29 +392,18 @@ def mount_runtime(
         download: bool = False,
         owned=owner_dependency,
     ):
-        state = runtime.get(owned, identity)
-        run = next(
-            (
-                r
-                for r in state["runs"]
-                if r["id"] == run_id and r["status"] == "completed"
-            ),
-            None,
-        )
-        reference = (run["result"] or {}).get("outputs", {}).get(port) if run else None
-        if not reference:
-            raise Missing("완료된 산출물을 찾을 수 없습니다.")
+        path, kind = runtime.shared_file(owned, identity, run_id, port)
         mime = {
             "video": "video/mp4",
             "audio": "audio/wav",
             "subtitle": "text/plain; charset=utf-8",
         }
         extension = {"video": "mp4", "audio": "wav", "subtitle": "srt"}.get(
-            reference["type"], "json"
+            kind, "json"
         )
         return FileResponse(
-            runtime.store.path(owned, reference),
-            media_type=mime.get(reference["type"], "application/json"),
+            path,
+            media_type=mime.get(kind, "application/json"),
             filename=run_id + "-" + port + "." + extension if download else None,
         )
 
@@ -426,48 +415,29 @@ def mount_runtime(
         download: bool = False,
         owned=owner_dependency,
     ):
-        state = runtime.get(owned, identity)
-        run = next(
-            (
-                r
-                for r in state["runs"]
-                if r["id"] == run_id and r["status"] == "completed"
-            ),
-            None,
-        )
-        reference = (run["result"] or {}).get("outputs", {}).get(port) if run else None
-        if not reference or reference["type"] != "video":
-            raise Missing("완료된 영상 산출물이 없습니다.")
+        path, _ = runtime.shared_file(owned, identity, run_id, port, preview=True)
         return FileResponse(
-            runtime.video_preview(owned, identity, reference),
+            path,
             media_type="video/webm",
             filename=run_id + "-web.webm" if download else None,
         )
 
     @app.get("/api/renewal/jobs/{identity}/inputs/{run_id}/{port}")
     def run_input(identity: str, run_id: str, port: str, owned=owner_dependency):
-        state = runtime.get(owned, identity)
-        run = next((r for r in state["runs"] if r["id"] == run_id), None)
-        reference = run["inputs"].get(port) if run else None
-        if not reference:
-            raise Missing("고정 입력을 찾을 수 없습니다.")
+        path, kind = runtime.shared_file(owned, identity, run_id, port, inputs=True)
         mime = {
             "video": "video/mp4",
             "audio": "audio/wav",
             "subtitle": "text/plain; charset=utf-8",
         }
         return FileResponse(
-            runtime.store.path(owned, reference),
-            media_type=mime.get(reference["type"], "application/json"),
+            path,
+            media_type=mime.get(kind, "application/json"),
         )
 
     @app.get("/api/renewal/jobs/{identity}/inputs/{run_id}/{port}/preview")
     def input_preview(identity: str, run_id: str, port: str, owned=owner_dependency):
-        state = runtime.get(owned, identity)
-        run = next((r for r in state["runs"] if r["id"] == run_id), None)
-        reference = run["inputs"].get(port) if run else None
-        if not reference or reference["type"] != "video":
-            raise Missing("고정 영상 입력이 없습니다.")
+        path, _ = runtime.shared_file(owned, identity, run_id, port, inputs=True, preview=True)
         return FileResponse(
-            runtime.video_preview(owned, identity, reference), media_type="video/webm"
+            path, media_type="video/webm"
         )

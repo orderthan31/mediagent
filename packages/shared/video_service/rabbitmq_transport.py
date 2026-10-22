@@ -158,7 +158,10 @@ def validate_command(command):
             raise ValueError
         for ref in command["inputs"].values():
             if (
-                set(ref) != {"storage_key", "sha256", "bytes", "type"}
+                set(ref) not in ({"storage_key", "sha256", "bytes", "type"},
+                                {"storage_key", "sha256", "bytes", "type", "source_owner_id"})
+                or ("source_owner_id" in ref and (not isinstance(ref["source_owner_id"], str)
+                    or not ID.fullmatch(ref["source_owner_id"])))
                 or not re.fullmatch(r"[a-f0-9]{64}", ref["sha256"])
                 or ref["storage_key"] != "blobs/" + ref["sha256"]
                 or type(ref["bytes"]) is not int

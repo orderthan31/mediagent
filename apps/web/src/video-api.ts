@@ -3,6 +3,7 @@ export type VideoAsset = {
   web_preview?: { status: 'ready' | 'failed' | 'unavailable' };
   asset_id: string;
   original_filename: string;
+  uploaded_by?: string;
   size_bytes: number;
   created_at: string;
   media?: {

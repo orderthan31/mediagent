@@ -14,9 +14,13 @@
 
 실제 관리자 인증 조회와 PC/390px 화면에서 #5의 별도 `needs_review` 표시 및 원 `running` 보존을 확인했다. 판단·계획·새 복구 작업·예약 해제는 0건이며 실제 #5 복구/재발행·초기화는 하지 않았다. 기존 원 자료/키/WIP/롤백과 인코딩 실행기·호스트를 보존했다. 이번에는 동일 영상 여정·운영 장애 주입을 반복하지 않았다.
 
-격리 PG/브라우저·합성 child 및 제어된 저장소/관측 어댑터의 수용은 실제 운영 복구/MQ·물리 실행기 장애 복구와 구분한다. 두 슬롯의 부분 축소/ACK 중단 경계는 격리 수용이며 운영 두 번째 슬롯·여러 컴퓨터 검증은 별도다. 현재 Windows 한 곳의 배치는 검증 배치일 뿐 최종 구조가 아니다. API/웹/DB/저장소/실행 머신의 위치·주소·인증은 독립 설정을 유지한다. 공용 자료함·티켓별 저장·일반 provider/동적 폴백·순수 제품 UI와 실제 #5 복구는 남아 있다.
+격리 PG/브라우저·합성 child 및 제어된 저장소/관측 어댑터의 수용은 실제 운영 복구/MQ·물리 실행기 장애 복구와 구분한다. 두 슬롯의 부분 축소/ACK 중단 경계는 격리 수용이며 운영 두 번째 슬롯·여러 컴퓨터 검증은 별도다. 현재 Windows 한 곳의 배치는 검증 배치일 뿐 최종 구조가 아니다. API/웹/DB/저장소/실행 머신의 위치·주소·인증은 독립 설정을 유지한다. 공용 자료 읽기는 아래 별도 소스/격리 설치본 검증까지 진행했으나 운영 반영·원본17개 이관은 남아 있다. 티켓별 저장·일반 provider/동적 폴백·순수 제품 UI 전체와 실제 #5 복구도 별도다.
 
 ## 주요 내용
+
+- 공용 읽기는 인증 사용자만 사용하며 자산/작업 ID 중복은 임의 owner를 고르지 않고 거부한다. 공유 응답은 snapshot의 model/engine binding과 원 request/lease 등 private 실행 정보를 제외한다. 처리 확인 projection/전송 phase는 보존하고 UI는 can_manage=true일 때만 본인 작업 변경 동선을 제공한다.
+- 새 실행 입력의 source_owner_id는 원본 uploader/CAS를 가리키는 고정 참조다. 결과는 새 실행 actor의 CAS에 저장하고 입력 source owner를 결과에 붙이는 것은 금지한다. migration012는 기존 snapshot의 uploader 또는 기존 owner를 generated asset_owner_id로 읽어 FK를 유지하며 기존 원본 owner와 immutable snapshot을 재작성하지 않는다.
+- 공용 읽기 API/실제 설치 CPU와 A/B 브라우저6 및 018→012 호환성은 격리 검증이다. 실제 운영012/기존 원본17개 이관이나 기존 pinned broker worker가 새 입력 origin을 읽는 운영 수용으로 확대하지 않는다. 현재 운영 앱/웹 c106·호스트26710eb0·기존 한 슬롯은 유지한다.
 
 - 후속 격리 경로는 실제 TLS MQ consumer의 개별 ID/권한 보고를 제한 PG host observer가 읽는다. API만 제품 ticket/attempt를 조회해 같은 ID·boot·ticket·attempt일 때 표시 번호를 결합하며 host에는 jobs/password 조회 권한을 주지 않는다.
 - 별도 durable batch/action journal은 신호 발행을 planned→issuing→sent로 한 번만 허가하고, 드레인 대기는 fresh Docker 상태·같은 boot의 정상 종료 보고로 따로 확인한다. sent ACK가 있는 중단 요청은 재기동 후 읽기 전용 확인으로 복구하고, ACK가 없는 issuing/unknown이나 비정상 종료는 자동 재시도 없이 봉쇄한다. 관리자 확인은 별도 불변 판단으로 처리하며 근거 없는 unknown은 해제하지 않는다. signal-only 대상은 restart=no를 요구하고 기존 단일 운영 대상의 정책을 유지한다.
@@ -58,14 +62,14 @@ flowchart LR
 - 원본·처리 결과와 WebM 파생본의 SHA/출처를 따로 저장한다. GET 재생/다운로드에서 변환하지 않는다. WebM 실패는 원본을 덮어쓰거나 삭제하지 않는다.
 - `agents/cpu`는 평탄한 독립 CPU CLI/server/broker 패키지, `agents/gpu`는 선택 FaceFusion/VAD 엔진 패키지다. 구형 media 혼합 패키지·파일 큐·고정 workflow·설정 API·일회성 scripts는 제거했다. GPU 엔진 보존은 실제 MQ 연결이나 hardware 검증 완료가 아니다.
 - API import/startup은 migration·queue scan·provider/GPU 작업을 시작하지 않는다. 기존 사설 5174 DEV 목업은 별도다.
-- 일반 사용자는 원본·작업만 접근한다. 작업 선택 API는 관리자 정의의 불변 revision을 제공하며 관리 API 권한을 넘기지 않는다. 현재 배포의 원본 owner 격리는 공용 자료함 요구와 불일치하므로 별도 수정 대상이다. 원본 공유를 credential 소유권 제거로 확대하지 않는다.
+- 일반 사용자는 원본·작업만 접근한다. 작업 선택 API는 관리자 정의의 불변 revision을 제공하며 관리 API 권한을 넘기지 않는다. 현재 운영의 원본 owner 격리는 공용 자료함 요구와 아직 다르다. 공용 읽기 소스/격리 설치본은 구현했으며 운영 반영은 별도 검토다. 원본 공유를 credential 소유권 제거로 확대하지 않는다.
 - fleet은 관리자 요청 후에만 실제 CPU 프로세스를 만들고, DB 예약으로 역할별 idle 인스턴스 하나에 명시 명령을 배정한다. 설정만 저장된 상태·실제 준비·드레인·실패/불명 상태를 구분하며 시작 시 자동 복구/기동하지 않는다.
 - 기본 API 이미지, CPU family 이미지와 선택 GPU 도구 이미지는 레시피를 분리했다. 목적지의 실제 역할별 실행과 단일 encode 고정 호스트 lifecycle은 연결됐다. 다른 역할·다중 슬롯 제어는 별도다. API에 Docker socket을 주지 않는다. API 직접 preview/분석의 FFmpeg 의존성은 잔여다.
 - 공통 FFmpeg/FFprobe·폰트는 root Dockerfile의 `media-base` stage 한 곳에서 관리한다. CPU/GPU Dockerfile은 named context로 이를 상속하고 Compose/Bake가 build 의존성을 명시한다. base는 장기 실행하는 공통 서비스가 아니며 역할별 실행은 분리한다. broker SDK와 heavy engine은 선택 layer다.
 - 현재 배포의 `--enable-broker`와 private bootstrap은 S3·명시 실행 승인을 전제로 단일 작업 dispatch를 선택한다. API startup 연결/소비는 없고 각 호출이 별도 연결을 소유한다. 결과 소비와 topology 생성은 별도 opt-in CLI다. 별도 상태 collector의 수신 시각으로 worker 준비/처리/heartbeat 만료와 수집기 자체 관측 불가를 구분하며 작업/credential table을 쓰지 않는다. 단일 encode의 고정 호스트 제어는 운영 연결됐으며, 다른 역할·여러 슬롯 운영 제어와 실제 분산 검증은 미완료다. 인스턴스별 상태 인증/binding을 분리하며 단일 exchange의 관측을 복수 인스턴스로 확대하지 않는다.
 
 - MQ req/res 정본은 shared `agent_protocol.py`와 패키지에 포함한 JSON Schema이며 runtime validator가 digest·attempt·정확한 포트까지 검사한다. [wire 계약](../references/high/agent-protocol.md)을 따른다.
-- root Compose는 opt-in renewal API/web만 제공한다. provider/model/key의 환경변수 경로는 폐기했으며 private 파일은 DB 접속·listen/origin·스토리지 부팅에만 사용한다. 관리자 DB encrypted credential/revision resolver와 opt-in `infra/compose.yaml` 설치 구성, 별도 `compose.transport.yaml` API/results/operator 연결을 제공한다. 목적지의 실제 broker/S3·독립 CPU/고정 model·PG 제품 job과 GPU 역할 fixture를 수용했다. 공용 원본 이관·다중 역할/슬롯 fleet 제어·일반 provider 호출·제품 FaceFusion binding은 별도 잔여다.
+- root Compose는 opt-in renewal API/web만 제공한다. provider/model/key의 환경변수 경로는 폐기했으며 private 파일은 DB 접속·listen/origin·스토리지 부팅에만 사용한다. 관리자 DB encrypted credential/revision resolver와 opt-in `infra/compose.yaml` 설치 구성, 별도 `compose.transport.yaml` API/results/operator 연결을 제공한다. 목적지의 실제 broker/S3·독립 CPU/고정 model·PG 제품 job과 GPU 역할 fixture를 수용했다. 공용 읽기 운영 반영·보존 원본 이관·다중 역할/슬롯 fleet 제어·일반 provider 호출·제품 FaceFusion binding은 별도 잔여다.
 
 ## 미확정 사항
 

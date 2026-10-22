@@ -13,6 +13,19 @@ ID = re.compile(r"[a-f0-9]{32}\Z")
 MAX_CONTENT = 256 * 1024 * 1024
 
 
+def reference_origin(owner, reference):
+    """Resolve a server-pinned input namespace without changing its blob key/hash."""
+    if not isinstance(owner, str) or not ID.fullmatch(owner):
+        raise ValueError("Invalid owner")
+    base = {"storage_key", "sha256", "bytes", "type"}
+    if not isinstance(reference, dict) or set(reference) not in (base, base | {"source_owner_id"}):
+        raise ValueError("Invalid content reference")
+    source = reference.get("source_owner_id", owner)
+    if not isinstance(source, str) or not ID.fullmatch(source):
+        raise ValueError("Invalid source owner")
+    return source, {k: reference[k] for k in base}
+
+
 class ContentStore:
     storage_kind = "local"
 
@@ -32,6 +45,7 @@ class ContentStore:
         return path
 
     def path(self, owner, reference):
+        owner, reference = reference_origin(owner, reference)
         if not isinstance(reference, dict) or set(reference) != {
             "storage_key",
             "sha256",

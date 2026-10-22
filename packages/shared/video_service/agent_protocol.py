@@ -73,7 +73,7 @@ def schemas():
         ports = {
             port: {
                 "allOf": [
-                    {"$ref": "#/$defs/artifact"},
+                    {"$ref": "#/$defs/input_artifact"},
                     {"properties": {"type": {"const": kind}}},
                 ]
             }
@@ -116,7 +116,8 @@ def schemas():
         "type": "object",
         "additionalProperties": False,
         "required": ["version", "owner", "command"],
-        "$defs": {"artifact": artifact},
+        "$defs": {"artifact": artifact, "input_artifact": {**deepcopy(artifact),
+                  "properties": {**deepcopy(artifact["properties"]), "source_owner_id": identity}}},
         "properties": {
             "version": {"const": 1, "type": "integer"},
             "owner": identity,

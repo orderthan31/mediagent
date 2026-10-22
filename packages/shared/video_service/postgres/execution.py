@@ -191,6 +191,66 @@ class Execution(Intake):
         with self.database.connection() as db:
             return self._view(db, self._job(db, owner, identity, lock=True))
 
+    def _shared_job(self, db, identity):
+        rows = db.execute("SELECT * FROM jobs WHERE id=%s LIMIT 2 FOR UPDATE", (resource_id(identity),)).fetchall()
+        if not rows:
+            raise Missing("작업을 찾을 수 없습니다.")
+        if len(rows) != 1:
+            raise Conflict("작업 식별자가 중복되어 공용 조회할 수 없습니다.")
+        if digest(rows[0]["snapshot"]) != rows[0]["snapshot_sha256"]:
+            raise Conflict("작업 snapshot 무결성 오류")
+        return rows[0]
+
+    @staticmethod
+    def _shared_view(state, actor):
+        # Media/graph data is shared; credentials, execution claims and locators are not.
+        keys = {"id", "ticket_number", "owner_id", "asset_id", "asset_owner_id", "workflow_id",
+                "workflow_revision", "status", "revision", "generation", "snapshot_sha256",
+                "parent_id", "created_at", "updated_at", "processing_review"}
+        value = {k: state[k] for k in keys if k in state}
+        value["snapshot"] = {k: v for k, v in state["snapshot"].items()
+                             if k in {"version", "asset", "inputs", "definition", "options", "recovery"}}
+        value["snapshot_redacted"] = True
+        value["executed_by"] = state["owner_id"]
+        value["access"] = {"can_manage": actor == state["owner_id"]}
+        run_keys = {"id", "node_id", "node_type", "status", "options", "inputs", "error_code",
+                    "input_sha256", "settings_sha256", "attempt", "iteration", "generation",
+                    "started_at", "completed_at", "result", "dispatch"}
+        value["runs"] = []
+        for run in state.get("runs", []):
+            public_run = {k: run[k] for k in run_keys if k in run}
+            if run.get("result"):
+                public_run["result"] = {k: v for k, v in run["result"].items()
+                                        if k in {"status", "outputs", "previews", "reused_from"}}
+            value["runs"].append(public_run)
+        review_keys = {"id", "node_run_id", "revision", "status", "draft", "contract"}
+        value["reviews"] = [{k: v for k, v in r.items() if k in review_keys} for r in state.get("reviews", [])]
+        return value
+
+    def shared_get(self, actor, identity):
+        with self.database.connection() as db:
+            return self._shared_view(self._view(db, self._shared_job(db, identity)), actor)
+
+    def shared_jobs(self, actor):
+        with self.database.connection() as db:
+            rows = db.execute("SELECT * FROM jobs ORDER BY created_at DESC,id,owner_id").fetchall()
+            if len({r["id"] for r in rows}) != len(rows):
+                raise Conflict("작업 식별자가 중복되어 공용 조회할 수 없습니다.")
+            return [self._shared_view(self._view(db, self._job(db, r["owner_id"], r["id"], lock=True)), actor) for r in rows]
+
+    def shared_file(self, actor, identity, run_id, port, *, inputs=False, preview=False):
+        with self.database.connection() as db:
+            job = self._shared_job(db, identity)
+            state = self._view(db, job)
+        run = next((r for r in state["runs"] if r["id"] == run_id), None)
+        if not run or (not inputs and run["status"] != "completed"):
+            raise Missing("완료된 산출물/고정 입력을 찾을 수 없습니다.")
+        reference = run["inputs"].get(port) if inputs else (run["result"] or {}).get("outputs", {}).get(port)
+        if not reference or (preview and reference["type"] != "video"):
+            raise Missing("산출물/고정 입력을 찾을 수 없습니다.")
+        path = self._video_preview_state(state, reference) if preview else self.store.path(job["owner_id"], reference)
+        return path, reference["type"]
+
     def jobs(self, owner):
         with self.database.connection() as db:
             ids=[r['id'] for r in db.execute("SELECT id FROM jobs WHERE owner_id=%s ORDER BY created_at DESC,id",(owner,))]
@@ -278,8 +338,10 @@ class Execution(Intake):
                 if previous["creation_sha256"] != digest(creation):
                     raise Conflict("같은 생성 요청 ID에 다른 내용입니다.")
                 return self._view(db, previous)
-            asset = self._asset(db, owner, asset_id)
+            asset = self._shared_asset(db, asset_id)
             reference = self.asset_reference(asset)
+            if asset["owner_id"] != owner:
+                reference = {**reference, "source_owner_id": asset["owner_id"]}
             self.store.path(owner, reference)
             workflow_owner, definition = self._job_definition(
                 db, owner, definition_id, definition_revision
@@ -1040,18 +1102,23 @@ class Execution(Intake):
 
     def video_preview(self, owner, identity, reference):
         state = self.get(owner, identity)
+        return self._video_preview_state(state, reference)
+
+    def _video_preview_state(self, state, reference):
+        owner = state["owner_id"]
+        source_owner = state.get("asset_owner_id", owner)
         with self.database.connection() as db:
-            asset = self._asset(db, owner, state["asset_id"])
-        candidates = [asset["metadata"].get("web_preview", {})]
+            asset = self._asset(db, source_owner, state["asset_id"])
+        candidates = [(source_owner, asset["metadata"].get("web_preview", {}))]
         for run in state["runs"]:
             if run["status"] == "completed":
-                candidates.extend((run["result"] or {}).get("previews", {}).values())
-        for preview in candidates:
+                candidates.extend((owner, p) for p in (run["result"] or {}).get("previews", {}).values())
+        for storage_owner, preview in candidates:
             if (
                 preview.get("source_sha256") == reference["sha256"]
                 and preview.get("status") == "ready"
             ):
-                return self.store.path(owner, preview["reference"])
+                return self.store.path(storage_owner, preview["reference"])
         raise Missing(
             "웹 전용 WebM이 준비되지 않았습니다. 원본은 다운로드할 수 있습니다."
         )
