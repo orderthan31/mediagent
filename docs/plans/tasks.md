@@ -30,6 +30,18 @@
 - 신규 설치본 관련 backend12개 통과(실패/오류/skip0, 기존 Starlette/httpx 경고1). 기존 처리 확인 projection이 공유 목록/상세에서 사라지는 회귀를 RED→GREEN으로 막았다. 018 적용 상태에012를 뒤늦게 추가해도 기존 snapshot/owner/원 자산이 보존됨을 별도 PG에서 확인했다. 이 검증은 운영012 적용이 아니다.
 - 운영 앱/웹은 c106, 문서 기준점55a8058c이며 운영012·구버전 원본17개 이관·#5 복구·추가 슬롯·배치 이전·유료 호출은 수행하지 않았다. 운영 반영은 PM 검토 뒤 별도 범위다. 특히 새 origin 입력을 읽는 실행단 설치본과 고정 host pin의 호환 검토 없이 API만 앞서 교체하지 않는다.
 
+### 공용 입력 운영 교체 전 호환성 — 검증 완료, 고정 대상 교체 gate 미해소
+
+- 공용 읽기 d4a628a8은 PM 수용·App push 완료다. 운영 앱/웹 c106·호스트26710eb0·기존 실행 이미지6986은 변경하지 않았다.
+- 별도 실제 TLS MQ/S3와 clean-source 후보 앱/CPU 이미지에서 기존 입력과 source_owner_id 공용 입력을 각각 encode→validate 완료했다. 두 작업 모두 각 노드 attempt1, 결과 inbox2/S3 receipt·원격 GET SHA/전체 decode 정상이며 최종 queue ready/unacked0이었다. A/B 브라우저 전체는 반복하지 않았다.
+- 실제 기존 앱/CPU/model/GPU reader는 새 참조를 거부하고 후보4군은 기존·새 참조를 읽었다. 경로 탈출 origin/digest-key 불일치도 후보에서 거부했다. 모델/GPU는 기존 image layer/환경/entrypoint를 보존한 shared 설치본 읽기·검증이며 모델별 추론·engine-v2 MQ 전체를 다시 수용한 것은 아니다.
+- 운영 백업을 별도 PG의 별도 DB에 복원해012만 적용했다. 기존51개 table의 기존 열 값·작업6개·immutable snapshot/원본/#5·제어 group/이력은 동일했다. 이전 c106 앱도012 상태의 기존 snapshot을 읽었지만, 새 공용 입력을 처리할 수 있다는 뜻은 아니다.
+- 일괄 호환 범위는 앱4·CPU6·model2·GPU2·웹1의15개 프로그램/후보 image5종이다. 호스트 binary·collector·PG/MQ/S3 binary5개는 유지 가능하나 encode 재생성 시 새 container/image pin과 계약이 필요하다. API만 먼저 바꾸거나 옛 reader를 남기지 않는다.
+- **즉시 운영 교체 불가:** 현재 exact container/image/label 검사와 group contract 등록은 새 target을 거부한다. 복원 DB의 같은 slot/다른 contract 등록도 충돌했고 원 group/이력은 보존됐다. 운영 pin을 완화/직접 수정하지 않았으며, 원/신규 target과 기존 요청·ACK·batch를 보존하는 권한/사유/CAS/감사 대상 교체 절차는 별도 설계·검토/승인 gate다.
+- 승인 후 교체안은 신규 접수 중단→진행 처리/ACK/drain 정리→송신 앱/소비자 종료→최신 백업·복원 확인/승인된012→후보 준비→위 target 교체 gate→맞는 앱/웹·관측/결과 수신과 명시 시작/fresh ready 확인 순서다. 현재는 그 gate를 넘지 않는다.
+- 새 공용 작업이 생긴 뒤에는 옛 앱/reader/FK로 단순 복귀할 수 없다. 합성 DB에서 옛 owner FK 재추가는 거부됐고 probe를 rollback했다. 신규 원본/작업/산출물/판단을 지우는 DB 전체 복원이나 owner 재배정 대신 origin-aware 설치본을 유지한 정지·forward fix/별도 승인 복구가 필요하다.
+- 운영012/image/host 지정 변경·원본17개 이관·#5 복구·추가 슬롯·배치 이전·유료 호출은 수행하지 않았다. 원 source와 WIP21·실제 운영 자원 보존/정리 결과는 비공개 호환성 인계에 둔다.
+
 ### 남은 제품 범위
 
 - [x] 인증 사용자 공용 원본·작업·결과 읽기/다운로드 API·UI와 격리 설치본 A/B 회귀.

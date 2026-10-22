@@ -18,6 +18,10 @@
 
 ## 주요 내용
 
+- 공용 입력 호환은 원본 참조를 읽는 모든 설치본의 계약이다. 실제 기존 앱/CPU/model/GPU reader가 새 참조를 거부하므로 앱4·CPU6·model2·GPU2·웹1을 함께 맞춘다. 후보 CPU의 실제 TLS MQ/S3 기존·공용 입력 완료와 후보4군의 S3 읽기/검증을 구분하며, 모델/GPU 전체 추론 재수용으로 확대하지 않는다.
+- 현재 고정 호스트는 정확한 container/image/labels와 DB의 단일 group contract를 대조한다. 재생성 target은 기존 등록과 충돌하므로 binary만 새로 설치하거나 host.json/DB 계약을 직접 수정해 교체할 수 없다. 기존 pin·boot·서명 ACK·원 batch/요청 이력을 보존하는 감사된 대상 교체 절차는 별도 gate이며 이번에는 구현·운영 적용하지 않는다.
+- 018 상태의 운영 복원본에012를 적용해 기존51개 table의 기존 열 값과 원 #5/snapshot/원본·제어 이력이 보존됨을 확인했다. 새 공용 입력이 생긴 뒤에는 old-reader 거부/옛 owner FK 불일치 때문에 단순 구버전·schema 복귀가 안전하다고 볼 수 없다. 신규 데이터 삭제/owner 재배정 없이 origin-aware 설치본을 유지한 보류·forward fix 또는 별도 승인 복구가 필요하다.
+
 - 공용 읽기는 인증 사용자만 사용하며 자산/작업 ID 중복은 임의 owner를 고르지 않고 거부한다. 공유 응답은 snapshot의 model/engine binding과 원 request/lease 등 private 실행 정보를 제외한다. 처리 확인 projection/전송 phase는 보존하고 UI는 can_manage=true일 때만 본인 작업 변경 동선을 제공한다.
 - 새 실행 입력의 source_owner_id는 원본 uploader/CAS를 가리키는 고정 참조다. 결과는 새 실행 actor의 CAS에 저장하고 입력 source owner를 결과에 붙이는 것은 금지한다. migration012는 기존 snapshot의 uploader 또는 기존 owner를 generated asset_owner_id로 읽어 FK를 유지하며 기존 원본 owner와 immutable snapshot을 재작성하지 않는다.
 - 공용 읽기 API/실제 설치 CPU와 A/B 브라우저6 및 018→012 호환성은 격리 검증이다. 실제 운영012/기존 원본17개 이관이나 기존 pinned broker worker가 새 입력 origin을 읽는 운영 수용으로 확대하지 않는다. 현재 운영 앱/웹 c106·호스트26710eb0·기존 한 슬롯은 유지한다.
