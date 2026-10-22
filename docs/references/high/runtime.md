@@ -115,3 +115,30 @@ Python 3.12+와 FFmpeg/FFprobe가 필요하다. `packages/shared[postgres,models
 역할 권한은 새 테이블에도 분리한다. API는 후보/계약/이력 SELECT, 계획·planned 결정 INSERT와 group의 revision/pending_handover 입장 쓰기만 추가한다. 계약/후보 등록·phase 완료/이벤트 직접 쓰기·native 권한을 주지 않는다. 기존 host 전용 역할은 필요한 control/ACK/전송 근거 SELECT와 accounts의 id/role/active만 읽으며, 후보/불변 계약 INSERT와 승인된 transition phase 및 group current-pointer 갱신만 수행한다. events는 보호된 trigger가 append한다. 계정 비밀번호·원본/키/backup 쓰기 권한은 추가하지 않는다. 실제 운영 역할별 GRANT/이미지 설치는 별도 검토·승인 후 수행한다.
 
 검증은 새 교체 경계의 실제 PG와 통제된 native adapter/인증 ASGI, 별도 실제 idle native 컨테이너/CLI·signed ACK 범위다. native 시험의 PG 상태 보고를 운영 MQ/제품 영상 E2E로 확대하지 않는다. 기존 MQ 영상·A/B 여정·#5 복구는 재실행하지 않는다.
+
+## 운영 교체 전 설치 연결 리허설과 조건부 설치 순서
+
+수용 `9ae90c4fe61edd3e2ea83c34fdba2a27aa6bd194`의 설치 이미지에서 별도 API·host LOGIN 역할로 실제 정상 흐름을 확인했다. 이는 SET ROLE로 owner를 가장한 시험이 아니라 각 프로세스/CLI가 서로 다른 전용 DSN으로 접속한 결과다. 관리자 승인 이벤트는 API session, applying/applied는 host session이었다. 두 역할 모두 superuser/createdb/createrole/replication/bypassrls가 아니며 schema CREATE/전체 table GRANT를 주지 않는다.
+
+API는 정상 인증을 위해 accounts SELECT와 계정 발급의 지정 INSERT 열, 기존 계정 관리/row lock에 필요한 active/role UPDATE, sessions/login_limits의 필요한 동작, control 자료 SELECT·request/plan/planned decision INSERT 및 group admission 열만 사용한다. host는 accounts의 id/role/active만 읽고, control/ACK/관측과 전송 상태의 지정 읽기·고정 group 등록/관측·journal/서명 evidence·불변 후보/계약 INSERT·승인된 phase/current-pointer의 필요한 쓰기만 사용한다. API의 contract/phase/후보/이력 변조와 host의 password_hash 읽기·계정 변경 권한은 주지 않았다. 구체 table/column 목록과 실제 privilege audit은 리허설 제출 자료에 두며 운영 role에 포괄 권한으로 적용하지 않는다.
+
+실제 `app.server --enable-control`에서 private content root는 기동 전에 존재해야 한다. 리허설의 최초 API 기동 실패는 이 mount 준비가 빠진 포장 문제였고, uid10001/mode0700 private tmpfs를 명시해 해결했다. 권한 확대나 앱 코드 변경으로 통과시키지 않았다. API는 private API leaf RO만, host는 config/DSN/key leaf RO·receipts RW와 지정 daemon socket만 가진다. host는 uid10001과 daemon group으로 실행했다. fixture 상태 발행자는 별도 역할이며 PG 상태 보고를 실제 MQ 처리로 확대하지 않는다.
+
+같은 별도 운영 복원 DB에서 migration loader가012와019만 적용함을 확인했다. 기존51개 업무 table의 원래 열 값, 기존 migration 행,6개 작업의 snapshot/원 origin fallback, #5 running과 제어/ACK 이력을 대조했다. 복원은 --no-owner/--no-privileges이므로 실제 운영 역할/ACL 적용 검토는 별도다.
+
+### 승인 후에만 사용할 설치 순서
+
+1. 원본/DB/설정·키/WIP·운영 image/target·Serve 경로를 보존하고 최신 백업을 별도 복원해012+019를 다시 대조한다. #5의 확인 필요 원기록을 초기화·재발행하거나 TTL을 늘려 preflight를 통과시키지 않는다.
+2. 현재 승인된 제어로 encode desired0을 접수해 새 배정을 막고 진행 작업의 처리/ACK·동일 boot 정상 종료0·signed native ACK를 확인한다. 미해결 native 제어/전송·안전 중지 근거 부족이면 해당 교체를 보류한다. 기존 요청·ACK·boot/count는 수정하지 않는다.
+3. 유지보수 창에서 신규 작업 접수를 닫고 결과 수신을 마친 뒤 송신 가능한 API/results/dispatch/engine-results와 다른 소비자를 정리한다. 기존 host267도 정상 종료해 원래 exclusive session을 반납한다. 새 host에 전체 backup/operator config를 마운트하지 않는다.
+4. 별도 승인된012+019를 적용하고, 새 역할의 필요한 table/column GRANT만 검토·설정한다. 새 API/4개 송신 앱과 CPU/model/GPU reader·웹의 origin 계약을 함께 맞춘다. API만 먼저 공개하거나 옛 reader를 남기지 않는다. encode 교체 후보는 같은 logical worker/역할·정확한 image/labels/mount·restart=no로 생성하되 아직 시작하지 않는다.
+5. **호스트 코드 교체:** 새 host9ae 코드를 준비하지만 정상 daemon을 먼저 띄우지 않는다. 기존 host.json·DSN/key·ACK leaf를 보존하고 별도 candidate manifest로 새 host CLI prepare를 실행한다. 정상 관리자 API로 후보를 preview/승인한 뒤 같은 host CLI apply를 명시 실행한다. 기존 host/session·sender가 소유 중이면 진행하지 않는다. group은 desired0을 유지한다.
+6. **관리자 접속 gate:** 현재 운영 API는 host 공개 port가 없고 기존 web만 loopback5177에 연결된다. web/API를 정상 공개한 것은 읽기 전용/전역 pause가 아니다. 이 리허설의127.0.0.1·secure_cookies=false 설정을 운영에 복사하거나 auth·CSRF·허용 origin·Secure cookie를 완화하지 않는다. 기존 HTTPS/vault 관리자 접속과 일반 신규 접수 차단을 동시에 보장할 유지보수 접속 절차를 운영 승인 전에 확정해야 한다. 이 기능에는 전역 pause/관리 전용 ingress를 새로 만들지 않았으므로 그 절차가 없으면 승인 API 공개 단계에서 멈춘다. 새로운 공개 port/별도 스택/인증 우회로 계속하지 않는다.
+7. 적용된 exact descriptor만 들어 있는 별도 binding 파일로 새 `video_service.control_runtime` 진입점을 기동한다. 실제 리허설에서 누락·불일치는 exit2, exact 파일은 current epoch1/desired0/새 target created를 유지했다. 기동 자체는 Start가 아니다. API·관측·계약·설치 모듈과 현재 target을 읽어 확인한 뒤 사용자/관리자의 별도 명시 Start가 필요하다.
+
+### 중단·복구·롤백 경계
+
+- 후보 준비/계획만으로 전환하거나 시작하지 않는다. applying 전 확인 실패는 거부/held이며 원 target 계약·작업은 그대로다. durable applying 중단은 다음 명시 호출에서도 held로 남고 자동 재시도·재신호·시작으로 이어지지 않는다. held 해제/취소는 수용 기능에 없다.
+- pointer+applied transaction은 원자적이다. commit 뒤 응답 유실은 같은 decision의 완료 기록만 읽는다. 바인딩 누락/불일치로 daemon 기동이 막혔다고 DB 계약·원 config를 덮어쓰거나 old host를 다시 자동 채택하지 않는다. 승인된 exact 파일과 새 host 설치를 대조하는 복구만 별도 승인 아래 진행한다.
+- 새 공용 작업이 생긴 후 old-reader/옛 owner FK로 단순 복귀하지 않는다. 최신 snapshot/원본/산출물/판단을 지우는 전체 DB 복원·owner 변경 대신 신규 접수/실행 보류와 origin-aware forward repair/별도 승인 복구를 사용한다. 이전 image가 남아 있어도 새 container ID에는 다시 정확한 감사 대상 전환이 필요하다.
+- 이번은 기능 확대 없이 최소권한 정상 연결·실제 entrypoint/binding·한 복원본012+019 확인만 수행했다. 수용된47개·MQ 영상·A/B 여정은 반복하지 않았다. lint 정본은 신규0·기존4이며 전체 lint 통과가 아니다. 운영012/019·host/image/pin·원본17개·#5는 변경하지 않았다.

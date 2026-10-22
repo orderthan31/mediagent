@@ -30,13 +30,23 @@
 - 신규 설치본 관련 backend12개 통과(실패/오류/skip0, 기존 Starlette/httpx 경고1). 기존 처리 확인 projection이 공유 목록/상세에서 사라지는 회귀를 RED→GREEN으로 막았다. 018 적용 상태에012를 뒤늦게 추가해도 기존 snapshot/owner/원 자산이 보존됨을 별도 PG에서 확인했다. 이 검증은 운영012 적용이 아니다.
 - 운영 앱/웹은 c106, 문서 기준점55a8058c이며 운영012·구버전 원본17개 이관·#5 복구·추가 슬롯·배치 이전·유료 호출은 수행하지 않았다. 운영 반영은 PM 검토 뒤 별도 범위다. 특히 새 origin 입력을 읽는 실행단 설치본과 고정 host pin의 호환 검토 없이 API만 앞서 교체하지 않는다.
 
-### 논리 슬롯1 대상 교체 — 소스·격리 검증 완료, PM 검토·운영 적용 대기
+### 대상 교체 설치 연결 리허설 — 격리 확인, 운영 승인 아님
+
+- [x] 수용9ae90c4f의 설치 이미지 그대로 실제 별도 LOGIN API/host 역할로 정상 경로를 확인했다. 후보 prepare→정상 bootstrap/login·CSRF 관리자 preview/decision→host CLI apply→API 조회가 통과했고, 감사 이벤트 session actor도 API→host→host로 구분됐다. role은 NOSUPERUSER/NOCREATEDB/NOCREATEROLE/NOREPLICATION/NOBYPASSRLS이며 ALL TABLES/포괄 권한으로 통과시키지 않았다.
+- [x] API에는 auth/session과 admission에 필요한 명시 table/column 권한만, host에는 control/ACK·대상 전환과 관측에 필요한 권한만 사용했다. API의 계약 UPDATE·완료 phase UPDATE·후보 INSERT·이력 DELETE, host의 password_hash SELECT·accounts UPDATE는 모두 부여되지 않았다. API에 socket/host key/owner backup을 마운트하지 않았다. 두 프로세스 UID10001이며 host만 daemon group과 고정 native 권한을 갖는다.
+- [x] 실제 설치 host 진입점에서 별도 binding 누락/불일치는 exit2로 차단하고 exact 파일만 채택했다. 기동 뒤 logical slot1/desired0/disabled와 새 native target created·미시작을 유지했다. config/key leaf는 RO, receipts만 RW이고 기존 config를 덮어쓰지 않았다.
+- [x] 같은 별도 운영 DB 복원본에 migration loader로012·019만 함께 적용했다. 기존51개 업무 table의 기존 열 값·기존 migration facts·원 snapshot/자산/#5 raw running·제어/ACK 이력이 보존됐으며 신규 교체/복구 기록은 만들지 않았다. --no-owner/--no-privileges schema/data 범위이며 전체 cluster ACL 복구 수용은 아니다.
+- [x] 이전 lint 보고를 정정한다. 수용 첨부 기준 **신규 위반0·기존 위반4**다. 2개 또는 전체 lint 통과로 기록하지 않는다. 이번은 기능/소스 변경 없이 설치 연결만 확인했고 수용47개·MQ 영상·A/B 전체를 반복하지 않았다.
+- [ ] 운영은 c106 앱/웹·host267/기존실행기 그대로다. 아래 runtime 설치 순서·실제 역할 GRANT/안전한 관리자 유지보수 접속을 검토하고 별도 승인해야 한다. 운영012/019·pin/이미지·원본17개 이관·#5 복구·추가 슬롯·유료 호출은 계속 제외한다.
+
+### 논리 슬롯1 대상 교체 — 소스·격리 검증 PM 수용, 운영 적용 대기
 
 - [x] 호스트가 정확한 이전/새 container·image·labels·worker와 정상 중지 signed ACK를 대조해 후보를 준비한다. API는 후보ID만 받아 관리자 권한·사유·개정/관측 ABA·명시 확인을 묶어 preview/decision을 남긴다.
 - [x] 019의 불변 계약/후보/계획·교체 기록/이벤트와 target epoch로 이전 계약·요청·ACK·boot를 보존한다. 기존 논리 슬롯/개수는1·원하는 개수0을 유지한다. API에는 Docker 권한이나 계약/완료 덮어쓰기 권한을 주지 않는다.
 - [x] 이전 host/session 소유권과 활성 sender가 있거나 진행/unknown 제어·미해결 전송이 있으면 교체를 막는다. 종료0·동일 boot·서명 ACK·no-restart와 새 대상 정지 상태를 재확인한다. 중단된 applying은 held, commit 뒤 응답 유실은 같은 완료 기록 반환이며 자동 교체/재신호/시작은 없다.
 - [x] 실제 PG의 새 경계·기존 제어/복구 회귀, 정상 인증/CSRF 관리자API, 실제 별도 native 컨테이너의 offline CLI와 signed ACK를 검사했다. native 시험의 상태 보고는 PG fixture이며 MQ 영상·모델/GPU 추론·A/B 브라우저 여정을 반복하지 않았다.
-- [ ] PM source 수용·App push와 역할별 최소권한/호스트 설치·별도 바인딩 파일 검토. 이 기능을 쓸 때는 새 호스트 실행 코드도 필요하므로, 앞선 공용 입력 compatibility의 'host binary 유지 가능'을 이번 새 기능 설치 승인으로 해석하지 않는다.
+- [x] PM source9ae90c4f 수용·App push와 격리 최소권한/실제 host 진입점·별도 바인딩 연결을 확인했다.
+- [ ] 실제 운영 역할 GRANT·호스트 설치·exact 바인딩과 유지보수 관리자 접속 검토·승인은 남아 있다. 이 기능을 쓸 때는 새 호스트 실행 코드도 필요하므로, 앞선 공용 입력 compatibility의 'host binary 유지 가능'을 이번 새 기능 설치 승인으로 해석하지 않는다.
 - [ ] 운영 적용은 별도 승인이다. 현재 c106 앱/웹·host267·기존 실행기·012 부재·원본17개·#5를 그대로 유지한다. 별도 신규 교체 UI는 없고 관리자API와 host 전용명령 범위다.
 
 ### 공용 입력 운영 교체 전 호환성 — 검증 완료, 고정 대상 교체 gate 미해소

@@ -18,6 +18,8 @@
 
 ## 주요 내용
 
+- 대상 교체 설치 연결은 실제 분리된 최소권한 LOGIN 역할과 수용9ae90c4f의 실제 API/host 진입점으로 격리 검증했다. API는 인증/승인, host는 고정 대상 관측/적용·서명 leaf를 소유한다. exact binding이 없거나 다르면 기동이 막히며, 맞아도 desired0을 유지한다. 같은 별도 DB 복원본의012+019 병합 적용에서도 기존 업무 값·snapshot/#5·제어 이력이 보존됐다. 운영 교체·모델/MQ E2E·실제 여러 컴퓨터 검증을 의미하지 않는다.
+
 - 논리 슬롯1의 대상 교체는 관리자API의 후보 preview/decision과 별도 host의 prepare/apply를 분리한다. host의 기존 고정 config를 덮어쓰지 않고 exact 후보 manifest와 승인된 active binding을 별도 입력으로 받는다. 기존 계약/요청/ACK/boot는 불변 이력에 남으며 current epoch만 승인된 원자 전환으로 바뀐다.
 - offline 전환은 기존 host의 exclusive 소유권과 sender guard를 확보한 뒤 정지/서명 근거를 다시 대조한다. 오래된 host/요청은 contract·epoch·원래 세션으로 fence한다. applying 중단은 held이며 자동 재시작/전환/시작을 하지 않는다. API는 native socket 없이 후보ID·사유·개정만 처리한다. 운영에는 아직 설치하지 않았다.
 
