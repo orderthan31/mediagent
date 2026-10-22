@@ -6,6 +6,14 @@
 
 ## 현재 상태
 
+### 공통 캔버스 배치·연결선·전체 보기
+
+- WorkflowCanvas를 그대로 공유하는 편집/renewal 실행 상세에 자동 정렬·연결선 정리·전체 보기와 배치 되돌리기/초기화 조작을 노출한다. 노드 폭210은 유지하고 제목/포트를 줄바꿈한다. ResizeObserver/실제 DOM 높이·포트 중심을 사용하여 긴 이름이나 여러 줄 포트도 경로와 일치시킨다. 출력 포트 높이를 고려한 위상 계층 정렬로 불필요한 분기 교차를 줄이고, 노드 장애물을 피하는 직각 경로와 타 연결과의 교차/중첩 비용을 적용한다. 같은 합류 노드의 후속 접근은 이전 선보다 안쪽으로 결속해 인접 입력 직전의 교차 결함을 RED→GREEN으로 보정했다.
+- 편집은 기존 definition의 노드 position만 바꾸고 기존 개정 충돌 검사(CAS) 저장/재조회 계약을 사용한다. 되돌리기는 최대20회 위치 이력이며 현재 옵션·기본 모델/폴백 고정값·포트/연결을 되돌리지 않는다. 읽기 전용은 definition id/revision에 묶인 local view 위치만 바꾸고 초기화로 snapshot 배치를 복원한다. job/snapshot PUT/POST나 실행 동작을 추가하지 않는다. 연결선 경로는 표시 계산이므로 별도 경로 metadata/실행 계약을 저장하지 않으며 재조회에서도 저장된 위치/포트로 정리해 그린다.
+- 전체 보기는 실제 노드와 정리된 선의 경계를 모두 포함하고 기존 확대·이동을 유지한다. 작은 화면에서는 개요를 먼저 보고 확대/이동해 상세를 읽는다. 편집 전용 높이 덮어쓰기를 제거해 새 도구 모음 뒤에도 PC/390px 캔버스가 화면 안에 들어온다. 정렬은 기존 x0..4000/y0..3000 상한을 지키며 100노드의 장축은 유한한 묶음 배치를 사용한다. 크기/탐색 복잡도 초과는 안내하고 정상 정리 성공으로 표시하지 않으며 연결/옵션을 잘라내지 않는다.
+- 검증은 기존 API 이미지+clean source RO/renewal production build/별도 PG의 실제 정상 인증·정의 저장/재조회와 직접 seed한 불변 합성 draft를 사용했다. catalog의 긴 표시 이름과 TEST thumbnail만 명시 브라우저 응답 fixture다. 영상/공급자/모델/MQ/저장소 처리는 없으며 실제 운영 티켓 실행 수용이 아니다. PC1440/390px에서 되돌리기·저장 위치 재조회, 옵션/model_ref/fallback_refs/edge 불변, 텍스트 조각 범위와 노드/선 겹침, 포트 중심의 끝점, 전체 보기 경계와 read-only 수정 HTTP0/DB snapshot SHA·revision 동일을 확인했다. 같은 출력 분기의 공통 접점은 허용하고 다른 선 교차/중첩은0이다. 모바일 확대·키보드 이동과 배치 초기화도 확인했다.
+- 최종 Node 기하5/production browser2·타입/build·변경 frontend lint/format 통과다. 실제 관측한 합류 교차와 모바일 높이 덮어쓰기만 좁게 보정했고 기존 Radix/Node Playwright 경고는 남긴다. 임시 API/PG는 각 SIGTERM143/0으로 종료·제거하고 preview port/임시망을 닫았다. 기존24 container의 설정/ID/mount/시작/실행/종료 상태·WIP21을 보존했다. 저장 묶음3aaec048은 PM 수용·App push 완료로 닫았으며 이번 캔버스 소스는 PM 검토 대기다. 운영 사이트/서비스/DB/키·012/019·원본17개·#5/DLQ·정상 접수/배포는 바꾸지 않았다.
+
 ### 새 티켓의 산출물 manifest·실제 저장 경로
 
 - Execution.create는 snapshot.artifact_layout1을 고정한다. 이전 snapshot/원본/owner-CAS는 갱신하거나 옮기지 않는다. 새로운 구조는 기존 run result JSON receipt를 사용하며 새 migration/GRANT/키 저장소를 만들지 않는다. CPU/등록 모델은 기존 accept의 정확한 요청·세대·claim/lease·취소 검사 및 출력 검증 뒤 같은 결속을 사용하고, 제어/검수 완료·완료 receipt 재사용도 동일 저장 모듈을 거친다.
@@ -16,7 +24,7 @@
 - 실제 별도 PG/local CAS와 짧은 합성 입력으로 CPU 음성 추출/전처리·등록 Gemini adapter MockTransport 결과를 공통 accept에 통과시켰다. 두 티켓의 manifest·artifact 행·실제 경로가 분리되고 재조회·다운로드 바이트/SHA가 일치한다. 다른 사용자의 업로드를 사용한 실행 계정 분리/공용 읽기, 개인 설정403/익명401, legacy 무변경 읽기, 취소 후 quarantine 제외와 manifest 쓰기 실패 뒤 파일 미채택을 확인했다. 선택/검수 및 복구 재사용은 합성 자막만으로 저장 결속을 확인했다.
 - 통과형 select/review 영상은 새 정상 티켓 결속을 검사한 뒤 기존 검증된 source WebM을 호환 읽기로 재사용할 수 있다. 전용 ticket preview가 없는 경우를 RED→GREEN으로 보정했고, manifest/hash 실패를 우회하거나 raw MP4로 대체하지 않는다. 원본/미리보기를 새로 변환하거나 옮기지 않는다.
 - 최종 Python12(신규11+기존 저장 guard1)·실제 production UI PC1440/390px2 통과, 타입/build·변경 TSX/검사 ESLint/format 통과다. scoped Ruff는 신규0·부모에도 있는 API F4011을 보존했다. 기존 Starlette/httpx·Radix bundle·Node/Playwright 경고는 남긴다. S3는 network-none protocol double의 byte/object-key/reopen 확인이며 실제 S3/MinIO·브로커·공급자 품질/인증 수용이 아니다.
-- 검증은 기존 API 이미지+clean source RO 및 별도 PG/CAS/compiled web의 격리 설치다. 초기 internal-only Docker망의 preview port 비공개와 시험 node label 착오, sticky header 아래 조기 capture는 fixture 문제로 분리했다. disposable API만 loopback publish/bridge 연결하고 최종 source를 새 API에 적재해 확인했으며 운영망·웹·DB·키는 바꾸지 않았다. 전사/영상/MQ 전체 여정 반복·운영012/019·원본17개 이관·#5/DLQ 복구·접수 재개/배포는 없다. 이 소스는 PM 수용·App push 검토 대기다.
+- 검증은 기존 API 이미지+clean source RO 및 별도 PG/CAS/compiled web의 격리 설치다. 초기 internal-only Docker망의 preview port 비공개와 시험 node label 착오, sticky header 아래 조기 capture는 fixture 문제로 분리했다. disposable API만 loopback publish/bridge 연결하고 최종 source를 새 API에 적재해 확인했으며 운영망·웹·DB·키는 바꾸지 않았다. 전사/영상/MQ 전체 여정 반복·운영012/019·원본17개 이관·#5/DLQ 복구·접수 재개/배포는 없다. 산출물 저장3aaec048e7bd64215797cc702711b82acfb63b07은 PM 수용·App push와 Windows 원격 SHA 일치를 확인하여 종료했다. 운영 배포는 아니다.
 
 ### 접속 화면의 유지보수·로그인·통신 오류 구분
 

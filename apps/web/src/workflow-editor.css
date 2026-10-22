@@ -25,9 +25,6 @@
   font-size: var(--text-g-small);
   white-space: nowrap;
 }
-.workflow-editor .workflow-graph-viewport {
-  height: max(440px, calc(100dvh - 180px));
-}
 .workflow-editor fieldset {
   min-width: 0;
   margin: 12px 0 0;
@@ -104,8 +101,5 @@
   }
   .workflow-save-state {
     display: none;
-  }
-  .workflow-editor .workflow-graph-viewport {
-    height: max(420px, calc(100dvh - 175px));
   }
 }

@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useId,
   useMemo,
@@ -7,7 +8,20 @@ import {
   type PointerEvent,
   type ReactNode,
 } from 'react';
-import { LogIn, LogOut, Maximize, Minus, Plus, Trash2, X } from 'lucide-react';
+import {
+  GitBranch,
+  LayoutGrid,
+  LogIn,
+  LogOut,
+  Maximize,
+  Minus,
+  Plus,
+  Trash2,
+  Undo2,
+  X,
+} from 'lucide-react';
+import { autoArrange, applyLayout, type LayoutPoint, type Positions } from './workflow-layout';
+import { routeConnections, type Wire, type WireRoute } from './workflow-routing';
 import { switchOutputs } from './workflow-controls';
 import { NodeSymbol, nodeKind, nodeKindLabel } from './NodeSymbol';
 import { resolvePorts, type PortSpec } from './workflow-spec';
@@ -37,10 +51,12 @@ type Box = {
   type: string;
   x: number;
   y: number;
+  width: number;
   height: number;
   inputs: Record<string, string>;
   outputs: Record<string, string>;
 };
+type NodeMetrics = { height: number; ports: Record<string, LayoutPoint> };
 const width = 210;
 export const WorkflowCanvas = ({
   definition,
@@ -78,6 +94,21 @@ export const WorkflowCanvas = ({
   const [source, setSource] = useState<Endpoint | null>(null);
   const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
   const [connectionError, setConnectionError] = useState('');
+  const [measurements, setMeasurements] = useState<Record<string, NodeMetrics>>({});
+  const [previewLayout, setPreviewLayout] = useState<{ key: string; positions: Positions } | null>(
+    null,
+  );
+  const [layoutHistory, setLayoutHistory] = useState<{ key: string; values: Positions[] }>({
+    key: definition.id,
+    values: [],
+  });
+  const [layoutNotice, setLayoutNotice] = useState('');
+  const [cleanupRequested, setCleanupRequested] = useState(false);
+  const [routingPass, setRoutingPass] = useState(0);
+  const pendingFit = useRef(false);
+  const viewKey = definition.id + ':' + definition.revision;
+  const previewPositions = previewLayout?.key === viewKey ? previewLayout.positions : null;
+  const history = layoutHistory.key === definition.id ? layoutHistory.values : [];
   const pan = useRef<{ px: number; py: number; x: number; y: number } | null>(null);
   const nodeDrag = useRef<{ id: string; px: number; py: number; x: number; y: number } | null>(
     null,
@@ -92,9 +123,12 @@ export const WorkflowCanvas = ({
         type: '',
         x: 20,
         y: 24,
+        width,
         inputs: {},
         outputs: definition.inputs || {},
-        height: Math.max(94, 52 + Object.keys(definition.inputs || {}).length * 20),
+        height:
+          measurements.$input?.height ??
+          Math.max(94, 52 + Object.keys(definition.inputs || {}).length * 20),
       },
       ...definition.nodes.map((node, index) => {
         const spec = resolvePorts(
@@ -117,33 +151,110 @@ export const WorkflowCanvas = ({
                   .filter((edge) => edge.source.node === node.id)
                   .map((edge) => [edge.source.port, '미확인']),
               );
+        const position =
+          !onChange && previewPositions && Object.hasOwn(previewPositions, node.id)
+            ? previewPositions[node.id]
+            : node.position;
         return {
           id: node.id,
           label: spec?.label || node.type,
           review: !!node.options.review_mode && node.options.review_mode !== 'none',
           type: node.type,
-          x: node.position?.x ?? 330 + index * 290,
-          y: node.position?.y ?? 100,
+          x: position?.x ?? 330 + index * 290,
+          y: position?.y ?? 100,
+          width,
           inputs,
           outputs,
-          height: Math.max(
-            94,
-            52 + Math.max(Object.keys(inputs).length, Object.keys(outputs).length) * 20,
-          ),
+          height:
+            measurements[node.id]?.height ??
+            Math.max(
+              94,
+              52 + Math.max(Object.keys(inputs).length, Object.keys(outputs).length) * 20,
+            ),
         };
       }),
     ],
-    [definition, catalog, inputLabel],
+    [definition, catalog, inputLabel, measurements, previewPositions, onChange],
   );
-  const bounds = useMemo(
-    () => ({
-      left: Math.min(...boxes.map((box) => box.x)),
-      top: Math.min(...boxes.map((box) => box.y)),
-      right: Math.max(...boxes.map((box) => box.x + width)),
-      bottom: Math.max(...boxes.map((box) => box.y + box.height)),
-    }),
-    [boxes],
+  const readMeasurements = useCallback(() => {
+    const measured: Record<string, NodeMetrics> = Object.create(null);
+    for (const node of viewport.current?.querySelectorAll<HTMLElement>('.workflow-graph-node') ||
+      []) {
+      const rect = node.getBoundingClientRect();
+      const scale = rect.width / node.offsetWidth;
+      if (!scale) {
+        continue;
+      }
+      const ports: Record<string, LayoutPoint> = Object.create(null);
+      for (const port of node.querySelectorAll<HTMLElement>('button[data-port-direction]')) {
+        const circle = port.querySelector('i')!.getBoundingClientRect();
+        ports[(port.dataset.portDirection === 'outputs' ? 'out:' : 'in:') + port.dataset.port] = {
+          x: Math.round(((circle.left + circle.width / 2 - rect.left) / scale) * 100) / 100,
+          y: Math.round(((circle.top + circle.height / 2 - rect.top) / scale) * 100) / 100,
+        };
+      }
+      measured[node.dataset.nodeId!] = { height: node.offsetHeight, ports };
+    }
+    return measured;
+  }, []);
+  const measurementKey = boxes
+    .map((box) =>
+      [
+        box.id,
+        box.label,
+        Object.keys(box.inputs).join(','),
+        Object.keys(box.outputs).join(','),
+      ].join('|'),
+    )
+    .join(';');
+  const point = useCallback(
+    (endpoint: Endpoint, output: boolean) => {
+      const box = boxes.find((item) => item.id === endpoint.node);
+      if (!box) {
+        return null;
+      }
+      const index = Object.keys(output ? box.outputs : box.inputs).indexOf(endpoint.port);
+      if (index < 0) {
+        return null;
+      }
+      const actual =
+        measurements[endpoint.node]?.ports?.[(output ? 'out:' : 'in:') + endpoint.port];
+      return actual
+        ? { x: box.x + actual.x, y: box.y + actual.y }
+        : { x: box.x + (output ? width : 0), y: box.y + 56 + index * 20 };
+    },
+    [boxes, measurements],
   );
+  const routing = useMemo(() => {
+    // Recompute paths, never edge endpoints or immutable ticket data.
+    void routingPass;
+    try {
+      const wires: Wire[] = [];
+      for (const edge of definition.edges) {
+        const from = point(edge.source, true),
+          to = point(edge.target, false);
+        if (!from || !to) {
+          throw new Error('연결 포트의 위치를 확인할 수 없습니다.');
+        }
+        wires.push({ ...edge, from, to });
+      }
+      return { routes: routeConnections(boxes, wires), error: '' };
+    } catch (error) {
+      return {
+        routes: new Map<string, WireRoute>(),
+        error: error instanceof Error ? error.message : '연결선을 정리하지 못했습니다.',
+      };
+    }
+  }, [boxes, definition.edges, point, routingPass]);
+  const bounds = useMemo(() => {
+    const points = [...routing.routes.values()].flatMap((route) => route.points);
+    return {
+      left: Math.min(...boxes.map((box) => box.x), ...points.map((p) => p.x)),
+      top: Math.min(...boxes.map((box) => box.y), ...points.map((p) => p.y)),
+      right: Math.max(...boxes.map((box) => box.x + width), ...points.map((p) => p.x)),
+      bottom: Math.max(...boxes.map((box) => box.y + box.height), ...points.map((p) => p.y)),
+    };
+  }, [boxes, routing.routes]);
   const fitted = () => {
     // Fit inside the unobstructed canvas, not underneath touch-sized controls.
     const topInset = matchMedia('(max-width: 700px)').matches ? 72 : 0;
@@ -152,7 +263,7 @@ export const WorkflowCanvas = ({
     const scale = Math.min(
       1,
       Math.max(
-        0.15,
+        0.02,
         Math.min(
           (size.width - 80) / (bounds.right - bounds.left),
           (contentHeight - 48) / (bounds.bottom - bounds.top),
@@ -172,7 +283,7 @@ export const WorkflowCanvas = ({
   };
   const zoom = (factor: number) =>
     setView((previous) => {
-      const scale = Math.min(1.8, Math.max(0.15, previous.scale * factor));
+      const scale = Math.min(1.8, Math.max(0.02, previous.scale * factor));
       const ratio = scale / previous.scale;
       return {
         scale,
@@ -180,13 +291,63 @@ export const WorkflowCanvas = ({
         y: size.height / 2 - (size.height / 2 - previous.y) * ratio,
       };
     });
-  const point = (endpoint: Endpoint, output: boolean) => {
-    const box = boxes.find((item) => item.id === endpoint.node);
-    if (!box) {
-      return null;
+  const arrange = () => {
+    if (onChange && disabled) {
+      return;
     }
-    const index = Object.keys(output ? box.outputs : box.inputs).indexOf(endpoint.port);
-    return { x: box.x + (output ? width : 0), y: box.y + 56 + Math.max(0, index) * 20 };
+    try {
+      const nextMetrics = readMeasurements();
+      setMeasurements(nextMetrics);
+      const next = autoArrange(
+        boxes.map((box) => ({
+          ...box,
+          height: nextMetrics[box.id]?.height ?? box.height,
+          sourcePorts: Object.fromEntries(
+            Object.entries(nextMetrics[box.id]?.ports || {})
+              .filter(([key]) => key.startsWith('out:'))
+              .map(([key, value]) => [key.slice(4), value.y]),
+          ),
+        })),
+        definition.edges,
+      );
+      pendingFit.current = true;
+      if (onChange) {
+        const previous = Object.fromEntries(
+          definition.nodes.map((node) => [node.id, { ...node.position }]),
+        );
+        setLayoutHistory({ key: definition.id, values: [...history, previous].slice(-20) });
+        onChange(applyLayout(definition, next));
+      } else {
+        setPreviewLayout({ key: viewKey, positions: next });
+      }
+      setCleanupRequested(true);
+      setLayoutNotice(
+        onChange
+          ? '노드를 자동 정렬했습니다. 저장하면 배치가 반영됩니다.'
+          : '화면 배치만 정렬했습니다. 고정 티켓은 바뀌지 않습니다.',
+      );
+    } catch (error) {
+      setLayoutNotice(error instanceof Error ? error.message : '자동 정렬을 완료하지 못했습니다.');
+    }
+  };
+  const undoLayout = () => {
+    pendingFit.current = true;
+    if (onChange && history.length && !disabled) {
+      onChange(applyLayout(definition, history[history.length - 1]));
+      setLayoutHistory({ key: definition.id, values: history.slice(0, -1) });
+    } else if (!onChange) {
+      setPreviewLayout(null);
+    }
+    setLayoutNotice(
+      onChange ? '이전 배치로 되돌렸습니다.' : '고정 티켓의 원래 배치로 돌아왔습니다.',
+    );
+  };
+  const cleanupWires = () => {
+    setMeasurements(readMeasurements());
+    setRoutingPass((previous) => previous + 1);
+    setCleanupRequested(true);
+    setLayoutNotice('포트와 연결 관계를 유지하고 연결선 경로를 정리했습니다.');
+    pendingFit.current = true;
   };
   const curve = (from: { x: number; y: number }, to: { x: number; y: number }) => {
     const bend = Math.max(70, Math.abs(to.x - from.x) * 0.45);
@@ -276,6 +437,34 @@ export const WorkflowCanvas = ({
   const selectedBox = boxes.find((box) => box.id === selected);
   const previewFrom = source ? point(source, true) : null;
   useEffect(() => {
+    let disposed = false;
+    const refresh = () => {
+      if (disposed) {
+        return;
+      }
+      const next = readMeasurements();
+      setMeasurements((previous) =>
+        JSON.stringify(previous) === JSON.stringify(next) ? previous : next,
+      );
+    };
+    const observer = new ResizeObserver(refresh);
+    viewport.current
+      ?.querySelectorAll('.workflow-graph-node')
+      .forEach((node) => observer.observe(node));
+    refresh();
+    void document.fonts.ready.then(refresh);
+    return () => {
+      disposed = true;
+      observer.disconnect();
+    };
+  }, [measurementKey, readMeasurements]);
+  useEffect(() => {
+    if (pendingFit.current) {
+      pendingFit.current = false;
+      setView(fitted());
+    }
+  }, [bounds, size, routingPass]);
+  useEffect(() => {
     if (!viewport.current) {
       return;
     }
@@ -300,6 +489,35 @@ export const WorkflowCanvas = ({
   }, [selected]);
   return (
     <section className="workflow-graph" aria-label="워크플로우">
+      <div className="workflow-layout-actions" role="toolbar" aria-label="캔버스 배치">
+        <button
+          type="button"
+          onClick={arrange}
+          disabled={(!!onChange && disabled) || !definition.nodes.length}
+        >
+          <LayoutGrid size={16} /> 자동 정렬
+        </button>
+        <button type="button" onClick={cleanupWires}>
+          <GitBranch size={16} /> 연결선 정리
+        </button>
+        <button type="button" onClick={() => setView(fitted())}>
+          <Maximize size={16} /> 전체 보기
+        </button>
+        <button
+          type="button"
+          onClick={undoLayout}
+          disabled={onChange ? disabled || !history.length : !previewPositions}
+        >
+          <Undo2 size={16} /> {onChange ? '정렬 되돌리기' : '배치 초기화'}
+        </button>
+      </div>
+      <p className="workflow-layout-notice" aria-live="polite">
+        {cleanupRequested && routing.error
+          ? routing.error
+          : layoutNotice ||
+            (onChange ? '배치 변경은 저장 후 반영됩니다.' : '읽기 전용 · 화면 배치만 변경')}
+        {!onChange && layoutNotice && <span>읽기 전용 · 화면 배치만 변경</span>}
+      </p>
       {catalogError && (
         <p role="alert" className="workflow-catalog-error">
           {catalogError}
@@ -392,8 +610,9 @@ export const WorkflowCanvas = ({
               return (
                 <path
                   key={edge.id}
-                  className={active ? 'is-active' : ''}
-                  d={curve(from, to)}
+                  data-edge-id={edge.id}
+                  className={'workflow-wire ' + (active ? 'is-active' : '')}
+                  d={routing.routes.get(edge.id)?.path || curve(from, to)}
                   markerEnd={`url(#${marker})`}
                   onPointerDown={(event) => event.stopPropagation()}
                   onClick={() => {
@@ -419,7 +638,7 @@ export const WorkflowCanvas = ({
               data-node-id={box.id}
               data-node-kind={box.id === '$input' ? 'input' : nodeKind(box.type)}
               data-state={nodeStates[box.id]?.state}
-              style={{ left: box.x, top: box.y, width, height: box.height }}
+              style={{ left: box.x, top: box.y, width }}
             >
               <button
                 type="button"
@@ -481,7 +700,7 @@ export const WorkflowCanvas = ({
                   )}
                 </span>
                 <span>
-                  <strong>{box.label}</strong>
+                  <strong title={box.label}>{box.label}</strong>
                   <small>
                     {box.id === '$input'
                       ? '트리거'
