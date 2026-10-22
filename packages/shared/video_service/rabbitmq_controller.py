@@ -19,6 +19,15 @@ class BrokerController:
         self.runtime.defer_broker_agents = frozenset({'encode'})
         self.client_factory = client_factory
         self.engine_client_factory = getattr(client_factory, "engine_factory", None)
+        self.registered_client_factory = getattr(client_factory, 'registered_factory', None)
+        if self.registered_client_factory is not None:
+            for role in ('translation', 'transcription'):
+                configured = getattr(runtime, role + '_runtime')
+                if (configured is None or configured is not getattr(client_factory, role + '_runtime', None)
+                        or configured.credentials.database is not runtime.database
+                        or not getattr(configured, 'policy_sha256', None)
+                        or configured.policy_sha256 != getattr(client_factory, 'registered_policy_sha256', None)):
+                    raise ValueError('registered_broker_runtime_binding_mismatch')
         self.transport = DurableTransport(runtime)
 
     def publish_exact(self, owner, job_id, attempt_id):
@@ -32,6 +41,11 @@ class BrokerController:
                 if self.engine_client_factory is None:
                     raise BrokerError("engine_transport_not_configured")
                 factory, encode = self.engine_client_factory, engine_envelope
+            elif message_type == 'registered.command.v1':
+                from .registered_broker import reference
+                if self.registered_client_factory is None:
+                    raise BrokerError('registered_transport_not_configured')
+                factory, encode = self.registered_client_factory, reference
             elif message_type == "agent.command.v1":
                 factory, encode = self.client_factory, envelope
             else:

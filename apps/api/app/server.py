@@ -18,6 +18,8 @@ FIELDS = {
     "secure_cookies",
 }
 OPTIONAL_FIELDS = {
+    "registered_model_config_file",
+    "registered_broker_config_file",
     "credential_key_file",
     "object_config_file",
     "broker_config_file",
@@ -83,9 +85,17 @@ def main():
     parser.add_argument("--bootstrap-file", required=True)
     parser.add_argument("--admission-mode", required=True, choices=("normal", "maintenance"))
     parser.add_argument("--enable-broker", action="store_true")
+    parser.add_argument("--enable-registered-models", action="store_true",
+                        help="Enable explicitly bound registered-model MQ delivery; never run providers inside the API")
+    parser.add_argument("--allow-controlled-models", action="store_true",
+                        help="Disposable tests only: allow an explicitly pinned loopback HTTP policy")
     parser.add_argument("--enable-control", action="store_true",
                         help="Connect the fixed-host mailbox/recovery API only; never enroll or start targets")
     args = parser.parse_args()
+    if args.enable_registered_models and not args.enable_broker:
+        parser.error("Registered models require --enable-broker")
+    if args.allow_controlled_models and not args.enable_registered_models:
+        parser.error("Controlled models require --enable-registered-models")
     try:
         config, dsn = load_bootstrap(args.bootstrap_file)
         from app.admission import AdmissionPolicy
@@ -94,7 +104,7 @@ def main():
         if policy.mode != args.admission_mode:
             raise ValueError("admission_requirement_mismatch")
         if policy.mode == "maintenance" and (
-            not args.enable_control or args.enable_broker
+            not args.enable_control or args.enable_broker or args.enable_registered_models or args.allow_controlled_models
             or not config["secure_cookies"]
             or any(urlsplit(o).scheme != "https" for o in config["allowed_origins"])
         ):
@@ -113,9 +123,14 @@ def main():
 
     store = credentials = broker_factory = None
     if policy.mode == "normal":
-        store, credentials, broker_factory = runtime_components(
-            database, config, enable_broker=args.enable_broker
-        )
+        try:
+            store, credentials, broker_factory = runtime_components(
+                database, config, enable_broker=args.enable_broker,
+                enable_registered=args.enable_registered_models,
+                allow_controlled_models=args.allow_controlled_models,
+            )
+        except Exception:  # noqa: BLE001 -- private bootstrap values must never reach diagnostics
+            parser.error("Runtime startup prerequisites failed; server was not opened. Values are never logged.")
     remote_control = control_recovery = target_handover = None
     if args.enable_control:
         from video_service.postgres.control_recovery import ControlRecovery
@@ -142,6 +157,8 @@ def main():
             control_recovery=control_recovery,
             target_handover=target_handover,
             admission_policy=policy,
+            translation_runtime=getattr(broker_factory, 'translation_runtime', None),
+            transcription_runtime=getattr(broker_factory, 'transcription_runtime', None),
         )
     except (ValueError, psycopg.Error):
         parser.error("Admission startup prerequisites failed; server was not opened. Values are never logged.")

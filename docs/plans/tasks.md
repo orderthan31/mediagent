@@ -6,12 +6,21 @@
 
 ## 현재 상태
 
+### 등록 모델 전사·번역의 실제 설치 진입점 — 구현·격리 설치 확인 완료, 운영 미반영
+
+- [x] 정식 `app.server`에 기본 꺼짐인 `--enable-registered-models`를 연결했다. normal admission/명시 broker/S3/private 정책·기존 암호화 키 resolver가 함께 있어야 하며, API는 모델을 동기 실행하지 않고 전용 등록 모델 큐로 전달한다. `app.operator consume-registered-models`는 독립된 신뢰 애플리케이션 프로세스로 같은 Execution의 실행·intent/receipt·채택을 재사용한다. CPU/GPU 물리 에이전트에 DB/모델 키를 전달하지 않는다.
+- [x] 기존 local delivery 조건을 지우지 않고, 같은 credential/database와 명시 S3·등록 broker factory/runtime·정책 SHA의 결속을 검사하는 별도 전달 경계를 추가했다. MQ에는 owner/job/attempt/request SHA만 보내며 수신기는 commit된 outbox와 원 요청을 확인한다. 모델/연결/키 개정·언어/후보 순서를 실제 요청까지 유지하고, 정상 정책은 승인 origin/공인 IP에만 HTTPS Host/SNI/인증서 검증으로 연결한다. 프록시·리다이렉트·다른 IP 자동 재시도는 없다. loopback HTTP는 격리 정책+명시 시험 flag+disposable 환경 모두가 있을 때만 허용한다.
+- [x] 별도 PG·실제 TLS RabbitMQ/MinIO·서로 다른 API/results/model 캐시·새 격리 CPU consumer와 통제 HTTP로 정식 설치 명령→CPU 결과 수신→등록 모델 전달→전사/번역→채택/티켓 manifest·파일 다운로드를 확인했다. 발급 후 head/endpoint/key를 바꿔도 이전 개정의 실제 주소·모델·키/언어·후보 순서를 사용한다. 정상 모델 출력2개의 실제 S3/ticket 바이트·API 다운로드 SHA가 같고, 새 프로세스의 같은 완료 참조 수신은 HTTP를 반복하지 않는다.
+- [x] 호출 중 취소 뒤 503이 반환돼도 후속 후보/번역 요청은0이며 늦은 receipt1은 quarantine/정상 모델 manifest0으로 남는다. 틀린 SHA/존재하지 않는 attempt 참조2개는 격리 전용 dead queue로 거부하고 기존 완료 manifest/receipt/HTTP 횟수를 바꾸지 않는다. 기존 adapter/영상/MQ 전체 회귀는 반복하지 않았다.
+- 설치된 site-packages 실제 코드9모듈 SHA를 대조했다. installed 단위9·실제 설치 경계4 통과이며 frontend 변경/화면 시험은 없다. scoped Ruff는 Git mode0644/full-tree 조건에서 신규0·부모에도 있는 I0012다. 기존 Starlette/httpx 경고는 남긴다. API 자식의 실제 SIGTERM -15와 application/CPU consumer0, PG/MQ/S3 0을 구분해 기록하고 임시 container/network를 제거했다. 기존24개 container 설정/실행 상태·WIP21 hash를 보존했다.
+- 이 묶음은 **소스 수용·App push 검토 대기**다. 의존성 보존 후보 이미지의 정식 CLI/격리 요청·실행 연결 검증이며 실제 공급자 인증·인식/번역 품질·공인 egress 승인이나 여러 컴퓨터 설치 수용이 아니다. 운영 배포·서비스/DB/키·012/019·원본17개·#5/DLQ·정상 접수 재개는 수행하지 않았다. 기존 native lifecycle/고정 호스트와 다른 실행 역할도 그대로다.
+
 ### 공통 캔버스 자동 정렬·연결선 정리·전체 보기 — 구현·격리 확인 완료, 운영 미반영
 
 - [x] 기존 WorkflowCanvas와 편집/renewal 실행 상세 연결을 재사용한다. 세 배치 조작을 텍스트 버튼으로 노출하며 확대/축소·화면 맞춤만으로 정렬/연결선 정리를 대신하지 않는다. 긴 이름/포트는 줄바꿈하고 실제 DOM 높이·포트 중심을 측정한다. 위상 계층과 출력 포트 순서로 노드를 배치하고, 노드를 피하는 직각 연결선/분리된 합류 접근 경로를 계산한다. 기존 노드 폭과 포트/연결 관계는 유지한다.
 - [x] 편집은 위치만 바꾸고 최대20회 정렬 되돌리기·기존 개정 충돌 검사(CAS) 저장·재조회로 연결한다. 옵션/model_ref/fallback_refs·입력/연결을 보존한다. 읽기 전용 상세는 local view 배치/초기화만 제공하며 고정 ticket/snapshot 수정 요청을 보내지 않는다. 연결선 경로는 저장 위치와 포트에서 다시 계산하는 화면 기하이며 별도 실행 계약을 저장하지 않는다.
 - [x] 별도 PG·실제 인증/정의 저장 API·production UI와 합성 분기 그래프로 PC1440/390px을 확인했다. 긴 catalog 이름/thumbnail만 명시 응답 fixture이고 실행 상세는 직접 seed한 불변 합성 draft다. 실제 영상·모델·MQ·저장소 여정이나 공급자 호출을 실행하지 않았다. 되돌리기/실제 저장·재조회, 설정·모델 고정값 불변, DOM 글자 범위/노드 겹침/연결선의 타 노드 관통·다른 선 교차/중첩 없음(같은 출력의 분기 접점 제외), 실제 포트 중심과 경로 끝점, 전체 보기의 노드·선 경계, 읽기 전용 수정 요청0/snapshot SHA·revision 동일과 모바일 확대·이동을 확인했다.
-- 최종 Node 기하5개·실제 브라우저2개·타입/build·변경 frontend ESLint/format 통과다. 100노드 정렬은 기존 서버 위치 상한을 보존한다. 과도한 크기/연결 복잡도는 실패 안내를 남기며 연결을 삭제/변경해 성공시키지 않는다. 모바일 전체 보기는 개요이며 확대·이동으로 긴 이름을 읽는다. 기존 Radix bundle/Node Playwright 경고는 남는다. 임시 API는 SIGTERM 후143, PG는0으로 종료·제거했고 기존24개 container ID/설정/mount/실행 상태·WIP21 hash와 운영 차단을 보존했다. 이번 캔버스 소스는 PM 수용·App push 검토 대기이며 운영 배포·서비스/DB/키·012/019·원본17개/#5/DLQ·정상 접수 재개는 제외했다.
+- 최종 Node 기하5개·실제 브라우저2개·타입/build·변경 frontend ESLint/format 통과다. 100노드 정렬은 기존 서버 위치 상한을 보존한다. 과도한 크기/연결 복잡도는 실패 안내를 남기며 연결을 삭제/변경해 성공시키지 않는다. 모바일 전체 보기는 개요이며 확대·이동으로 긴 이름을 읽는다. 기존 Radix bundle/Node Playwright 경고는 남는다. 임시 API는 SIGTERM 후143, PG는0으로 종료·제거했고 기존24개 container ID/설정/mount/실행 상태·WIP21 hash와 운영 차단을 보존했다. 캔버스3827615999db3609e4015b5d6aca495a8cc199a6은 PM 수용·App push 및 Windows 원격 SHA 일치를 확인해 종료했으며 운영 배포·서비스/DB/키·012/019·원본17개/#5/DLQ·정상 접수 재개는 제외했다.
 
 ### 티켓별 산출물 manifest·저장 배치 — 구현·격리 검증 완료, 운영 미반영
 
@@ -36,7 +45,7 @@
 - [x] 검증된 원본→기존 CPU 음성 추출/전처리 off→PCM WAV→API→시간 구간 전사→기존 번역 입력→결과 다운로드를 별도 PG/CAS·통제 HTTP로 확인했다. PCM16/mono/16kHz·60초/2MiB·100구간/16KB 이내만 지원하며 시간 정보가 없거나 음성 범위를 벗어난 응답은 거부한다. 기존 audio_clock으로 보존된 원본 시각에 대응하며 클라이언트가 시각을 만들어 넣지 않는다.
 - [x] 오프라인 Windows System.Speech 합성 음성을 사용해 Gemini 단독 채택, Gemini 실패→OpenAI 채택, 전체 실패, 시간 없는 응답 거부, 전사 중 취소/뒤 후보와 번역 미호출을 확인했다. 티켓 발급 뒤 모델 head/키 교체에도 원 개정을 사용하고 실제 HTTP의 WAV SHA가 CAS 입력과 같다. 기존 후보 intent/취소·세대·늦은 결과 격리를 재사용했다.
 - 관련 Python16 pass/실패·오류·skip0(ASR9+공통 runner/Gemini 회귀7), 실제 production UI2 pass·Node53·타입/build·변경 TS/TSX lint/format 통과다. scoped Python lint 신규0/기존 F4011이며 기존 다른 lint 부채를 고치거나 전체 lint 통과로 보고하지 않았다. 새 화면 PC/390px를 확인하고 기존 영상/MQ 전체 여정은 반복하지 않았다.
-- API의 transcription_runtime를 동일 credential store/명시 transport·origin/local delivery로 주입해야 하며 기본 transport는 없다. 운영 bootstrap/브로커/승인된 외부 연결·배포, 실제 공급자 인식 정확도, 장시간 분할·다이어리제이션은 미완료다. 운영 유지보수/중지 서비스·DB/키·012/019·대상/원본/#5/DLQ와 유료 호출 제한은 그대로다.
+- 초기 전사 수용은 동일 credential store/명시 transport·origin/local delivery 주입 범위였다. 위 후속 설치 묶음에서 기본 꺼짐인 정식 CLI/등록 모델 broker 연결을 별도로 확인했다. 운영 연결·승인된 실제 공급자 호출/정확도·배포·장시간 분할/다이어리제이션은 미완료이며 유지보수/중지 서비스·DB/키·012/019·대상/원본/#5/DLQ와 유료 제한은 그대로다.
 
 ### 등록 모델 번역·선택형 다단계 폴백 — 구현·격리 HTTP 계약 검증 완료, 운영 미반영
 
@@ -46,7 +55,7 @@
 - [x] Gemini 네이티브 generateContent와 기존 OpenAI/OpenAI-compatible를 연결한다. 후보별 사용 가능 여부와 origin/키/능력을 재확인하고, 한 후보당 한 번·최대 4개만 시도한다. 사용 불가·429·5xx·유효하지 않은 결과만 다음 후보로 전환하고 인증/요청 거부·전송 결과 불명·취소는 중단한다. 실제 HTTP 전 후보 intent를 영속 저장하며 시도/실패/전환/최종 채택을 구분해 화면에 표시한다.
 - [x] 별도 PG/CAS와 loopback HTTP 서버에서 화면→설정 저장/재조회→티켓→동의/실행→결과 다운로드, 폴백 없음·복수 실패 후 성공·전체 실패·호출 중 취소/다음 모델 미호출을 확인했다. 발급 후 모델 head/키를 바꿔도 기존 모델/연결 개정으로 호출했다. PC/390px 화면, 관련 Python 33 pass/기존 browser opt-in 1 skip, 실제 브라우저 2 pass·Node53·타입/build/format을 확인했다. 변경 범위 lint는 신규0이며 부모에도 있는 Python F401 1개/프론트 effect-order 1개가 남는다.
 - 이 완료는 합성 자막/통제된 HTTP의 요청·실행 계약 검증이다. 기존 video DAG의 번역 입력과 별도로, `transcript` 외부 입력만 있는 정의는 선택한 원본을 출처로 유지하면서 수동 자막 JSON(100개/16KB 이내)을 기존 CAS에 고정할 수 있다. 실제 공급자 인증·번역 품질·Anthropic 실행·대용량 분할 번역은 완료로 표시하지 않는다. 음성 전사는 위 별도 수용 묶음이다.
-- transport/origin을 명시 주입한 로컬 전달 경로만 연결했다. 배포용 bootstrap/브로커 경로와 실제 외부 egress 설치는 미적용이며, external 모드는 후보 전체의 비용 동의와 티켓/실행 승인을 요구한다. 운영 유지보수·중지 서비스·운영 DB/키·012/019·대상/원본/#5/DLQ는 변경하지 않았다.
+- 초기 번역 수용은 transport/origin을 주입한 로컬 전달 범위였다. 위 후속 설치 묶음에서 명시 bootstrap/등록 모델 broker 전달을 격리 확인했지만 운영에는 미적용이다. external 모드의 후보 전체 비용 동의·티켓/실행 승인은 유지하며 실제 외부 egress/공급자 수용은 하지 않았다. 운영 유지보수·중지 서비스·DB/키·012/019·대상/원본/#5/DLQ는 변경하지 않았다.
 
 ### 주요 공급자 연결 등록·Gemini 키 — 구현·격리 검증 완료, 운영 미반영
 
@@ -186,7 +195,8 @@
 - [x] MQ request/result JSON Schema·정확한 역할/포트·옵션·digest·세대·CAS 참조 검사를 정본화한다. 예상 외 응답 필드·credential·raw 진단은 거부한다.
 - [x] Compose의 LLM/provider/model 환경변수 주입과 구형 설정 API를 제거한다. root API는 명시 private bootstrap 파일만 읽으며 startup migration/worker는 없다.
 - [x] 관리자 모델/connection revision CRUD와 DB encrypted credential 저장·교체·폐기·CAS·복호화 resolver를 연결한다. pinned DB endpoint/model/key가 injected text adapter의 요청에 반영되고 상충/삭제된 환경값으로 fallback하지 않음을 실제 격리 PG에서 검증한다.
-- [ ] 일반 등록 모델의 owner-scoped provider/STT/TTS·address-pinned egress transport를 연결·승인한다. 목적지의 고정 offline STT/en→de/GPU engine v2는 별도 구현했으며, 이를 일반 model_ref transport나 외부 provider 수용으로 확대하지 않는다.
+- [x] 일반 model_ref 전사/번역의 명시 설치 진입점·owner-scoped resolver·address-pinned 전달을 위 격리 설치 경계까지 연결한다. 고정 offline STT/en→de/GPU engine v2와 별도이며 서로 몰래 대체하지 않는다.
+- [ ] 승인된 실제 공급자 egress/인증·STT/번역 품질·운영 연결, 미지원 Anthropic/TTS·장시간 분할은 별도다. 통제 서버의 설치 연결 결과를 실제 provider 수용으로 확대하지 않는다.
 - [x] 레포 내 opt-in RabbitMQ/PG/S3 구성, private bootstrap 생성기, 수동 migration/bucket/topology, API/results/CPU 선택 기동과 복구 절차를 제공하고 실제 격리 broker를 수용한다. exact renewal·목적지 운영 경계·GPU 미구현/미검증 범위의 인계 준비를 완료한다. 실제 전달/수신/목적지 실행은 Discord 증적으로 별도 구분한다.
 
 ### 인프라 잔여 — GPU 작업으로 분류하지 않음

@@ -929,6 +929,9 @@ class Execution(Intake):
                     if command["protocol_version"] == 2
                     else "agent.command.v1"
                 )
+                if command.get('translation') or command.get('transcription'):
+                    from ..registered_broker import COMMAND as REGISTERED_COMMAND
+                    message_type = REGISTERED_COMMAND
                 self._write_outbox(
                     db, owner, identity, message_type, command, row["id"]
                 )

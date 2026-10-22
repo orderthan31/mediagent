@@ -42,6 +42,12 @@ def engine_broker_factory(path):
     return _broker_factory(path, EngineBrokerConfig, EngineRabbitClient)
 
 
+def registered_broker_factory(path):
+    from .registered_broker import RegisteredBrokerConfig, RegisteredRabbitClient
+
+    return _broker_factory(path, RegisteredBrokerConfig, RegisteredRabbitClient)
+
+
 def _broker_factory(path, config_type, client_type):
     value = document(path)
     if set(value) - {"namespace", "url_file", "ca_file", "allow_loopback"} or not {

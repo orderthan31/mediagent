@@ -175,14 +175,19 @@ def create_app(
             target_handover = None
         elif target_handover is None:
             raise ValueError("maintenance_requires_target_handover")
-    if translation_runtime is not None and (not local_execution or content_store is None
-            or broker_factory is not None or translation_runtime.credentials is not credential_store
-            or credential_store.database is not database):
-        raise ValueError("translation_requires_explicit_same_store_and_local_delivery")
-    if transcription_runtime is not None and (not local_execution or content_store is None
-            or broker_factory is not None or transcription_runtime.credentials is not credential_store
-            or credential_store.database is not database):
-        raise ValueError("transcription_requires_explicit_same_store_and_local_delivery")
+    for role, runtime in (("translation", translation_runtime), ("transcription", transcription_runtime)):
+        if runtime is None:
+            continue
+        bound_broker = (broker_factory is not None
+                        and getattr(content_store, "storage_kind", None) == "s3"
+                        and getattr(broker_factory, "registered_factory", None) is not None
+                        and getattr(broker_factory, role + "_runtime", None) is runtime
+                        and bool(getattr(runtime, "policy_sha256", None))
+                        and runtime.policy_sha256 == getattr(broker_factory, "registered_policy_sha256", None))
+        if (not local_execution or content_store is None or credential_store is None
+                or runtime.credentials is not credential_store or credential_store.database is not database
+                or (broker_factory is not None and not bound_broker)):
+            raise ValueError(role + "_requires_explicit_same_store_and_bound_delivery")
     origins = frozenset(allowed_origins)
     if not origins or any(
         urlsplit(value).scheme not in ("http", "https")

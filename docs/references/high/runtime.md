@@ -6,13 +6,39 @@
 
 ## 현재 상태
 
+### 등록 모델 전사·번역의 정식 설치 전달
+
+- 기본은 꺼짐이다. broker 의존성을 포함한 기존 `Dockerfile`의 broker target 계열 이미지에서 `app.server --admission-mode normal --enable-broker --enable-registered-models`를 명시해야 한다. 서버는 같은 CredentialStore/DB, 독립 S3와 등록 모델 broker/runtime/정책 SHA 결속을 검사한다. 이전 local 전달 주입도 유지하며 maintenance·경쟁 local executor·임의 broker/runtime 조합은 허용하지 않는다. API의 모델 runtime은 plan/eligibility에 사용하고 실제 provider 요청은 아래 독립 애플리케이션 consumer에서 실행한다.
+- private bootstrap에 기존 `object_config_file`, `broker_config_file`, `credential_key_file`와 새 `registered_model_config_file`, `registered_broker_config_file`의 절대 파일 경로를 명시한다. API/results/engine-results/model worker의 endpoint·DSN·캐시는 별개로 설정할 수 있지만 동일 작업의 DB와 S3 bucket/prefix, 같은 승인된 credential encryption key/resolver를 연결해야 한다. 물리 CPU/GPU agent에 DB/모델 키 파일을 배포하지 않으며 API에 Docker socket을 주지 않는다. 새 worker는 신뢰 애플리케이션 역할이지 물리 에이전트 원격 제어/telemetry 수용이 아니다.
+- model 정책 JSON은 `version:1`, `mode:external`, `origins:[{origin,addresses}]`, 선택 `ca_file`로 제한한다. origin은 저장된 endpoint의 승인 origin이며 주소는 명시 공인 unicast IP만 허용한다. 첫 IP에만 연결하고 원 Host/SNI와 인증서 검증을 유지한다. 모델 hostname을 다시 DNS 해석하거나 환경 proxy·redirect·다른 IP 재시도로 우회하지 않는다. 정책을 만들려고 기존 연결 주소/방식/키를 자동 변경하지 않는다. 사설·loopback·평문 HTTP는 정상 external 정책으로 허용하지 않는다.
+- 통제 fixture에만 `mode:controlled_http`, `origin:http://127.0.0.1:9419`, `addresses:[127.0.0.1]`를 사용했다. `--allow-controlled-models`와 `MIDEAGENT_TEST_DISPOSABLE=1`을 함께 요구하며 어느 하나라도 빠지면 시작을 거부한다. 이를 운영 주소 정책이나 비용 승인 생략 방법으로 사용하지 않는다. normal external 모드는 기존 티켓 생성/계획/실행 및 후보 전체의 paid_authorized 확인을 그대로 거친다.
+- `registered.command.v1`은 기존 CPU/engine wire와 별도 exchange/queue다. 전용 private broker 파일의 namespace 아래 `.registered.commands.v1`, `.registered.registered.v1`, `.registered.dead.v1` 및 해당 dead queue를 사용하며 기존 TTL60000ms를 유지한다. topology는 별도 명시 선언, 기존 큐/권한/정책은 자동 변경하지 않는다. MQ body는 owner/job_id/attempt_id/request_sha256/version만 포함하고 모델 설정·키 원문을 보내지 않는다. 수신기는 원 job lock 뒤 node request/commit된 published outbox/정확한 SHA·역할·프로토콜을 대조한다. 미확정/없는 요청을 실행하거나 과거 outbox를 스캔·재분류하지 않는다.
+- 독립 `app.operator consume-registered-models`가 기존 Execution.execute_command의 durable started/완료 receipt와 후보 intent-before-HTTP, 고정 model/connection/key revision·언어·선택 후보 순서를 재사용한다. 기존 accept가 취소/세대/claim/lease/늦은 결과를 판단하고 SQL receipt→티켓 manifest/S3 object→공용 파일 다운로드를 결속한다. 완료 참조 재수신은 캐시된 receipt만 재사용하며 started/unknown은 자동 HTTP 재실행하지 않는다. ACK는 채택과 다음 노드 전달 뒤다.
+- CPU 결과와 engine 결과를 받는 application consumer도 등록 모델로 이어질 수 있으므로 같은 명시 runtime 구성을 사용한다. 기존 CPU/engine protocol을 느슨하게 바꾸거나 API의 임시 run_local/시험 전용 서버로 대신하지 않는다. topology/권한/worker가 없으면 해당 전달이 실패하며 로컬 모델 대체나 정상 완료 표시는 없다.
+
+격리 설치에서 실제 실행한 명령(전용 `/run/round` 파일·내부망만 사용, 운영용 명령 실행 아님):
+
+```bash
+# 이 환경변수/allow-controlled flag는 통제 fixture 전용이다.
+export MIDEAGENT_TEST_DISPOSABLE=1
+python -m app.operator declare-registered-topology --bootstrap-file /run/round/seed.json --enable-broker --enable-registered-models --allow-controlled-models
+python -m app.operator consume-results --bootstrap-file /run/round/results.json --enable-broker --enable-registered-models --allow-controlled-models
+python -m app.operator consume-registered-models --bootstrap-file /run/round/worker.json --enable-broker --enable-registered-models --allow-controlled-models
+python -m app.server --bootstrap-file /run/round/api.json --admission-mode normal --enable-broker --enable-registered-models --allow-controlled-models
+```
+
+- 실제 설치 확인은 새 PG·TLS RabbitMQ/MinIO와 새 CPU extract_audio/preprocess_audio consumer, 독립 API/results/model 프로세스, 서로 다른 캐시 및 loopback 통제 HTTP를 사용했다. 의존성 보존 후보 이미지의 site-packages9모듈 SHA를 clean source와 대조했고 API/provider 코드를 RO source/PYTHONPATH로 바꾸지 않았다. 정상 인증/CSRF·실제 preview/create/plan/confirm/admit/run→CPU 결과→전사/번역→manifest/모델 출력2개 다운로드 SHA를 확인했다. API를 모델 실행 없이도 조회/취소할 수 있고, head/endpoint/key 변경 후에도 고정된 실제 요청 모델·주소·키/언어·후보 순서/오디오 SHA가 일치한다.
+- 새 프로세스의 완료 참조 재수신은 HTTP0 추가, 호출 중 취소 후503은 뒤 후보/번역0·quarantine1/정상 모델 manifest0이다. 잘못된 SHA/없는 attempt2개는 이 격리 전용 dead queue에 보존되고 기존 완료 receipt/manifest/HTTP 수를 바꾸지 않는다. installed 단위9+설치 경계4 통과이며 전체 adapter/영상/MQ 회귀·UI 시험을 다시 한 것이 아니다. scoped Ruff는 실제 Git mode0644를 재현한 full-tree에서 신규0/기존 I0012이고 NTFS EXE002/cache 권한 진단을 제품 위반과 구분한다. 기존 Starlette/httpx 경고는 그대로다.
+- API 자식 SIGTERM 실제 -15, application/CPU consumer0·PG/MQ/S3 0으로 종료하고 전용 임시 container/network를 제거했다. 기존24개 container ID/image/config/mount/시작·실행 상태와 WIP21 hash는 보존했다. 운영 DB 전체/원본 전체 해시 재시험이나 운영 fault 주입을 하지 않았으며 운영 서비스·DB/키/012/019·원본17개/#5/DLQ/정상 접수에는 변경 명령을 실행하지 않았다.
+- **소스 수용·App push 대기, 운영 미반영**이다. 같은 호스트의 독립 프로세스/저장 경계 확인이지 실제 여러 컴퓨터 설치·운영 bootstrap/권한/외부 egress 승인·공급자 인증/ASR 정확도/번역 품질 수용이 아니다. Anthropic/TTS·긴 음성/장문 분할·기존 native host/target/다른 역할 lifecycle은 이번에 확장하지 않는다.
+
 ### 공통 캔버스 배치·연결선·전체 보기
 
 - WorkflowCanvas를 그대로 공유하는 편집/renewal 실행 상세에 자동 정렬·연결선 정리·전체 보기와 배치 되돌리기/초기화 조작을 노출한다. 노드 폭210은 유지하고 제목/포트를 줄바꿈한다. ResizeObserver/실제 DOM 높이·포트 중심을 사용하여 긴 이름이나 여러 줄 포트도 경로와 일치시킨다. 출력 포트 높이를 고려한 위상 계층 정렬로 불필요한 분기 교차를 줄이고, 노드 장애물을 피하는 직각 경로와 타 연결과의 교차/중첩 비용을 적용한다. 같은 합류 노드의 후속 접근은 이전 선보다 안쪽으로 결속해 인접 입력 직전의 교차 결함을 RED→GREEN으로 보정했다.
 - 편집은 기존 definition의 노드 position만 바꾸고 기존 개정 충돌 검사(CAS) 저장/재조회 계약을 사용한다. 되돌리기는 최대20회 위치 이력이며 현재 옵션·기본 모델/폴백 고정값·포트/연결을 되돌리지 않는다. 읽기 전용은 definition id/revision에 묶인 local view 위치만 바꾸고 초기화로 snapshot 배치를 복원한다. job/snapshot PUT/POST나 실행 동작을 추가하지 않는다. 연결선 경로는 표시 계산이므로 별도 경로 metadata/실행 계약을 저장하지 않으며 재조회에서도 저장된 위치/포트로 정리해 그린다.
 - 전체 보기는 실제 노드와 정리된 선의 경계를 모두 포함하고 기존 확대·이동을 유지한다. 작은 화면에서는 개요를 먼저 보고 확대/이동해 상세를 읽는다. 편집 전용 높이 덮어쓰기를 제거해 새 도구 모음 뒤에도 PC/390px 캔버스가 화면 안에 들어온다. 정렬은 기존 x0..4000/y0..3000 상한을 지키며 100노드의 장축은 유한한 묶음 배치를 사용한다. 크기/탐색 복잡도 초과는 안내하고 정상 정리 성공으로 표시하지 않으며 연결/옵션을 잘라내지 않는다.
 - 검증은 기존 API 이미지+clean source RO/renewal production build/별도 PG의 실제 정상 인증·정의 저장/재조회와 직접 seed한 불변 합성 draft를 사용했다. catalog의 긴 표시 이름과 TEST thumbnail만 명시 브라우저 응답 fixture다. 영상/공급자/모델/MQ/저장소 처리는 없으며 실제 운영 티켓 실행 수용이 아니다. PC1440/390px에서 되돌리기·저장 위치 재조회, 옵션/model_ref/fallback_refs/edge 불변, 텍스트 조각 범위와 노드/선 겹침, 포트 중심의 끝점, 전체 보기 경계와 read-only 수정 HTTP0/DB snapshot SHA·revision 동일을 확인했다. 같은 출력 분기의 공통 접점은 허용하고 다른 선 교차/중첩은0이다. 모바일 확대·키보드 이동과 배치 초기화도 확인했다.
-- 최종 Node 기하5/production browser2·타입/build·변경 frontend lint/format 통과다. 실제 관측한 합류 교차와 모바일 높이 덮어쓰기만 좁게 보정했고 기존 Radix/Node Playwright 경고는 남긴다. 임시 API/PG는 각 SIGTERM143/0으로 종료·제거하고 preview port/임시망을 닫았다. 기존24 container의 설정/ID/mount/시작/실행/종료 상태·WIP21을 보존했다. 저장 묶음3aaec048은 PM 수용·App push 완료로 닫았으며 이번 캔버스 소스는 PM 검토 대기다. 운영 사이트/서비스/DB/키·012/019·원본17개·#5/DLQ·정상 접수/배포는 바꾸지 않았다.
+- 최종 Node 기하5/production browser2·타입/build·변경 frontend lint/format 통과다. 실제 관측한 합류 교차와 모바일 높이 덮어쓰기만 좁게 보정했고 기존 Radix/Node Playwright 경고는 남긴다. 임시 API/PG는 각 SIGTERM143/0으로 종료·제거하고 preview port/임시망을 닫았다. 기존24 container의 설정/ID/mount/시작/실행/종료 상태·WIP21을 보존했다. 저장 묶음3aaec048과 캔버스3827615999db3609e4015b5d6aca495a8cc199a6은 모두 PM 수용·App push와 Windows 원격 SHA 일치를 확인해 닫았다. 운영 사이트/서비스/DB/키·012/019·원본17개·#5/DLQ·정상 접수/배포는 바꾸지 않았다.
 
 ### 새 티켓의 산출물 manifest·실제 저장 경로
 
@@ -40,7 +66,7 @@
 - 원본을 기존 Intake로 검증하고 CPU extract_audio/preprocess_audio off 결과의 PCM16/mono/16kHz WAV를 보낸다. 실제 WAV bytes/duration/hash와 timeline SHA를 결과에 보존한다. 최대60초/2MiB·100구간/16KB이며 장시간 분할은 없다. 제공된 시각을 parse_segments와 음성 길이로 확인하고 기존 audio_clock에 따라 원본 시각으로 대응한다. 시각 누락/문자열 시각·범위 초과·형식 오류를 임의 시각/성공으로 보완하지 않는다. 범위 밖 음성/clock은 HTTP 전 실패 receipt로 정리한다.
 - 기존 TranslationRuntime의 순서 후보 runner를 공통 `_run`으로 추출해 재사용한다. TranscriptionRuntime는 사용 가능성·오디오 adapter·timed decode만 선택한다. 후보는 기본1+선택3/각1회, HTTP 전 started intent 영속·정확한 delivery 재실행 차단/사용 불가·429·5xx·형식 오류만 다음 후보/거부·불명·취소 중단을 유지한다. model/connection revision과 원문 언어는 snapshot과 command에 고정하고 CredentialStore.model/resolve를 일시 재사용한다. 원격 API 모델 이름 whisper-1이지 로컬 Whisper 실행이 아니다.
 - 기존 Execution/consent/claim/결과 채택/CAS 및 공용 DTO에 transcription 기록만 추가한다. 성공 전사 CAS가 번역 입력과 정확히 같고 source clock을 보존한다. 취소 후 뒤 전사 후보/번역 신규 HTTP가 없으며 반환된 결과는 기존 quarantine에 남고 정상 산출물로 채택하지 않는다. 이미 전송한 외부 HTTP 자체의 공급자 측 중단을 보장하지 않는다.
-- create_app의 transcription_runtime는 같은 credential store/content store/명시 local delivery와 승인 origin을 요구하며 maintenance/broker_factory와 함께 활성화하지 못한다. controlled_http는127.0.0.1만, external은 기존 후보 전체 비용 동의→plan/claim→동결 paid_authorized를 요구한다. 기본 네트워크 transport는 없고 운영 bootstrap/브로커 전달·egress 설치는 하지 않았다.
+- 초기 전사 수용의 create_app 주입은 같은 credential store/content store/명시 local delivery·승인 origin만 허용했다. 현재는 위 정식 설치 묶음의 같은 resolver/DB·S3·등록 broker/runtime/정책 결속 경계를 추가하며 maintenance는 계속 거부한다. 기본 transport 자동 활성화는 없고 controlled_http의 격리 제한 및 external의 비용 동의→plan/claim→동결 paid_authorized를 유지한다. 운영 bootstrap/브로커·실제 외부 egress 설치는 하지 않았다.
 - 검증 입력은 Windows System.Speech로 오프라인 생성한4.755초 합성 음성이다. 실제 CPU 음성 추출/별도 PG·CAS/실제 loopback HTTP에서 Gemini 단독 성공·Gemini실패→OpenAI성공·전부 실패·시간 누락 거부·진행 중 취소/후속 번역0을 확인했다. 발급 뒤 head/key 교체에도 원 model/connection/key revision 요청을 사용하고 HTTP decode audio SHA와 CAS가 같다. 응답은 통제 fixture여서 실제 인식/번역 품질 검증이 아니다.
 - 최종 관련 Python16 pass(신규ASR9+공통 runner/Gemini guard7), 실제 production frontend→정상 auth→모델/폴백/언어 저장→티켓→전사→번역/다운로드 및 화면 취소2 pass, PC390px를 확인했다. Node53/타입·build·format/변경 frontend lint는 통과, scoped Ruff는 신규0·기존 API F4011이다. 기존 전체 영상/MQ/UI 수용 여정을 재실행하지 않았다. 초기 option disabled 판정은 DOM disabled 속성으로 분리해 fixture를 보정했고 실제 잘못 허용되던 UI RED와 구분했다.
 - 기존 API 이미지에 clean source RO/PYTHONPATH와 production frontend를 연결한 격리 앱이며 새 wheel 설치/운영 배포가 아니다. 임시 API/PG만 정상 exit0/삭제·UI port 폐쇄, 기존24개 container 설정/시작/실행 상태와 WIP21 hash를 보존했다. 운영 DB/키·유지보수/중지 상태·012/019·대상/원본/#5/DLQ는 변경하지 않았다.
@@ -54,7 +80,7 @@
 - 후보 dispatch마다 owner/활성/불변 내용/능력/키/승인 origin을 재확인한다. 후보 시작 intent는 기존 agent_deliveries의 started 행에 별도 transaction으로 HTTP 전에 commit한다. 전달 불명은 자동 재실행하지 않으며 기존 exact-delivery fence/취소·세대·claim·lease/늦은 결과 격리를 유지한다. 성공/실패와 취소의 후보 기록은 공용 DTO에서도 키/endpoint 없이 조회한다.
 - 사용 불가·429·5xx·잘못된 완성 응답만 다음 후보로 간다. 인증/요청 거부·HTTP 전달 결과 불명·취소는 중단하고 같은 후보를 자동 재시도하지 않는다. 최대4개/각1회다. HTTP 진행 중 취소 버튼은 별도 요청으로 동작하고 반환된 결과는 정상 채택하지 않는다. 이미 보낸 HTTP 자체가 provider 쪽에서 중단됐다는 보장은 아니다.
 - 기존 video 입력 DAG 외에 `{transcript: transcript}` 정의는 기존 원본을 출처로 선택하고 입력한 자막 JSON을 CAS/snapshot에 고정한다. 자막100개/16KB 이내, 시각/화자 보존·같은 개수/순서의 텍스트 응답만 채택한다. 이 제한을 넘어서는 분할·장문 최적화나 전사는 이번 범위가 아니다.
-- API 생성 시 명시 `translation_runtime`/동일 credential store/기존 content store/local execution이 필요하다. 기본 transport는 없고 maintenance와 broker_factory 병용은 거부한다. `controlled_http`는 승인 origin이127.0.0.1만 가능하다. `external`은 생성 시 비용 동의→동의된 plan/claim→각 후보의 동결된 paid_authorized를 요구한다. 외부 호출 보호나 bootstrap/브로커 설치가 자동 활성화되는 것은 아니다.
+- 초기 번역 수용의 명시 `translation_runtime`/동일 credential store/content store/local 전달은 유지한다. 위 후속 설치 묶음은 명시 flag/private 정책과 같은 resolver/DB·S3·등록 broker/runtime 결속일 때만 별도 전달을 허용하고 maintenance/임의 broker 조합은 거부한다. `controlled_http`는 격리 loopback만 가능하며 `external`의 생성 비용 동의→plan/claim→각 후보의 paid_authorized 확인은 그대로다. 외부 호출이나 설치가 자동 활성화되는 것은 아니다.
 - 실제 별도 PG/CAS/loopback HTTP에서 폴백 없음·A실패/B실패/C성공·모두 실패·전송 중 취소와 늦은 결과 미채택을 확인했다. 발급 뒤 model head/키 교체에도 기존 요청을 사용했다. 최종 Python33 pass/기존 opt-in browser1 skip, 실제 production UI2 pass/Node53/타입·build·format이다. scoped lint 신규0·기존 Python F4011/frontend effect-order1이며 전체 lint 통과가 아니다. NTFS bind의 EXE002는 archive와 같은 파일시스템 진단이라 분리했다.
 - 브라우저 fixture의 저장 문구/로그인 완료 대기·새 fixture state·barrier release JSON 누락과 초기 viewport capture 실패는 따로 보존했다. 최종 fresh fixture에서 release 응답200·API exception없음과 mobile 후보3개 표시를 확인했다. 시험 서버의 합성 응답을 공급자 인증/번역 품질로 보고하지 않는다.
 - 운영은 유지보수 API/중지 sender·encode/host267 그대로다. 별도 임시 API/PG만 사용하고 정리한다. 운영 DB/키·012/019·대상 교체·원본 이관·#5/DLQ 복구나 외부 유료 호출은 미실행이다.
