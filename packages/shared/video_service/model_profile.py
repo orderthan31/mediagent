@@ -62,3 +62,14 @@ def supports_role(profile, role):
     }
     required = requirements.get(role)
     return bool(required and required[0] in inputs and required[1] in outputs and required[2] in features)
+
+
+def supports_transcription(profile, protocol, model):
+    """Implemented timed wire, not a live provider capability/authentication probe."""
+    import re
+
+    if not supports_role(profile, 'transcription') or not isinstance(model, str):
+        return False
+    if protocol == 'gemini':
+        return bool(re.fullmatch(r'gemini-[A-Za-z0-9._-]{1,190}', model))
+    return protocol in {'openai', 'openai_compatible'} and model == 'whisper-1'

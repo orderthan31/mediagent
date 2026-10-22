@@ -39,11 +39,13 @@ type Run = {
   inputs: Record<string, Reference>;
   error_code?: string;
   translation?: TranslationTrace;
+  transcription?: TranslationTrace;
   result: {
     outputs: Record<string, Reference>;
     previews?: Record<string, { status: string }>;
     reused_from?: { job_id: string };
     translation?: TranslationTrace;
+    transcription?: TranslationTrace;
   } | null;
 };
 type Review = {
@@ -147,7 +149,12 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
   const node = job?.snapshot.definition.nodes.find((item) => item.id === selected);
   const review = job?.reviews.find((item) => item.node_run_id === run?.id);
   const outputs = run?.result?.outputs || {};
-  const translation = run?.result?.translation || run?.translation;
+  const translation =
+    run?.result?.transcription ||
+    run?.transcription ||
+    run?.result?.translation ||
+    run?.translation;
+  const traceLabel = run?.node_type === 'transcribe' ? '전사' : '번역';
   const url = (port: string) =>
     mediaUrl(`${base}/artifacts/${run?.id}/${encodeURIComponent(port)}`);
   useEffect(() => {
@@ -216,7 +223,7 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
           </section>
           {job.snapshot.options?.target_language && (
             <p>
-              번역 언어: {job.snapshot.options.source_language} →{' '}
+              원문/대상 언어: {job.snapshot.options.source_language} →{' '}
               {job.snapshot.options.target_language} · 티켓 고정 설정
             </p>
           )}
@@ -300,8 +307,8 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
                       </section>
                     ))}
                     {translation && (
-                      <section aria-label="번역 실행 기록">
-                        <h4>번역 실행 기록</h4>
+                      <section aria-label={`${traceLabel} 실행 기록`}>
+                        <h4>{traceLabel} 실행 기록</h4>
                         <p>최종 채택: {translation.selected?.remote_model || '없음'}</p>
                         <ol>
                           {translation.attempts.map((attempt) => (

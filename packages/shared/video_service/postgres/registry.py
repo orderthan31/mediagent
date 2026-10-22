@@ -7,7 +7,13 @@ from ..model_endpoints import (
     canonical_hash,
     validate_endpoint,
 )
-from ..model_profile import CAPABILITIES, MODALITIES, MODEL_TYPES, validate_profile
+from ..model_profile import (
+    CAPABILITIES,
+    MODALITIES,
+    MODEL_TYPES,
+    supports_transcription,
+    validate_profile,
+)
 from . import Conflict, Missing
 
 
@@ -100,7 +106,7 @@ class Registry:
         versions = {}
         for row in db.execute('SELECT mr.*,cr.provider,cr.protocol FROM model_revisions mr JOIN connection_revisions cr ON cr.owner_id=mr.owner_id AND cr.connection_id=mr.connection_id AND cr.revision=mr.connection_revision WHERE mr.owner_id=%s AND mr.model_id=%s ORDER BY mr.revision', (owner, identity)):
             versions[str(row['revision'])] = {'model_id': identity, 'revision': row['revision'], 'name': row['name'],
-                'provider': row['provider'], 'protocol': row['protocol'], 'translation_supported': row['protocol'] in ('openai', 'openai_compatible', 'gemini') and 'text_generation' in row['capabilities'], 'connection_id': row['connection_id'], 'connection_revision': row['connection_revision'],
+                'provider': row['provider'], 'protocol': row['protocol'], 'transcription_supported': supports_transcription(row, row['protocol'], row['remote_model']), 'transcription_format': ('gemini_inline_timed_json' if row['protocol'] == 'gemini' else 'openai_verbose_json_segments') if supports_transcription(row, row['protocol'], row['remote_model']) else None, 'translation_supported': row['protocol'] in ('openai', 'openai_compatible', 'gemini') and 'text_generation' in row['capabilities'], 'connection_id': row['connection_id'], 'connection_revision': row['connection_revision'],
                 'model': row['remote_model'], 'model_types': row['model_types'],
                 'input_modalities': row['input_modalities'], 'output_modalities': row['output_modalities'],
                 'capabilities': row['capabilities'] if row['model_types'] else [],

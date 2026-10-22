@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { request } from './api';
 import {
   type RegisteredModel,
+  type RegisteredVersion,
   type ModelReference,
   nodeModelRoles,
   supportsModelRole,
@@ -27,12 +28,18 @@ export const NodeModelBinding = ({
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const role = modelRole || nodeModelRoles[type];
+  const roleLabel = role === 'transcription' ? '전사' : '번역';
+  const wireSupported = (model: RegisteredVersion) =>
+    !(frontendOnly || renewalBackend) ||
+    (role === 'transcription'
+      ? model.transcription_supported === true
+      : role !== 'translation' || model.translation_supported !== false);
   const selected = models.find((row) => row.id === value?.model_id);
   const pinned = selected?.versions[String(value?.revision)];
   const pinnedAvailable =
     pinned &&
     (frontendOnly || renewalBackend
-      ? supportsModelRole(pinned, role)
+      ? supportsModelRole(pinned, role) && wireSupported(pinned)
       : pinned.uses?.includes(role));
   const load = async () => {
     setLoading(true);
@@ -86,15 +93,11 @@ export const NodeModelBinding = ({
               <option
                 key={row.id}
                 value={`${row.id}@${current.revision}`}
-                disabled={
-                  !row.active || (role === 'translation' && current.translation_supported === false)
-                }
+                disabled={!row.active || !wireSupported(current)}
               >
                 {current.name} · {current.provider}/{current.model}
                 {row.active ? '' : ' · 사용 중지'}
-                {role === 'translation' && current.translation_supported === false
-                  ? ' · 번역 실행 미지원'
-                  : ''}
+                {!wireSupported(current) ? ` · ${roleLabel} 실행 미지원` : ''}
               </option>
             );
           })}
@@ -107,9 +110,16 @@ export const NodeModelBinding = ({
           )}
         </select>
       </label>
-      {type === 'translate' && fallbackChanged && (
-        <section aria-label="번역 폴백">
-          <h4>번역 폴백</h4>
+      {['translate', 'transcribe'].includes(type) && fallbackChanged && (
+        <section aria-label={`${roleLabel} 폴백`}>
+          <h4>{roleLabel} 폴백</h4>
+          {role === 'transcription' && (
+            <p>
+              Gemini 음성 포함 네이티브 요청 / OpenAI 계열 whisper-1 verbose_json 구간 시각만
+              지원합니다. PCM16·mono·16kHz WAV, 60초/2MiB 이내. 등록 정보상 규격 지원이며 실제 인식
+              정확도·인증 성공은 미확인입니다.
+            </p>
+          )}
           <p>
             선택 사항입니다. 없으면 기본 모델만 한 번 시도합니다. 최대 3개를 순서대로 시도합니다.
           </p>
@@ -138,7 +148,7 @@ export const NodeModelBinding = ({
                   >
                     {models.map((row) => {
                       const current = row.versions[String(row.current_revision)];
-                      if (!current || !supportsModelRole(current, 'translation')) {
+                      if (!current || !supportsModelRole(current, role)) {
                         return null;
                       }
                       const duplicate =
@@ -148,15 +158,13 @@ export const NodeModelBinding = ({
                         <option
                           key={row.id}
                           value={`${row.id}@${current.revision}`}
-                          disabled={
-                            !row.active || current.translation_supported === false || duplicate
-                          }
+                          disabled={!row.active || !wireSupported(current) || duplicate}
                         >
                           {current.name} · {current.provider}/{current.model}
                           {!row.active
                             ? ' · 사용 중지'
-                            : current.translation_supported === false
-                              ? ' · 번역 실행 미지원'
+                            : !wireSupported(current)
+                              ? ` · ${roleLabel} 실행 미지원`
                               : ''}
                         </option>
                       );
@@ -216,8 +224,8 @@ export const NodeModelBinding = ({
                 return (
                   row.active &&
                   current &&
-                  current.translation_supported !== false &&
-                  supportsModelRole(current, 'translation') &&
+                  wireSupported(current) &&
+                  supportsModelRole(current, role) &&
                   row.id !== value.model_id &&
                   !fallbacks.some((ref) => ref.model_id === row.id)
                 );
@@ -229,8 +237,8 @@ export const NodeModelBinding = ({
                 return (
                   row.active &&
                   current &&
-                  current.translation_supported !== false &&
-                  supportsModelRole(current, 'translation') &&
+                  wireSupported(current) &&
+                  supportsModelRole(current, role) &&
                   row.id !== value?.model_id &&
                   !fallbacks.some((ref) => ref.model_id === row.id)
                 );

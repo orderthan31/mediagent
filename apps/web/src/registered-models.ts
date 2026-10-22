@@ -4,6 +4,8 @@ export type RegisteredVersion = ModelReference & {
   provider: string;
   protocol?: string;
   translation_supported?: boolean;
+  transcription_supported?: boolean;
+  transcription_format?: string | null;
   connection_id?: string;
   connection_revision?: number;
   model: string;

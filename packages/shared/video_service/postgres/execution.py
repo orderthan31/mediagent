@@ -41,12 +41,14 @@ class Execution(Intake):
         fleet=None,
         engine_runtime_enabled=False,
         translation_runtime=None,
+        transcription_runtime=None,
     ):
         super().__init__(database, store)
         self.agent_executor = agent_executor
         self.fleet = fleet
         self.engine_runtime_enabled = bool(engine_runtime_enabled)
         self.translation_runtime = translation_runtime
+        self.transcription_runtime = transcription_runtime
 
     def catalog(self):
         from ..renewal_contracts import catalog
@@ -80,7 +82,7 @@ class Execution(Intake):
 
     @staticmethod
     def _engine_role(node):
-        if node["type"] == "translate" and node.get("model_ref"):
+        if node["type"] in {"translate", "transcribe"} and node.get("model_ref"):
             return None
         if node["type"] in {"transcribe", "translate", "faceswap"}:
             return node["type"]
@@ -119,8 +121,10 @@ class Execution(Intake):
             role = self._engine_role(node)
             if node.get("model_ref"):
                 pin = (model_bindings or {}).get(node["id"])
-                if (node["type"] != "translate" or self.translation_runtime is None or not pin
-                        or not any(self.translation_runtime.available(p) for p in [pin, *pin.get("fallbacks", [])])):
+                kind = {"translate": "translation", "transcribe": "transcription"}.get(node["type"])
+                executor = getattr(self, (kind or "unsupported") + "_runtime", None)
+                if (executor is None or not pin
+                        or not any(executor.available(p) for p in [pin, *pin.get("fallbacks", [])])):
                     reasons.append("등록 모델의 실행 transport/사용 가능한 후보 없음: " + node["id"])
             elif role:
                 pin = bindings.get(node["id"])
@@ -178,8 +182,9 @@ class Execution(Intake):
         ).fetchall()
         for row in rows:
             delivery = row.pop("delivery_result") or {}
-            if "translation" in delivery:
-                row["translation"] = delivery["translation"]
+            for kind in ("translation", "transcription"):
+                if kind in delivery:
+                    row[kind] = delivery[kind]
         return rows
 
     def _view(self, db, job):
@@ -227,13 +232,13 @@ class Execution(Intake):
         value["access"] = {"can_manage": actor == state["owner_id"]}
         run_keys = {"id", "node_id", "node_type", "status", "options", "inputs", "error_code",
                     "input_sha256", "settings_sha256", "attempt", "iteration", "generation",
-                    "started_at", "completed_at", "result", "dispatch", "translation"}
+                    "started_at", "completed_at", "result", "dispatch", "translation", "transcription"}
         value["runs"] = []
         for run in state.get("runs", []):
             public_run = {k: run[k] for k in run_keys if k in run}
             if run.get("result"):
                 public_run["result"] = {k: v for k, v in run["result"].items()
-                                        if k in {"status", "outputs", "previews", "reused_from", "translation"}}
+                                        if k in {"status", "outputs", "previews", "reused_from", "translation", "transcription"}}
             value["runs"].append(public_run)
         review_keys = {"id", "node_run_id", "revision", "status", "draft", "contract"}
         value["reviews"] = [{k: v for k, v in r.items() if k in review_keys} for r in state.get("reviews", [])]
@@ -370,9 +375,9 @@ class Execution(Intake):
                 from .translation import segments
                 text = segments(options.get("transcript"))
                 input_refs = {"transcript": self.store.put(owner, [canonical(text)], "transcript")}
-            if any(n["type"] == "translate" and n.get("model_ref") for n in definition["nodes"]):
+            if any(n["type"] in {"translate", "transcribe"} and n.get("model_ref") for n in definition["nodes"]):
                 from .translation import languages
-                languages(options.get("source_language"), options.get("target_language"))
+                languages(options.get("source_language"), options.get("target_language", "ko"))
             parent = self._job(db, owner, parent_id) if parent_id else None
             from .job_processing_review import JobProcessingReview
             if parent and JobProcessingReview.blocked_in(db, owner, parent_id):
@@ -477,10 +482,17 @@ class Execution(Intake):
             reasons.append("검수 내용을 먼저 저장하고 확정하세요.")
         pending = [n for n in definition["nodes"] if n["type"] == "translate" and n.get("model_ref")
                    and not any(r["node_id"] == n["id"] and r["status"] == "completed" for r in runs)]
-        external = bool(pending and self.translation_runtime and self.translation_runtime.mode == "external")
+        pending_asr = [n for n in definition["nodes"] if n["type"] == "transcribe" and n.get("model_ref")
+                       and not any(r["node_id"] == n["id"] and r["status"] == "completed" for r in runs)]
+        external_roles = (["translation"] if pending and self.translation_runtime and self.translation_runtime.mode == "external" else []) + (["transcription"] if pending_asr and self.transcription_runtime and self.transcription_runtime.mode == "external" else [])
+        external = bool(external_roles)
         if external and not job["snapshot"].get("translation_paid_authorized"):
-            reasons.append("번역 후보 전체의 외부 호출 비용 동의가 필요합니다.")
+            reasons.append("전사/번역 후보 전체의 외부 호출 비용 동의가 필요합니다.")
         plan = {
+            **({"transcription_mode": self.transcription_runtime.mode if self.transcription_runtime else None,
+                "transcription_usage": [self.transcription_runtime.available(p) for n in pending_asr
+                                        for pin in [job["snapshot"]["model_bindings"][n["id"]]]
+                                        for p in [pin, *pin.get("fallbacks", [])]] if self.transcription_runtime else []} if pending_asr else {}),
             "translation_mode": self.translation_runtime.mode if pending and self.translation_runtime else None,
             "translation_usage": [self.translation_runtime.available(p) for n in pending
                                   for pin in [job["snapshot"]["model_bindings"][n["id"]]]
@@ -506,9 +518,9 @@ class Execution(Intake):
             "token": digest(plan),
             "ready": not reasons,
             "reasons": plan["reasons"],
-            "paid_roles": ["translation"] if external else [],
+            "paid_roles": external_roles,
             "cost": plan["cost"],
-            "notice": "등록 번역 후보의 외부 호출은 비용이 발생할 수 있습니다. 금액은 미산정입니다." if external else "외부 유료 호출 없는 로컬/통제 HTTP 실행입니다. 동의 저장과 실행 요청은 별개입니다.",
+            "notice": "등록 모델 후보의 외부 호출은 비용이 발생할 수 있습니다. 금액은 미산정입니다." if external else "외부 유료 호출 없는 로컬/통제 HTTP 실행입니다. 동의 저장과 실행 요청은 별개입니다.",
             "snapshot_sha256": job["snapshot_sha256"],
             "generation": job["generation"],
         }
@@ -626,12 +638,13 @@ class Execution(Intake):
             "inputs": inputs,
             "options": node["options"],
         }
-        if node["type"] == "translate" and node.get("model_ref") and status == "running":
+        if node["type"] in {"translate", "transcribe"} and node.get("model_ref") and status == "running":
             pin = job["snapshot"]["model_bindings"][node["id"]]
-            command["translation"] = {
+            kind = {"translate": "translation", "transcribe": "transcription"}[node["type"]]
+            command[kind] = {
                 "candidates": [pin, *pin.get("fallbacks", [])],
                 "source_language": job["snapshot"]["options"]["source_language"],
-                "target_language": job["snapshot"]["options"]["target_language"],
+                **({"target_language": job["snapshot"]["options"]["target_language"]} if kind == "translation" else {}),
                 "paid_authorized": job["snapshot"].get("translation_paid_authorized", False),
             }
         elif self._engine_role(node) and status == "running":
@@ -887,7 +900,7 @@ class Execution(Intake):
                         )
                         indexed[node["id"]] = {**row, "status": "failed"}
                     continue
-                if not command.get("translation") and (
+                if not (command.get("translation") or command.get("transcription")) and (
                     node["type"] not in CPU_AGENTS and not self._engine_role(node)
                     or node.get("model_ref")
                 ):
@@ -966,7 +979,7 @@ class Execution(Intake):
                 "INSERT INTO agent_deliveries(owner_id,job_id,node_run_id,command_sha256,status) VALUES (%s,%s,%s,%s,'started')",
                 (owner, command["run_id"], command["attempt_id"], digest(command)),
             )
-        if command.get("translation"):
+        if command.get("translation") or command.get("transcription"):
             from .translation import execute_translation
             result = execute_translation(self, owner, command)
             with self.database.connection() as db:
@@ -1117,7 +1130,7 @@ class Execution(Intake):
         values = result.get("outputs")
         if not isinstance(values, dict) or set(values) != set(expected):
             raise ValueError("Agent output ports differ")
-        if result.get("transport") == "registered_http" and command.get("translation"):
+        if result.get("transport") == "registered_http" and (command.get("translation") or command.get("transcription")):
             for port, reference in values.items():
                 if reference.get("type") != expected[port]:
                     raise ValueError("Translation output type differs")
@@ -1287,6 +1300,7 @@ class Execution(Intake):
                             "process_exit_code",
                             "agent_instance_id",
                             "translation",
+                            "transcription",
                         )
                     }
                     receipt["outputs"] = outputs
@@ -1325,7 +1339,7 @@ class Execution(Intake):
                                     "transport": "subprocess",
                                     "error": "agent_failed_or_unknown",
                                     "retryable": False,
-                                    **({"translation": result["translation"]} if command.get("translation") and "translation" in result else {}),
+                                    **{kind: result[kind] for kind in ("translation", "transcription") if command.get(kind) and kind in result},
                                 }
                             ),
                             owner,

@@ -158,6 +158,7 @@ def create_app(
     target_handover=None,
     admission_policy=None,
     translation_runtime=None,
+    transcription_runtime=None,
 ):
     from .admission import AdmissionPolicy
 
@@ -168,7 +169,7 @@ def create_app(
     if policy.mode == "maintenance":
         if (not secure_cookies or any(urlsplit(o).scheme != "https" for o in allowed_origins)
                 or content_store is not None or local_execution or agent_executor is not None
-                or cpu_driver is not None or broker_factory is not None or credential_store is not None or translation_runtime is not None):
+                or cpu_driver is not None or broker_factory is not None or credential_store is not None or translation_runtime is not None or transcription_runtime is not None):
             raise ValueError("maintenance_requires_secure_metadata_only_runtime")
         if not policy.handover:
             target_handover = None
@@ -178,6 +179,10 @@ def create_app(
             or broker_factory is not None or translation_runtime.credentials is not credential_store
             or credential_store.database is not database):
         raise ValueError("translation_requires_explicit_same_store_and_local_delivery")
+    if transcription_runtime is not None and (not local_execution or content_store is None
+            or broker_factory is not None or transcription_runtime.credentials is not credential_store
+            or credential_store.database is not database):
+        raise ValueError("transcription_requires_explicit_same_store_and_local_delivery")
     origins = frozenset(allowed_origins)
     if not origins or any(
         urlsplit(value).scheme not in ("http", "https")
@@ -611,6 +616,7 @@ def create_app(
             fleet=fleet if cpu_driver is not None else None,
             engine_runtime_enabled=bool(getattr(broker_factory, "engine_factory", None)),
             translation_runtime=translation_runtime,
+            transcription_runtime=transcription_runtime,
         )
         mount_runtime(
             app,

@@ -6,6 +6,17 @@
 
 ## 현재 상태
 
+### 등록 모델 API 전사의 개발 계약
+
+- 전사 규격은 model_profile.supports_transcription으로 텍스트 번역과 분리한다. audio 입력/text 출력/speech_recognition 선언이 필요하다. Gemini는 네이티브 음성 포함 generateContent와 구조화된 start/end 숫자 초·text 응답, OpenAI/호환은 whisper-1의 multipart `/audio/transcriptions`/verbose_json/segment timestamps만 지원한다. 일반 gpt-4o-transcribe JSON/텍스트 및 Anthropic/TTS는 이 시간 구간 계약 미지원이다. 선언/규격 지원은 실제 공급자 가용성·인증·정확도 증명이 아니다.
+- 원본을 기존 Intake로 검증하고 CPU extract_audio/preprocess_audio off 결과의 PCM16/mono/16kHz WAV를 보낸다. 실제 WAV bytes/duration/hash와 timeline SHA를 결과에 보존한다. 최대60초/2MiB·100구간/16KB이며 장시간 분할은 없다. 제공된 시각을 parse_segments와 음성 길이로 확인하고 기존 audio_clock에 따라 원본 시각으로 대응한다. 시각 누락/문자열 시각·범위 초과·형식 오류를 임의 시각/성공으로 보완하지 않는다. 범위 밖 음성/clock은 HTTP 전 실패 receipt로 정리한다.
+- 기존 TranslationRuntime의 순서 후보 runner를 공통 `_run`으로 추출해 재사용한다. TranscriptionRuntime는 사용 가능성·오디오 adapter·timed decode만 선택한다. 후보는 기본1+선택3/각1회, HTTP 전 started intent 영속·정확한 delivery 재실행 차단/사용 불가·429·5xx·형식 오류만 다음 후보/거부·불명·취소 중단을 유지한다. model/connection revision과 원문 언어는 snapshot과 command에 고정하고 CredentialStore.model/resolve를 일시 재사용한다. 원격 API 모델 이름 whisper-1이지 로컬 Whisper 실행이 아니다.
+- 기존 Execution/consent/claim/결과 채택/CAS 및 공용 DTO에 transcription 기록만 추가한다. 성공 전사 CAS가 번역 입력과 정확히 같고 source clock을 보존한다. 취소 후 뒤 전사 후보/번역 신규 HTTP가 없으며 반환된 결과는 기존 quarantine에 남고 정상 산출물로 채택하지 않는다. 이미 전송한 외부 HTTP 자체의 공급자 측 중단을 보장하지 않는다.
+- create_app의 transcription_runtime는 같은 credential store/content store/명시 local delivery와 승인 origin을 요구하며 maintenance/broker_factory와 함께 활성화하지 못한다. controlled_http는127.0.0.1만, external은 기존 후보 전체 비용 동의→plan/claim→동결 paid_authorized를 요구한다. 기본 네트워크 transport는 없고 운영 bootstrap/브로커 전달·egress 설치는 하지 않았다.
+- 검증 입력은 Windows System.Speech로 오프라인 생성한4.755초 합성 음성이다. 실제 CPU 음성 추출/별도 PG·CAS/실제 loopback HTTP에서 Gemini 단독 성공·Gemini실패→OpenAI성공·전부 실패·시간 누락 거부·진행 중 취소/후속 번역0을 확인했다. 발급 뒤 head/key 교체에도 원 model/connection/key revision 요청을 사용하고 HTTP decode audio SHA와 CAS가 같다. 응답은 통제 fixture여서 실제 인식/번역 품질 검증이 아니다.
+- 최종 관련 Python16 pass(신규ASR9+공통 runner/Gemini guard7), 실제 production frontend→정상 auth→모델/폴백/언어 저장→티켓→전사→번역/다운로드 및 화면 취소2 pass, PC390px를 확인했다. Node53/타입·build·format/변경 frontend lint는 통과, scoped Ruff는 신규0·기존 API F4011이다. 기존 전체 영상/MQ/UI 수용 여정을 재실행하지 않았다. 초기 option disabled 판정은 DOM disabled 속성으로 분리해 fixture를 보정했고 실제 잘못 허용되던 UI RED와 구분했다.
+- 기존 API 이미지에 clean source RO/PYTHONPATH와 production frontend를 연결한 격리 앱이며 새 wheel 설치/운영 배포가 아니다. 임시 API/PG만 정상 exit0/삭제·UI port 폐쇄, 기존24개 container 설정/시작/실행 상태와 WIP21 hash를 보존했다. 운영 DB/키·유지보수/중지 상태·012/019·대상/원본/#5/DLQ는 변경하지 않았다.
+
 ### 등록 모델 번역·선택형 폴백의 개발 계약
 
 - **Gemini 응답 보정:** 명시 promptFeedback.blockReason 차단은 candidates 접근 전에 request_rejected로 반환하여 폴백하지 않는다. STOP 응답의 Part는 최종 text만 결합하며 thought=true는 제외하고 thoughtSignature/partMetadata 등 문서화된 메타데이터는 텍스트로 복사하지 않는다. 도구/미디어 union 및 혼합된 data Part도 채택하지 않는다. 최종 텍스트 없음·자막 배열 형식 오류는 기존 invalid_response다. 별도 network-none MockTransport fixture5개로 차단→후속 호출0, 서명 포함 최종문 채택, 생각/서명/도구/미디어 미채택과 두 거부 경계를 확인했다. 기존33/브라우저2 등 수용 증적을 반복하지 않았고 운영 변경/공급자 호출은 없다. translation.py의 끝 빈 줄만 함께 정리했다.

@@ -15,8 +15,8 @@ import httpx
 PROVIDERS = {'openai_compatible': 'OpenAI-compatible', 'openai': 'OpenAI',
              'gemini': 'Gemini', 'anthropic': 'Anthropic'}
 # Implemented adapter capabilities, not a model-name heuristic or a live probe.
-PROTOCOL_USES = {'openai_compatible': ['translation'], 'openai': ['translation'],
-                 'gemini': ['translation'], 'anthropic': []}
+PROTOCOL_USES = {'openai_compatible': ['translation', 'transcription'], 'openai': ['translation', 'transcription'],
+                 'gemini': ['translation', 'transcription'], 'anthropic': []}
 
 
 def validate_endpoint(value):
@@ -81,9 +81,9 @@ class OpenAITextAdapter:
     def close(self):
         self._client.close()
 
-    def _request(self, method, suffix, payload=None):
+    def _request(self, method, suffix, payload=None, *, data=None, files=None):
         try:
-            with self._client.stream(method, self.endpoint + suffix, json=payload) as response:
+            with self._client.stream(method, self.endpoint + suffix, json=payload, data=data, files=files) as response:
                 if response.status_code != 200:
                     code = ('rate_limited' if response.status_code == 429 else
                             'upstream_failure' if response.status_code >= 500 else
@@ -168,6 +168,10 @@ class GeminiTextAdapter(OpenAITextAdapter):
             'systemInstruction': {'parts': [{'text': messages[0]['content']}]},
             'contents': [{'role': 'user', 'parts': [{'text': messages[1]['content']}]}],
         })
+        return self.final_text(value)
+
+    @staticmethod
+    def final_text(value):
         try:
             feedback = value.get('promptFeedback') if isinstance(value, dict) else None
             if (isinstance(feedback, dict) and feedback.get('blockReason')
@@ -201,3 +205,45 @@ class GeminiTextAdapter(OpenAITextAdapter):
             return text
         except (KeyError, IndexError, TypeError, ValueError):
             raise EndpointFailure('완료된 Gemini 텍스트 응답이 아닙니다.') from None
+
+
+class OpenAIAudioAdapter(OpenAITextAdapter):
+    """OpenAI whisper-1 multipart verbose_json with real segment timestamps."""
+
+    def transcribe(self, model, audio, language):
+        from .audio_contract import audio_info, timed_segments
+
+        info = audio_info(audio)
+        if model != 'whisper-1' or not re.fullmatch(r'auto|[a-z]{2,3}', language):
+            raise ValueError('지원되는 whisper-1/언어를 선택하세요.')
+        data = {'model': model, 'response_format': 'verbose_json', 'timestamp_granularities[]': 'segment'}
+        if language != 'auto':
+            data['language'] = language
+        value = self._request('POST', '/audio/transcriptions', data=data, files={'file': ('audio.wav', audio, 'audio/wav')})
+        try:
+            return timed_segments(value['segments'], info['duration_seconds'])
+        except (KeyError, TypeError, ValueError):
+            raise EndpointFailure('시간 정보가 있는 OpenAI 전사 응답이 아닙니다.') from None
+
+
+class GeminiAudioAdapter(GeminiTextAdapter):
+    """Inline PCM audio + structured timestamp request, not text-only chat."""
+
+    def transcribe(self, model, audio, language):
+        import base64
+
+        from .audio_contract import audio_info, timed_segments
+
+        info = audio_info(audio)
+        if not re.fullmatch(r'gemini-[A-Za-z0-9._-]{1,190}', model) or not re.fullmatch(r'auto|[a-z]{2,3}', language):
+            raise ValueError('지원되는 Gemini 전사 모델/언어를 선택하세요.')
+        value = self._request('POST', '/models/' + model + ':generateContent', {
+            'systemInstruction': {'parts': [{'text': 'Transcribe the supplied audio, do not translate. Language=' + language + '. Return a JSON array of segments with start/end numeric seconds from the audio beginning and text. Every segment must have actual timestamps within the audio duration. Never invent absent timing. No markdown. Maximum100 segments.'}]},
+            'contents': [{'role': 'user', 'parts': [{'inlineData': {'mimeType': 'audio/wav', 'data': base64.b64encode(audio).decode('ascii')}}]}],
+            'generationConfig': {'responseMimeType': 'application/json', 'responseSchema': {'type': 'ARRAY', 'items': {'type': 'OBJECT', 'properties': {'start': {'type': 'NUMBER'}, 'end': {'type': 'NUMBER'}, 'text': {'type': 'STRING'}}, 'required': ['start', 'end', 'text']}}},
+        })
+        text = self.final_text(value)
+        try:
+            return timed_segments(json.loads(text), info['duration_seconds'])
+        except (TypeError, ValueError):
+            raise EndpointFailure('시간 정보가 있는 Gemini 전사 응답이 아닙니다.') from None
