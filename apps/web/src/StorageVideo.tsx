@@ -22,7 +22,11 @@ export const StorageAssetRow = ({
     {thumbnail}
     <div className="storage-asset-copy ui02-list-copy">
       <Badge tone={video.provenance.kind === 'result' ? 'info' : 'neutral'}>
-        {video.provenance.kind === 'result' ? '결과에서 등록' : '업로드 원본'}
+        {video.provenance.kind === 'result'
+          ? '결과에서 등록'
+          : video.provenance.kind === 'preserved_legacy'
+            ? '보존 이관 원본'
+            : '업로드 원본'}
       </Badge>
       <h2 className="ui02-list-title">{video.original_filename}</h2>
       <ul className="storage-metadata" aria-label="영상 정보">
@@ -54,6 +58,12 @@ export const StorageVideoInfo = ({ video, assetId }: { video: VideoAsset; assetI
           poster={mediaUrl(`/videos/${assetId}/thumbnail`)}
           src={mediaUrl(`/videos/${assetId}/stream`)}
         />
+      )}
+      {video.web_preview?.excerpt_seconds && (
+        <p role="note">
+          미리보기는 앞부분 {video.web_preview.excerpt_seconds}초입니다. 전체 영상은 원본 받기를
+          사용하세요.
+        </p>
       )}
     </div>
     <div className="storage-info">
@@ -90,7 +100,11 @@ export const StorageVideoInfo = ({ video, assetId }: { video: VideoAsset; assetI
         <div>
           <dt>등록 경로</dt>
           <dd>
-            {video.provenance.kind === 'result' ? '결과 영상에서 등록' : '파일 업로드'}
+            {video.provenance.kind === 'result'
+              ? '결과 영상에서 등록'
+              : video.provenance.kind === 'preserved_legacy'
+                ? '구버전 보존 이관'
+                : '파일 업로드'}
             {video.provenance.parent_asset_id && (
               <a href={`#/videos/${video.provenance.parent_asset_id}`}>이전 원본</a>
             )}

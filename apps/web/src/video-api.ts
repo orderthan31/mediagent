@@ -1,10 +1,11 @@
 import { Job, request } from './api';
 export type VideoAsset = {
-  web_preview?: { status: 'ready' | 'failed' | 'unavailable' };
+  web_preview?: { status: 'ready' | 'failed' | 'unavailable'; excerpt_seconds?: number };
   asset_id: string;
   original_filename: string;
-  uploaded_by?: string;
+  uploaded_by?: string | null;
   size_bytes: number;
+  processing_supported?: boolean;
   created_at: string;
   media?: {
     duration: number;

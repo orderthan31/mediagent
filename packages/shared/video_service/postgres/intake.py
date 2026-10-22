@@ -36,17 +36,21 @@ def public_upload(row):
 
 
 def public_asset(row):
+    legacy = row["metadata"].get("legacy_origin")
     return {
         "asset_id": row["id"],
-        "uploaded_by": row["owner_id"],
+        "uploaded_by": legacy.get("original_owner_id") if legacy else row["owner_id"],
         "original_filename": row["filename"],
         "size_bytes": row["bytes"],
+        "processing_supported": row["bytes"] <= MAX_CONTENT,
         "sha256": row["sha256"],
         "content_verified": row["metadata"].get("registration_state") == "verified",
         "media": row["metadata"].get("media"),
         "created_at": row["created_at"].isoformat(),
         "web_preview": row["metadata"].get("web_preview", {"status": "unavailable"}),
-        "provenance": {
+        "provenance": {"kind": "preserved_legacy", **legacy}
+        if legacy
+        else {
             "kind": "verified_upload"
             if row["metadata"].get("registration_state") == "verified"
             else "declaration"

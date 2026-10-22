@@ -18,6 +18,7 @@ from .content_store import (
     HEX,
     ID,
     MAX_CONTENT,
+    MAX_STORED_CONTENT,
     ContentStore,
     reference_origin,
     valid_content_key,
@@ -46,7 +47,7 @@ def validate_reference(reference):
         raise ObjectStoreError("Invalid artifact digest")
     if not valid_content_key(reference["storage_key"], reference["sha256"]):
         raise ObjectStoreError("Invalid artifact key")
-    if type(reference["bytes"]) is not int or not 0 < reference["bytes"] <= MAX_CONTENT:
+    if type(reference["bytes"]) is not int or not 0 < reference["bytes"] <= MAX_STORED_CONTENT:
         raise ObjectStoreError("Invalid artifact size")
     if not isinstance(reference["type"], str) or not re.fullmatch(
         "[a-z_]{1,50}", reference["type"]
@@ -138,6 +139,7 @@ class S3ContentStore(ContentStore):
                 owner,
                 iter(lambda: stream.read(1024 * 1024), b""),
                 reference["type"],
+                max_bytes=max(MAX_CONTENT, reference["bytes"]),
             )
         # ContentStore.put validates its local path without calling this override.
         if any(stored[k] != reference[k] for k in ("sha256", "bytes", "type")):
@@ -168,6 +170,55 @@ class S3ContentStore(ContentStore):
                 reference["bytes"],
             )
         self.path(owner, reference)
+        return reference
+
+    def import_original_file(self, owner, source, *, sha256, byte_count):
+        """Explicit trusted preservation operator; never an HTTP upload shortcut.
+
+        Keep the source untouched, use one conditional object PUT, and verify
+        the complete remote bytes before a caller may register an asset row.
+        """
+        from pathlib import Path
+
+        reference = {
+            "storage_key": "blobs/" + sha256,
+            "sha256": sha256,
+            "bytes": byte_count,
+            "type": "video",
+        }
+        validate_reference(reference)
+        if byte_count > 4 * 1024 * 1024 * 1024:
+            raise ObjectStoreError("Preservation import exceeds explicit 4 GiB bound")
+        source = Path(source)
+        if source.is_symlink() or not source.is_file():
+            raise ObjectStoreError("Preserved regular source required")
+        before = source.stat()
+        if before.st_size != byte_count:
+            raise ObjectStoreError("Preserved source size changed")
+        with source.open("rb") as body:
+            actual = hashlib.file_digest(body, "sha256").hexdigest()
+            if actual != sha256:
+                raise ObjectStoreError("Preserved source digest differs")
+            body.seek(0)
+            self._create(
+                self._key(owner, reference["storage_key"]), body, sha256, byte_count
+            )
+
+        class VerifyOnly:
+            def write(self, block):
+                return len(block)
+
+        remote_sha, remote_size = self._download(
+            self._key(owner, reference["storage_key"]), byte_count, VerifyOnly()
+        )
+        after = source.stat()
+        fields = ("st_dev", "st_ino", "st_size", "st_mtime_ns")
+        if (
+            remote_sha != sha256
+            or remote_size != byte_count
+            or any(getattr(before, key) != getattr(after, key) for key in fields)
+        ):
+            raise ObjectStoreError("Preservation source or remote bytes changed")
         return reference
 
     def claim_attempt(self, owner, command):

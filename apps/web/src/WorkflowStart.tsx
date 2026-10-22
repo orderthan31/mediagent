@@ -289,8 +289,15 @@ export const WorkflowStart = () => {
                 >
                   <option value="">원본 선택</option>
                   {assets.map((row) => (
-                    <option key={row.asset_id} value={row.asset_id}>
+                    <option
+                      key={row.asset_id}
+                      value={row.asset_id}
+                      disabled={row.processing_supported === false}
+                    >
                       {row.original_filename}
+                      {row.processing_supported === false
+                        ? ' · 현재 처리 한도 초과(보관 원본)'
+                        : ''}
                     </option>
                   ))}
                 </select>

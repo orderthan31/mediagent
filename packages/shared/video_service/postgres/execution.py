@@ -381,6 +381,9 @@ class Execution(Intake):
                     raise Conflict("같은 생성 요청 ID에 다른 내용입니다.")
                 return self._view(db, previous)
             asset = self._shared_asset(db, asset_id)
+            from ..content_store import MAX_CONTENT
+            if asset["bytes"] > MAX_CONTENT:
+                raise ValueError("보관·재생·다운로드는 가능하지만 현재 실행 입력은 256 MiB 이내만 지원합니다.")
             reference = self.asset_reference(asset)
             if asset["owner_id"] != owner:
                 reference = {**reference, "source_owner_id": asset["owner_id"]}
