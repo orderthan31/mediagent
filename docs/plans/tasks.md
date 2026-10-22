@@ -30,6 +30,14 @@
 - 신규 설치본 관련 backend12개 통과(실패/오류/skip0, 기존 Starlette/httpx 경고1). 기존 처리 확인 projection이 공유 목록/상세에서 사라지는 회귀를 RED→GREEN으로 막았다. 018 적용 상태에012를 뒤늦게 추가해도 기존 snapshot/owner/원 자산이 보존됨을 별도 PG에서 확인했다. 이 검증은 운영012 적용이 아니다.
 - 운영 앱/웹은 c106, 문서 기준점55a8058c이며 운영012·구버전 원본17개 이관·#5 복구·추가 슬롯·배치 이전·유료 호출은 수행하지 않았다. 운영 반영은 PM 검토 뒤 별도 범위다. 특히 새 origin 입력을 읽는 실행단 설치본과 고정 host pin의 호환 검토 없이 API만 앞서 교체하지 않는다.
 
+### 최소 유지보수 입장 정책 — 구현·격리 설치 검증, 운영 미반영
+
+- [x] `app.server`의 필수 `--admission-mode normal|maintenance`와 bootstrap의 명시 `admission_policy`가 일치해야 기동한다. 누락/불일치, 유지보수의 비보안 origin/cookie·broker·고정 mailbox/등록 슬롯 부재와019를 요구한 기동의 schema 미준비는 listener를 열지 않는다. 파일/기동 인자 재확인 없이 오류 해소나 재시작으로 normal이 되지 않는다.
+- [x] 유지보수 API는 저장소/credential/broker initializer와 media/execution route를 열지 않는다. request body 수신·업무 DB/파일/외부 호출 전에 미분류 경로도 기본 거부한다. 기존 일반/관리자 세션·직접 HTTP·binary PUT·새 GET handler도 차단했다. 정상 auth/session/logout, 지정 슬롯 관리자 조회·Stop0, 명시019 단계의 관리자 교체 preview/decision만 허용한다. `/admin`/GET 전체 허용은 없다.
+- [x] 018만 있는 별도 DB에서 현재267 host와 새 설치 API를 실제 TLS peer로 연결해 정상 로그인·기존 등록 슬롯 Stop0→실제 fixture 종료0·signed ACK를 확인했다. 이때012/019는 없고 새 media/public-origin API도 열리지 않았다. 별도019 적용과 명시 phase/restart 뒤 같은 HTTPS 세션으로 preview/decision→host CLI apply→조회가 연결됐고 desired0/새 target created를 유지했다. PG 보고 fixture이며 운영 MQ 영상 시험이 아니다.
+- [x] 새 경계만 설치 패키지에서 검사했다. 서버 재시작 후 기존 세션과 차단 유지, schema019 요구 실패 exit2/미개방, HTTP 보안·사유·개정·권한, Start/증설/다른 슬롯·변경된 슬롯 차단과 기존 role 권한 재사용을 포함한다. 수용47/MQ 영상/A-B는 반복하지 않았다.
+- [ ] PM 소스·설치 증적 검토/원격 반영과 운영 설치 승인은 별개다. 운영 c106/host267·012019/GRANT/이미지/pin/원본17/#5는 변경하지 않았다. 기존 요청 in-flight·결과 수신/DAG 후속 발행은 입장 정책으로 멈추거나 정리됐다고 판정하지 않으며 별도 drain/송신 fence를 대조한다.
+
 ### 대상 교체 설치 연결 리허설 — 격리 확인, 운영 승인 아님
 
 - [x] 수용9ae90c4f의 설치 이미지 그대로 실제 별도 LOGIN API/host 역할로 정상 경로를 확인했다. 후보 prepare→정상 bootstrap/login·CSRF 관리자 preview/decision→host CLI apply→API 조회가 통과했고, 감사 이벤트 session actor도 API→host→host로 구분됐다. role은 NOSUPERUSER/NOCREATEDB/NOCREATEROLE/NOREPLICATION/NOBYPASSRLS이며 ALL TABLES/포괄 권한으로 통과시키지 않았다.

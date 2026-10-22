@@ -89,7 +89,7 @@ class RemoteControl:
         with self.database.connection() as db:
             return bool(db.execute('SELECT 1 FROM remote_control_groups WHERE agent_id=%s',(agent,)).fetchone())
 
-    def configure(self, actor, agent, *, revision, enabled, replicas, request_id):
+    def configure(self, actor, agent, *, revision, enabled, replicas, request_id, expected_slot=None):
         _id(request_id,r'[a-f0-9]{32}')
         if type(revision) is not int or revision<0 or type(enabled) is not bool or type(replicas) is not int or replicas<0 or enabled!=(replicas>0):
             raise ValueError('invalid_control_configuration')
@@ -100,6 +100,8 @@ class RemoteControl:
             db.execute("SELECT pg_advisory_xact_lock(hashtextextended('control-request:'||%s,0))",(request_id,))
             row=db.execute('SELECT * FROM remote_control_groups WHERE agent_id=%s FOR UPDATE',(agent,)).fetchone()
             if not row:raise Missing('control_group_missing')
+            if expected_slot is not None and (row['capacity']!=1 or row['slot_ids']!=[expected_slot]):
+                raise Conflict('maintenance_slot_not_registered')
             if replicas>row['capacity']:raise ValueError('control_count_out_of_range')
             previous=db.execute('SELECT * FROM remote_control_requests WHERE request_id=%s',(request_id,)).fetchone()
             if previous:

@@ -18,6 +18,9 @@
 
 ## 주요 내용
 
+- 유지보수 입장 정책은 기존 HTTPS 뒤의 API 업무 경계이며 별도 ingress/새 관리 API가 아니다. 기동 요구와 bootstrap의 frozen mode/등록 agent·slot/명시 handover phase를 맞추고, 정상 인증을 유지한 채 검토된 auth/관리자 최소 동작 외 모든 HTTP 경로를 body/업무 쓰기 전에 거부한다. 유지보수에서는 미디어 저장소·키/브로커 초기화와 공용 입력/실행 route를 구성하지 않아018에서 먼저 기동할 수 있다. 운영에 설치하지 않았다.
+- `handover=false`는019 적용/오류 해소/같은 설정 재시작 뒤에도 그대로이며, `true`는019 catalog와 기존 등록 슬롯을 읽기 전용으로 확인한 명시 재기동에서만 쓴다. API 역할에 migration 이력 읽기나 DDL/포괄 GRANT를 추가하지 않는다. 기존267 host의 Stop0/ACK 뒤019와 새 host CLI를 잇는 격리 설치 경계를 확인했지만 기존 in-flight/별도 결과 수신·DAG 발행 drain은 별도 계약이다.
+
 - 대상 교체 설치 연결은 실제 분리된 최소권한 LOGIN 역할과 수용9ae90c4f의 실제 API/host 진입점으로 격리 검증했다. API는 인증/승인, host는 고정 대상 관측/적용·서명 leaf를 소유한다. exact binding이 없거나 다르면 기동이 막히며, 맞아도 desired0을 유지한다. 같은 별도 DB 복원본의012+019 병합 적용에서도 기존 업무 값·snapshot/#5·제어 이력이 보존됐다. 운영 교체·모델/MQ E2E·실제 여러 컴퓨터 검증을 의미하지 않는다.
 
 - 논리 슬롯1의 대상 교체는 관리자API의 후보 preview/decision과 별도 host의 prepare/apply를 분리한다. host의 기존 고정 config를 덮어쓰지 않고 exact 후보 manifest와 승인된 active binding을 별도 입력으로 받는다. 기존 계약/요청/ACK/boot는 불변 이력에 남으며 current epoch만 승인된 원자 전환으로 바뀐다.

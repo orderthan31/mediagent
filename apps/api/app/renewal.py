@@ -156,7 +156,23 @@ def create_app(
     remote_control=None,
     control_recovery=None,
     target_handover=None,
+    admission_policy=None,
 ):
+    from .admission import AdmissionPolicy
+
+    policy = admission_policy if admission_policy is not None else AdmissionPolicy()
+    if type(policy) is not AdmissionPolicy:
+        raise ValueError("invalid_admission_policy")
+    policy.preflight(database, remote_control)
+    if policy.mode == "maintenance":
+        if (not secure_cookies or any(urlsplit(o).scheme != "https" for o in allowed_origins)
+                or content_store is not None or local_execution or agent_executor is not None
+                or cpu_driver is not None or broker_factory is not None or credential_store is not None):
+            raise ValueError("maintenance_requires_secure_metadata_only_runtime")
+        if not policy.handover:
+            target_handover = None
+        elif target_handover is None:
+            raise ValueError("maintenance_requires_target_handover")
     origins = frozenset(allowed_origins)
     if not origins or any(
         urlsplit(value).scheme not in ("http", "https")
@@ -241,6 +257,12 @@ def create_app(
                 {"detail": "허용되지 않은 요청 origin"},
                 status_code=403,
                 headers={"Cache-Control": "no-store"},
+            )
+        if not policy.permits(request.method, request.url.path):
+            return JSONResponse(
+                {"detail": "maintenance_admission_closed"},
+                status_code=503,
+                headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
             )
         content_type = request.headers.get("content-type", "").split(";")[0].lower()
         binary = (
@@ -544,12 +566,27 @@ def create_app(
 
     @app.get("/api/admin/agents/{identity}")
     def agent_detail(identity: str, value=administrator_dependency):
+        if policy.mode == "maintenance":
+            assert remote_control is not None
+            with database.connection() as db:
+                policy.check_slot(db)
+            return remote_control.get(identity)
         return fleet.get(identity)
 
     @app.put("/api/admin/agents/{identity}/configuration")
     def agent_configuration(
         identity: str, body: AgentConfiguration, value=administrator_dependency
     ):
+        if policy.mode == "maintenance":
+            if body.enabled is not False or body.replicas != 0:
+                raise HTTPException(503, "maintenance_admission_closed")
+            if body.request_id is None:
+                raise HTTPException(422, "제어 요청 ID가 필요합니다.")
+            assert remote_control is not None  # startup preflight requires this mailbox
+            return remote_control.configure(
+                value["user"]["id"], identity, **body.model_dump(),
+                expected_slot=policy.slot_id,
+            )
         configuration = body.model_dump(exclude={"request_id"})
         if remote_control is not None:
             if body.request_id is None:
