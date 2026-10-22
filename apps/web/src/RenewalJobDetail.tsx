@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { request, mediaUrl } from './api';
 import { jsonPost } from './video-api';
+import { dispatchLabel } from './dispatch-status';
 import { PageTitle } from './PageTitle';
 import { LoadingSkeleton } from './LoadingSkeleton';
 import { Button } from './hangyeol/primitives/button';
@@ -18,6 +19,7 @@ type Run = {
   node_id: string;
   node_type: string;
   status: string;
+  dispatch?: { phase: string };
   options: Record<string, string>;
   inputs: Record<string, Reference>;
   error_code?: string;
@@ -192,7 +194,13 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
                         ))}
                       </dl>
                     )}
-                    <p>{run ? labels[run.status] || run.status : '아직 실행하지 않았습니다.'}</p>
+                    <p>
+                      {run
+                        ? dispatchLabel(run.status, run.dispatch?.phase) ||
+                          labels[run.status] ||
+                          run.status
+                        : '아직 실행하지 않았습니다.'}
+                    </p>
                     {Object.entries(run?.inputs || {}).map(([port, ref]) => (
                       <section className="execution-artifact" key={port}>
                         <h4>고정 입력 · {port}</h4>

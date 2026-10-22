@@ -172,9 +172,10 @@ class Execution(Intake):
 
     def _view(self, db, job):
         owner, identity = job["owner_id"], job["id"]
+        from .dispatch_queue import DispatchQueue
         return {
             **public(job),
-            "runs": [public(r) for r in self._runs(db, owner, identity)],
+            "runs": [public(r) for r in DispatchQueue.decorate_in(db, self._runs(db, owner, identity))],
             "reviews": [
                 public(r)
                 for r in db.execute(
@@ -507,6 +508,12 @@ class Execution(Intake):
         )
 
     def _insert_run(self, db, job, node, inputs, status):
+        from .dispatch_queue import DispatchQueue
+        deferred = (status == "running"
+                    and node["type"] in getattr(self, "defer_broker_agents", ())
+                    and DispatchQueue.managed_in(db, node["type"]))
+        if deferred:
+            status = "waiting"
         identity = uuid4().hex
         command = {
             "protocol_version": 1,
@@ -564,6 +571,9 @@ class Execution(Intake):
                 "explicit-local" if status == "running" else None,
             ),
         ).fetchone()
+        if deferred:
+            row = db.execute("UPDATE node_runs SET started_at=NULL,lease_owner=NULL,lease_expires_at=NULL WHERE id=%s RETURNING *", (identity,)).fetchone()
+            DispatchQueue.enqueue_in(db, job, row)
         return row, command
 
     def _control_outputs(self, owner, kind, inputs, options):
@@ -637,7 +647,7 @@ class Execution(Intake):
             ):
                 return None
             runs = self._runs(db, owner, identity)
-            if sum(r["status"] == "running" for r in runs) >= 2:
+            if sum(r["status"] in ("running", "waiting") for r in runs) >= 2:
                 return None
             indexed = {r["node_id"]: r for r in runs}
             definition = job["snapshot"]["definition"]
@@ -777,13 +787,13 @@ class Execution(Intake):
                     db, owner, identity, message_type, command, row["id"]
                 )
                 db.execute(
-                    "UPDATE jobs SET status='running',revision=revision+1,updated_at=now() WHERE owner_id=%s AND id=%s",
-                    (owner, identity),
+                    "UPDATE jobs SET status=CASE WHEN EXISTS (SELECT 1 FROM node_runs WHERE owner_id=%s AND job_id=%s AND status='running') THEN 'running' ELSE 'waiting' END,revision=revision+1,updated_at=now() WHERE owner_id=%s AND id=%s",
+                    (owner, identity, owner, identity),
                 )
                 return command
             # Application controls are materialized in the same transaction; settle
             # only once no independent runnable command remains in this sweep.
-            if not any(r["status"] == "running" for r in indexed.values()):
+            if not any(r["status"] in ("running", "waiting") for r in indexed.values()):
                 if any(r["status"] == "review_required" for r in indexed.values()):
                     status = "review_required"
                 elif len(indexed) == len(definition["nodes"]):
@@ -1070,6 +1080,8 @@ class Execution(Intake):
             )
             if not valid:
                 raise Conflict("결과가 실행 요청과 다릅니다.")
+            from .dispatch_queue import DispatchQueue
+            run = DispatchQueue.received_in(db, job, run, from_result=True)
             lease = db.execute(
                 "SELECT lease_expires_at>now() AS valid FROM node_runs WHERE owner_id=%s AND job_id=%s AND id=%s",
                 (owner, identity, run_id),
@@ -1323,7 +1335,7 @@ class Execution(Intake):
             if job["revision"] != revision:
                 raise Conflict("작업 상태가 변경됐습니다.")
             running = db.execute(
-                "SELECT count(*) n FROM node_runs WHERE owner_id=%s AND job_id=%s AND status='running'",
+                "SELECT count(*) n FROM node_runs r WHERE owner_id=%s AND job_id=%s AND (status='running' OR EXISTS (SELECT 1 FROM broker_dispatch_queue q WHERE q.node_run_id=r.id AND q.phase IN ('sending','sent','received','unknown')))",
                 (owner, identity),
             ).fetchone()["n"]
             job = db.execute(

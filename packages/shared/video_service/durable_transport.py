@@ -23,6 +23,10 @@ class DurableTransport:
                 raise Missing("보낼 메시지를 찾을 수 없습니다.")
             if row["published_at"]:
                 return False
+            from .postgres.dispatch_queue import DispatchQueue
+            queued = DispatchQueue(self.runtime).publish_in(db, job, row, send_confirm)
+            if queued is not None:
+                return queued
             if row["message_type"] in {"agent.command.v1", "agent.engine.command.v2"}:
                 run = db.execute(
                     "SELECT *,lease_expires_at>now() AS lease_valid FROM node_runs WHERE owner_id=%s AND job_id=%s AND id=%s",

@@ -14,6 +14,9 @@ class BrokerController:
         ):
             raise ValueError("Broker execution requires independent object storage")
         self.runtime = runtime
+        # This rollout enrolls only new attempts for the registered encode group.
+        # Existing attempts and unregistered/other-role transports stay unchanged.
+        self.runtime.defer_broker_agents = frozenset({'encode'})
         self.client_factory = client_factory
         self.engine_client_factory = getattr(client_factory, "engine_factory", None)
         self.transport = DurableTransport(runtime)
@@ -49,7 +52,7 @@ class BrokerController:
         self.runtime.claim_next(owner, job_id)
         state = self.runtime.get(owner, job_id)
         for run in state["runs"]:
-            if run["status"] == "running":
+            if run["status"] == "running" or (run["status"] == "waiting" and run.get("dispatch")):
                 self.publish_exact(owner, job_id, run["id"])
         return self.runtime.get(owner, job_id)
 
