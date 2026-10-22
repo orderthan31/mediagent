@@ -57,6 +57,11 @@ type Review = {
   contract: { fields: FieldSchema; source: Reference };
 };
 type State = {
+  artifact_manifest?: {
+    layout: string;
+    entry_count: number;
+    reference: Reference | null;
+  };
   processing_review?: ProcessingProjection | null;
   access?: { can_manage: boolean };
   executed_by?: string;
@@ -148,7 +153,7 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
   const run = job?.runs.find((item) => item.node_id === selected);
   const node = job?.snapshot.definition.nodes.find((item) => item.id === selected);
   const review = job?.reviews.find((item) => item.node_run_id === run?.id);
-  const outputs = run?.result?.outputs || {};
+  const outputs = run?.status === 'completed' ? run.result?.outputs || {} : {};
   const translation =
     run?.result?.transcription ||
     run?.transcription ||
@@ -221,6 +226,21 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
               </div>
             </dl>
           </section>
+          {job.artifact_manifest && (
+            <section className="shared-job-custody" aria-label="티켓별 산출물">
+              <strong>정상 채택 산출물 {job.artifact_manifest.entry_count}개</strong>
+              <p>
+                {job.artifact_manifest.layout === 'ticket_v1'
+                  ? '티켓 기준 저장 · 중간·최종 산출물을 포함합니다.'
+                  : '기존 CAS 참조 · 자료를 이동하지 않고 조회합니다.'}
+              </p>
+              {job.artifact_manifest.entry_count > 0 && (
+                <a href={mediaUrl(base + '/manifest?download=true')} download>
+                  산출물 manifest 받기
+                </a>
+              )}
+            </section>
+          )}
           {job.snapshot.options?.target_language && (
             <p>
               원문/대상 언어: {job.snapshot.options.source_language} →{' '}
@@ -370,9 +390,14 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
                             )}
                           </>
                         ) : (
-                          <a href={url(port)} target="_blank" rel="noreferrer">
-                            산출물 열기
-                          </a>
+                          <>
+                            <a href={url(port)} target="_blank" rel="noreferrer">
+                              산출물 열기
+                            </a>
+                            <a href={url(port) + '?download=true'} download>
+                              산출물 받기
+                            </a>
+                          </>
                         )}
                         <p>
                           {ref.bytes.toLocaleString()} bytes · SHA-256 {ref.sha256}

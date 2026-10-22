@@ -6,12 +6,24 @@
 
 ## 현재 상태
 
+### 새 티켓의 산출물 manifest·실제 저장 경로
+
+- Execution.create는 snapshot.artifact_layout1을 고정한다. 이전 snapshot/원본/owner-CAS는 갱신하거나 옮기지 않는다. 새로운 구조는 기존 run result JSON receipt를 사용하며 새 migration/GRANT/키 저장소를 만들지 않는다. CPU/등록 모델은 기존 accept의 정확한 요청·세대·claim/lease·취소 검사 및 출력 검증 뒤 같은 결속을 사용하고, 제어/검수 완료·완료 receipt 재사용도 동일 저장 모듈을 거친다.
+- 실행 계정 namespace 아래 기존 `blobs/<sha256>` CAS와 함께 `tickets/<job-id>/nodes/<sha256(node-id)>/attempts/<node-run-id>/outputs/<port>/<content-sha>`가 실제 바이트를 가리킨다. 준비된 WebM은 같은 경로의 previews에 결속한다. node_run_id는 wire command의 attempt_id이며 시도 번호/generation/실제 node-id/port와 원 CAS 참조는 manifest에 별도로 남긴다. 후속 연결이 있는 포트는 intermediate, 없는 포트는 final이다.
+- local ContentStore는 검증된 CAS에서 동일 volume의 불변 hardlink를 발행하여 바이트를 복제하지 않는다. 경로/sha/크기/모든 부모 symlink를 확인하고 기존 파일은 덮어쓰지 않는다. hardlink가 불가능하면 채택이 실패하며 파일 복사로 몰래 바꾸지 않는다. S3ContentStore는 기존 CAS를 보존하면서 명시 prefix/owner/ticket object에 실제 바이트를 IfNoneMatch로 생성·재조회 검증한다. 이는 S3의 무복제 보장이 아니며 추가 object 바이트가 생길 수 있다. 캐시는 계속 hash-CAS로 공유한다.
+- 매 채택 후 전체 완료 산출물 manifest를 `tickets/<job-id>/manifests/<manifest-sha>.json`에 불변 저장한다. node_run result.ticket_artifacts는 해당 포트 저장 결속과 manifest sequence/ref/count를 가진다. 최신 완료 receipt의 SQL commit이 정본 pointer다. 파일 쓰기 후 SQL 미채택/저장 실패로 남은 파일은 정상 산출물이 아니며 자동 승격/재실행/정리하지 않는다. 모든 manifest/파일 download는 완료 결과와의 결속·바이트/SHA를 확인한다.
+- 인증된 기존 공용 읽기로 `GET /api/renewal/jobs/<job-id>/manifest`와 download=true를 제공한다. 기존 artifact download URL은 유지하되 새 작업은 티켓 경로의 실제 바이트를 읽는다. 예전 작업은 기존 CAS에서 읽고 manifest는 읽기 전용 projection으로 반환하며 새 파일을 만들지 않는다. 채택 전/격리만 있는 새 작업도 빈 projection이며 정상 파일 link를 만들지 않는다. 업로더/실행자 표시와 credential/admin/CSRF 경계는 바꾸지 않는다. 기본 유지보수 정책에서 새 manifest route도 업무 경로로 계속 차단된다.
+- 실제 별도 PG/local CAS와 짧은 합성 입력으로 CPU 음성 추출/전처리·등록 Gemini adapter MockTransport 결과를 공통 accept에 통과시켰다. 두 티켓의 manifest·artifact 행·실제 경로가 분리되고 재조회·다운로드 바이트/SHA가 일치한다. 다른 사용자의 업로드를 사용한 실행 계정 분리/공용 읽기, 개인 설정403/익명401, legacy 무변경 읽기, 취소 후 quarantine 제외와 manifest 쓰기 실패 뒤 파일 미채택을 확인했다. 선택/검수 및 복구 재사용은 합성 자막만으로 저장 결속을 확인했다.
+- 통과형 select/review 영상은 새 정상 티켓 결속을 검사한 뒤 기존 검증된 source WebM을 호환 읽기로 재사용할 수 있다. 전용 ticket preview가 없는 경우를 RED→GREEN으로 보정했고, manifest/hash 실패를 우회하거나 raw MP4로 대체하지 않는다. 원본/미리보기를 새로 변환하거나 옮기지 않는다.
+- 최종 Python12(신규11+기존 저장 guard1)·실제 production UI PC1440/390px2 통과, 타입/build·변경 TSX/검사 ESLint/format 통과다. scoped Ruff는 신규0·부모에도 있는 API F4011을 보존했다. 기존 Starlette/httpx·Radix bundle·Node/Playwright 경고는 남긴다. S3는 network-none protocol double의 byte/object-key/reopen 확인이며 실제 S3/MinIO·브로커·공급자 품질/인증 수용이 아니다.
+- 검증은 기존 API 이미지+clean source RO 및 별도 PG/CAS/compiled web의 격리 설치다. 초기 internal-only Docker망의 preview port 비공개와 시험 node label 착오, sticky header 아래 조기 capture는 fixture 문제로 분리했다. disposable API만 loopback publish/bridge 연결하고 최종 source를 새 API에 적재해 확인했으며 운영망·웹·DB·키는 바꾸지 않았다. 전사/영상/MQ 전체 여정 반복·운영012/019·원본17개 이관·#5/DLQ 복구·접수 재개/배포는 없다. 이 소스는 PM 수용·App push 검토 대기다.
+
 ### 접속 화면의 유지보수·로그인·통신 오류 구분
 
 - VideoWorkspace의 capabilities 요청은 HTTP503과 ApiError.message의 정확한 `maintenance_admission_closed`가 함께 맞을 때만 **유지보수 중 · 작업 이용 제한**으로 안내한다. 다른503/네트워크 실패/HTML 응답/다른 상태 코드는 **작업 공간 응답 확인 불가**이며 DB 연결 상태는 미확인이라고 표시한다. capabilities가 작업 기능을 광고하지 않아도 DB 미연결로 추정하지 않는다.
 - 401의 기존 authenticatedFetch→expired→AuthGate 재로그인 경로는 그대로다. 캐시된 CSRF token이 없어 expired 이벤트를 내지 않는401도 **로그인 필요**로 구분한다. 인증/CSRF·서버의 유지보수/관리자 allowlist·업무 admission을 바꾸거나 진단 endpoint를 만들지 않는다.
 - clean source의 renewal production build와 명시적인 브라우저 응답 fixture로 PC1440/390px의 상태 구분16개·기존 auth-session 단위3개를 확인했다. 정상 계정을 생성/변경하거나 운영 로그인을 우회한 것이 아니라 UI 응답 계약 fixture다. 실제 DB/관리자 서버 응답·운영 가용성 검증으로 확대하지 않는다. 타입/build·변경 frontend lint/format 통과, 기존 Radix bundle 경고와 Node Playwright deprecation 경고는 남는다.
-- 전사/영상/MQ 전체 시험은 반복하지 않았고 운영 서비스/DB/키·정상 접수·012/019·대상/원본/#5/DLQ는 변경하지 않았다. 소스 수용·App push는 PM 검토 대기이며 접속 사이트에 설치한 상태가 아니다.
+- 전사/영상/MQ 전체 시험은 반복하지 않았고 운영 서비스/DB/키·정상 접수·012/019·대상/원본/#5/DLQ는 변경하지 않았다. 화면 보정839f65eaa32b6a322412db6b7b73300746c4c4e7은 PM 수용·App push 완료와 Windows 원격 일치를 확인하여 종료했다. 접속 사이트에 설치한 상태는 아니다.
 
 ### 등록 모델 API 전사의 개발 계약
 

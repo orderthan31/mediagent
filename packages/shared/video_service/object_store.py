@@ -14,7 +14,14 @@ import re
 import tempfile
 from urllib.parse import urlsplit
 
-from .content_store import HEX, ID, MAX_CONTENT, ContentStore, reference_origin
+from .content_store import (
+    HEX,
+    ID,
+    MAX_CONTENT,
+    ContentStore,
+    reference_origin,
+    valid_content_key,
+)
 
 
 class ObjectStoreError(ValueError):
@@ -37,7 +44,7 @@ def validate_reference(reference):
         reference["sha256"]
     ):
         raise ObjectStoreError("Invalid artifact digest")
-    if reference["storage_key"] != "blobs/" + reference["sha256"]:
+    if not valid_content_key(reference["storage_key"], reference["sha256"]):
         raise ObjectStoreError("Invalid artifact key")
     if type(reference["bytes"]) is not int or not 0 < reference["bytes"] <= MAX_CONTENT:
         raise ObjectStoreError("Invalid artifact size")
@@ -133,9 +140,21 @@ class S3ContentStore(ContentStore):
                 reference["type"],
             )
         # ContentStore.put validates its local path without calling this override.
-        if stored != reference:
+        if any(stored[k] != reference[k] for k in ("sha256", "bytes", "type")):
             raise ObjectStoreError("Remote content reference mismatch")
-        return ContentStore.path(self, owner, reference)
+        return ContentStore.path(self, owner, stored)
+
+    def bind_ticket(self, owner, key, reference):
+        if (not isinstance(reference, dict) or not valid_content_key(key, reference.get("sha256"))
+                or not key.startswith("tickets/")):
+            raise ObjectStoreError("Invalid ticket content key")
+        source = self.path(owner, reference)
+        with source.open("rb") as body:
+            self._create(self._key(owner, key), body, reference["sha256"], reference["bytes"])
+        value = {k: reference[k] for k in ("sha256", "bytes", "type")}
+        value["storage_key"] = key
+        self.path(owner, value)
+        return value
 
     def put(self, owner, blocks, kind):
         reference = ContentStore.put(self, owner, blocks, kind)

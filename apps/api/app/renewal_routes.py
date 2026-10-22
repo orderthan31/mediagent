@@ -1,7 +1,7 @@
 """Opt-in renewal routes. Mount only with an explicit content store."""
 
 from fastapi import Depends, HTTPException, Query, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import Field, StrictBool, StrictInt
 from video_service.cpu_agents import digest
 from video_service.postgres import Conflict, Missing
@@ -389,6 +389,15 @@ def mount_runtime(
     @app.post("/api/renewal/reviews/{identity}/confirm")
     def review_confirm(identity: str, body: Revision, owned=owner_dependency):
         return runtime.review_confirm(owned, identity, body.revision)
+
+    @app.get("/api/renewal/jobs/{identity}/manifest")
+    def artifact_manifest(identity: str, download: bool = False, owned=owner_dependency):
+        raw = runtime.shared_manifest(owned, identity)
+        return Response(
+            raw,
+            media_type="application/json",
+            headers={"Content-Disposition": f'attachment; filename="{identity}-manifest.json"'} if download else {},
+        )
 
     @app.get("/api/renewal/jobs/{identity}/artifacts/{run_id}/{port}")
     def artifact(

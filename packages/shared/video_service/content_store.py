@@ -13,6 +13,18 @@ ID = re.compile(r"[a-f0-9]{32}\Z")
 MAX_CONTENT = 256 * 1024 * 1024
 
 
+def valid_content_key(key, sha):
+    if not isinstance(key, str) or not isinstance(sha, str) or not HEX.fullmatch(sha):
+        return False
+    if key == "blobs/" + sha:
+        return True
+    return bool(re.fullmatch(
+        r"tickets/[a-f0-9]{32}/(?:manifests/" + sha + r"\.json|"
+        r"nodes/[a-f0-9]{64}/attempts/[a-f0-9]{32}/(?:outputs|previews)/[a-z_][a-z0-9_]{0,49}/" + sha + r")",
+        key,
+    ))
+
+
 def reference_origin(owner, reference):
     """Resolve a server-pinned input namespace without changing its blob key/hash."""
     if not isinstance(owner, str) or not ID.fullmatch(owner):
@@ -57,7 +69,7 @@ class ContentStore:
         if (
             not isinstance(sha, str)
             or not HEX.fullmatch(sha)
-            or reference["storage_key"] != "blobs/" + sha
+            or not valid_content_key(reference["storage_key"], sha)
         ):
             raise ValueError("Invalid opaque content key")
         if (
@@ -66,9 +78,12 @@ class ContentStore:
         ):
             raise ValueError("Invalid content size")
         root = self.owner_root(owner)
-        directory = root / "blobs"
-        path = directory / sha
-        if directory.is_symlink() or path.is_symlink() or not path.is_file():
+        path = root
+        for part in reference["storage_key"].split("/"):
+            path = path / part
+            if path.is_symlink():
+                raise ValueError("Symlink storage denied")
+        if not path.is_file():
             raise ValueError("Content unavailable")
         with path.open("rb") as stream:
             digest = hashlib.sha256()
@@ -81,6 +96,30 @@ class ContentStore:
         if size != reference["bytes"] or digest.hexdigest() != sha:
             raise ValueError("Content integrity mismatch")
         return path
+
+    def bind_ticket(self, owner, key, reference):
+        """Publish an immutable ticket path without duplicating local CAS bytes."""
+        if (not isinstance(reference, dict) or not valid_content_key(key, reference.get("sha256"))
+                or not key.startswith("tickets/")):
+            raise ValueError("Invalid ticket content key")
+        source = self.path(owner, reference)
+        parent = self.owner_root(owner)
+        for part in key.split("/")[:-1]:
+            parent = parent / part
+            if parent.is_symlink():
+                raise ValueError("Symlink storage denied")
+            parent.mkdir(mode=0o700, exist_ok=True)
+        target = parent / key.split("/")[-1]
+        if target.is_symlink():
+            raise ValueError("Symlink storage denied")
+        try:
+            os.link(source, target)
+        except FileExistsError:
+            pass
+        value = {k: reference[k] for k in ("sha256", "bytes", "type")}
+        value["storage_key"] = key
+        self.path(owner, value)
+        return value
 
     def put(self, owner, blocks, kind):
         root = self.owner_root(owner)

@@ -6,11 +6,20 @@
 
 ## 현재 상태
 
+### 티켓별 산출물 manifest·저장 배치 — 구현·격리 검증 완료, 운영 미반영
+
+- [x] 새 Execution.create snapshot에 artifact_layout1을 고정하고, 공통 CPU/등록 모델 결과 채택에서 티켓·노드·node_run_id·시도 번호/세대·출력 포트·CAS 참조·실제 티켓 저장 참조를 함께 영속한다. 출력이 후속 포트로 연결되면 intermediate, 아니면 final로 구분한다. 제어/검수 완료·검증된 복구 재사용도 새 티켓 저장 결속을 적용한다.
+- [x] 실행 계정 namespace 아래 `tickets/<job>/nodes/<node-id-sha256>/attempts/<node-run-id>/outputs/<port>/<content-sha>`에 실제 출력 바이트를 배치하고, 채택 시마다 `tickets/<job>/manifests/<manifest-sha>.json`을 불변 저장한다. 로컬은 기존 CAS와 동일 inode의 hardlink라 내용 복제가 없고, 원 CAS/원본 경로·SHA를 보존한다. S3 adapter는 명명된 티켓 object에 실제 바이트를 별도 저장하므로 로컬의 무복제 보장과 구분한다.
+- [x] 최신 채택 manifest는 기존 node_run receipt의 SQL commit에 결속한다. 조회만으로 파일을 쓰지 않으며, 예전 snapshot은 기존 owner-CAS 호환 읽기와 비영속 manifest projection만 제공한다. 기존 원본/티켓을 이동·갱신하거나 원본17개를 이관하지 않았다.
+- [x] 실제 상세 조회·manifest 다운로드·기존 산출물 다운로드를 연결했다. 새 작업 다운로드는 ticket storage/hash를 검증해 해당 바이트를 읽고, 정상 채택 목록은 completed 결과만 포함한다. 취소/늦은 quarantine과 저장 실패 뒤 미채택 파일은 정상 manifest/download에 노출하지 않는다. 화면에서 manifest와 비영상 산출물 받기가 가능하다.
+- 별도 PG/local CAS·짧은 합성 원본·CPU 음성 추출/전처리 및 등록 adapter MockTransport 결과로 두 티켓 분리, 재조회·다운로드 바이트/SHA·실제 artifact 행의 저장 키, 업로더/실행자 분리·인증된 공용 읽기/개인 설정403·익명401을 확인했다. legacy CAS 읽기 무변경·취소 격리·manifest 저장 실패 경계와 통과형 영상의 기존 WebM 미리보기 호환도 확인했다. Python12 pass(신규11+기존 저장 guard1), 실제 production UI PC1440/390px2 pass·타입/build·변경 frontend lint/format 통과다. scoped Ruff 신규0·기존 API F4011은 남는다.
+- S3 경로는 network-none byte protocol double의 원격 키/새 캐시 재조회 검사이며 실제 MinIO/S3 설치 수용이 아니다. 실제 공급자·운영 DB/키·서비스·012/019·#5/DLQ·정상 접수/배포와 기존 영상/MQ 전체 여정은 제외했다. 이 소스는 PM 수용·App push 검토 대기다.
+
 ### 접속 화면 상태 구분 — 구현·격리 확인 완료, 운영 미반영
 
 - [x] `/capabilities`의 정확한 HTTP503 + `maintenance_admission_closed`를 **유지보수 중 · 작업 이용 제한**으로 안내한다. 일반 통신/서버 응답 실패와401 로그인 필요를 구분하고, 확인하지 않은 DB 상태를 정상/끊김으로 단정하지 않는다. capabilities가 작업 기능을 광고하지 않는 정상 응답도 PostgreSQL 미연결로 추측하지 않는다.
 - [x] production frontend와 명시적인 응답 fixture에서 PC1440/390px의 유지보수·일반503·네트워크 실패·HTML503·다른 상태 코드·기존 세션 만료/로그인·token 미보유401·기능 미제공 안내를 확인했다. 관련 브라우저16개/기존 인증 세션 단위3개·타입/build·변경 frontend lint/format 통과다. UI 응답 계약 검증이지 실제 DB/운영 가용성 검증이 아니다.
-- 제품 수정은 VideoWorkspace.tsx뿐이다. 인증/CSRF·관리자 허용 경로·API 정책을 바꾸거나 진단 endpoint를 추가하지 않았다. 전사/영상/MQ 전체 시험, 운영 배포·접수 재개·서비스/DB/키 변경은 없고 기존 WIP와 컨테이너를 보존했다. 이 화면 보정 소스는 PM 수용·App push 검토 대기다.
+- 제품 수정은 VideoWorkspace.tsx뿐이다. 인증/CSRF·관리자 허용 경로·API 정책을 바꾸거나 진단 endpoint를 추가하지 않았다. 전사/영상/MQ 전체 시험, 운영 배포·접수 재개·서비스/DB/키 변경은 없고 기존 WIP와 컨테이너를 보존했다. 화면 보정839f65eaa32b6a322412db6b7b73300746c4c4e7은 PM 수용·App push 및 Windows 원격 SHA 확인을 마쳤으며 이 묶음은 종료했다. 운영 사이트는 바뀌지 않았다.
 
 ### 등록 모델 API 음성 전사 — 구현·격리 요청/실행 검증 완료, 운영 미반영
 
@@ -117,7 +126,7 @@
 
 - [x] 인증 사용자 공용 원본·작업·결과 읽기/다운로드 API·UI와 격리 설치본 A/B 회귀.
 - [ ] 위 공용 읽기 수용본의 운영 반영. 운영012·기존 원본17개 공용 이관은 별도 검토/승인 전까지 수행하지 않는다.
-- [ ] 티켓별 manifest/중간·최종 object 배치와 기존 owner-CAS 읽기 호환, 보존 원본17개(29,073,982,271 bytes)의 공용 멱등 이관·대용량 보관/다운로드/재생. 기존 전체 SHA 확인을 반복하지 않으며 목록 등록만으로 완료하지 않는다.
+- [ ] 보존 원본17개(29,073,982,271 bytes)의 공용 멱등 이관·대용량 보관/다운로드/재생. 새 작업의 티켓별 manifest/중간·최종 저장 배치와 기존 owner-CAS 호환 읽기는 위 별도 구현·격리 검증 범위다. 기존 전체 SHA 확인을 반복하지 않으며 목록 등록만으로 원본 이관을 완료하지 않는다.
 - [ ] 실제 공급자 인증·전사 정확도/번역 품질·승인된 외부 호출과 운영 연결. 등록 모델 전사·번역/언어/유한 폴백의 구현·격리 HTTP 계약 검증은 위 별도 완료 범위다. Gemini 등록이나 통제 서버의 응답을 실제 공급자 인증·품질 성공으로 확대하지 않는다. 로컬 Whisper 기본 대체·유료 외부 호출은 승인하지 않았다.
 - [ ] 순수 제품 UI의 모델·언어 선택→티켓→승인→실행→결과와 모든 캔버스의 자동 정렬·연결선 정리·전체 보기.
 - [ ] 다른 역할/두 번째 슬롯·실제 여러 컴퓨터 배치·부분 축소와 운영 fault/복구 수용. 현재 한 PC 배치를 최종 구조로 고정하지 않으며 API/DB/저장소/실행기 주소는 독립 설정한다.

@@ -49,6 +49,8 @@ class Execution(Intake):
         self.engine_runtime_enabled = bool(engine_runtime_enabled)
         self.translation_runtime = translation_runtime
         self.transcription_runtime = transcription_runtime
+        from .ticket_artifacts import TicketArtifacts
+        self.ticket_artifacts = TicketArtifacts(store)
 
     def catalog(self):
         from ..renewal_contracts import catalog
@@ -191,10 +193,13 @@ class Execution(Intake):
         owner, identity = job["owner_id"], job["id"]
         from .dispatch_queue import DispatchQueue
         from .job_processing_review import JobProcessingReview
+        processing_review = JobProcessingReview(self).capture_in(db, job)
+        runs = DispatchQueue.decorate_in(db, self._runs(db, owner, identity))
         return {
             **public(job),
-            "processing_review": JobProcessingReview(self).capture_in(db, job),
-            "runs": [public(r) for r in DispatchQueue.decorate_in(db, self._runs(db, owner, identity))],
+            "processing_review": processing_review,
+            "runs": [public(r) for r in runs],
+            "artifact_manifest": self.ticket_artifacts.summary(job, runs),
             "reviews": [
                 public(r)
                 for r in db.execute(
@@ -223,10 +228,10 @@ class Execution(Intake):
         # Media/graph data is shared; credentials, execution claims and locators are not.
         keys = {"id", "ticket_number", "owner_id", "asset_id", "asset_owner_id", "workflow_id",
                 "workflow_revision", "status", "revision", "generation", "snapshot_sha256",
-                "parent_id", "created_at", "updated_at", "processing_review"}
+                "parent_id", "created_at", "updated_at", "processing_review", "artifact_manifest"}
         value = {k: state[k] for k in keys if k in state}
         value["snapshot"] = {k: v for k, v in state["snapshot"].items()
-                             if k in {"version", "asset", "inputs", "definition", "options", "recovery"}}
+                             if k in {"version", "asset", "inputs", "definition", "options", "recovery", "artifact_layout"}}
         value["snapshot_redacted"] = True
         value["executed_by"] = state["owner_id"]
         value["access"] = {"can_manage": actor == state["owner_id"]}
@@ -238,7 +243,7 @@ class Execution(Intake):
             public_run = {k: run[k] for k in run_keys if k in run}
             if run.get("result"):
                 public_run["result"] = {k: v for k, v in run["result"].items()
-                                        if k in {"status", "outputs", "previews", "reused_from", "translation", "transcription"}}
+                                        if k in {"status", "outputs", "previews", "reused_from", "translation", "transcription", "ticket_artifacts"}}
             value["runs"].append(public_run)
         review_keys = {"id", "node_run_id", "revision", "status", "draft", "contract"}
         value["reviews"] = [{k: v for k, v in r.items() if k in review_keys} for r in state.get("reviews", [])]
@@ -265,8 +270,23 @@ class Execution(Intake):
         reference = run["inputs"].get(port) if inputs else (run["result"] or {}).get("outputs", {}).get(port)
         if not reference or (preview and reference["type"] != "video"):
             raise Missing("산출물/고정 입력을 찾을 수 없습니다.")
+        if not inputs and self.ticket_artifacts.enabled(job):
+            try:
+                return self.ticket_artifacts.output(job, state['runs'], run_id, port, preview=preview)
+            except Missing:
+                if not preview:
+                    raise
+                # A verified pass-through output may reuse its preserved source WebM.
+                # Manifest/hash failures are not caught and raw MP4 is never substituted.
+                return self._video_preview_state(state, reference), reference['type']
         path = self._video_preview_state(state, reference) if preview else self.store.path(job["owner_id"], reference)
         return path, reference["type"]
+
+    def shared_manifest(self, actor, identity):
+        with self.database.connection() as db:
+            job = self._shared_job(db, identity)
+            runs = self._runs(db, job['owner_id'], job['id'])
+            return self.ticket_artifacts.read(job, runs)
 
     def jobs(self, owner):
         with self.database.connection() as db:
@@ -388,6 +408,7 @@ class Execution(Intake):
                 )
             snapshot = {
                 "version": 1,
+                "artifact_layout": 1,
                 "asset": public_asset(asset),
                 "inputs": input_refs,
                 "definition": definition,
@@ -874,15 +895,13 @@ class Execution(Intake):
                         outputs = self._control_outputs(
                             owner, node["type"], inputs, node["options"]
                         )
+                        receipt = self.ticket_artifacts.capture(db, job, row, {
+                            "outputs": outputs, "transport": "application_control",
+                        })
                         db.execute(
                             "UPDATE node_runs SET status='completed',result=%s,completed_at=now() WHERE owner_id=%s AND job_id=%s AND id=%s",
                             (
-                                Jsonb(
-                                    {
-                                        "outputs": outputs,
-                                        "transport": "application_control",
-                                    }
-                                ),
+                                Jsonb(receipt),
                                 owner,
                                 identity,
                                 row["id"],
@@ -891,7 +910,7 @@ class Execution(Intake):
                         indexed[node["id"]] = {
                             **row,
                             "status": "completed",
-                            "result": {"outputs": outputs},
+                            "result": receipt,
                         }
                     except (ValueError, KeyError, TypeError):
                         db.execute(
@@ -1311,11 +1330,15 @@ class Execution(Intake):
                         for port, ref in outputs.items()
                         if ref["type"] == "video"
                     }
+                    receipt = self.ticket_artifacts.capture(db, job, run, receipt)
                     db.execute(
                         "UPDATE node_runs SET status='completed',result=%s,completed_at=now(),lease_owner=NULL,lease_expires_at=NULL WHERE owner_id=%s AND job_id=%s AND id=%s",
                         (Jsonb(receipt), owner, identity, run_id),
                     )
-                    for ref in outputs.values():
+                    for port, ref in outputs.items():
+                        if self.ticket_artifacts.enabled(job):
+                            ref = next(entry['storage'] for entry in receipt['ticket_artifacts']['entries']
+                                       if entry['output_port'] == port)
                         db.execute(
                             "INSERT INTO artifacts(owner_id,job_id,node_run_id,id,type,storage_key,bytes,sha256) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
                             (
@@ -1468,6 +1491,7 @@ class Execution(Intake):
                         },
                     }
                     row, _ = self._insert_run(db, child_row, node, inputs, "completed")
+                    receipt = self.ticket_artifacts.capture(db, child_row, row, receipt)
                     db.execute(
                         "UPDATE node_runs SET result=%s,completed_at=now() WHERE owner_id=%s AND job_id=%s AND id=%s",
                         (Jsonb(receipt), owner, child["id"], row["id"]),
@@ -1562,18 +1586,18 @@ class Execution(Intake):
                 "UPDATE review_tasks SET status='confirmed',confirmed_sha256=%s WHERE owner_id=%s AND id=%s",
                 (confirmed_sha, owner, identity),
             )
+            run = db.execute(
+                "SELECT * FROM node_runs WHERE owner_id=%s AND job_id=%s AND id=%s",
+                (owner, row['job_id'], row['node_run_id']),
+            ).fetchone()
+            receipt = self.ticket_artifacts.capture(db, job, run, {
+                "outputs": {"value": source}, "transport": "human_gate", "review_id": identity,
+                "review_revision": revision, "confirmed_sha256": confirmed_sha,
+            })
             db.execute(
                 "UPDATE node_runs SET status='completed',result=%s,completed_at=now() WHERE owner_id=%s AND job_id=%s AND id=%s",
                 (
-                    Jsonb(
-                        {
-                            "outputs": {"value": source},
-                            "transport": "human_gate",
-                            "review_id": identity,
-                            "review_revision": revision,
-                            "confirmed_sha256": confirmed_sha,
-                        }
-                    ),
+                    Jsonb(receipt),
                     owner,
                     row["job_id"],
                     row["node_run_id"],
