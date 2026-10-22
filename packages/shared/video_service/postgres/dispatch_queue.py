@@ -5,7 +5,7 @@ A broker TTL is a delivery bound, not the lifetime of an admitted queued job.
 """
 from datetime import datetime, timezone
 from ..cpu_agents import digest, canonical
-from . import Conflict
+from . import Conflict, Missing
 
 
 class DispatchQueue:
@@ -50,12 +50,82 @@ class DispatchQueue:
         db.execute("UPDATE node_runs r SET status='cancelled',completed_at=now() FROM broker_dispatch_queue q "
                    "WHERE q.node_run_id=r.id AND q.agent_id=%s AND q.phase='cancelled' AND r.status='waiting'", (agent,))
 
-    def publish_in(self, db, job, outbox, send_confirm):
-        """Return None for a historical/unmanaged attempt, otherwise a bool.
+    @staticmethod
+    def _try_guard_in(db, agent, *, session=False):
+        sql = ("SELECT pg_try_advisory_lock(hashtextextended('dispatch-agent:'||%s,0)) AS locked"
+               if session else
+               "SELECT pg_try_advisory_xact_lock(hashtextextended('dispatch-agent:'||%s,0)) AS locked")
+        return db.execute(sql, (agent,)).fetchone()['locked']
 
-        The job and control-group locks serialize cancellation and stop admission
-        against this one publish. Ambiguous sends are blocked, never auto-retried.
+    @staticmethod
+    def _ready_worker_in(db, agent):
+        group = db.execute('SELECT *,observed_at>now()-interval \'15 seconds\' AS fresh FROM remote_control_groups WHERE agent_id=%s FOR SHARE', (agent,)).fetchone()
+        if (not group or not group['fresh'] or not group['enabled'] or group['replicas'] != 1
+                or group['capacity'] != 1 or group['pending_request'] or group['quarantined']):
+            return None
+        workers = group['observed'] or []
+        if len(workers) != 1:
+            return None
+        worker = workers[0]
+        if (not worker.get('running') or worker.get('state') != 'ready' or not worker.get('boot_id')
+                or worker.get('id') != group['slot_ids'][0]):
+            return None
+        return worker
+
+    def publish_exact(self, owner, job_id, message_id, send_confirm):
+        """Commit the attempt before I/O; an uncertain commit cannot erase it.
+
+        This is a fresh non-pooled connection. A session guard spans both DB
+        transactions and external I/O, and is released by connection close.
+        Only this call stack may send its newly committed reservation. A later
+        call never resumes sending/unknown, even when outbox.published_at is NULL.
         """
+        with self.database.connection() as db:
+            q = db.execute('SELECT agent_id,phase FROM broker_dispatch_queue WHERE owner_id=%s AND job_id=%s AND node_run_id=%s', (owner, job_id, message_id)).fetchone()
+            if q is None:
+                return None
+            if q['phase'] != 'pending' or not self._try_guard_in(db, q['agent_id'], session=True):
+                return False
+            job = self.runtime._job(db, owner, job_id, lock=True)
+            outbox = db.execute('SELECT * FROM message_outbox WHERE owner_id=%s AND aggregate_id=%s AND id=%s FOR UPDATE', (owner, job_id, message_id)).fetchone()
+            if not outbox:
+                raise Missing('queued_dispatch_outbox_missing')
+            if outbox['published_at']:
+                return False
+            reserved = self._reserve_in(db, job, outbox)
+            if not reserved:
+                return False
+            # This commit MUST finish before entering the external sender.
+            db.commit()
+            # SET LOCAL bounds end at commit, so restore them for transaction 2.
+            db.execute("SET LOCAL statement_timeout = '15s'")
+            db.execute("SET LOCAL lock_timeout = '5s'")
+            job = self.runtime._job(db, owner, job_id, lock=True)
+            outbox = db.execute('SELECT * FROM message_outbox WHERE owner_id=%s AND aggregate_id=%s AND id=%s FOR UPDATE', (owner, job_id, message_id)).fetchone()
+            q = db.execute('SELECT * FROM broker_dispatch_queue WHERE node_run_id=%s FOR UPDATE', (message_id,)).fetchone()
+            run = db.execute('SELECT *,lease_expires_at>now() AS lease_valid FROM node_runs WHERE id=%s FOR UPDATE', (message_id,)).fetchone()
+            worker = self._ready_worker_in(db, q['agent_id'])
+            if (q['phase'] != 'sending' or not worker or not run['lease_valid']
+                    or worker['id'] != q['worker_id'] or worker['boot_id'] != q['boot_id']
+                    or job['status'] not in ('waiting', 'running') or job['cancel_requested']
+                    or job['generation'] != run['generation'] or job['active_claim_id'] != run['claim_id']
+                    or run['status'] != 'waiting' or outbox['published_at']
+                    or run['request_sha256'] != digest(outbox['payload'])):
+                db.execute("UPDATE broker_dispatch_queue SET phase='unknown',error_code='dispatch_admission_changed',updated_at=now() WHERE node_run_id=%s AND phase='sending'", (message_id,))
+                return False
+            try:
+                confirmed = send_confirm(message_id, outbox['message_type'], canonical(outbox['payload'])) is True
+            except Exception:
+                confirmed = False
+            if not confirmed:
+                db.execute("UPDATE broker_dispatch_queue SET phase='unknown',error_code='dispatch_outcome_unknown',updated_at=now() WHERE node_run_id=%s", (message_id,))
+                return False
+            db.execute('UPDATE message_outbox SET published_at=now() WHERE id=%s', (message_id,))
+            db.execute("UPDATE broker_dispatch_queue SET phase='sent',published_at=now(),updated_at=now() WHERE node_run_id=%s", (message_id,))
+            return True
+
+    def _reserve_in(self, db, job, outbox):
+        """Transaction 1: admission and a durable, non-replayable send intent."""
         q = db.execute('SELECT * FROM broker_dispatch_queue WHERE node_run_id=%s FOR UPDATE', (outbox['id'],)).fetchone()
         if q is None:
             return None
@@ -69,33 +139,15 @@ class DispatchQueue:
             return False
         if outbox['message_type'] != 'agent.command.v1' or run['request_sha256'] != digest(outbox['payload']):
             raise Conflict('queued_dispatch_request_mismatch')
-        db.execute("SELECT pg_advisory_xact_lock(hashtextextended('dispatch-agent:'||%s,0))", (q['agent_id'],))
         self._cleanup_in(db, q['agent_id'])
-        group = db.execute('SELECT *,observed_at>now()-interval \'15 seconds\' AS fresh FROM remote_control_groups WHERE agent_id=%s FOR SHARE', (q['agent_id'],)).fetchone()
-        if (not group or not group['fresh'] or not group['enabled'] or group['replicas'] != 1
-                or group['capacity'] != 1 or group['pending_request'] or group['quarantined']):
-            return False
-        workers = group['observed'] or []
-        if len(workers) != 1:
-            return False
-        worker = workers[0]
-        if (not worker.get('running') or worker.get('state') != 'ready' or not worker.get('boot_id')
-                or worker.get('id') != group['slot_ids'][0]):
+        worker = self._ready_worker_in(db, q['agent_id'])
+        if not worker:
             return False
         active = db.execute("SELECT 1 FROM broker_dispatch_queue WHERE agent_id=%s AND phase IN ('sending','sent','received','unknown')", (q['agent_id'],)).fetchone()
         if active:
             return False
         db.execute("UPDATE broker_dispatch_queue SET phase='sending',worker_id=%s,boot_id=%s,updated_at=now() WHERE node_run_id=%s", (worker['id'], worker['boot_id'], run['id']))
         db.execute("UPDATE node_runs SET lease_owner='broker-dispatch',lease_expires_at=now()+interval '120 seconds' WHERE id=%s", (run['id'],))
-        try:
-            confirmed = send_confirm(outbox['id'], outbox['message_type'], canonical(outbox['payload'])) is True
-        except Exception:
-            confirmed = False
-        if not confirmed:
-            db.execute("UPDATE broker_dispatch_queue SET phase='unknown',error_code='dispatch_outcome_unknown',updated_at=now() WHERE node_run_id=%s", (run['id'],))
-            return False
-        db.execute('UPDATE message_outbox SET published_at=now() WHERE id=%s', (outbox['id'],))
-        db.execute("UPDATE broker_dispatch_queue SET phase='sent',published_at=now(),updated_at=now() WHERE node_run_id=%s", (run['id'],))
         return True
 
     @staticmethod
@@ -119,6 +171,10 @@ class DispatchQueue:
     def tick(self, controller, *, agent):
         """Only newly enrolled, explicitly admitted attempts for this one agent."""
         with self.database.connection() as db:
+            # Never call an active sender orphaned merely because it is slow.
+            # Its session guard spans the first commit and the external call.
+            if self._try_guard_in(db, agent):
+                db.execute("UPDATE broker_dispatch_queue SET phase='unknown',error_code='dispatch_sender_disconnected',updated_at=now() WHERE agent_id=%s AND phase='sending'", (agent,))
             self._cleanup_in(db, agent)
             pending = [dict(r) for r in db.execute("SELECT owner_id,job_id,node_run_id FROM broker_dispatch_queue WHERE agent_id=%s AND phase IN ('pending','sent') ORDER BY created_at,node_run_id LIMIT 32", (agent,)).fetchall()]
         for q in pending:
