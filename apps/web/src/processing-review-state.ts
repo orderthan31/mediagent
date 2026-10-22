@@ -21,7 +21,10 @@ export const processingLabel = (value?: ProcessingProjection | null): string | n
 export const processingReasons: Record<string, string> = {
   verified_terminal_receipt_required:
     '원 실행의 검증된 종료 결과가 없어 보류합니다. 수신 기록이 없다는 것만으로 재처리하지 않습니다.',
-  single_encode_scope_required: '이번 복구는 모델 호출 없는 단일 인코딩 작업만 지원합니다.',
+  single_encode_scope_required:
+    '이번 복구는 모델 호출이 없고 인코딩 노드가 정확히 1개인 작업만 지원합니다.',
+  other_attempt_outcome_unconfirmed:
+    '같은 작업의 다른 실행 회차가 처리 중이거나 종료 근거가 불명확해 보류합니다.',
   quarantine_object_unavailable: '격리 결과의 실제 파일과 해시를 확인할 수 없습니다.',
   fresh_bound_worker_required: '원 실행과 연결된 최신 실행기 근거가 필요합니다.',
   bound_worker_not_quiescent: '같은 실행 회차의 실행기가 정상 대기 중인지 확인해야 합니다.',

@@ -92,6 +92,13 @@ class JobProcessingReview:
                 )
             },
             "attempt": dict(run),
+            "other_attempts": [
+                dict(r)
+                for r in db.execute(
+                    "SELECT n.id,n.node_id,n.node_type,n.status,n.generation,n.claim_id,n.attempt,n.iteration,n.request_sha256,n.result,n.lease_expires_at,n.started_at,n.completed_at,q.phase AS dispatch_phase,q.release_decision_id FROM node_runs n LEFT JOIN broker_dispatch_queue q ON q.owner_id=n.owner_id AND q.job_id=n.job_id AND q.node_run_id=n.id WHERE n.owner_id=%s AND n.job_id=%s AND n.id<>%s ORDER BY n.id",
+                    (owner, jid, run["id"]),
+                ).fetchall()
+            ],
             "outbox": dict(out) if out else None,
             "dispatch": dict(q) if q else None,
             "worker_events": events,
@@ -216,10 +223,24 @@ class JobProcessingReview:
         reasons = []
         if case["child_id"]:
             reasons.append("child_already_created")
-        if job["snapshot"]["model_bindings"] or any(
-            n["type"] != "encode" for n in job["snapshot"]["definition"]["nodes"]
+        nodes = job["snapshot"]["definition"]["nodes"]
+        if (
+            job["snapshot"]["model_bindings"]
+            or len(nodes) != 1
+            or nodes[0]["type"] != "encode"
         ):
             reasons.append("single_encode_scope_required")
+        # A receipt for this attempt never proves another attempt has terminated.
+        # Non-success/cancel flags alone are not positive termination evidence.
+        if any(
+            other["status"] != "completed"
+            or not isinstance(other["result"], dict)
+            or other["result"].get("status") != "completed"
+            or not other["result"].get("outputs")
+            or other["dispatch_phase"] not in (None, "completed", "cancelled")
+            for other in evidence["other_attempts"]
+        ):
+            reasons.append("other_attempt_outcome_unconfirmed")
         receipts = [
             r
             for r in evidence["quarantined_results"]
