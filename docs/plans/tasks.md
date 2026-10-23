@@ -4,6 +4,16 @@
 
 구현·검증 완료와 운영 미검증을 구분한다. 부분 구현을 GPU 잔여만 있는 상태로 보고하지 않는다.
 
+## 전체길이 WebM guard 세션 유실 보정 — 81b 위 corrective / 운영 미변경
+
+- PM1563035656211402762가 81b의 소스/40초 동선·기존 증적은 확인했고, App push 전에 단일 소유권 경계만 보류했다. 살아 있는 Python 객체/self.guard 참조는 PG session advisory lock의 소유 증거가 아니다. reviewer 원본 probe/result와 81b 소스·패킷을 그대로 보존했다.
+- 별도 실제 PG에서 제출81b+정확한020/첨부코드로 **A guard backend만 종료→B exclusive→queued2→A/B 각각claim, running2/서로다른instance/각claim1**을 직접 재현했다. 실제 FFmpeg 두 개나 운영 fault를 돌린 것이 아니다.
+- 선점·중간 상태·최종 채택 SQL을 모두 잠금 소유 **동일 PG 세션의 transaction**으로 옮겼다. 그 transaction 안에서 자기 backend의 정확한 advisory key/lock을 확인하며, 별도 SELECT1/guard.closed 사전확인과 다른 connection의 UPDATE로 나누지 않는다. 세션이 끊기면 그 선점/채택 transaction도 성공 반환하지 못한다. running/held가 있으면 같은 소유자도 두 번째 선점을 받지 않는다.
+- 소유권 유실은 객체를 영구 fenced/held로 latch하고 재접속·재등록·재claim하지 않는다. native 직전 확인·Popen·encoding stage 기록도 같은 owned transaction에 묶고, 처리중 확인·최종채택 역시 같은 소유 세션을 사용한다. 유실 시 자기 자식만 종료/관측하고, 정상 ready/failed로 덮지 않고 원 DB 상태와 불명 private scope를 보존한다. 새 실행기는 이전 running을 기존 정책대로 held로 남겨 추가 실행을 막는다.
+- 보정 probe는 **A claim불가/B claim1/B추가claim불가/running1**이다. 최종 실제 PG 좁은7검사: stale-owner 교체, 대기 정상종료/재기동+중단held, 입력검증뒤 실행전 유실, 최종채택중 유실, 선점 UPDATE뒤 commit전 유실/queued불변, native-launch/monitor 유실2경계다. native2경계는 실제 짧은 Python 자식의 소유/종료와 DB원상태·scope보존을 본 통제 lifecycle fixture이며 인코딩 결과를 위조하거나 영상 성공으로 표시하지 않는다. 최초 해당 소스RED6+기존경계1pass, 보정7pass/Starlette경고 보존·변경 Ruff0다.
+- 기존 **40초331,778,658byte→1,597,969byte/SHA ea3c6e6f…·600frames/PC1440·390·생성취소404/최종13·Node60**은 81b 제출·reviewer 확인 범위로 유지하고 다시 실행하지 않았다. FFmpeg argv AST·preview profile/020·API/UI bytes는81b와 동일하다. 이번 설치 보정 worker 모듈 SHA를 소스와 대조했다.
+- 운영은 normal/기존22원본·8작업/30초판·원본다운로드 그대로다. 이번은 source corrective와 disposable PG뿐이며 운영 DB/서비스/권한/실행slot/키·원본17·#5/DLQ/accepted20·initializer/유료/provider/GPU를 건드리지 않았다. 기존 WIP21/운영16의 generation/config/mount를 보존했다. 원81b source/증적을 대체 삭제하지 않고 corrective commit·combined patch/bundle로 인계하며 **소스 수용/App push 및 운영 승격은 각각 미완료/별도**다.
+
 ## 전체길이 영속 비동기 WebM — 개발·격리 확인 완료 / 운영 승격 전
 
 - PM1563013463947616337에서 **1da32470 대용량CPU 운영 반영을 수용 종료**, 후속문서 `a9a04b59643b79123a148a3fd8bf31c41bfca66b`까지 App push·Git/GitHub API 일치를 확인했다. 이 묶음 시작 시 Windows HEAD/직접 ls-remote도 a9 일치였다. 아래 과거 개발·운영 기록은 당시 상태이며, CPU 운영은 현재 normal/원본22·작업8/같은slot cap1·epoch2다.

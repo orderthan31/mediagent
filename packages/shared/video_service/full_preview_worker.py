@@ -16,9 +16,12 @@ class PreviewWorker:
         self.instance = uuid4().hex
         self.guard = None
         self.held = False
+        self.guard_lost = False
 
     @contextmanager
     def exclusive(self):
+        if self.guard_lost:
+            raise Conflict("Lost preview owner cannot reconnect or re-enroll")
         with psycopg.connect(
             self.database.dsn, autocommit=True, row_factory=dict_row, connect_timeout=5
         ) as guard:
@@ -29,7 +32,7 @@ class PreviewWorker:
                 raise Conflict("Another full preview process owns the single runner")
             self.guard = guard
             try:
-                with self.database.connection() as db:
+                with self._owned() as db:
                     db.execute(
                         "UPDATE video_preview_jobs SET state='held',stage='held',error_code='previous_worker_session_lost',finished_at=now() WHERE state='running'"
                     )
@@ -40,13 +43,49 @@ class PreviewWorker:
             finally:
                 self.guard = None
 
+    @contextmanager
+    def _owned(self):
+        # The guarded backend also executes AND commits every worker SQL action.
+        # Session death aborts that same transaction, not a separate check/use peer.
+        if self.guard is None or self.guard_lost:
+            raise Conflict("A live preview ownership session is required")
+        try:
+            with self.guard.transaction():
+                self.guard.execute("SET LOCAL statement_timeout = '15s'")
+                self.guard.execute("SET LOCAL lock_timeout = '5s'")
+                owned = self.guard.execute(
+                    """WITH k AS (
+                        SELECT hashtextextended(current_database()||':'||current_schema()||':full-video-preview-v1',0) AS key
+                    ) SELECT EXISTS (
+                        SELECT 1 FROM pg_locks l,k
+                        WHERE l.locktype='advisory' AND l.pid=pg_backend_pid()
+                        AND l.granted AND l.mode='ExclusiveLock' AND l.objsubid=1
+                        AND l.classid::bigint=((k.key >> 32) & 4294967295)
+                        AND l.objid::bigint=(k.key & 4294967295)
+                        AND l.database=(SELECT oid FROM pg_database WHERE datname=current_database())
+                    ) AS yes"""
+                ).fetchone()["yes"]
+                if not owned:
+                    raise Conflict("Preview ownership lock is no longer held")
+                yield self.guard
+        except (psycopg.Error, Conflict):
+            self.guard_lost = True
+            self.held = True
+            raise Conflict(
+                "Preview ownership lost; no reconnect, claim or adoption"
+            ) from None
+
     def claim_next(self):
         if self.guard is None:
             raise Conflict("Preview worker exclusive session is required")
         # A lost worker may still have an unproven child. Do not overlap it.
         if self.held:
             return None
-        with self.database.connection() as db:
+        with self._owned() as db:
+            if db.execute(
+                "SELECT EXISTS(SELECT 1 FROM video_preview_jobs WHERE state IN ('running','held')) AS yes"
+            ).fetchone()["yes"]:
+                return None
             row = db.execute(
                 "SELECT * FROM video_preview_jobs WHERE state='queued' AND NOT cancel_requested ORDER BY created_at,id LIMIT 1 FOR UPDATE SKIP LOCKED"
             ).fetchone()
@@ -58,7 +97,7 @@ class PreviewWorker:
             ).fetchone()
 
     def _current(self, row):
-        with self.database.connection() as db:
+        with self._owned() as db:
             current = db.execute(
                 "SELECT * FROM video_preview_jobs WHERE id=%s", (row["id"],)
             ).fetchone()
@@ -73,7 +112,7 @@ class PreviewWorker:
     def _finish(self, row, state, reference=None, media=None, error=None):
         from psycopg.types.json import Jsonb
 
-        with self.database.connection() as db:
+        with self._owned() as db:
             current = db.execute(
                 "SELECT * FROM video_preview_jobs WHERE id=%s FOR UPDATE", (row["id"],)
             ).fetchone()
@@ -103,7 +142,7 @@ class PreviewWorker:
             self.held = True
 
     def _stage(self, row, stage):
-        with self.database.connection() as db:
+        with self._owned() as db:
             if (
                 db.execute(
                     "UPDATE video_preview_jobs SET stage=%s WHERE id=%s AND worker_instance=%s AND state='running'",
@@ -124,7 +163,11 @@ class PreviewWorker:
         from .postgres.video_previews import FULL_PROFILE
         from .object_store import S3ContentStore, ObjectStoreError
 
-        if self.guard is None or row["worker_instance"] != self.instance:
+        if (
+            self.guard is None
+            or self.guard_lost
+            or row["worker_instance"] != self.instance
+        ):
             raise Conflict("Owned preview worker session required")
         profile = row["profile"]
         if profile != FULL_PROFILE:
@@ -212,21 +255,30 @@ class PreviewWorker:
                     "webm",
                     str(target),
                 ]
-                child = subprocess.Popen(
-                    args,
-                    stdin=subprocess.DEVNULL,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                    env={
-                        **{
-                            k: v
-                            for k, v in os.environ.items()
-                            if k in ("PATH", "LANG", "HOME", "FONTCONFIG_PATH")
+                with self._owned():
+                    current, eligible = self._current(row)
+                    if current["cancel_requested"] or not eligible:
+                        self._finish(
+                            row,
+                            "cancelled" if current["cancel_requested"] else "held",
+                            error="preview_source_unavailable_before_native",
+                        )
+                        return
+                    child = subprocess.Popen(
+                        args,
+                        stdin=subprocess.DEVNULL,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        env={
+                            **{
+                                k: v
+                                for k, v in os.environ.items()
+                                if k in ("PATH", "LANG", "HOME", "FONTCONFIG_PATH")
+                            },
+                            "TMPDIR": str(work),
                         },
-                        "TMPDIR": str(work),
-                    },
-                )
-                self._stage(row, "encoding")
+                    )
+                    self._stage(row, "encoding")
                 while child.poll() is None:
                     current, eligible = self._current(row)
                     if current["cancel_requested"] or not eligible:
@@ -282,6 +334,8 @@ class PreviewWorker:
             except Exception as error:
                 if child is not None:
                     self._stop_child(child)
+                if self.guard_lost:
+                    raise
                 if isinstance(error, ObjectStoreError):
                     self.held = True
                     self._finish(row, "held", error="preview_storage_outcome_unproven")
