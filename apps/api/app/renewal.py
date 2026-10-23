@@ -328,7 +328,22 @@ def create_app(
 
     @app.exception_handler(RequestValidationError)
     async def schema_error(request, exc):
-        # Pydantic's default error payload can echo password or unknown secret fields.
+        # Never echo request values, including Pydantic input/unknown secret fields.
+        if (
+            request.method == "POST"
+            and request.url.path == "/api/video-uploads"
+            and any(
+                e["loc"] == ("body", "size") and e["type"] == "less_than_equal"
+                for e in exc.errors()
+            )
+        ):
+            from video_service.original_upload_policy import (
+                ORIGINAL_UPLOAD_LIMIT_MESSAGE,
+            )
+
+            return JSONResponse(
+                {"detail": ORIGINAL_UPLOAD_LIMIT_MESSAGE}, status_code=413
+            )
         return JSONResponse(
             {"detail": "입력 형식 또는 필수 항목을 확인하세요."}, status_code=422
         )

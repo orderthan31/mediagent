@@ -56,7 +56,7 @@ export const StorageUploads = ({
   if (!entry)
     return (
       <p className="upload-strip-empty" role="status">
-        {online ? '진행 중인 업로드 없음' : '업로드 정보 확인 불가'}
+        {online ? '진행 중인 업로드 없음 · 원본 파일당 최대 4 GiB' : '업로드 정보 확인 불가'}
       </p>
     );
   const item = 'key' in entry ? entry : null;
@@ -65,7 +65,14 @@ export const StorageUploads = ({
   const value = item ? item.progress : session!.uploaded_bytes;
   const max = item ? item.size : session!.expected_size;
   const percent = max > 0 ? Math.min(100, Math.max(0, Math.floor((value / max) * 100))) : null;
-  const label = item ? uploadLabel(item) : session!.status === 'READY' ? '등록 대기' : '중단됨';
+  const registering = session?.status === 'FINALIZING';
+  const label = item
+    ? uploadLabel(item)
+    : registering
+      ? '원본 등록 중'
+      : session!.status === 'READY'
+        ? '등록 대기'
+        : '중단됨';
   const resume = item ? ['paused', 'error'].includes(item.state) : true;
   return (
     <div className="upload-strip-shell">
@@ -98,7 +105,7 @@ export const StorageUploads = ({
             <button
               type="button"
               className="ui02-icon"
-              disabled={session ? busy === session.upload_id : false}
+              disabled={session ? busy === session.upload_id || registering : false}
               aria-label={`${item ? (resume ? '업로드 재개' : '업로드 일시정지') : session!.status === 'READY' ? '영상 등록 재시도' : '파일 선택 후 재개'}: ${name}`}
               title={resume ? '재개' : '일시정지'}
               onClick={() =>
@@ -125,6 +132,12 @@ export const StorageUploads = ({
           </button>
         </div>
       </article>
+      {(registering || (item?.state === 'uploading' && item.progress === item.size)) && (
+        <p role="status">
+          전송 완료 · 원본 등록 중입니다. 전송한 청크는 보존되며 재접속 후 같은 업로드에서 상태를
+          확인할 수 있습니다.
+        </p>
+      )}
       {item?.error && (
         <p role="alert" className="upload-strip-error">
           {item.error}

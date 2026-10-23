@@ -158,8 +158,9 @@ class S3ContentStore(ContentStore):
         self.path(owner, value)
         return value
 
-    def put(self, owner, blocks, kind):
-        reference = ContentStore.put(self, owner, blocks, kind)
+    def put(self, owner, blocks, kind, *, max_bytes=MAX_CONTENT):
+        # Only an explicit caller policy can exceed the unchanged default bound.
+        reference = ContentStore.put(self, owner, blocks, kind, max_bytes=max_bytes)
         validate_reference(reference)
         path = ContentStore.path(self, owner, reference)
         with path.open("rb") as body:

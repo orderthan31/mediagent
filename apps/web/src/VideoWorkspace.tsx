@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, FileVideo, FolderOpen, Plus, Search, Trash2, Upload, X } from 'lucide-react';
 import { ApiError, mediaUrl, Job, request, resumeUpload, uploadRequest } from './api';
+import { assertOriginalUploadSize, finishOriginalUpload } from './original-upload';
 import { PageTitle } from './PageTitle';
 import { Pagination, usePagination } from './Pagination';
 import { frontendOnly, renewalBackend } from './preview';
@@ -93,6 +94,9 @@ export const VideoWorkspace = () => {
     () =>
       new UploadQueue(async (item, signal, changed) => {
         const legacy = !!item.payload.legacy;
+        if (!legacy) {
+          assertOriginalUploadSize(item.size);
+        }
         if (!item.jobId) {
           const created = await uploadRequest<{
             upload_id: string;
@@ -492,7 +496,9 @@ export const VideoWorkspace = () => {
               onResume={(key) => queue.resume(key)}
               onRemove={(key) => queue.remove(key)}
               onRegister={(id) =>
-                void action(id, () => request(`/video-uploads/${id}/complete`, { method: 'POST' }))
+                void action(id, () =>
+                  finishOriginalUpload(id, new AbortController().signal, uploadRequest),
+                )
               }
               onChooseResume={(id) => chooseResume(id)}
               onDeleteSession={(session) =>

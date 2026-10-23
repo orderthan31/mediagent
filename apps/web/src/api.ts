@@ -1,4 +1,5 @@
 import { blockSize, verifyUploadedPrefix } from './upload-verification';
+import { finishOriginalUpload } from './original-upload';
 import { authenticatedFetch } from './auth-session';
 import { abortable } from './abortable';
 import { canRetryBusy, retryBusy } from './busy-retry';
@@ -136,7 +137,7 @@ export const resumeUpload = async (
       }>(`${namespace}/${id}`, { signal });
       if (!state.resumable) {
         if (namespace === '/video-uploads') {
-          await uploadRequest(`${namespace}/${id}/complete`, { method: 'POST', signal });
+          await finishOriginalUpload(id, signal, uploadRequest);
         }
         return;
       }
@@ -171,7 +172,11 @@ export const resumeUpload = async (
         progress(offset);
         retries = 0;
       }
-      await uploadRequest(`${namespace}/${id}/complete`, { method: 'POST', signal });
+      if (namespace === '/video-uploads') {
+        await finishOriginalUpload(id, signal, uploadRequest);
+      } else {
+        await uploadRequest(`${namespace}/${id}/complete`, { method: 'POST', signal });
+      }
       return;
     } catch (error) {
       if (signal.aborted) {

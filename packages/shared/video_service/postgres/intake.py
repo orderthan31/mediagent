@@ -11,6 +11,7 @@ from psycopg.types.json import Jsonb
 
 from ..content_store import MAX_CONTENT
 from ..cpu_agents import digest, ffmpeg, probe, process
+from ..original_upload_policy import MAX_ORIGINAL_UPLOAD, ORIGINAL_UPLOAD_LIMIT_MESSAGE
 from ..renewal_contracts import validate
 from . import Conflict, Missing
 from .registry import resource_id, text
@@ -147,9 +148,9 @@ class Intake:
             or "\\" in filename
             or filename in (".", "..")
             or type(size) is not int
-            or not 0 < size <= MAX_CONTENT
+            or not 0 < size <= MAX_ORIGINAL_UPLOAD
         ):
-            raise ValueError("원본 이름/크기 오류 (최대 256 MiB)")
+            raise ValueError(ORIGINAL_UPLOAD_LIMIT_MESSAGE)
         sha = digest({"filename": filename, "size": size})
         with self.database.connection() as db:
             db.execute(
@@ -263,78 +264,173 @@ class Intake:
                 raise Conflict("업로드 상태가 변경됐습니다.")
             references = self._parts(db, owner, identity)
         position, remaining, sha = 0, length, hashlib.sha256()
-        for block in self._blocks(owner, references):
+        for reference in references:
+            end = position + reference["bytes"]
+            if end <= offset:
+                position = end
+                continue
             start = max(0, offset - position)
-            selected = block[start : start + remaining]
-            position += len(block)
-            sha.update(selected)
-            remaining -= len(selected)
+            wanted = min(remaining, reference["bytes"] - start)
+            # Resume verification must not repeatedly fetch every earlier part.
+            with self.store.path(owner, reference).open("rb") as stream:
+                stream.seek(start)
+                while wanted:
+                    selected = stream.read(min(wanted, 1024 * 1024))
+                    if not selected:
+                        raise ValueError("원본 업로드 prefix가 잘렸습니다.")
+                    sha.update(selected)
+                    remaining -= len(selected)
+                    wanted -= len(selected)
+            position = end
             if not remaining:
                 break
         if remaining or sha.hexdigest() != sha256:
             raise ValueError("원본 업로드 prefix가 다릅니다.")
 
     def upload_complete(self, owner, identity):
-        with self.database.connection() as db:
-            row = self._upload(db, owner, identity, lock=True)
-            if row["asset_id"]:
-                return public_upload(row)
-            if row["uploaded_bytes"] != row["expected_size"]:
-                raise Conflict("업로드가 끝나지 않았습니다.")
-            reference = self.store.put(
-                owner, self._blocks(owner, self._parts(db, owner, identity)), "video"
-            )
-            media = probe(self.store.path(owner, reference))
-            thumbnail = None
-            with tempfile.TemporaryDirectory(prefix="mideagent-thumb-") as work:
-                from pathlib import Path
+        """Original-only finalization: no media/storage I/O under an SQL row lock.
 
-                target = Path(work) / "thumbnail.jpg"
-                process(
-                    [
-                        *ffmpeg(),
-                        "-i",
-                        str(self.store.path(owner, reference)),
-                        "-frames:v",
-                        "1",
-                        "-vf",
-                        "scale=480:-2",
-                        "-threads",
-                        "1",
-                        str(target),
-                    ],
-                    timeout=10,
+        The same dedicated session owns the advisory fence and final INSERT/commit.
+        Losing that session cannot publish a stale completion from another session.
+        Immutable parts/bytes remain available for an explicit completion retry.
+        """
+        import shutil
+        from pathlib import Path
+
+        import psycopg
+        from psycopg.rows import dict_row
+
+        from ..content_store import ContentStore
+
+        identity = resource_id(identity)
+        key = "original-upload-complete:" + owner + ":" + identity
+        with psycopg.connect(
+            self.database.dsn, autocommit=True, row_factory=dict_row, connect_timeout=5
+        ) as guard:
+            locked = guard.execute(
+                "SELECT pg_try_advisory_lock(hashtextextended(current_schema()||%s,0)) AS yes",
+                (key,),
+            ).fetchone()["yes"]
+            if not locked:
+                raise Conflict(
+                    "원본 등록이 이미 진행 중입니다. 상태 조회로 확인하세요."
                 )
-                thumbnail = self.store.put(owner, [target.read_bytes()], "image")
-            asset_id = uuid4().hex
+            with guard.transaction():
+                row = self._upload(guard, owner, identity)
+                if row["asset_id"]:
+                    return public_upload(row)
+                if row["uploaded_bytes"] != row["expected_size"]:
+                    raise Conflict("업로드가 끝나지 않았습니다.")
+                if not 0 < row["expected_size"] <= MAX_ORIGINAL_UPLOAD:
+                    raise ValueError(ORIGINAL_UPLOAD_LIMIT_MESSAGE)
+                references = self._parts(guard, owner, identity)
+            if (
+                shutil.disk_usage(self.store.root).free
+                < 3 * row["expected_size"] + 256 * 1024**2
+            ):
+                raise ValueError(
+                    "원본 등록 캐시 공간이 부족합니다. 업로드 청크는 보존됩니다."
+                )
+            reference = self.store.put(
+                owner,
+                self._blocks(owner, references),
+                "video",
+                max_bytes=MAX_ORIGINAL_UPLOAD,
+            )
+            if reference["bytes"] != row["expected_size"]:
+                raise ValueError("원본 조립 크기가 선언한 크기와 다릅니다.")
+            # put verified the full remote SHA; reuse that local immutable CAS file.
+            source = ContentStore.path(self.store, owner, reference)
+            media = probe(source)
+            thumbnail = None
+            try:
+                with tempfile.TemporaryDirectory(prefix="mideagent-thumb-") as work:
+                    target = Path(work) / "thumbnail.jpg"
+                    process(
+                        [
+                            *ffmpeg(),
+                            "-i",
+                            str(source),
+                            "-frames:v",
+                            "1",
+                            "-vf",
+                            "scale=480:-2",
+                            "-threads",
+                            "1",
+                            str(target),
+                        ],
+                        timeout=10,
+                    )
+                    thumbnail = self.store.put(owner, [target.read_bytes()], "image")
+            except (ValueError, OSError, TimeoutError):
+                # A derivative failure must not discard a verified valid original.
+                thumbnail = None
             metadata = {
                 "registration_state": "verified",
                 "media": media,
                 "media_type": "video/mp4",
                 "duration_seconds": media["duration"],
                 "thumbnail": thumbnail,
+                "web_preview": {
+                    "status": "unavailable",
+                    "reason": "original_registered_independently",
+                },
             }
-            metadata["web_preview"] = {"status": "deferred", "coverage": "full"}
-            db.execute(
-                "INSERT INTO assets(owner_id,id,filename,storage_key,bytes,sha256,metadata) VALUES (%s,%s,%s,%s,%s,%s,%s)",
-                (
-                    owner,
-                    asset_id,
-                    row["filename"],
-                    "sha256:" + reference["sha256"],
-                    reference["bytes"],
-                    reference["sha256"],
-                    Jsonb(metadata),
-                ),
-            )
-            from .video_previews import VideoPreviews
-            previews = VideoPreviews(self)
-            previews.enqueue_in(db, owner, previews.asset_source(db, asset_id), automatic=True)
-            row = db.execute(
-                "UPDATE source_uploads SET asset_id=%s WHERE owner_id=%s AND id=%s RETURNING *",
-                (asset_id, owner, identity),
-            ).fetchone()
-            return public_upload(row)
+            with guard.transaction():
+                guard.execute("SET LOCAL statement_timeout='15s'")
+                guard.execute("SET LOCAL lock_timeout='5s'")
+                owned = guard.execute(
+                    """WITH k AS (
+                    SELECT hashtextextended(current_schema()||%s,0) AS key
+                ) SELECT EXISTS(SELECT 1 FROM pg_locks l,k WHERE l.locktype='advisory'
+                    AND l.pid=pg_backend_pid() AND l.granted AND l.mode='ExclusiveLock'
+                    AND l.objsubid=1 AND l.classid::bigint=((k.key >> 32)&4294967295)
+                    AND l.objid::bigint=(k.key&4294967295)
+                    AND l.database=(SELECT oid FROM pg_database WHERE datname=current_database())) AS yes""",
+                    (key,),
+                ).fetchone()["yes"]
+                if not owned:
+                    raise Conflict(
+                        "원본 등록 소유권을 잃었습니다. 청크를 보존하고 명시 재시도하세요."
+                    )
+                current = self._upload(guard, owner, identity, lock=True)
+                if current["asset_id"]:
+                    return public_upload(current)
+                if (
+                    current["expected_size"] != row["expected_size"]
+                    or current["uploaded_bytes"] != row["uploaded_bytes"]
+                    or self._parts(guard, owner, identity) != references
+                ):
+                    raise Conflict("원본 업로드 내용이 변경됐습니다.")
+                asset_id = uuid4().hex
+                guard.execute(
+                    "INSERT INTO assets(owner_id,id,filename,storage_key,bytes,sha256,metadata) VALUES(%s,%s,%s,%s,%s,%s,%s)",
+                    (
+                        owner,
+                        asset_id,
+                        row["filename"],
+                        "sha256:" + reference["sha256"],
+                        reference["bytes"],
+                        reference["sha256"],
+                        Jsonb(metadata),
+                    ),
+                )
+                # The unactivated020 hook is opt-in; normal original registration never needs it.
+                if getattr(self, "full_previews_enabled", False):
+                    from .video_previews import VideoPreviews
+
+                    previews = VideoPreviews(self)
+                    previews.enqueue_in(
+                        guard,
+                        owner,
+                        previews.asset_source(guard, asset_id),
+                        automatic=True,
+                    )
+                current = guard.execute(
+                    "UPDATE source_uploads SET asset_id=%s WHERE owner_id=%s AND id=%s RETURNING *",
+                    (asset_id, owner, identity),
+                ).fetchone()
+                return public_upload(current)
 
     def ingest(self, owner, filename, data):
         upload = self.upload_create(owner, filename, len(data), uuid4().hex)

@@ -1,5 +1,22 @@
 # 현재 구현 태스크
 
+## 원본 직접 업로드 4 GiB 보정 — 후보 검증 완료 / 소스 검토·운영 반영 전
+
+- PM1563217001281888378 지시에 따라 WebM 운영 준비보다 업로드 결함을 먼저 처리했다. 실제 설치의 요청모델/서비스/DB expected_size/조립 저장이256MiB였고 최근 원본 신청POST422를 확인했다. 사용자 SWXP68.mp4 파일은 복사·변경·삭제하지 않았다.
+- 원본 전용 MAX_ORIGINAL_UPLOAD=4,294,967,296bytes로 요청/서비스/새021 CHECK/조립 저장을 맞췄다.006 원문/SHA·전역 MAX_CONTENT256MiB·4MiB 청크·HTTP body·CPU/타역할/결과 예산은 그대로다. 초과는413과 실제4GiB 한도를 안내한다.021은 명시적으로 단독 적용/체크섬 기록해야 하며 전체 pending migrate로020을 끼워 적용하지 않는다. 운영 DDL은 아직 미실행이고 새 GRANT 요구는 없다.
+- 큰 원본 완료는HTTP202 뒤 같은upload 상태를 조회한다. 현재 단일 API 프로세스의 별도 조립 thread1/최대 접수2이며 독립 preview/model consumer가 아니다. 업로드 청크는 SQL/CAS에 남고, 서버 재시작으로 미시작/중단된 조립은 같은 업로드에서 명시 완료 재시도한다. 영속 작업큐/자동재실행으로 표현하지 않는다. API 종료 시 새 조립을 막고 진행 작업 종료를 기다린다.
+- 조립/원격 SHA/ffprobe/썸네일 I/O 동안 업로드 행·장기 SQL transaction을 잡지 않는다. 같은 전용 PG advisory session이 최종 짧은 transaction/소유키 재검사/원청크 재대조/asset INSERT와 upload 결속 commit을 수행한다. 유실 세션은 다른 연결로 채택하지 못한다. 중복 완료는 같은 asset이고, 알려진 파생물 미준비가 검증된 원본 등록을 막지 않는다.020 없는 normal에서는 full preview 자동접수/경로를 켜지 않는다.
+- 재선택 검증은 모든 보존 바이트를4MiB 단위로 대조하되 서버는 겹치는 청크만 읽는다. 뒤쪽 범위 검증마다 앞 청크를 다시 다운로드하던 경로를 좁게 고쳤다. 임시 조립/원격검증 중첩에 필요한 추가 디스크를 사전 확인하며 본문 전체를 메모리에 올리지 않는다.
+- 별도 실제 PG(020 제외, 기존 API table/column ACL 복제·CREATE불가)/검증TLS MinIO/설치 API·컴파일 웹/Edge에서 합성 RGB24 MOV2,211,843,938bytes(1280x720/10fps/80초, padding없음·전체 native decode0)를 실제390px 파일 선택으로 전송했다.24MiB 보존 후 일시정지→새로고침→같은 파일 재선택·prefix6범위 검증→같은upload9a8bb06eb7184967a70db2c1cd77389c→완료POST202 1회→asset d4116be824974e4e87dfed4a34c295be 등록/재조회→UI 원본받기/native Edge 저장을 확인했다. 원본/등록/저장파일 SHA e985101bbb13b2dd6e57cf617e8f7dbc43ac702245cc5140347c88e9dde12685 일치다. 전송·재선택·조립/등록 합379.889초이지 순수처리속도/전체4GiB 성능 보장이 아니다. 실제 조립 guard는 idle/xact없음, API부모 VmHWM223348KiB 관측이다.
+- 작은 유효MP4의 청크/중복/변경prefix/정상등록·공유다운로드 회귀와 실제 PC1440 최종UI1613byte 업로드/다운로드를 큰 파일과 구분했다. 최초 AVI 합성 샘플은 공통 probe 허용포맷 밖이라 전송 후 등록이 거부된 별도 음성검사로 보존했고 global 포맷목록을 풀지 않았다. 최초 업로드 상태 팝오버 미개방 하네스 실패/부분청크도 보존했다. 해당 AVI 실패를 MOV 성공으로 덮거나 원 업로드 내용을 바꾸지 않았다.
+- 새 원본 PG 좁은7검사와 Node 업로드12검사를 통과했다. 행 잠금100ms barrier, 중복완료/세션종료뒤 채택0·명시재시도, 크기/초과·S3기본상한 보존을 포함한다. 최종 타입/build·범위 신규 lint0, 기존 PythonF4011·StorageUploads curly1/Starlette·Radix 경고는 유지한다. 큰 파일 전체 전송 JS SHA cac830c3ee480daae3275ba9dc80bee8b471c28613babfae24a6ab49146e2e89는 최종 번들과 같다. CSS 변경 뒤 같은 완료 원본390px 재열람/캡처와 작은 파일을 대표 재확인했으며 큰 파일 재전송으로 세지 않는다.
+- 현 운영은13b scoped API(1da+수용5모듈)/웹(c826+수용5소스)·normal 그대로다. 배포 후보도 그 기반 위의 원본 변경만 담고 results/engine-results/dispatcher·물리agent는 교체하지 않는다. rollback은 원본/청크/021/신규 큰 원본을 보존해야 하며, 옛256MiB 완료 코드로는 새 큰 미완료 업로드를 끝낼 수 없는 제한이 있다. 키/WIP21/backup/#5/DLQ/accepted/initializer·대상/slot/GPU/유료·provider 추론/020·runner·S3 root 자격 복사는 건드리지 않았다. 소스검토/App publish 후 같은 사설 운영 반영이 남았다. Gemini 용도 매핑은 그다음 별도 수정이다.
+
+## 직전 우선 묶음 종료 수용 기록
+
+-13b4b509 소스/App push·같은 운영 API/웹·Gemini60→후보3→단일등록/불변개정 재조회는 PM1563192535407399077 수용이다. 작업 상세390 보충도 PM1563194839087059056 수용으로 종료했다. 옛1280x720 PNG/원보고 보존 및 재분류, 옛 원인 미확정과 기존20회/새release·cancel각1의 분리를 승계한다. 아래 과거 미완료 표기는 각 당시 기록이며 현재 우선 묶음을 다시 열지 않는다.
+
+
 ## 목적
 
 구현·검증 완료와 운영 미검증을 구분한다. 부분 구현을 GPU 잔여만 있는 상태로 보고하지 않는다.

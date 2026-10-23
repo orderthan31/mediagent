@@ -1,9 +1,10 @@
 """Opt-in renewal routes. Mount only with an explicit content store."""
 
 from fastapi import Depends, HTTPException, Query, Request
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import Field, StrictBool, StrictInt
 from video_service.cpu_agents import digest
+from video_service.original_upload_policy import MAX_ORIGINAL_UPLOAD
 from video_service.postgres import Conflict, Missing
 from video_service.renewal_contracts import validate
 
@@ -12,7 +13,7 @@ from .renewal import Body
 
 class Upload(Body):
     filename: str = Field(min_length=1, max_length=255)
-    size: StrictInt = Field(gt=0, le=268435456)
+    size: StrictInt = Field(gt=0, le=MAX_ORIGINAL_UPLOAD)
     request_id: str = Field(min_length=1, max_length=100)
 
 
@@ -134,8 +135,28 @@ def mount_runtime(
 
     owner_dependency = Depends(owner)
 
-    from .full_preview_routes import mount_full_previews
-    mount_full_previews(app, runtime, owner_dependency)
+    from video_service.content_store import MAX_CONTENT
+
+    from .original_finalizations import OriginalFinalizations
+    finalizations = OriginalFinalizations(runtime)
+    from contextlib import asynccontextmanager
+
+    from starlette.concurrency import run_in_threadpool
+    previous_lifespan = app.router.lifespan_context
+
+    @asynccontextmanager
+    async def original_lifespan(application):
+        async with previous_lifespan(application) as state:
+            try:
+                yield state
+            finally:
+                await run_in_threadpool(finalizations.close)
+
+    app.router.lifespan_context = original_lifespan
+
+    if getattr(runtime, 'full_previews_enabled', False):
+        from .full_preview_routes import mount_full_previews
+        mount_full_previews(app, runtime, owner_dependency)
 
     administrator_dependency = Depends(administrator)
 
@@ -150,7 +171,7 @@ def mount_runtime(
 
     @app.get("/api/video-uploads")
     def uploads(owned=owner_dependency):
-        return {"uploads": runtime.uploads(owned)}
+        return {"uploads": [finalizations.snapshot(owned, r["upload_id"], r) for r in runtime.uploads(owned)]}
 
     @app.post("/api/video-uploads", status_code=201)
     def new_upload(body: Upload, owned=owner_dependency):
@@ -158,7 +179,7 @@ def mount_runtime(
 
     @app.get("/api/video-uploads/{identity}")
     def upload(identity: str, owned=owner_dependency):
-        return runtime.upload_get(owned, identity)
+        return finalizations.snapshot(owned, identity)
 
     @app.put("/api/video-uploads/{identity}/chunks")
     async def chunk(
@@ -176,6 +197,10 @@ def mount_runtime(
 
     @app.post("/api/video-uploads/{identity}/complete")
     def complete(identity: str, owned=owner_dependency):
+        current = runtime.upload_get(owned, identity)
+        if not current["asset_id"] and current["expected_size"] > MAX_CONTENT:
+            result = finalizations.start(owned, identity)
+            return JSONResponse(result, status_code=200 if result["asset_id"] else 202)
         return runtime.upload_complete(owned, identity)
 
     @app.get("/api/videos")
