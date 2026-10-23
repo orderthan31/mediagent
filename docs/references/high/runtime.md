@@ -4,6 +4,16 @@
 
 격리 CPU 경로의 실제 책임·재현 진입점과 운영 전환 경계를 관리한다.
 
+## 대용량 CPU 운영 반영 완료 — 소스 수용과 구분
+
+- PM1563000997155049564가 소스1da32470ef157f5b067ff5b99a8bb27fa3f53338까지 수용/App push·Git/GitHub API 일치를 확인했다. Windows 실제HEAD/ls-remote도1da 일치 확인 후 동일 사설 목적지에 반영했다. 개발/격리 증적의 재수용이나 docs-only 왕복을 선행조건으로 두지 않았다.
+- 운영 API/CPU결과/engine결과/후속dispatcher와 encode·validate·controlhost는 **1da32470 설치본**이다. 웹c826 및 다른8개 물리reader252d는 기존 계약/한도로 유지했다. 변경코드 실제reader의 imported모듈/CPUdecoder bytes를 커밋과 대조했다. 일반 업로드/타역할 상한·등록모델/provider 비활성·최소권한·normal/auth/CSRF/TLS/단일capacity1을 유지했다.
+- 기존사이트 Stop0 `83e1929e59bc4b0c8861c608381f4f10`→encode/validate/oldhost 정상exit0→새created target→감사preview/decision `0facfd0b03ac4b31834b143eec28b9cd`/apply→별도exact binding→사이트명시Start. 동일slot epoch2/cap1/replicas1/관리중 요청없음이다. oldAPI SIGTERM exit143, 결과수신/후속앱 exit0로 기록하며 모두0으로 꾸미지 않는다. oldPID/컨테이너/image/ACK/rollback을 보존했다.
+- 수신기3개의 /data/content512MiB tmpfs가 새diskbind를 가려 #8 첫채택이 OSError로 중단됐다. 권한·코드검증·상한을 넓히지 않고 그 destination tmpfs만 제거, 실제 컨테이너UID→호스트 파일 readback/free검증으로 수정했다. 원S3완료영수증·원MQ결과를 정상수신 재개로 채택했으며 작업/명령/이벤트 재발행이나 재실행은 하지 않았다.
+- 준비된 실제 **311,040,938byte MOV**를 승인된 synthetic 원본으로 1개 등록해 원본22개가 됐다(기존21 SQL COPY 전체값은 최신backup과 동일). 같은 HTTPS **실제화면에서 원본선택→새티켓 #8 `b89c93081dce4fb29745d7952929ffd2`→계획동의→실행→인코딩/검증 완료**, 각attempt1/revision2다. 티켓·동의를 seed/직접POST로 대신하지 않았다. 영상2,465,062bytes SHA554748687ba46145aac5167d7a431eb80ad31c3d27dce160cc6e0a5ebe4f8329/검증119bytes SHA1ee60f811d8fda44ca80f63029e46539b215d7dbf8debeb63fb6fb27573143b7 및 manifest를 실제UI링크 응답으로 다운로드·파일SHA 대조했다. nativeCDP download-context 실패는 별도이며 브라우저 응답을 boundedchunk로 저장한 증거다.
+- 작업8개/원본22개/정상산출물2개. 원job1–7/run/archiverecord117/oldoutbox45 전체필드 동등, #5 rawrunning/needs-review·DLQ 보존. 원accepted20+기존#7의2개+새#8의2개로 미발행accepted총24이며 옛20을 지워0으로 맞추지 않았다. WIP21SHA 불변/원본17 재전송·재해시/모델·GPU/provider유료호출/initializer강제정리/타host·추가slot 없음.
+- 캐시10GiB/입력4GiB·6시간/encode2시간/출력256MiB 등 수용된 지원제한은 그대로다. 운영대표311MB를 통과한 것이 전체4GiB/6시간 성능 보증이나 전체길이영속WebM 지원은 아니다. **전체길이 비동기WebM은 다음 별도묶음**. 현재 운영핸들은 `C:/Users/skygg/dev/mediagent-renewal-ops/deploy-large-cpu-1da32470`/canonical-running-deployment.json이며 새v2티켓이 있으므로 옛maintenance/구target자동복귀 금지다.
+
 ### 공통 engine 임대 회귀 보정 — b676 위 corrective 변경
 
 PM1562998217422147606의 b676 검토에서 기존 engine wire2(3필드 agent)를 CPU 전용 lease helper에 무조건 전달하는 공통 _insert_run 회귀를 확인했다. _insert_run 한 줄만 wire1일 때 CPU lease helper/그 외 검증된 engine은 기존120초로 분리했다. CPU encode·validate agent revision1=120초/revision2=9600초는 유지하고 engine/CPU 입력 계약 자체는 변경하지 않았다. 별도 network-none PG의 실제 공통 node INSERT·request 저장·DB임대120초 회귀1과 CPU임대4=5검사 통과/Starlette경고보존. 실제 모델·GPU/provider·311MB 성공취소·17개·기존UI를 다시 실행하지 않았다. 원b676/증적 유지·운영미변경이며 이 보정만 추가소스검토 대상으로 인계한다.
