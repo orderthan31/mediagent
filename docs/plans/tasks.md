@@ -1,6 +1,17 @@
 # 현재 구현 태스크
 
-## 원본 직접 업로드 4 GiB 보정 — 후보 검증 완료 / 소스 검토·운영 반영 전
+## Gemini 용도 매핑 — 구현·격리 검증 완료 / 소스 검토·App publish 전
+
+- 업로드 d54a2e118e의 동일 사설 운영 반영과 대표311,042,538byte UI→등록/재조회→native다운로드 SHA 확인은 PM1563251284352700457 수용으로 종료했다. 원본23/작업8·기존19+021·006SHA/020부재·normal·기존자료/키/WIP/롤백 보존을 승계하며 업로드 재시험/재배포나 별도 docs-only 왕복은 요구하지 않는다. 아래13b/업로드 후보 문구는 그 당시의 역사기록이다.
+- 수용 classifier의 Gemini 정확3ID 제한 때문에 실제 기존키 GET의 gemini-2.5-pro 등 다른 확인된 텍스트 모델이 profile=None/용도 미확인이었다. 공급자 목록 자체는 계속 실제 GET으로 발견한다. capability 근거표는 드롭다운 모델목록의 대체물이 아니며 generateContent/이름접두만으로 용도를 부여하지 않는다.
+- 실제60개에서 허용된 공개 metadata 필드와 Google 모델/API 문서·공식 googleapis/python-genai Model literal 근거, 현재 Gemini 텍스트 어댑터의 교집합을 대조했다. 같은 기록metadata의 최종 설치parser replay는 번역후보16/현재제품미지원23/근거미확인21이다. 기존3모델의 canonical profile(멀티모달 유형 포함)은 정확히 유지하고 새 후보는 최소text/text_generation만 부여했다. 전사/타임스탬프 role은 자동 부여하지 않는다.
+- 실제latest3개 version은 사람이 읽는 영문라벨이고 baseModelId는 없었다. 특정 모델로 resolve했다고 만들지 않았다. 공식SDK의 유한 latest변형 literal+실제 name/version/displayName/description/method를 대조해 최소텍스트 후보만 표시하고 기반모델 미고정/제공사변경·실행미검증을 알린다. 통제된 version-witness 검사는 별도 합성 경계이며 실제60개 버전필드로 주장하지 않는다. 문서상3.5Flash→3.6/3.7Flash→3.8 제공사라우팅은 알리되 저장/요청ID를 바꾸지 않는다.
+- 알려진 이미지/TTS/임베딩/Live/predict/종료preview 및 전사기능이 알려졌지만 현재제품 연결계약이 검증되지 않은 전용전사는 현재제품미지원으로 구분한다. 근거미확인은 별도이며 키없음·401/403/429조회실패·성공한빈목록을 모델분류와 섞지 않는다. 공급자 자체가 전사/생성을 지원하지 않는다는 뜻은 아니다.
+- 설치 후보 실제Python33검사(순수31+실제PG/ASGI등록보존2)·Node표시3·타입/build·변경범위 lint/format을 확인했다. 기존Starlette/httpx·Radix경고/전체lint 부채는 보존한다. API/DB의 암호화 키/참조·connection개정과 기존Flash모델 row/profile을 유지하며 Pro 일반등록/재조회, 위조model/profile/누락proof422·기존개정CAS409를 확인했다. 새마이그레이션/GRANT/Registry/CredentialStore 변경은 없다.
+- 별도 실PG와 실제운영 API table/column ACL 복제 LOGIN/CREATE불가·합성키·정상로그인/CSRF/컴파일웹/실제Edge PC1440와390에서 기록60개 upstream GET replay를 사용했다. Pro 번역후보 선택/정상저장200/개정1재조회와 latest미고정 안내, TTS현재미지원·aqa근거미확인/저장차단·각 viewport 문서넘침0/오류0을 확인했다. 실제공급자 재호출·추론/품질·운영계정 등록 성공으로 확대하지 않는다. 네이티브PNG/JSON 및 최종정적JS·CSS SHA 결속을 보존한다.
+- 운영은 여전히 수용d54 업로드 API/image4604f41d6bb8·web558b030c0492이다. 다음 반영 후보는 이 현재기반 위 backend model_catalog.py/gemini_catalog.py 2개와 web ModelCatalogPicker.tsx/model-catalog-purpose.ts 2개뿐이다. 소스 검토/App publish 뒤 동일운영에 연결한다. 020/preview접수·runner/키root복사·등록모델consumer/paid·실전사번역·타역할/slot/GPU/#5/DLQ/accepted/initializer/WIP 보존은 계속 별도 경계다.
+
+## 원본 직접 업로드 4 GiB 보정 — 당시 후보 검증 기록 (운영 수용 종료는 위 최신기록)
 
 - PM1563217001281888378 지시에 따라 WebM 운영 준비보다 업로드 결함을 먼저 처리했다. 실제 설치의 요청모델/서비스/DB expected_size/조립 저장이256MiB였고 최근 원본 신청POST422를 확인했다. 사용자 SWXP68.mp4 파일은 복사·변경·삭제하지 않았다.
 - 원본 전용 MAX_ORIGINAL_UPLOAD=4,294,967,296bytes로 요청/서비스/새021 CHECK/조립 저장을 맞췄다.006 원문/SHA·전역 MAX_CONTENT256MiB·4MiB 청크·HTTP body·CPU/타역할/결과 예산은 그대로다. 초과는413과 실제4GiB 한도를 안내한다.021은 명시적으로 단독 적용/체크섬 기록해야 하며 전체 pending migrate로020을 끼워 적용하지 않는다. 운영 DDL은 아직 미실행이고 새 GRANT 요구는 없다.

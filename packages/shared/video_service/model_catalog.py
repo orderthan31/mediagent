@@ -172,10 +172,11 @@ _OPENAI_TEXT = {
 }
 
 
-def classify(provider, item, protocol):
+def classify(provider, item, protocol, *, catalog_items=None):
     model = item["id"]
     profile = None
     evidence = []
+    details = None
     if provider == "openai" and model in _OPENAI_TEXT:
         evidence = [
             "https://developers.openai.com/api/docs/models/" + _OPENAI_TEXT[model]
@@ -194,19 +195,19 @@ def classify(provider, item, protocol):
             "output_modalities": ["text"],
             "capabilities": ["speech_recognition"],
         }
-    if (
-        provider == "gemini"
-        and model in {"gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-2.5-flash"}
-        and "generateContent" in item.get("supportedGenerationMethods", [])
-    ):
-        evidence = ["https://ai.google.dev/gemini-api/docs/models/" + model]
-        # generateContent or audio input alone is not a timed-STT contract.
-        profile = {
-            "model_types": ["text", "vision", "multimodal"],
-            "input_modalities": ["audio", "image", "text", "video"],
-            "output_modalities": ["text"],
-            "capabilities": ["image_understanding", "text_generation"],
-        }
+    if provider == "gemini":
+        from .gemini_catalog import classify_gemini
+
+        details = classify_gemini(item, catalog_items)
+        if protocol != "gemini":
+            details = {
+                **details,
+                "profile": None,
+                "classification_status": "unsupported",
+                "reason": "Gemini 정본 프로토콜이 아닌 연결에는 용도를 자동 부여하지 않습니다.",
+            }
+        profile = details["profile"]
+        evidence = details["evidence"]
     if (
         provider == "anthropic"
         and model.startswith("claude-")
@@ -272,7 +273,7 @@ def classify(provider, item, protocol):
             runtime.append("translation")
         if supports_transcription(profile, protocol, model):
             runtime.append("transcription")
-    return {
+    result = {
         "id": model,
         "label": model,
         "profile": profile,
@@ -285,6 +286,19 @@ def classify(provider, item, protocol):
         if profile
         else "목록에는 있지만 확인된 능력 근거가 없어 용도를 자동 부여하지 않습니다.",
     }
+    if details:
+        result.update(
+            {
+                key: details[key]
+                for key in (
+                    "classification_status",
+                    "provider_purpose",
+                    "reason",
+                    "evidence",
+                )
+            }
+        )
+    return result
 
 
 def _check_json(value, secret):
@@ -461,7 +475,14 @@ def fetch_catalog(provider, secret, *, transport=None):
         if row["id"] in seen:
             continue
         seen.add(row["id"])
-        result.append(classify(provider, row, protocol))
+        result.append(
+            classify(
+                provider,
+                row,
+                protocol,
+                catalog_items=rows if provider == "gemini" else None,
+            )
+        )
     return result
 
 

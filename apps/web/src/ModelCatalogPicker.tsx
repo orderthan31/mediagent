@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { request } from './api';
+import { catalogPurposeLabel } from './model-catalog-purpose';
 import { Button } from './hangyeol/primitives/button';
 import type { ServingConnection } from './serving-connection';
 import type { ModelProfile } from './ModelProfileFields';
@@ -9,6 +10,8 @@ export type CatalogModel = {
   label: string;
   profile: ModelProfile | null;
   runtime_uses: string[];
+  classification_status?: 'supported' | 'unsupported' | 'unknown';
+  provider_purpose?: string;
   registration_token?: string;
   evidence: string[];
   reason: string;
@@ -135,7 +138,7 @@ export const ModelCatalogPicker = ({
             }
           }}
         >
-          <option value="all">전체 · 용도 미확인 포함</option>
+          <option value="all">전체 · 미지원/근거 미확인 포함</option>
           <option value="translation">번역 · 현재 어댑터 후보</option>
           <option value="transcription">전사 · 시간정보 어댑터 후보</option>
           <option value="registration">분류 확인 · 등록용 메타데이터</option>
@@ -158,11 +161,7 @@ export const ModelCatalogPicker = ({
           {candidates.map((item) => (
             <option key={item.id} value={item.id}>
               {item.label || item.id}
-              {!item.profile
-                ? ' · 용도 미확인'
-                : !item.runtime_uses.length
-                  ? ' · 등록만 가능, 실행 어댑터 미지원'
-                  : ''}
+              {' · ' + catalogPurposeLabel(item)}
             </option>
           ))}
         </select>
