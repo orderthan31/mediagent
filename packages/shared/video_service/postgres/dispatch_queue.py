@@ -150,7 +150,8 @@ class DispatchQueue:
         if active:
             return False
         db.execute("UPDATE broker_dispatch_queue SET phase='sending',worker_id=%s,boot_id=%s,updated_at=now() WHERE node_run_id=%s", (worker['id'], worker['boot_id'], run['id']))
-        db.execute("UPDATE node_runs SET lease_owner='broker-dispatch',lease_expires_at=now()+interval '120 seconds' WHERE id=%s", (run['id'],))
+        from ..cpu_input_policy import lease_seconds
+        db.execute("UPDATE node_runs SET lease_owner='broker-dispatch',lease_expires_at=now()+(%s*interval '1 second') WHERE id=%s", (lease_seconds(run['request']), run['id']))
         return True
 
     @staticmethod

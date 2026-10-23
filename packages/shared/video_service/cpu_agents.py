@@ -18,6 +18,12 @@ from pathlib import Path
 
 from .agent_protocol import CPU_AGENTS
 from .content_store import MAX_CONTENT
+from .cpu_input_policy import (
+    LARGE_INPUT_BYTES,
+    LARGE_PROCESS_SECONDS,
+    input_limit,
+    validate_media,
+)
 from .node_contracts import validate_node
 from .subtitles import segment_subtitles, segments_to_srt
 from .transcript_input import parse_segments as _segments
@@ -37,7 +43,9 @@ def digest(value):
     return hashlib.sha256(canonical(value)).hexdigest()
 
 
-def reference_path(root, reference):
+def reference_path(root, reference, *, max_bytes=MAX_CONTENT):
+    if type(max_bytes) is not int or not 0 < max_bytes <= LARGE_INPUT_BYTES:
+        raise ValueError("Invalid explicit CPU input bound")
     if isinstance(reference, dict) and "source_owner_id" in reference:
         from .content_store import reference_origin
 
@@ -62,7 +70,7 @@ def reference_path(root, reference):
         or key != "blobs/" + reference["sha256"]
     ):
         raise ValueError("Invalid artifact key")
-    if type(reference["bytes"]) is not int or not 0 < reference["bytes"] <= MAX_CONTENT:
+    if type(reference["bytes"]) is not int or not 0 < reference["bytes"] <= max_bytes:
         raise ValueError("Invalid artifact size")
     root = Path(root).resolve(strict=True)
     path = root / key
@@ -73,7 +81,7 @@ def reference_path(root, reference):
     with path.open("rb") as stream:
         while block := stream.read(1024 * 1024):
             size += len(block)
-            if size > MAX_CONTENT:
+            if size > max_bytes:
                 raise ValueError("Artifact size exceeded")
             sha.update(block)
     if size != reference["bytes"] or sha.hexdigest() != reference["sha256"]:
@@ -99,6 +107,33 @@ def process(arguments, *, cwd=None, timeout=60):
     if result.returncode or len(result.stdout) > 1024 * 1024:
         raise ValueError("CPU media processing failed")
     return result.stdout
+
+
+def process_bounded(arguments, *, output, cwd, timeout, max_bytes=MAX_CONTENT):
+    """Own child only: bounded work-file, silent diagnostics, finite wall time."""
+    import time
+    if type(max_bytes) is not int or not 0 < max_bytes <= MAX_CONTENT:
+        raise ValueError("Invalid output budget")
+    child = subprocess.Popen(arguments, cwd=cwd, stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        env={k: v for k, v in os.environ.items()
+             if k in ("PATH", "LANG", "HOME", "TMPDIR", "FONTCONFIG_PATH")})
+    deadline = time.monotonic() + timeout
+    try:
+        while child.poll() is None:
+            if time.monotonic() >= deadline or (output.exists() and output.stat().st_size > max_bytes):
+                raise ValueError("CPU output/time budget exceeded")
+            time.sleep(0.1)
+        if child.returncode or not output.is_file() or not 0 < output.stat().st_size <= max_bytes:
+            raise ValueError("CPU output/process budget failed")
+    finally:
+        if child.poll() is None:
+            child.terminate()
+            try:
+                child.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                child.kill()
+                child.wait(timeout=10)
 
 
 def probe(path):
@@ -181,7 +216,7 @@ def run(command, input_root, output_root, *, agent=None):
     kind = command["agent"].get("id") if isinstance(command["agent"], dict) else None
     if (
         kind not in CPU_AGENTS
-        or command["agent"] != {"id": kind, "revision": "1"}
+        or set(command["agent"]) != {"id", "revision"}
         or agent not in (None, kind)
     ):
         raise ValueError("Unsupported CPU agent")
@@ -215,7 +250,7 @@ def run(command, input_root, output_root, *, agent=None):
     try:
         paths = {}
         for name, reference in command["inputs"].items():
-            path = reference_path(input_root, reference)
+            path = reference_path(input_root, reference, max_bytes=input_limit(command["agent"], name, reference["type"]))
             # A byte copy, not a hardlink, freezes the actual input seen by ffmpeg.
             suffix = (
                 ".srt"
@@ -227,12 +262,16 @@ def run(command, input_root, output_root, *, agent=None):
             target = work / ("input-" + name + suffix)
             with path.open("rb") as src, target.open("xb") as dst:
                 shutil.copyfileobj(src, dst, 1024 * 1024)
-            if hashlib.sha256(target.read_bytes()).hexdigest() != reference["sha256"]:
+            with target.open("rb") as frozen:
+                frozen_sha = hashlib.file_digest(frozen, "sha256").hexdigest()
+            if frozen_sha != reference["sha256"]:
                 raise ValueError("Input changed during copy")
             paths[name] = target
         outputs = {}
         if kind in ("analyze", "validate_video"):
             data = probe(paths["video"])
+            if command["agent"]["revision"] == "2":
+                validate_media(data)
             port, output_type = (
                 ("metadata", "media_metadata")
                 if kind == "analyze"
@@ -323,7 +362,9 @@ def run(command, input_root, output_root, *, agent=None):
             outputs["audio"] = (file, "audio")
             outputs["timeline"] = (timeline, "timeline_map")
         elif kind == "encode":
-            probe(paths["video"])
+            source_media = probe(paths["video"])
+            if command["agent"]["revision"] == "2":
+                validate_media(source_media)
             options = command["options"]
             mode = options.get("subtitle_mode", "burn")
             file = work / "output.mp4"
@@ -362,8 +403,16 @@ def run(command, input_root, output_root, *, agent=None):
             ]
             if codec == "hevc":
                 args[-1:-1] = ["-x265-params", "pools=none:frame-threads=1"]
-            process(args, cwd=work)
-            probe(file)
+            if command["agent"]["revision"] == "2":
+                # Bound disk output without ever accepting a truncated success.
+                args[-1:-1] = ["-fs", str(MAX_CONTENT + 1024 * 1024)]
+                process_bounded(args, output=file, cwd=work, timeout=LARGE_PROCESS_SECONDS)
+                output_media = probe(file)
+                if abs(output_media["duration"] - source_media["duration"]) > 1:
+                    raise ValueError("Encoded duration differs or output budget truncated")
+            else:
+                process(args, cwd=work)
+                probe(file)
             outputs["video"] = (file, "video")
         for name, (file, output_type) in outputs.items():
             size = file.stat().st_size
@@ -375,8 +424,8 @@ def run(command, input_root, output_root, *, agent=None):
                 "bytes": size,
                 "sha256": hashlib.sha256(file.read_bytes()).hexdigest(),
             }
-        for reference in command["inputs"].values():
-            reference_path(input_root, reference)
+        for port, reference in command["inputs"].items():
+            reference_path(input_root, reference, max_bytes=input_limit(command["agent"], port, reference["type"]))
         result["status"] = "completed"
     except Exception:  # noqa: BLE001 -- protocol boundary must suppress paths/credentials in errors
         # Keep per-attempt files for investigation; never leak raw ffmpeg/path errors.

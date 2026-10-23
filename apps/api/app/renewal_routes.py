@@ -267,10 +267,17 @@ def mount_runtime(
         if selection.recovery_enabled:
             raise ValueError("복구는 원 작업의 별도 복구 경로를 사용하세요.")
         source = runtime.asset(owned, selection.asset_id)
-        runtime.asset_path(owned, selection.asset_id)
         definition = runtime.job_definition(
             owned, selection.definition_id, selection.definition_revision
         )
+        from video_service.cpu_input_policy import source_policy
+        cpu_policy = source_policy({"bytes": source["size_bytes"], "metadata": {
+            "registration_state": "verified" if source["content_verified"] else "unverified",
+            "media": source.get("media"),
+        }}, definition)
+        if cpu_policy and broker_factory is None:
+            raise Conflict("Large CPU video requires the independent broker execution path")
+        runtime.asset_path(owned, selection.asset_id)
         inspection = runtime.inspect(
             owned, selection.definition_id, selection.definition_revision
         )
@@ -284,12 +291,15 @@ def mount_runtime(
                     "source": source,
                     "definition": definition,
                     "selection": selection.model_dump(),
+                    **({"cpu_input_policy": cpu_policy} if cpu_policy else {}),
                 }
             ),
             "paid_roles": [role for node_type, role in (("translate", "translation"), ("transcribe", "transcription"))
                            if getattr(runtime, role + "_runtime") and getattr(runtime, role + "_runtime").mode == "external"
                            and any(n["type"] == node_type and n.get("model_ref") for n in definition["nodes"])],
-            "notice": "작업 생성은 저장만 합니다. 작업 상세에서 계획 확인과 별도 실행이 필요합니다.",
+            **({"cpu_input_policy": cpu_policy} if cpu_policy else {}),
+            "notice": "작업 생성은 저장만 합니다. 작업 상세에서 계획 확인과 별도 실행이 필요합니다."
+                      + (" 대용량 CPU 전용: 원본4GiB/길이6시간/처리2시간/캐시10GiB/결과256MiB 한도입니다." if cpu_policy else ""),
         }
 
     @app.post("/api/settings/work-entry/preview", dependencies=[Depends(administrator)])

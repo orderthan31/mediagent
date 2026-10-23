@@ -231,7 +231,10 @@ class Execution(Intake):
                 "parent_id", "created_at", "updated_at", "processing_review", "artifact_manifest"}
         value = {k: state[k] for k in keys if k in state}
         value["snapshot"] = {k: v for k, v in state["snapshot"].items()
-                             if k in {"version", "asset", "inputs", "definition", "options", "recovery", "artifact_layout"}}
+                             if k in {"version", "asset", "inputs", "definition", "options", "recovery", "artifact_layout", "cpu_input_policy"}}
+        public_source = value["snapshot"].get("asset", {})
+        if "original_uploaded_by" in public_source:
+            value["snapshot"]["asset"] = {**public_source, "uploaded_by": public_source["original_uploaded_by"]}
         value["snapshot_redacted"] = True
         value["executed_by"] = state["owner_id"]
         value["access"] = {"can_manage": actor == state["owner_id"]}
@@ -381,16 +384,17 @@ class Execution(Intake):
                     raise Conflict("같은 생성 요청 ID에 다른 내용입니다.")
                 return self._view(db, previous)
             asset = self._shared_asset(db, asset_id)
-            from ..content_store import MAX_CONTENT
-            if asset["bytes"] > MAX_CONTENT:
-                raise ValueError("보관·재생·다운로드는 가능하지만 현재 실행 입력은 256 MiB 이내만 지원합니다.")
+            workflow_owner, definition = self._job_definition(
+                db, owner, definition_id, definition_revision
+            )
+            from ..cpu_input_policy import source_policy
+            cpu_policy = source_policy(asset, definition)
+            if cpu_policy and getattr(self.store, "storage_kind", None) != "s3":
+                raise ValueError("Large CPU input requires independent S3 transport")
             reference = self.asset_reference(asset)
             if asset["owner_id"] != owner:
                 reference = {**reference, "source_owner_id": asset["owner_id"]}
             self.store.path(owner, reference)
-            workflow_owner, definition = self._job_definition(
-                db, owner, definition_id, definition_revision
-            )
             bindings = self._bindings(db, workflow_owner, definition, active=False)
             engine_bindings = self._engine_bindings(db, definition)
             input_refs = {"video": reference}
@@ -409,10 +413,18 @@ class Execution(Intake):
                 raise Conflict(
                     "종료된 실패/취소 작업만 새 복구 작업으로 분리할 수 있습니다."
                 )
+            snapshot_asset = public_asset(asset)
+            if asset["metadata"].get("legacy_origin"):
+                # Keep the applied012 FK compatibility field as storage custody,
+                # while preserving/displaying the real (possibly unknown) uploader.
+                snapshot_asset["original_uploaded_by"] = snapshot_asset["uploaded_by"]
+                snapshot_asset["storage_custodian_id"] = asset["owner_id"]
+                snapshot_asset["uploaded_by"] = asset["owner_id"]
             snapshot = {
+                **({"cpu_input_policy": cpu_policy} if cpu_policy else {}),
                 "version": 1,
                 "artifact_layout": 1,
-                "asset": public_asset(asset),
+                "asset": snapshot_asset,
                 "inputs": input_refs,
                 "definition": definition,
                 "options": options,
@@ -459,17 +471,47 @@ class Execution(Intake):
             ).fetchone()
             return self._view(db, row)
 
-    def _plan(self, db, job):
+    def _preflight_cpu_inputs(self, owner, identity, command=None):
+        # Immutable input verification must not hold the mutable job row lock.
+        with self.database.connection() as db:
+            job = self._job(db, owner, identity)
+            if not job["snapshot"].get("cpu_input_policy"):
+                return None
+            references = list(job["snapshot"]["inputs"].values())
+            if command is not None:
+                run = db.execute("SELECT request_sha256,inputs FROM node_runs WHERE owner_id=%s AND job_id=%s AND id=%s",
+                                 (owner, identity, command["attempt_id"])).fetchone()
+                if not run or run["request_sha256"] != digest(command):
+                    raise Conflict("Unknown frozen CPU input request")
+                references = list(run["inputs"].values())
+            else:
+                for run in self._runs(db, owner, identity):
+                    if run["status"] == "completed":
+                        references.extend((run["result"] or {}).get("outputs", {}).values())
+            snapshot_sha = job["snapshot_sha256"]
+        for ref in references:
+            self.store.path(owner, ref)
+        return {"snapshot_sha256": snapshot_sha, "references": {digest(ref) for ref in references}}
+
+    def _checked_input(self, owner, job, reference, verified):
+        if job["snapshot"].get("cpu_input_policy"):
+            if (not verified or verified["snapshot_sha256"] != job["snapshot_sha256"]
+                    or digest(reference) not in verified["references"]):
+                raise Conflict("CPU input context changed; reread required")
+            return
+        self.store.path(owner, reference)
+
+    def _plan(self, db, job, verified=None):
         from .job_processing_review import JobProcessingReview
         if JobProcessingReview(self).capture_in(db, job):
             return {'token':digest({'job':job['id'],'processing_review':True}),'ready':False,'reasons':['관리자 처리 확인이 필요합니다.'],'notice':'원 실행을 다시 시작하지 않습니다.'}
         for ref in job["snapshot"]["inputs"].values():
-            self.store.path(job["owner_id"], ref)
+            self._checked_input(job["owner_id"], job, ref, verified)
         runs = self._runs(db, job["owner_id"], job["id"])
         for run in runs:
             if run["status"] == "completed":
                 for ref in (run["result"] or {}).get("outputs", {}).values():
-                    self.store.path(job["owner_id"], ref)
+                    self._checked_input(job["owner_id"], job, ref, verified)
         reviews = db.execute(
             "SELECT id,revision,status,confirmed_sha256 FROM review_tasks WHERE owner_id=%s AND job_id=%s ORDER BY id",
             (job["owner_id"], job["id"]),
@@ -550,10 +592,12 @@ class Execution(Intake):
         }
 
     def plan(self, owner, identity):
+        verified = self._preflight_cpu_inputs(owner, identity)
         with self.database.connection() as db:
-            return self._plan(db, self._job(db, owner, identity, lock=True))
+            return self._plan(db, self._job(db, owner, identity, lock=True), verified)
 
     def confirm(self, owner, identity, token, nonce):
+        verified = self._preflight_cpu_inputs(owner, identity)
         request_id(nonce)
         payload_sha = digest({"job": identity, "token": token})
         with self.database.connection() as db:
@@ -566,7 +610,7 @@ class Execution(Intake):
                 if previous["request_sha256"] != payload_sha:
                     raise Conflict("같은 확인 요청의 내용이 다릅니다.")
                 return public(previous)
-            plan = self._plan(db, job)
+            plan = self._plan(db, job, verified)
             if not plan["ready"] or plan["token"] != token:
                 raise Conflict("현재 입력/검수/계획을 다시 확인하세요.")
             row = db.execute(
@@ -576,6 +620,7 @@ class Execution(Intake):
             return public(row)
 
     def admit(self, owner, identity, consent_id, nonce):
+        verified = self._preflight_cpu_inputs(owner, identity)
         request_id(nonce)
         resource_id(consent_id)
         payload_sha = digest({"job": identity, "consent": consent_id})
@@ -602,7 +647,7 @@ class Execution(Intake):
                 or consent["consumed_at"] is not None
             ):
                 raise Conflict("승인이 없거나 이미 소비/만료됐습니다.")
-            plan = self._plan(db, job)
+            plan = self._plan(db, job, verified)
             if not plan["ready"] or plan["token"] != consent["plan_sha256"]:
                 raise Conflict("입력/검수/계획이 바뀌었습니다. 새 확인이 필요합니다.")
             claim = uuid4().hex
@@ -653,12 +698,16 @@ class Execution(Intake):
         if deferred:
             status = "waiting"
         identity = uuid4().hex
+        from ..cpu_input_policy import LARGE_AGENTS, LARGE_PROFILE, lease_seconds
+        cpu_policy = job["snapshot"].get("cpu_input_policy")
+        if cpu_policy and (cpu_policy != LARGE_PROFILE or node["type"] not in LARGE_AGENTS):
+            raise Conflict("Frozen CPU input policy is unsupported")
         command = {
             "protocol_version": 1,
             "run_id": job["id"],
             "attempt_id": identity,
             "generation": job["generation"],
-            "agent": {"id": node["type"], "revision": "1"},
+            "agent": {"id": node["type"], "revision": "2" if cpu_policy else "1"},
             "inputs": inputs,
             "options": node["options"],
         }
@@ -698,7 +747,7 @@ class Execution(Intake):
                 runtime=descriptor,
             )
         row = db.execute(
-            "INSERT INTO node_runs(owner_id,job_id,id,node_id,agent_revision,attempt,generation,status,input_sha256,settings_sha256,inputs,options,node_type,request,request_sha256,claim_id,lease_owner,lease_expires_at,started_at) VALUES (%s,%s,%s,%s,%s,1,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,now()+interval '120 seconds',now()) RETURNING *",
+            "INSERT INTO node_runs(owner_id,job_id,id,node_id,agent_revision,attempt,generation,status,input_sha256,settings_sha256,inputs,options,node_type,request,request_sha256,claim_id,lease_owner,lease_expires_at,started_at) VALUES (%s,%s,%s,%s,%s,1,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,now()+(%s*interval '1 second'),now()) RETURNING *",
             (
                 job["owner_id"],
                 job["id"],
@@ -716,6 +765,7 @@ class Execution(Intake):
                 digest(command),
                 job["active_claim_id"],
                 "explicit-local" if status == "running" else None,
+                lease_seconds(command),
             ),
         ).fetchone()
         if deferred:
@@ -785,6 +835,7 @@ class Execution(Intake):
         return {port: inputs["value"]}
 
     def claim_next(self, owner, identity):
+        verified = self._preflight_cpu_inputs(owner, identity)
         with self.database.connection() as db:
             job = self._job(db, owner, identity, lock=True)
             from .job_processing_review import JobProcessingReview
@@ -831,7 +882,7 @@ class Execution(Intake):
                     indexed[node["id"]] = row
                     continue
                 for ref in inputs.values():
-                    self.store.path(owner, ref)
+                    self._checked_input(owner, job, ref, verified)
                 instance = None
                 if (
                     self.fleet is not None
@@ -1220,6 +1271,7 @@ class Execution(Intake):
         )
 
     def accept(self, owner, command, result):
+        verified = self._preflight_cpu_inputs(owner, command["run_id"], command)
         response_sha = digest(result)
         identity, run_id = command["run_id"], command["attempt_id"]
         with self.database.connection() as db:
@@ -1303,7 +1355,7 @@ class Execution(Intake):
             else:
                 try:
                     for ref in command["inputs"].values():
-                        self.store.path(owner, ref)
+                        self._checked_input(owner, job, ref, verified)
                     status = result.get("status")
                     if status != "completed":
                         raise ValueError("Agent did not complete")
@@ -1399,6 +1451,9 @@ class Execution(Intake):
             return self._view(db, self._job(db, owner, identity))
 
     def run_local(self, owner, identity):
+        with self.database.connection() as db:
+            if self._job(db, owner, identity)["snapshot"].get("cpu_input_policy"):
+                raise Conflict("Large CPU input requires independent broker execution")
         # One explicit job only. Never scans/consumes pending jobs or any broker.
         for _ in range(110):
             before = self.get(owner, identity)

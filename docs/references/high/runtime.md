@@ -4,6 +4,19 @@
 
 격리 CPU 경로의 실제 책임·재현 진입점과 운영 전환 경계를 관리한다.
 
+## 대용량 CPU 입력 — 개발·격리 확인 완료 / 운영 미반영
+
+- PM1562978435666808863에서 직전 운영 복구 기능c82636d5/문서d5fa274f를 수용·App push, Git/GitHub API 일치로 종료했다. 이번 개발 기준HEAD/직접 ls-remote는 `d5fa274f9210e9a2b9aecbd6a91223bf7d8ec26b`다. 기존 UI/17개 전체 전송·해시·대표 미리보기 묶음을 다시 열지 않았다.
+- 신규 대용량 티켓만 `cpu_video_v2`를 고정한다. wire는 CPU protocol1/agent revision2이며 encode·validate_video만 허용한다. 원본4GiB/길이6시간/픽셀8,294,400(각변4096 이하), encode wall2시간/명령9000초/임대9600초/명령별캐시10GiB/정상 결과256MiB다. 일반 업로드256MiB·보관참조8GiB·명시보존import4GiB와 다른 역할revision1 입력256MiB는 그대로다. 새 상한은 보장되는 처리속도나 결과크기가 아니다. 결과 예산/길이검사를 통과하지 못한 잘린 영상은 성공 채택하지 않는다.
+- API의 원본 선택 가능/처리역할·한도를 기존 선택기와 plan.notice로 연결하고, 실제 정의/원본에서 profile을 재검사한 뒤 불변 snapshot·요청 SHA·노드agent개정·전송임대를 맞춘다. 미지원 전사/번역/타역할·새 상한초과는 원본 fetch/티켓 INSERT 전에 거부한다. 새 입력의 API local runner도 거부하며 독립 브로커 경로를 요구한다.
+- CPU는 S3를 chunk 전송/검증하고 private attempt 입력을 chunk 복사·해시한다. v2 cache는 명령별 private scope로 정상/알려진 실패 종료 시 정리하며 중단 후 남은 scope는 자동 삭제/재실행하지 않고 판단 대기한다. encode 출력은 파일·wall budget과 원길이 일치로 제한한다. 확인된 v2 실패 receipt는 실패로 전달하고, 깨진/누락/시간초과 결과는 기존 unknown·자동재실행금지를 유지한다. 물리 CPU에는 DB/암호화 master/provider키나 daemon socket이 없다.
+- 업로더 미상 원본의 새 snapshot은 `original_uploaded_by`와 `storage_custodian_id`를 별도 감사한다. applied012가 쓰는 내부 uploaded_by 호환 FK slot은 기존 저장 namespace에 결속하고, 공용 DTO/manifest에는 실제 업로더 미상을 표시한다. 원asset/원owner/원파일을 바꾸거나 FK를 맞추려고 blob을 복제하지 않는다.
+- 실제 큰 입력에서 결과 검증 동안 job 행 잠금으로 동시 GET503이 재현됐다. v2 입력 검증을 lock 밖에서 수행하고, lock 안에서는 같은 snapshot SHA·정확한 요청/참조·현재 취소/세대/권한을 재대조한다. 검증 barrier 중 실제 별도 PG 조회·취소 성공/해제 후 ready=false와 consent/run0을 확인했다. 입력 검증이나 취소 보호를 생략하지 않았다.
+- 별도 PG·TLS RabbitMQ/MinIO·설치 API/results/각각 독립 CPU encode·validate consumer로 **311,040,938byte 실제 RGB24 MOV(1920x1080/5fps/10초, padding 없음)**를 사용했다. HTTP 원본선택/preview→티켓→계획동의/admit→독립 전달→인코딩/검증→manifest/출력 다운로드 SHA 일치다. 성공 job `22740467e6184522970ce5492da86ceb`, encode2,465,062bytes/검증119bytes. 호출 중 취소는 POST1·후속validate0·정상artifact0·늦은결과1격리(`large-cpu-cancel.json`)다. 이는 새 HTTP 제품 경로 검증이며 UI-only 재실행으로 표시하지 않는다.
+- 4GiB+1은 거부용 참조/검증된 DB metadata 경계이며 실제4GiB 파일을 전송했다고 주장하지 않는다. 다른 역할/상한 거부, v1 작은 CPU 회귀, v2 local거부, 정확한 임대, 업로더·custody 분리를 좁게 확인했다. final policy XML11/PG boundary XML6와 별도 actual success1/cancel1은 서로 다른 실행이며 한 배치 all-pass로 합성하지 않는다. scoped Ruff 신규0/부모 기존7은 남기고 Starlette/httpx 경고도 보존한다.
+- 현재 운영은 직전 c826/d5 정상 목록·상세·다운로드/단일 슬롯 그대로다. 새 입력을 운영에서 가능하다고 표시하지 않는다. 승격 시 encode/validate 전용 image·disk cache, API/수신송신/메시지검증/임대가 일치해야 하고 실제 고정encode는 current canonical handles의 drain→감사handover→exact binding을 재사용한다. 옛 maintenance Compose/직접 pin 덮어쓰기/추가slot/타host/provider 활성화/initializer 강제정리 없이 진행한다.
+- 전체길이 비동기 WebM·다른 역할·유료/provider·멀티머신·HA는 다음 별도 묶음이다. 운영 원본17/#5/DLQ/기존accepted20/키/backup/WIP/rollback은 이번 검증에 사용하지 않았다.
+
 ## 현재 운영 — 2026-10-23 정상 조회·단일 CPU 동선 복구
 
 - 사용자 승인1562955180637425845/실행 지시1562955522100166789로 기존 사설 HTTPS의 명시 normal/broker/control을 재개했다. 정상 vault 로그인 후 실제 목록은 **원본21개(기존4+보존17), 작업7개(기존6+새 합성#7)**다. 실제 경로는 `/api/videos`, `/api/jobs`이며 미존재 경로를 위한 전체 GET 예외는 없다.

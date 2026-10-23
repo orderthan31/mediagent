@@ -37,12 +37,20 @@ def public_upload(row):
 
 def public_asset(row):
     legacy = row["metadata"].get("legacy_origin")
+    large_policy = None
+    if row["bytes"] > MAX_CONTENT:
+        from ..cpu_input_policy import source_policy
+        try:
+            large_policy = source_policy(row, {"nodes": [{"type": "encode"}, {"type": "validate_video"}]})
+        except ValueError:
+            pass
     return {
+        **({"processing_roles": ["encode", "validate_video"], "processing_limits": large_policy} if large_policy else {}),
         "asset_id": row["id"],
         "uploaded_by": legacy.get("original_owner_id") if legacy else row["owner_id"],
         "original_filename": row["filename"],
         "size_bytes": row["bytes"],
-        "processing_supported": row["bytes"] <= MAX_CONTENT,
+        "processing_supported": row["bytes"] <= MAX_CONTENT or large_policy is not None,
         "sha256": row["sha256"],
         "content_verified": row["metadata"].get("registration_state") == "verified",
         "media": row["metadata"].get("media"),

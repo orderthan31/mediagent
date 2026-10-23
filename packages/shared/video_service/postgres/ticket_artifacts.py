@@ -89,7 +89,7 @@ class TicketArtifacts:
         return {
             'version': 1, 'layout': layout, 'sequence': sequence,
             'ticket_id': job['id'], 'ticket_number': job['ticket_number'],
-            'uploaded_by': job.get('asset_owner_id', job['owner_id']),
+            'uploaded_by': job['snapshot'].get('asset', {}).get('original_uploaded_by', job.get('asset_owner_id', job['owner_id'])),
             'executed_by': job['owner_id'], 'entries': entries,
         }
 

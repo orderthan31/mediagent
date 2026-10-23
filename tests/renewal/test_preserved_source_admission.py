@@ -20,7 +20,7 @@ class ReadOnlyPrerequisite:
         return None
 
 
-def test_large_preserved_source_refused_before_materialization_or_ticket_insert():
+def test_unsupported_large_source_workflow_refused_before_materialization_or_ticket_insert():
     runtime = Execution.__new__(Execution)
     runtime.database = ReadOnlyPrerequisite()
     runtime._shared_asset = lambda *_: {
@@ -36,5 +36,6 @@ def test_large_preserved_source_refused_before_materialization_or_ticket_insert(
             raise AssertionError("must reject before downloading a large original")
 
     runtime.store = Store()
+    runtime._job_definition = lambda *_: ('a' * 32, {'nodes': [{'id': 'audio', 'type': 'extract_audio'}]})
     with pytest.raises(ValueError, match="256 MiB"):
         runtime.create("a" * 32, "c" * 32, "d" * 32, 1, request_id="bounded-processing")

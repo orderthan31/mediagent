@@ -19,6 +19,7 @@ from urllib.parse import urlsplit
 
 from .agent_protocol import COMMAND, MAX_MESSAGE, RESULT
 from .cpu_agents import CPU_AGENTS, canonical, digest
+from .cpu_input_policy import input_limit
 from .node_contracts import node_spec, validate_node
 
 ENV_NAME = re.compile(r"[A-Z_][A-Z0-9_]{0,127}\Z")
@@ -152,11 +153,11 @@ def validate_command(command):
             or command["generation"] < 1
             or not ID.fullmatch(command["run_id"])
             or not ID.fullmatch(command["attempt_id"])
-            or command["agent"] != {"id": command["agent"]["id"], "revision": "1"}
+            or set(command["agent"]) != {"id", "revision"}
             or command["agent"]["id"] not in CPU_AGENTS
         ):
             raise ValueError
-        for ref in command["inputs"].values():
+        for port, ref in command["inputs"].items():
             if (
                 set(ref) not in ({"storage_key", "sha256", "bytes", "type"},
                                 {"storage_key", "sha256", "bytes", "type", "source_owner_id"})
@@ -165,7 +166,7 @@ def validate_command(command):
                 or not re.fullmatch(r"[a-f0-9]{64}", ref["sha256"])
                 or ref["storage_key"] != "blobs/" + ref["sha256"]
                 or type(ref["bytes"]) is not int
-                or not 0 < ref["bytes"] <= 256 * 1024 * 1024
+                or not 0 < ref["bytes"] <= input_limit(command["agent"], port, ref["type"])
             ):
                 raise ValueError
         validate_node(

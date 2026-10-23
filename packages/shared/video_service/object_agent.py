@@ -15,14 +15,14 @@ import sys
 
 from .content_store import ID
 from .cpu_agents import CPU_AGENTS, canonical, digest, run
+from .cpu_input_policy import command_timeout, workspace
 from .object_store import ObjectStoreError, from_config
 
 
 def execute(store, owner, command, *, agent):
-    if agent not in CPU_AGENTS or command.get("agent") != {
-        "id": agent,
-        "revision": "1",
-    }:
+    from .rabbitmq_transport import validate_command
+    validate_command(command)
+    if agent not in CPU_AGENTS or command["agent"]["id"] != agent:
         raise ObjectStoreError("Explicit CPU agent mismatch")
     if not isinstance(owner, str) or not ID.fullmatch(owner):
         raise ObjectStoreError("Invalid owner")
@@ -108,13 +108,18 @@ class ObjectAgentExecutor:
             ],
             input=canonical(command),
             capture_output=True,
-            timeout=90,
+            timeout=command_timeout(command),
             env=self.env,
             check=False,
         )
         if len(completed.stdout) > 65536:
             raise ObjectStoreError("Agent response size exceeded")
         result = json.loads(completed.stdout)
+        if (completed.returncode == 1 and command["agent"]["revision"] == "2"
+                and result.get("status") == "failed"):
+            from .rabbitmq_transport import validate_result
+            validate_result(command, result)
+            return result
         if completed.returncode != 0 or result.get("request_sha256") != digest(command):
             raise ObjectStoreError(
                 "Agent failed or result unknown; automatic replay denied"
@@ -133,9 +138,12 @@ def main():
         if len(raw) > 65536:
             raise ObjectStoreError("Command size exceeded")
         config = json.loads(os.environ[args.config_env])
-        result = execute(
-            from_config(config), args.owner, json.loads(raw), agent=args.agent
-        )
+        command = json.loads(raw)
+        with workspace(config["cache_root"], command) as scoped:
+            result = execute(
+                from_config({**config, "cache_root": str(scoped)}), args.owner,
+                command, agent=args.agent,
+            )
         sys.stdout.buffer.write(canonical(result))
         return 0 if result["status"] == "completed" else 1
     except Exception:  # noqa: BLE001 -- protocol boundary must suppress paths/credentials in errors
