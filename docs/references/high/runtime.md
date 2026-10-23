@@ -4,6 +4,10 @@
 
 격리 CPU 경로의 실제 책임·재현 진입점과 운영 전환 경계를 관리한다.
 
+### 공통 engine 임대 회귀 보정 — b676 위 corrective 변경
+
+PM1562998217422147606의 b676 검토에서 기존 engine wire2(3필드 agent)를 CPU 전용 lease helper에 무조건 전달하는 공통 _insert_run 회귀를 확인했다. _insert_run 한 줄만 wire1일 때 CPU lease helper/그 외 검증된 engine은 기존120초로 분리했다. CPU encode·validate agent revision1=120초/revision2=9600초는 유지하고 engine/CPU 입력 계약 자체는 변경하지 않았다. 별도 network-none PG의 실제 공통 node INSERT·request 저장·DB임대120초 회귀1과 CPU임대4=5검사 통과/Starlette경고보존. 실제 모델·GPU/provider·311MB 성공취소·17개·기존UI를 다시 실행하지 않았다. 원b676/증적 유지·운영미변경이며 이 보정만 추가소스검토 대상으로 인계한다.
+
 ## 대용량 CPU 입력 — 개발·격리 확인 완료 / 운영 미반영
 
 - PM1562978435666808863에서 직전 운영 복구 기능c82636d5/문서d5fa274f를 수용·App push, Git/GitHub API 일치로 종료했다. 이번 개발 기준HEAD/직접 ls-remote는 `d5fa274f9210e9a2b9aecbd6a91223bf7d8ec26b`다. 기존 UI/17개 전체 전송·해시·대표 미리보기 묶음을 다시 열지 않았다.

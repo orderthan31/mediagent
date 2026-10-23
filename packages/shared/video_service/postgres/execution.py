@@ -765,7 +765,7 @@ class Execution(Intake):
                 digest(command),
                 job["active_claim_id"],
                 "explicit-local" if status == "running" else None,
-                lease_seconds(command),
+                lease_seconds(command) if command["protocol_version"] == 1 else 120,
             ),
         ).fetchone()
         if deferred:
