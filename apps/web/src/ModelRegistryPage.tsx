@@ -1,11 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { PageTitle } from './PageTitle';
 import { LoadingSkeleton } from './LoadingSkeleton';
 import { Pagination, usePagination } from './Pagination';
 import { request } from './api';
 import { frontendOnly, renewalBackend } from './preview';
 import { ServingTabs } from './ProviderConnections';
-import { connectionsEndpoint, type ServingConnection } from './serving-connection';
+import {
+  connectionsEndpoint,
+  isFrontierProvider,
+  type ServingConnection,
+} from './serving-connection';
+import { ModelCatalogPicker, type CatalogBinding, type CatalogModel } from './ModelCatalogPicker';
 import { jsonPost } from './video-api';
 import { Button } from './hangyeol/primitives/button';
 import { Input } from './hangyeol/primitives/input';
@@ -53,6 +58,33 @@ export const ModelRegistryPage = ({
   const [listError, setListError] = useState('');
   const [listConfirmed, setListConfirmed] = useState(false);
   const [status, setStatus] = useState('');
+  const [catalogToken, setCatalogToken] = useState('');
+  const catalogContext = useRef<CatalogBinding>({ connection_id: '', connection_revision: 0 });
+  const selectedConnection = connections.find((row) => row.id === connectionId);
+  const frontier = renewalBackend && isFrontierProvider(provider);
+  const original = editing?.versions[String(editing.current_revision)];
+  const sameExisting =
+    !!original &&
+    original.model === model &&
+    original.connection_id === connectionId &&
+    original.connection_revision === connectionRevision &&
+    (['model_types', 'input_modalities', 'output_modalities', 'capabilities'] as const).every(
+      (key) => JSON.stringify(original[key] || []) === JSON.stringify(profile[key]),
+    );
+  const catalogAllowsSave = !frontier || !!catalogToken || sameExisting;
+  const sameBinding = (binding: CatalogBinding) =>
+    binding.connection_id === catalogContext.current.connection_id &&
+    binding.connection_revision === catalogContext.current.connection_revision;
+  const pickCatalog = (item: CatalogModel | null, binding: CatalogBinding) => {
+    if (!sameBinding(binding)) {
+      return;
+    }
+    setModel(item?.id || '');
+    setProfile(item?.profile || emptyModelProfile());
+    setCatalogToken(item?.registration_token || '');
+    setUses([]);
+    setCompatible([]);
+  };
   const load = async () => {
     setLoading(true);
     setListError('');
@@ -74,6 +106,7 @@ export const ModelRegistryPage = ({
     }
   };
   const reset = () => {
+    setCatalogToken('');
     setEditing(null);
     setName('');
     setModel('');
@@ -108,6 +141,11 @@ export const ModelRegistryPage = ({
   };
   const edit = async (row: RegisteredModel) => {
     const version = row.versions[String(row.current_revision)];
+    catalogContext.current = {
+      connection_id: version.connection_id || '',
+      connection_revision: version.connection_revision || 0,
+    };
+    setCatalogToken('');
     setEditing(row);
     setName(version.name);
     setConnectionId(version.connection_id || '');
@@ -146,7 +184,7 @@ export const ModelRegistryPage = ({
     }
   };
   const save = async () => {
-    if (busy || loading || (identity && !editing) || listError) {
+    if (busy || loading || (identity && !editing) || listError || !catalogAllowsSave) {
       return;
     }
     setBusy(true);
@@ -161,6 +199,7 @@ export const ModelRegistryPage = ({
           name,
           provider,
           model,
+          ...(catalogToken && frontier ? { discovery_token: catalogToken } : {}),
           ...(typedRegistry ? profile : { uses }),
           ...(frontendOnly || renewalBackend ? { connection_id: connectionId } : {}),
           ...(renewalBackend ? { connection_revision: connectionRevision } : {}),
@@ -280,6 +319,14 @@ export const ModelRegistryPage = ({
                       value={connectionId}
                       onChange={(event) => {
                         const selected = connections.find((row) => row.id === event.target.value);
+                        catalogContext.current = {
+                          connection_id: event.target.value,
+                          connection_revision:
+                            selected?.current_revision || selected?.revision || 0,
+                        };
+                        setCatalogToken('');
+                        setModel('');
+                        setProfile(emptyModelProfile());
                         setConnectionId(event.target.value);
                         setConnectionRevision(
                           selected?.current_revision || selected?.revision || 0,
@@ -316,20 +363,36 @@ export const ModelRegistryPage = ({
                     </select>
                   )}
                 </label>
-                <label>
-                  모델 ID
-                  <Input
-                    aria-label="등록 model"
-                    value={model}
-                    maxLength={200}
-                    onChange={(e) => {
-                      setModel(e.target.value);
-                      setUses([]);
-                      setCompatible([]);
-                    }}
-                  />
-                </label>
+                {!frontier && (
+                  <label>
+                    모델 ID
+                    <Input
+                      aria-label="등록 model"
+                      value={model}
+                      maxLength={200}
+                      onChange={(e) => {
+                        setModel(e.target.value);
+                        setUses([]);
+                        setCompatible([]);
+                      }}
+                    />
+                  </label>
+                )}
               </div>
+              {frontier && selectedConnection && (
+                <ModelCatalogPicker
+                  key={connectionId + ':' + connectionRevision}
+                  connection={selectedConnection}
+                  revision={connectionRevision}
+                  model={model}
+                  onPick={pickCatalog}
+                  onQueryStart={(binding) => {
+                    if (sameBinding(binding)) {
+                      setCatalogToken('');
+                    }
+                  }}
+                />
+              )}
               {renewalBackend &&
                 connections.some(
                   (row) => row.id === connectionId && row.current_revision !== connectionRevision,
@@ -345,6 +408,13 @@ export const ModelRegistryPage = ({
                         onClick={() => {
                           const row = connections.find((row) => row.id === connectionId);
                           if (row?.current_revision) {
+                            catalogContext.current = {
+                              connection_id: connectionId,
+                              connection_revision: row.current_revision,
+                            };
+                            setCatalogToken('');
+                            setModel('');
+                            setProfile(emptyModelProfile());
                             setConnectionRevision(row.current_revision);
                             setUses([]);
                             setCompatible([]);
@@ -357,7 +427,15 @@ export const ModelRegistryPage = ({
                   </div>
                 )}
               {typedRegistry ? (
-                <ModelProfileFields value={profile} changed={setProfile} />
+                <fieldset disabled={frontier}>
+                  {frontier && (
+                    <p>
+                      공식 목록의 확인된 분류입니다. 실행 가능한 용도는 위 후보 목록과 별개로
+                      표시합니다.
+                    </p>
+                  )}
+                  <ModelProfileFields value={profile} changed={setProfile} />
+                </fieldset>
               ) : (
                 <>
                   <Button
@@ -395,6 +473,7 @@ export const ModelRegistryPage = ({
                   busy ||
                   loading ||
                   !!listError ||
+                  !catalogAllowsSave ||
                   (!!identity && !editing) ||
                   !name.trim() ||
                   !model.trim() ||

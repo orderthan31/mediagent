@@ -7,6 +7,7 @@ import { Button } from './hangyeol/primitives/button';
 import { Input } from './hangyeol/primitives/input';
 import {
   connectionDefaults,
+  isFrontierProvider,
   connectionsEndpoint,
   type ServingConnection,
 } from './serving-connection';
@@ -59,9 +60,11 @@ export const ProviderConnections = ({ route, query }: { route: string; query: st
         body: JSON.stringify({
           name: name.trim(),
           provider,
-          endpoint: endpoint.trim(),
+          ...(!renewalBackend || !isFrontierProvider(provider)
+            ? { endpoint: endpoint.trim() }
+            : {}),
           revision,
-          ...(renewalBackend ? { protocol } : {}),
+          ...(renewalBackend && !isFrontierProvider(provider) ? { protocol } : {}),
         }),
       });
       setRevision(saved.revision);
@@ -201,7 +204,7 @@ export const ProviderConnections = ({ route, query }: { route: string; query: st
                 ))}
               </select>
             </label>
-            {renewalBackend && (
+            {renewalBackend && !isFrontierProvider(provider) && (
               <label>
                 API 프로토콜
                 <select value={protocol} onChange={(event) => setProtocol(event.target.value)}>
@@ -212,16 +215,25 @@ export const ProviderConnections = ({ route, query }: { route: string; query: st
                 </select>
               </label>
             )}
-            <label>
-              {renewalBackend ? 'API 기본 주소' : '접속 주소 · 선택'}
-              <Input
-                value={endpoint}
-                maxLength={2048}
-                required={renewalBackend}
-                placeholder={renewalBackend ? 'http://localhost:8000/v1' : '기본 주소 사용'}
-                onChange={(event) => setEndpoint(event.target.value)}
-              />
-            </label>
+            {(!renewalBackend || !isFrontierProvider(provider)) && (
+              <label>
+                {renewalBackend ? 'API 기본 주소' : '접속 주소 · 선택'}
+                <Input
+                  value={endpoint}
+                  maxLength={2048}
+                  required={renewalBackend}
+                  placeholder={renewalBackend ? 'http://localhost:8000/v1' : '기본 주소 사용'}
+                  onChange={(event) => setEndpoint(event.target.value)}
+                />
+              </label>
+            )}
+            {renewalBackend && isFrontierProvider(provider) && (
+              <p>
+                {selected?.provider === provider && selected.address_mode === 'legacy_preserved'
+                  ? '기존 별도 주소·프로토콜·키 연결을 그대로 보존합니다. 공식 모델 조회에는 새 공식 공급자 연결을 등록하세요.'
+                  : '공식 주소·인증 방식은 서버에서 지정합니다. URL 입력은 필요 없습니다.'}
+              </p>
+            )}
             <label>
               API 키
               <Input

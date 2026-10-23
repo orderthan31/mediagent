@@ -36,13 +36,17 @@ class Connection(Body):
     revision: StrictInt = Field(ge=0)
     name: str = Field(min_length=1, max_length=80)
     provider: str = Field(min_length=1, max_length=80)
-    protocol: str = Field(min_length=1, max_length=80)
-    endpoint: str = Field(min_length=1, max_length=2048)
+    protocol: str | None = Field(default=None, min_length=1, max_length=80)
+    endpoint: str | None = Field(default=None, min_length=1, max_length=2048)
 
 
 class ProviderCredential(Body):
     revision: StrictInt = Field(ge=1)
     secret: SecretStr | None
+
+
+class ModelCatalogRequest(Body):
+    connection_revision: StrictInt = Field(ge=1)
 
 
 class Compatibility(Body):
@@ -63,6 +67,7 @@ class Model(Body):
     output_modalities: list[str] = Field(min_length=1, max_length=5)
     capabilities: list[str] = Field(min_length=1, max_length=8)
     provider: str | None = Field(default=None, max_length=80)
+    discovery_token: str | None = Field(default=None, min_length=1, max_length=8192)
 
 
 class Availability(Body):
@@ -514,6 +519,15 @@ def create_app(
     def models(value=administrator_dependency):
         return {"models": registry.models(value["user"]["id"]), "providers": PROVIDERS}
 
+    @app.post("/api/settings/serving-connections/{identity}/model-catalog")
+    def official_model_catalog(identity: str, body: ModelCatalogRequest, value=administrator_dependency):
+        from video_service.model_catalog import ModelCatalog
+        if credential_store is None:
+            raise HTTPException(503, "credential_store_unavailable")
+        return ModelCatalog(registry, credential_store,
+                            transport=getattr(app.state, 'model_catalog_transport', None)).query(
+            value["user"]["id"], identity, body.connection_revision)
+
     @app.post("/api/settings/registered-models/compatibility")
     def compatibility(body: Compatibility, value=administrator_dependency):
         return registry.compatibility(
@@ -522,7 +536,12 @@ def create_app(
 
     @app.put("/api/settings/registered-models/{identity}")
     def save_model(identity: str, body: Model, value=administrator_dependency):
-        data = body.model_dump(exclude={"provider"})
+        data = body.model_dump(exclude={"provider", "discovery_token"})
+        if body.discovery_token is not None:
+            if credential_store is None:
+                raise HTTPException(503, "credential_store_unavailable")
+            data['catalog_binding'] = credential_store.open_catalog_entry(
+                value['user']['id'], body.connection_id, body.discovery_token)
         return registry.save_model(value["user"]["id"], identity, **data)
 
     @app.post("/api/settings/registered-models/{identity}/availability")

@@ -12,8 +12,14 @@ from urllib.parse import urlsplit
 
 import httpx
 
-PROVIDERS = {'openai_compatible': 'OpenAI-compatible', 'openai': 'OpenAI',
-             'gemini': 'Gemini', 'anthropic': 'Anthropic'}
+PROVIDERS = {'openai_compatible': 'Custom OpenAI-compatible · 로컬/사설', 'openai': 'OpenAI',
+             'gemini': 'Google Gemini', 'anthropic': 'Anthropic Claude', 'xai': 'Grok (xAI)'}
+FRONTIER_CONNECTIONS = {
+    'openai': ('openai', 'https://api.openai.com/v1'),
+    'gemini': ('gemini', 'https://generativelanguage.googleapis.com/v1beta'),
+    'anthropic': ('anthropic', 'https://api.anthropic.com'),
+    'xai': ('openai', 'https://api.x.ai/v1'),
+}
 # Implemented adapter capabilities, not a model-name heuristic or a live probe.
 PROTOCOL_USES = {'openai_compatible': ['translation', 'transcription'], 'openai': ['translation', 'transcription'],
                  'gemini': ['translation', 'transcription'], 'anthropic': []}
@@ -54,6 +60,26 @@ def canonical_hash(value):
     import hashlib
     return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True,
                                      separators=(',', ':'), allow_nan=False).encode()).hexdigest()
+
+
+def connection_contract(provider, protocol=None, endpoint=None, *, previous=None):
+    """Pin new named connections server-side; never rewrite a stored legacy tuple."""
+    if provider not in PROVIDERS:
+        raise ValueError('지원하는 공급자를 선택하세요.')
+    if previous and previous['provider'] == provider and (
+        protocol is None or protocol == previous['protocol']
+    ) and (endpoint is None or endpoint == previous['endpoint']):
+        return previous['protocol'], previous['endpoint']
+    if provider in FRONTIER_CONNECTIONS:
+        fixed_protocol, fixed_endpoint = FRONTIER_CONNECTIONS[provider]
+        if (protocol is not None and protocol != fixed_protocol
+                or endpoint is not None and endpoint != fixed_endpoint):
+            raise ValueError('이 공급자는 서버의 공식 주소·프로토콜을 사용합니다. 별도 주소는 Custom 연결로 등록하세요.')
+        return fixed_protocol, fixed_endpoint
+    protocol = protocol or 'openai_compatible'
+    if protocol not in PROTOCOL_USES:
+        raise ValueError('지원하는 프로토콜을 선택하세요.')
+    return protocol, validate_endpoint(endpoint)
 
 
 class EndpointFailure(RuntimeError):

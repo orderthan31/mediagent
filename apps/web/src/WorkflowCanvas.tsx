@@ -109,11 +109,18 @@ export const WorkflowCanvas = ({
   const viewKey = definition.id + ':' + definition.revision;
   const previewPositions = previewLayout?.key === viewKey ? previewLayout.positions : null;
   const history = layoutHistory.key === definition.id ? layoutHistory.values : [];
-  const pan = useRef<{ px: number; py: number; x: number; y: number } | null>(null);
-  const nodeDrag = useRef<{ id: string; px: number; py: number; x: number; y: number } | null>(
+  const pan = useRef<{ pointerId: number; px: number; py: number; x: number; y: number } | null>(
     null,
   );
-  const wireDrag = useRef<{ px: number; py: number } | null>(null);
+  const nodeDrag = useRef<{
+    pointerId: number;
+    id: string;
+    px: number;
+    py: number;
+    x: number;
+    y: number;
+  } | null>(null);
+  const wireDrag = useRef<{ pointerId: number; px: number; py: number } | null>(null);
   const suppressPortClick = useRef(false);
   const boxes = useMemo<Box[]>(
     () => [
@@ -408,23 +415,34 @@ export const WorkflowCanvas = ({
   const panStart = (event: PointerEvent<HTMLDivElement>) => {
     if (
       event.button !== 0 ||
+      event.isPrimary === false ||
+      pan.current ||
+      nodeDrag.current ||
+      wireDrag.current ||
       (event.target as Element).closest(
         'button, a, input, select, .workflow-node-detail, .workflow-agent-picker',
       )
     ) {
       return;
     }
-    pan.current = { px: event.clientX, py: event.clientY, x: view.x, y: view.y };
+    pan.current = {
+      pointerId: event.pointerId,
+      px: event.clientX,
+      py: event.clientY,
+      x: view.x,
+      y: view.y,
+    };
     event.currentTarget.setPointerCapture(event.pointerId);
     setAdding(null);
   };
   const movePointer = (event: PointerEvent<HTMLDivElement>) => {
-    if (pan.current) {
-      setView((previous) => ({
-        ...previous,
-        x: pan.current!.x + event.clientX - pan.current!.px,
-        y: pan.current!.y + event.clientY - pan.current!.py,
-      }));
+    const start = pan.current;
+    const clientX = event.clientX;
+    const clientY = event.clientY;
+    if (start && start.pointerId === event.pointerId) {
+      const x = start.x + clientX - start.px;
+      const y = start.y + clientY - start.py;
+      setView((previous) => ({ ...previous, x, y }));
     }
     if (source && viewport.current) {
       const rect = viewport.current.getBoundingClientRect();
@@ -432,6 +450,24 @@ export const WorkflowCanvas = ({
         x: (event.clientX - rect.left - view.x) / view.scale,
         y: (event.clientY - rect.top - view.y) / view.scale,
       });
+    }
+  };
+  const endPointer = (event: PointerEvent<HTMLElement>) => {
+    const id = event.pointerId;
+    if (pan.current?.pointerId === id) {
+      pan.current = null;
+    }
+    if (nodeDrag.current?.pointerId === id) {
+      nodeDrag.current = null;
+    }
+    if (wireDrag.current?.pointerId === id) {
+      wireDrag.current = null;
+      if (event.type !== 'pointerup') {
+        setSource(null);
+      }
+    }
+    if (event.currentTarget.hasPointerCapture(id)) {
+      event.currentTarget.releasePointerCapture(id);
     }
   };
   const selectedBox = boxes.find((box) => box.id === selected);
@@ -530,15 +566,9 @@ export const WorkflowCanvas = ({
         aria-label="워크플로우 캔버스"
         onPointerDown={panStart}
         onPointerMove={movePointer}
-        onPointerUp={() => {
-          pan.current = null;
-        }}
-        onPointerCancel={() => {
-          pan.current = null;
-          nodeDrag.current = null;
-          wireDrag.current = null;
-          setSource(null);
-        }}
+        onPointerUp={endPointer}
+        onPointerCancel={endPointer}
+        onLostPointerCapture={endPointer}
         onKeyDown={(event) => {
           if (event.key === 'Escape') {
             setSource(null);
@@ -646,11 +676,21 @@ export const WorkflowCanvas = ({
                 aria-pressed={selected === box.id}
                 onClick={() => select(box.id)}
                 onPointerDown={(event) => {
-                  if (!onChange || disabled || box.id === '$input' || event.button !== 0) {
+                  if (
+                    !onChange ||
+                    disabled ||
+                    box.id === '$input' ||
+                    event.button !== 0 ||
+                    event.isPrimary === false ||
+                    pan.current ||
+                    nodeDrag.current ||
+                    wireDrag.current
+                  ) {
                     return;
                   }
                   event.currentTarget.setPointerCapture(event.pointerId);
                   nodeDrag.current = {
+                    pointerId: event.pointerId,
                     id: box.id,
                     px: event.clientX,
                     py: event.clientY,
@@ -660,7 +700,7 @@ export const WorkflowCanvas = ({
                 }}
                 onPointerMove={(event) => {
                   const start = nodeDrag.current;
-                  if (start && onChange && !disabled) {
+                  if (start && start.pointerId === event.pointerId && onChange && !disabled) {
                     onChange({
                       ...definition,
                       nodes: definition.nodes.map((node) =>
@@ -681,12 +721,8 @@ export const WorkflowCanvas = ({
                     });
                   }
                 }}
-                onPointerUp={() => {
-                  nodeDrag.current = null;
-                }}
-                onPointerCancel={() => {
-                  nodeDrag.current = null;
-                }}
+                onPointerUp={endPointer}
+                onPointerCancel={endPointer}
               >
                 <span className="workflow-node-symbol">
                   {box.id === '$input' && inputThumbnail ? (
@@ -729,16 +765,30 @@ export const WorkflowCanvas = ({
                         aria-label={`${box.label} ${direction === 'inputs' ? '입력' : '출력'} ${port}`}
                         title={`${port} · ${box[direction][port]}`}
                         onPointerDown={(event) => {
-                          if (direction !== 'outputs') {
+                          if (
+                            direction !== 'outputs' ||
+                            event.button !== 0 ||
+                            event.isPrimary === false ||
+                            pan.current ||
+                            nodeDrag.current ||
+                            wireDrag.current
+                          ) {
                             return;
                           }
                           setSource({ node: box.id, port });
                           setConnectionError('');
-                          wireDrag.current = { px: event.clientX, py: event.clientY };
+                          wireDrag.current = {
+                            pointerId: event.pointerId,
+                            px: event.clientX,
+                            py: event.clientY,
+                          };
                           event.currentTarget.setPointerCapture(event.pointerId);
                         }}
                         onPointerUp={(event) => {
-                          if (direction !== 'outputs' || !wireDrag.current) {
+                          if (
+                            direction !== 'outputs' ||
+                            wireDrag.current?.pointerId !== event.pointerId
+                          ) {
                             return;
                           }
                           const start = wireDrag.current;

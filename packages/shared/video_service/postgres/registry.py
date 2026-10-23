@@ -2,10 +2,9 @@
 import re
 
 from ..model_endpoints import (
-    PROTOCOL_USES,
-    PROVIDERS,
+    FRONTIER_CONNECTIONS,
     canonical_hash,
-    validate_endpoint,
+    connection_contract,
 )
 from ..model_profile import (
     CAPABILITIES,
@@ -54,7 +53,10 @@ class Registry:
 
     @staticmethod
     def _public_connection(parent, row):
+        named = row['provider'] in FRONTIER_CONNECTIONS
+        official = named and (row['protocol'], row['endpoint']) == FRONTIER_CONNECTIONS[row['provider']]
         return {'id': parent['id'], 'name': row['name'], 'provider': row['provider'], 'protocol': row['protocol'],
+                'address_mode': 'official' if official else 'legacy_preserved' if named else 'custom',
                 'endpoint': row['endpoint'], 'revision': parent['state_revision'], 'current_revision': row['revision'],
                 'active': parent['active'], 'credential': 'reference_set' if row['credential_ref'] and re.fullmatch(r'db:[a-f0-9]{32}', row['credential_ref']) else 'not_set',
                 'sha256': row['sha256'], 'connection_verified': False}
@@ -68,16 +70,14 @@ class Registry:
         with self.database.connection() as db:
             return self._public_connection(*self._connection(db, owner, resource_id(identity)))
 
-    def save_connection(self, owner, identity, *, revision, name, provider, protocol, endpoint):
+    def save_connection(self, owner, identity, *, revision, name, provider, protocol=None, endpoint=None):
         resource_id(identity)
         text(name, 80)
-        if provider not in PROVIDERS or protocol not in PROTOCOL_USES:
-            raise ValueError('지원하는 공급자·프로토콜을 선택하세요.')
-        endpoint = validate_endpoint(endpoint)
-        config = {'name': name, 'provider': provider, 'protocol': protocol, 'endpoint': endpoint}
         with self.database.connection() as db:
             parent = self._lock(db, 'serving_connections', owner, identity, revision)
             previous = self._connection(db, owner, identity)[1] if parent['revision'] else None
+            protocol, endpoint = connection_contract(provider, protocol, endpoint, previous=previous)
+            config = {'name': name, 'provider': provider, 'protocol': protocol, 'endpoint': endpoint}
             reference = previous['credential_ref'] if previous and all(previous[k] == config[k] for k in ('provider', 'protocol', 'endpoint')) else None
             if reference is not None and not re.fullmatch(r'db:[a-f0-9]{32}', reference):
                 reference = None
@@ -125,7 +125,7 @@ class Registry:
         with self.database.connection() as db:
             return self._model(db, owner, resource_id(identity))
 
-    def save_model(self, owner, identity, *, revision, name, model, connection_id, connection_revision, model_types, input_modalities, output_modalities, capabilities):
+    def save_model(self, owner, identity, *, revision, name, model, connection_id, connection_revision, model_types, input_modalities, output_modalities, capabilities, catalog_binding=None):
         resource_id(identity)
         resource_id(connection_id)
         text(name, 80)
@@ -138,6 +138,16 @@ class Registry:
             if not connection['active']:
                 raise Conflict('사용 중지된 공급자 연결입니다.')
             parent = self._lock(db, 'registered_models', owner, identity, revision)
+            if config['provider'] in FRONTIER_CONNECTIONS:
+                if catalog_binding is not None:
+                    if connection['revision'] != config['revision'] or catalog_binding.get('connection_sha256') != config['sha256'] or catalog_binding.get('connection_revision') != config['revision']:
+                        raise Conflict('공식 모델 조회 후 공급자 연결이 변경됐습니다. 다시 조회하세요.')
+                    if catalog_binding.get('model') != model or catalog_binding.get('profile') != profile:
+                        raise ValueError('선택한 공식 모델과 용도가 조회 결과에 일치하지 않습니다.')
+                else:
+                    old = db.execute('SELECT * FROM model_revisions WHERE owner_id=%s AND model_id=%s AND revision=%s', (owner, identity, parent['revision'])).fetchone() if parent['revision'] else None
+                    if not old or old['remote_model'] != model or old['connection_id'] != connection_id or old['connection_revision'] != config['revision'] or any(old[key] != profile[key] for key in profile):
+                        raise ValueError('공식 모델 목록을 조회하고 확인된 모델·용도를 선택하세요. 기존 등록의 동일 설정·이름 변경은 보존됩니다.')
             next_revision = parent['revision'] + 1
             value = {'name': name, 'model': model, 'connection_id': connection_id,
                      'connection_revision': config['revision'], **profile}

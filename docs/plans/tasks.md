@@ -4,6 +4,17 @@
 
 구현·검증 완료와 운영 미검증을 구분한다. 부분 구현을 GPU 잔여만 있는 상태로 보고하지 않는다.
 
+## 최우선 캔버스 터치·공식 공급자 등록/목록 — 변경 검증 완료, 소스 검토·운영 화면 연결 전
+
+- 최신 지시1563115933810298952와 보충1563116507637096481에 따라 워크플로우/작업 상세 공통 캔버스, OpenAI·Google Gemini·Anthropic Claude·xAI Grok 등록/공식 모델 조회를 먼저 처리했다. WebM 운영·전사/번역 실사용·Loop/Fallback보다 앞선 범위다. 운영 반영은 이미 지시된 범위이며, 개발→변경검증→PM 소스 검토/App push→같은 사설 주소 운영 확인 순서만 유지한다. 목록 조회 허용을 생성·유료 호출 승인으로 확대하지 않는다.
+- 실제 운영 웹c826의 같은 JS/SHA·vault 로그인에서 두 상세의 touchStart/연속move/release·cancel 백화와 null x stack을 확보했다. 공유 WorkflowCanvas에서 enqueue 전에 좌표/drag 값을 포착하고 pointer 소유권·capture/lost/cancel 정리를 고쳤다. ErrorBoundary로 감춘 것이 아니다. 최종 운영기반 후보 번들을 브라우저에서만 overlay하여 실제 읽기 API와 PC1440/390px 두 상세를 각각100회 검증했다: pageerror/백화/unsafe 요청0, 이동·선택·확대·전체보기 유지, 정의 SHA 불변이다. overlay는 검증 뒤 해제했고 운영 배포로 세지 않는다. 별도 실제 PG/API 위치 저장·재조회/CAS409와 옵션/model_ref/fallback_refs/입력/edges 보존을 확인했다. 운영8작업 snapshot의 원 PostgreSQL JSON text SHA도 변경 전 실제 복원 backup과 같다.
+- 네 이름 있는 공급자의 새 등록은 URL/protocol을 서버 정본으로 고정하고 폼에 주소를 요구하지 않는다. Grok은 xai 공급자이며 OpenAI-compatible 사용자 분류로 합치지 않는다. 커스텀/로컬/사설은 명시 URL을 유지한다. 기존 주소/protocol·키 참조/과거 개정·모델/티켓은 조용히 개정하지 않는다. 비정본 옛 연결의 공식 조회는 거부하고 사용자의 명시 개정을 요구한다.
+- 서버가 선택한 저장 연결의 현재 키로 공식 모델 GET을 수행한다. 응답 metadata+공식 capability 근거+현 adapter 교집합만 용도 후보로 표시하며 불명/미지원은 구분한다. OpenAI 목록의 id만으로 capability를 추측하지 않고 Gemini generateContent를 STT로 표시하지 않는다. Claude는 공식 명시 버전·pagination, xAI는 language-models의 modality metadata를 사용한다. 선택 모델·용도·owner/connection 개정·내용 SHA/key 참조/기한에 결속한 암호화 proof를 기존 CredentialStore 키로 검증한 뒤 일반 CAS 등록/재조회한다. 새 키 저장소나 조회용 테이블·마이그레이션은 없다.
+- 공급자별 정본 HTTPS origin·GET 목록 path만 허용하는 별도 전송을 사용한다. DNS 결과의 공인 unicast 주소를 고정하고 원 Host/SNI·기본 인증서 검증을 유지한다. env proxy/redirect/다른 주소 자동 재시도·POST 추론 전송 완화는 없다. 응답 크기/페이지/모델 개수와 socket timeout/query deadline을 제한한다. 키 없음·401/403/429·빈 목록·불명 응답·오래된/위조 proof와 전환 중 늦은 응답을 별도로 처리한다. 브라우저에는 키/응답 원문을 보내지 않는다.
+- 1563147503455445033은 DNS 원인분리 지시이지 새 설정 승인으로 해석하지 않았다. 실제 API는 Docker127.0.0.11 내부 postgres는 응답하나 사이트/공식4곳 SERVFAIL·default route 없음·설정 upstream192.168.65.7 및 공인 숫자IP443 모두 unreachable였다. 호스트와 기존 web namespace는 같은 조건 DNS/TLS/무키401·403을 통과했다. MagicDNS 전체 장애나 숫자 URL 해결로 단정하지 않았다. 앞선1563146957751590953의 API-only 송신 복구 범위로 기존 검증된 video-subtitle_ingress를 API에만 연결했다. API 재시작/공개 포트/다른 역할 망·전역 DNS/Tailscale/URL·TLS 검증 완화가 없다. 실제 API와 설치 후보의 동일 network namespace에서 네 공식 host DNS/검증 TLS, Google403·나머지401을 확인했으며 이는 인증/목록 성공이 아니다. canonical API metadata에 egress network와 좁은 disconnect rollback을 남겼다.
+- 최종 실제 격리 PG source36/설치 후보36, Node64, 목록 계약 browser PC/390px6, 통제 HTTP native 공급자3을 각각 구분한다. 최종 source/운영기반 후보 타입·build, 범위 ESLint/format/Ruff0 및 설치5모듈 SHA를 확인했다. Starlette/httpx·Radix 기존 경고와 전체 lint/format 기존 부채는 남는다. 최초 RED, capture 회귀 RED, Connection-close bounded-read RED와 하네스 실패는 지우지 않았다. 증적 정본은 mediagent-renewal-ops/touch-frontier-ae8088e2다.
+- 현 운영 source1da/웹c826·normal/broker/control·단일 CPU는 유지되고 API egress만 복구됐다. 새 화면 설치·저장된 실제 키의 공식 목록/선택·등록·재조회 운영 확인은 소스 검토/App push 다음 단계다. 키 없음/업체 거부를 통신 실패와 분리해 남긴다. 비용 실행/독립 model consumer·GPU/020·preview runner·대상/slot 변경은 없다. 앞선 ae8088e 전체길이 WebM/guard의 PM 수용·App push 종료 기록을 승계하고 기존 미디어·PG 전체 검증을 재개하지 않는다. 원본/키/DB/WIP/backup/rollback과 #5/DLQ/accepted/initializer 보류를 유지한다. 아래 미완료 문구는 각 과거 묶음의 당시 기록이다.
+
 ## 전체길이 WebM guard 세션 유실 보정 — 81b 위 corrective / 운영 미변경
 
 - PM1563035656211402762가 81b의 소스/40초 동선·기존 증적은 확인했고, App push 전에 단일 소유권 경계만 보류했다. 살아 있는 Python 객체/self.guard 참조는 PG session advisory lock의 소유 증거가 아니다. reviewer 원본 probe/result와 81b 소스·패킷을 그대로 보존했다.

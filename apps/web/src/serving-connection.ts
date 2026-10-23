@@ -10,6 +10,7 @@ export type ServingConnection = {
   revision: number;
   current_revision?: number;
   protocol?: string;
+  address_mode?: 'official' | 'legacy_preserved' | 'custom';
   active?: boolean;
   credential: 'not_set' | 'reference_set';
 };
@@ -22,7 +23,10 @@ export const connectionDefaults: Record<string, { endpoint: string; protocol: st
     protocol: 'gemini',
   },
   anthropic: { endpoint: 'https://api.anthropic.com', protocol: 'anthropic' },
+  xai: { endpoint: 'https://api.x.ai/v1', protocol: 'openai' },
 };
+export const isFrontierProvider = (provider: string) =>
+  ['openai', 'gemini', 'anthropic', 'xai'].includes(provider);
 export const seedConnections = (): ServingConnection[] => [
   {
     id: '00000000000000000000000000000385',

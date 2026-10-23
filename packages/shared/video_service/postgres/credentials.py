@@ -1,7 +1,10 @@
 """Administrator-managed encrypted DB credentials; never consult environment keys."""
 
+import base64
+import json
 import os
 import re
+import time
 from pathlib import Path
 from uuid import uuid4
 
@@ -132,6 +135,30 @@ class CredentialStore:
         if not row:
             raise Missing("model_unavailable")
         return row
+
+    def seal_catalog_entry(self, owner, connection_id, entry):
+        resource_id(owner)
+        resource_id(connection_id)
+        nonce = os.urandom(12)
+        value = {**entry, 'expires': int(time.time()) + 900}
+        aad = f'mideagent.catalog-registration.v1:{owner}:{connection_id}'.encode()
+        return base64.urlsafe_b64encode(nonce + self._cipher.encrypt(
+            nonce, json.dumps(value, sort_keys=True, allow_nan=False).encode(), aad)).decode()
+
+    def open_catalog_entry(self, owner, connection_id, token):
+        resource_id(owner)
+        resource_id(connection_id)
+        try:
+            if not isinstance(token, str) or not 1 <= len(token) <= 8192:
+                raise ValueError()
+            raw = base64.b64decode(token, altchars=b'-_', validate=True)
+            aad = f'mideagent.catalog-registration.v1:{owner}:{connection_id}'.encode()
+            value = json.loads(self._cipher.decrypt(raw[:12], raw[12:], aad))
+            if not isinstance(value, dict) or type(value.get('expires')) is not int or value['expires'] < time.time():
+                raise ValueError()
+            return value
+        except (ValueError, TypeError, InvalidTag, UnicodeError):
+            raise ValueError('모델 조회 확인이 만료되었거나 일치하지 않습니다. 공식 목록을 다시 조회하세요.') from None
 
     def chat(self, owner, model_id, revision, messages, *, transport, approved_origins):
         from ..model_endpoints import OpenAITextAdapter
