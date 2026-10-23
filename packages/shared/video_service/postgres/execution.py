@@ -1381,13 +1381,7 @@ class Execution(Intake):
                         )
                     }
                     receipt["outputs"] = outputs
-                    from ..web_preview import create_preview
-
-                    receipt["previews"] = {
-                        port: create_preview(self.store, owner, ref)
-                        for port, ref in outputs.items()
-                        if ref["type"] == "video"
-                    }
+                    receipt["previews"] = {}
                     receipt = self.ticket_artifacts.capture(db, job, run, receipt)
                     db.execute(
                         "UPDATE node_runs SET status='completed',result=%s,completed_at=now(),lease_owner=NULL,lease_expires_at=NULL WHERE owner_id=%s AND job_id=%s AND id=%s",
@@ -1410,6 +1404,11 @@ class Execution(Intake):
                                 ref["sha256"],
                             ),
                         )
+                    from .video_previews import VideoPreviews
+                    previews = VideoPreviews(self)
+                    for port, ref in outputs.items():
+                        if ref["type"] == "video":
+                            previews.enqueue_in(db, owner, previews.artifact_source(db, identity, run_id, port), automatic=True)
                 except (ValueError, KeyError, TypeError, OSError):
                     db.execute(
                         "UPDATE node_runs SET status='failed',error_code='agent_failed_or_unknown',result=%s,completed_at=now(),lease_owner=NULL,lease_expires_at=NULL WHERE owner_id=%s AND job_id=%s AND id=%s",

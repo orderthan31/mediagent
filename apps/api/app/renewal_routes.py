@@ -134,6 +134,9 @@ def mount_runtime(
 
     owner_dependency = Depends(owner)
 
+    from .full_preview_routes import mount_full_previews
+    mount_full_previews(app, runtime, owner_dependency)
+
     administrator_dependency = Depends(administrator)
 
     def admin_owner(value=administrator_dependency):

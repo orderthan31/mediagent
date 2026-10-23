@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { request, mediaUrl } from './api';
 import { jsonPost } from './video-api';
+import { FullVideoPreview } from './FullVideoPreview';
 import { dispatchLabel } from './dispatch-status';
 import { processingLabel, type ProcessingProjection } from './processing-review-state';
 import { JobProcessingReview } from './JobProcessingReview';
@@ -362,7 +363,7 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
                           {port} · {ref.type}
                         </h4>
                         {ref.type === 'video' &&
-                          run?.result?.previews?.[port]?.status !== 'failed' && (
+                          run?.result?.previews?.[port]?.status === 'ready' && (
                             <video
                               src={url(port) + '/preview'}
                               controls
@@ -370,6 +371,11 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
                               style={{ maxWidth: '100%' }}
                             />
                           )}
+                        {ref.type === 'video' && (
+                          <FullVideoPreview
+                            resource={`${base}/artifacts/${run?.id}/${encodeURIComponent(port)}/preview/full`}
+                          />
+                        )}
                         {ref.type === 'audio' && (
                           <audio src={url(port)} controls preload="metadata" />
                         )}
@@ -378,9 +384,9 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
                             <a href={url(port) + '?download=true'} download>
                               작업 결과 원본 받기
                             </a>
-                            {run?.result?.previews?.[port]?.status !== 'failed' ? (
+                            {run?.result?.previews?.[port]?.status === 'ready' ? (
                               <a href={url(port) + '/preview?download=true'} download>
-                                WebM 받기
+                                이전 30초 WebM 받기
                               </a>
                             ) : (
                               <p role="status">

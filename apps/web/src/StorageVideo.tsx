@@ -3,6 +3,8 @@ import { ArrowRight } from 'lucide-react';
 import { mediaUrl } from './api';
 import { durationLabel, sizeLabel, type VideoAsset } from './video-api';
 import { Badge } from './hangyeol/primitives/badge';
+import { FullVideoPreview } from './FullVideoPreview';
+import { renewalBackend } from './preview';
 
 const videoDuration = (video: VideoAsset) => {
   const duration = video.media?.duration;
@@ -49,7 +51,9 @@ export const StorageVideoInfo = ({ video, assetId }: { video: VideoAsset; assetI
   <section className="storage-video-info" aria-label="원본 영상 정보">
     <div className="storage-preview">
       {video.web_preview && video.web_preview.status !== 'ready' ? (
-        <p role="status">웹 전용 WebM을 준비하지 못했습니다. 원본은 그대로 받을 수 있습니다.</p>
+        <p role="status">
+          기존 30초 미리보기가 없습니다. 원본 받기와 아래 전체길이 생성을 이용하세요.
+        </p>
       ) : (
         <video
           controls
@@ -65,6 +69,7 @@ export const StorageVideoInfo = ({ video, assetId }: { video: VideoAsset; assetI
           사용하세요.
         </p>
       )}
+      {renewalBackend && <FullVideoPreview resource={`/videos/${assetId}/preview/full`} />}
     </div>
     <div className="storage-info">
       <h2>영상 정보</h2>

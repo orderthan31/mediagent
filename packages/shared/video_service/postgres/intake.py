@@ -314,9 +314,7 @@ class Intake:
                 "duration_seconds": media["duration"],
                 "thumbnail": thumbnail,
             }
-            from ..web_preview import create_preview
-
-            metadata["web_preview"] = create_preview(self.store, owner, reference)
+            metadata["web_preview"] = {"status": "deferred", "coverage": "full"}
             db.execute(
                 "INSERT INTO assets(owner_id,id,filename,storage_key,bytes,sha256,metadata) VALUES (%s,%s,%s,%s,%s,%s,%s)",
                 (
@@ -329,6 +327,9 @@ class Intake:
                     Jsonb(metadata),
                 ),
             )
+            from .video_previews import VideoPreviews
+            previews = VideoPreviews(self)
+            previews.enqueue_in(db, owner, previews.asset_source(db, asset_id), automatic=True)
             row = db.execute(
                 "UPDATE source_uploads SET asset_id=%s WHERE owner_id=%s AND id=%s RETURNING *",
                 (asset_id, owner, identity),
