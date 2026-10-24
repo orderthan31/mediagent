@@ -5,6 +5,7 @@ import { FullVideoPreview } from './FullVideoPreview';
 import { dispatchLabel } from './dispatch-status';
 import { processingLabel, type ProcessingProjection } from './processing-review-state';
 import { JobProcessingReview } from './JobProcessingReview';
+import { ProjectionRecoveryPanel } from './ProjectionRecoveryPanel';
 import { PageTitle } from './PageTitle';
 import { LoadingSkeleton } from './LoadingSkeleton';
 import { Button } from './hangyeol/primitives/button';
@@ -536,6 +537,7 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
               }
             />
           </section>
+          {job.status === 'failed' && <ProjectionRecoveryPanel key={job.id} jobId={job.id} />}
           {canManage && (
             <section
               className="ticket-panel"

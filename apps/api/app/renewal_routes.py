@@ -136,6 +136,9 @@ def mount_runtime(
         return value["user"]["id"]
 
     owner_dependency = Depends(owner)
+    from .projection_recovery_routes import mount_projection_recoveries
+
+    mount_projection_recoveries(app, runtime, owner_dependency)
 
     from video_service.content_store import MAX_CONTENT
 

@@ -76,7 +76,7 @@ def projection_wire():
     "split", [True, False, "invalid_clock", "batch", "projection_failure"]
 )
 def test_formal_projection_is_explicit_and_trace_is_an_actual_cas_output(
-    db, admin, movie, tmp_path, projection_wire, split, monkeypatch
+    db, admin, movie, tmp_path, projection_wire, split, monkeypatch, long_profile=False
 ):
     owner = admin[0]["id"]
     origin, calls = projection_wire
@@ -136,7 +136,7 @@ def test_formal_projection_is_explicit_and_trace_is_an_actual_cas_output(
     if split == "projection_failure":
         from video_service import packed_projection
 
-        def fail_projection(*args):
+        def fail_projection(*args, **kwargs):
             raise ValueError("controlled_projection_failure")
 
         monkeypatch.setattr(packed_projection, "project", fail_projection)
@@ -175,6 +175,30 @@ def test_formal_projection_is_explicit_and_trace_is_an_actual_cas_output(
         }
         for i, (a, b, c, d) in enumerate(links)
     ]
+    if long_profile:
+        for node in graph["nodes"]:
+            if node["type"] in {
+                "extract_audio",
+                "preprocess_audio",
+                "transcribe",
+                "translate",
+                "generate_subtitle",
+            }:
+                node["options"]["media_budget"] = "audio_long_v5"
+            if node["type"] == "preprocess_audio":
+                node["options"]["processing_profile"] = "regions_long_v5"
+            if node["type"] == "transcribe":
+                node["options"].update(
+                    clock_policy="packed_projection_v5",
+                    batch_policy="bounded_60s_v1",
+                    max_model_calls="1",
+                )
+            if node["type"] == "translate":
+                node["options"].update(
+                    batch_policy="bounded_100x16k_v1", max_model_calls="1"
+                )
+            if node["type"] == "review":
+                node["options"]["review_kind"] = "audio_regions_long_v5"
     assert validate(graph)["valid"], validate(graph)
     definition = runtime.save_definition(owner, uuid4().hex, graph)
     asset = runtime.ingest(owner, "synthetic-projection.mp4", movie)
