@@ -998,7 +998,7 @@ class Execution(Intake):
                 "candidates": [pin, *pin.get("fallbacks", [])],
                 "source_language": job["snapshot"]["options"]["source_language"],
                 **(
-                    {"target_language": job["snapshot"]["options"]["target_language"]}
+                    {"target_language": node['options']['target_language'] if node['options'].get('translation_profile')=='language_target_v1' else job["snapshot"]["options"]["target_language"]}
                     if kind == "translation"
                     else {}
                 ),

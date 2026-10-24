@@ -90,6 +90,8 @@ NODES = [
         role="translation",
         choices={
             "batch_policy": ["single", "bounded_100x16k_v1"],
+            "translation_profile": ["legacy", "language_target_v1"],
+            "target_language": [""],
             "max_model_calls": MODEL_CALL_LIMITS,
         },
     ),
@@ -323,11 +325,19 @@ def validate_node(payload):
         or (
             not re.fullmatch(r"[a-z]{2,3}", v)
             if selected["id"] == "generate_subtitle" and k == "language"
+            else not (v==''or len(v)<=64 and re.fullmatch(r'[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*',v))
+            if selected['id']=='translate'and k=='target_language'
             else v not in selected["options"][k]
         )
         for k, v in options.items()
     ):
         raise ValueError("지원하지 않는 처리 옵션 조합입니다.")
+    if selected['id']=='translate':
+        if options.get('translation_profile','legacy')=='language_target_v1':
+            if not options.get('target_language')or options['target_language']=='auto'or options.get('batch_policy')!='bounded_100x16k_v1'or 'max_model_calls'not in options:
+                raise ValueError('명시 언어별 번역은 대상 언어와 분할 호출 상한이 필요합니다.')
+        elif options.get('target_language'):
+            raise ValueError('명시 언어별 번역 프로필을 선택하세요.')
     if selected["id"] == "preprocess_audio":
         nvidia_regions = options.get("processing_profile") == "nvidia_regions_v4"
         if nvidia_regions and options.get("vad_mode") != "nvidia":
