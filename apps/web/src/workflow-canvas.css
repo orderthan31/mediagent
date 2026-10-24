@@ -7,6 +7,20 @@
   color: var(--g-ink);
 }
 .workflow-layout-actions {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 4;
+  max-width: calc(100% - 24px);
+  box-sizing: border-box;
+  align-items: center;
+  padding: 4px;
+  border: 1px solid var(--g-line);
+  border-radius: 10px;
+  background: var(--g-surface);
+  box-shadow: 0 3px 12px #18224012;
+  cursor: default;
+  touch-action: manipulation;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -319,8 +333,9 @@
 }
 .workflow-agent-picker {
   position: absolute;
-  bottom: 16px;
-  left: 16px;
+  top: 12px;
+  bottom: auto;
+  left: 12px;
   z-index: 4;
   display: flex;
   gap: 8px;
@@ -341,7 +356,8 @@
 }
 .workflow-agent-menu {
   position: absolute;
-  bottom: calc(100% + 10px);
+  top: calc(100% + 10px);
+  bottom: auto;
   left: 0;
   width: 260px;
   max-height: min(380px, 55dvh);
@@ -475,13 +491,131 @@
   .workflow-agent-picker {
     gap: 6px;
     left: 12px;
-    bottom: 12px;
+    right: 12px;
+    bottom: auto;
   }
   .workflow-agent-picker > button {
+    flex: 1;
+    min-width: 0;
     padding: 8px 10px;
     font-size: var(--text-g-small);
   }
   .workflow-node-settings {
     padding: 14px;
+  }
+}
+
+.workflow-toolbar-scale {
+  min-width: 40px;
+  text-align: center;
+  font-size: var(--text-g-small);
+  font-variant-numeric: tabular-nums;
+}
+.workflow-graph-wires path.workflow-wire {
+  fill: none;
+  stroke: var(--g-line, #d1d5e2);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+.workflow-graph-wires path.workflow-wire.is-active {
+  stroke: var(--g-action);
+  stroke-width: 3;
+  color: var(--g-action);
+}
+.workflow-graph-wires path.workflow-wire-hit {
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  fill: none;
+  stroke: transparent;
+  stroke-width: 40px;
+  vector-effect: non-scaling-stroke;
+  pointer-events: stroke;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.workflow-graph-wires path.workflow-wire-hit:focus-visible {
+  stroke: color-mix(in srgb, var(--g-action) 18%, transparent);
+}
+.workflow-graph .workflow-edge-action {
+  right: auto;
+  width: min(300px, calc(100% - 16px));
+  max-height: calc(100% - 132px);
+  overflow: auto;
+  box-sizing: border-box;
+  z-index: 5;
+  padding: 10px;
+  border-radius: 10px;
+  box-shadow: 0 4px 16px #18224018;
+  display: grid;
+  gap: 6px;
+  touch-action: pan-y;
+  cursor: default;
+}
+.workflow-edge-action > strong {
+  font-size: var(--text-g-small);
+}
+.workflow-edge-action > span,
+.workflow-edge-action > p {
+  font-size: var(--m-type-micro);
+  overflow-wrap: anywhere;
+  margin: 0;
+}
+.workflow-edge-action > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.workflow-graph .workflow-edge-action button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 44px;
+  padding: 6px 8px;
+  border: 1px solid var(--g-line);
+  border-radius: 6px;
+  background: var(--g-surface);
+  color: var(--g-ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--m-type-micro);
+}
+.workflow-graph .workflow-edge-action button[aria-pressed='true'] {
+  border-color: var(--g-action);
+  color: var(--g-action);
+}
+.workflow-edge-action select {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  margin-top: 4px;
+  font-size: var(--m-type-micro);
+}
+.workflow-graph .workflow-connection-error {
+  z-index: 6;
+  max-width: calc(100% - 32px);
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 700px) {
+  .workflow-graph .workflow-layout-actions {
+    display: flex;
+    gap: 4px;
+  }
+}
+@media (max-width: 600px) {
+  .workflow-layout-actions {
+    gap: 4px;
+  }
+  .workflow-layout-actions > button {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    padding: 0;
+  }
+  .workflow-toolbar-label {
+    display: none;
   }
 }

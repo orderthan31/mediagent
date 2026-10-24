@@ -23,6 +23,7 @@ import {
 import { autoArrange, applyLayout, type LayoutPoint, type Positions } from './workflow-layout';
 import { routeConnections, type Wire, type WireRoute } from './workflow-routing';
 import { switchOutputs } from './workflow-controls';
+import { reconnectEdge, undoEdgeChange, type EdgeChange } from './workflow-connections';
 import { NodeSymbol, nodeKind, nodeKindLabel } from './NodeSymbol';
 import { resolvePorts, type PortSpec } from './workflow-spec';
 import type { NodeFormContract } from './form-contract';
@@ -90,6 +91,11 @@ export const WorkflowCanvas = ({
   const [view, setView] = useState({ x: 40, y: 40, scale: 1 });
   const [selected, setSelected] = useState('');
   const [edgeId, setEdgeId] = useState('');
+  const [rewiring, setRewiring] = useState<'source' | 'target' | null>(null);
+  const [edgeHistory, setEdgeHistory] = useState<{ key: string; values: EdgeChange[] }>({
+    key: definition.id,
+    values: [],
+  });
   const [adding, setAdding] = useState<'agent' | 'control' | 'review' | null>(null);
   const [source, setSource] = useState<Endpoint | null>(null);
   const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
@@ -265,7 +271,7 @@ export const WorkflowCanvas = ({
   const fitted = () => {
     // Fit inside the unobstructed canvas, not underneath touch-sized controls.
     const topInset = matchMedia('(max-width: 700px)').matches ? 72 : 0;
-    const bottomInset = onChange || topInset === 0 ? 72 : 0;
+    const bottomInset = topInset && onChange ? 124 : 72;
     const contentHeight = Math.max(1, size.height - topInset - bottomInset);
     const scale = Math.min(
       1,
@@ -286,6 +292,10 @@ export const WorkflowCanvas = ({
   const select = (id: string) => {
     setSelected(id);
     setEdgeId('');
+    setAdding(null);
+    setRewiring(null);
+    setSource(null);
+    setCursor(null);
     onSelect?.(id);
   };
   const zoom = (factor: number) =>
@@ -360,29 +370,72 @@ export const WorkflowCanvas = ({
     const bend = Math.max(70, Math.abs(to.x - from.x) * 0.45);
     return `M${from.x},${from.y} C${from.x + bend},${from.y} ${to.x - bend},${to.y} ${to.x},${to.y}`;
   };
+  const cancelConnection = () => {
+    setRewiring(null);
+    setSource(null);
+    setCursor(null);
+    setConnectionError('');
+  };
+  const commitEdges = (next: CanvasDefinition['edges']) => {
+    if (!onChange || disabled || JSON.stringify(next) === JSON.stringify(definition.edges)) {
+      return;
+    }
+    const change: EdgeChange = {
+      definition_id: definition.id,
+      before: definition.edges,
+      after: next,
+    };
+    setEdgeHistory((previous) => ({
+      key: definition.id,
+      values: [...(previous.key === definition.id ? previous.values : []), change].slice(-30),
+    }));
+    onChange({ ...definition, edges: next });
+  };
+  const undoConnection = () => {
+    if (!onChange || disabled || edgeHistory.key !== definition.id || !edgeHistory.values.length) {
+      return;
+    }
+    try {
+      onChange(undoEdgeChange(definition, edgeHistory.values[edgeHistory.values.length - 1]));
+      setEdgeHistory((previous) => ({ ...previous, values: previous.values.slice(0, -1) }));
+      cancelConnection();
+      setEdgeId('');
+    } catch (error) {
+      setConnectionError(error instanceof Error ? error.message : '연결을 되돌리지 못했습니다.');
+    }
+  };
+  const deleteConnection = () => {
+    if (!onChange || disabled || !edgeId) {
+      return;
+    }
+    commitEdges(definition.edges.filter((edge) => edge.id !== edgeId));
+    cancelConnection();
+    setEdgeId('');
+  };
+  const replaceEndpoint = (next: Endpoint) => {
+    if (!onChange || disabled || !rewiring || !edgeId) {
+      return;
+    }
+    try {
+      commitEdges(reconnectEdge(definition.edges, edgeId, rewiring, next, boxes));
+      cancelConnection();
+    } catch (error) {
+      setConnectionError(error instanceof Error ? error.message : '원래 연결을 유지합니다.');
+    }
+  };
   const connect = (target: Endpoint) => {
     if (!source || !onChange || disabled) {
       return;
     }
-    if (source.node === target.node) {
-      setConnectionError('같은 에이전트에는 연결할 수 없습니다.');
-      return;
+    const newEdge = { id: crypto.randomUUID().replaceAll('-', ''), source, target };
+    try {
+      commitEdges(
+        reconnectEdge([...definition.edges, newEdge], newEdge.id, 'target', target, boxes),
+      );
+      cancelConnection();
+    } catch (error) {
+      setConnectionError(error instanceof Error ? error.message : '연결할 수 없습니다.');
     }
-    if (
-      definition.edges.some(
-        (edge) => edge.target.node === target.node && edge.target.port === target.port,
-      )
-    ) {
-      setConnectionError('이미 연결된 입력입니다.');
-      return;
-    }
-    onChange({
-      ...definition,
-      edges: [...definition.edges, { id: crypto.randomUUID().replaceAll('-', ''), source, target }],
-    });
-    setSource(null);
-    setCursor(null);
-    setConnectionError('');
   };
   const add = (spec: CanvasSpec) => {
     if (!onChange || disabled) {
@@ -420,7 +473,7 @@ export const WorkflowCanvas = ({
       nodeDrag.current ||
       wireDrag.current ||
       (event.target as Element).closest(
-        'button, a, input, select, .workflow-node-detail, .workflow-agent-picker',
+        'button, a, input, select, [role=toolbar], .workflow-edge-action, .workflow-node-detail, .workflow-agent-picker',
       )
     ) {
       return;
@@ -470,6 +523,39 @@ export const WorkflowCanvas = ({
       event.currentTarget.releasePointerCapture(id);
     }
   };
+  const selectedEdge = definition.edges.find((edge) => edge.id === edgeId);
+  const selectedPoints = selectedEdge ? routing.routes.get(edgeId)?.points : undefined;
+  const edgeMiddle =
+    selectedPoints?.[Math.floor(selectedPoints.length / 2)] ||
+    (selectedEdge ? point(selectedEdge.source, true) : null);
+  const edgeToolPosition = edgeMiddle
+    ? {
+        left: Math.max(8, Math.min(size.width - 308, view.x + edgeMiddle.x * view.scale - 150)),
+        top: Math.max(
+          onChange ? 76 : 8,
+          Math.min(size.height - 240, view.y + edgeMiddle.y * view.scale + 12),
+        ),
+      }
+    : { left: 8, top: 70 };
+  const compatiblePorts =
+    rewiring && selectedEdge
+      ? boxes
+          .flatMap((box) =>
+            Object.keys(rewiring === 'source' ? box.outputs : box.inputs).map((port) => ({
+              node: box.id,
+              port,
+              label: box.label,
+            })),
+          )
+          .filter((endpoint) => {
+            try {
+              reconnectEdge(definition.edges, edgeId, rewiring, endpoint, boxes);
+              return true;
+            } catch {
+              return false;
+            }
+          })
+      : [];
   const selectedBox = boxes.find((box) => box.id === selected);
   const previewFrom = source ? point(source, true) : null;
   useEffect(() => {
@@ -525,28 +611,6 @@ export const WorkflowCanvas = ({
   }, [selected]);
   return (
     <section className="workflow-graph" aria-label="워크플로우">
-      <div className="workflow-layout-actions" role="toolbar" aria-label="캔버스 배치">
-        <button
-          type="button"
-          onClick={arrange}
-          disabled={(!!onChange && disabled) || !definition.nodes.length}
-        >
-          <LayoutGrid size={16} /> 자동 정렬
-        </button>
-        <button type="button" onClick={cleanupWires}>
-          <GitBranch size={16} /> 연결선 정리
-        </button>
-        <button type="button" onClick={() => setView(fitted())}>
-          <Maximize size={16} /> 전체 보기
-        </button>
-        <button
-          type="button"
-          onClick={undoLayout}
-          disabled={onChange ? disabled || !history.length : !previewPositions}
-        >
-          <Undo2 size={16} /> {onChange ? '정렬 되돌리기' : '배치 초기화'}
-        </button>
-      </div>
       <p className="workflow-layout-notice" aria-live="polite">
         {cleanupRequested && routing.error
           ? routing.error
@@ -570,10 +634,38 @@ export const WorkflowCanvas = ({
         onPointerCancel={endPointer}
         onLostPointerCapture={endPointer}
         onKeyDown={(event) => {
+          if (
+            (event.target as Element).closest('input, textarea, select, [contenteditable=true]')
+          ) {
+            return;
+          }
           if (event.key === 'Escape') {
-            setSource(null);
+            event.preventDefault();
+            cancelConnection();
             setAdding(null);
             select('');
+            return;
+          }
+          if (
+            (event.key === 'Delete' || event.key === 'Backspace') &&
+            edgeId &&
+            onChange &&
+            !disabled
+          ) {
+            event.preventDefault();
+            deleteConnection();
+            return;
+          }
+          if (
+            (event.ctrlKey || event.metaKey) &&
+            event.key.toLowerCase() === 'z' &&
+            edgeHistory.values.length &&
+            onChange &&
+            !disabled
+          ) {
+            event.preventDefault();
+            undoConnection();
+            return;
           }
           if (event.target !== event.currentTarget) {
             return;
@@ -588,19 +680,6 @@ export const WorkflowCanvas = ({
             event.preventDefault();
             const [x, y] = delta[event.key];
             setView((previous) => ({ ...previous, x: previous.x + x, y: previous.y + y }));
-          }
-          if (
-            (event.key === 'Delete' || event.key === 'Backspace') &&
-            edgeId &&
-            onChange &&
-            !disabled
-          ) {
-            event.preventDefault();
-            onChange({
-              ...definition,
-              edges: definition.edges.filter((edge) => edge.id !== edgeId),
-            });
-            setEdgeId('');
           }
         }}
       >
@@ -638,23 +717,48 @@ export const WorkflowCanvas = ({
                 selected === edge.source.node ||
                 selected === edge.target.node;
               return (
-                <path
-                  key={edge.id}
-                  data-edge-id={edge.id}
-                  className={'workflow-wire ' + (active ? 'is-active' : '')}
-                  d={routing.routes.get(edge.id)?.path || curve(from, to)}
-                  markerEnd={`url(#${marker})`}
-                  onPointerDown={(event) => event.stopPropagation()}
-                  onClick={() => {
-                    if (onChange) {
-                      setEdgeId(edge.id);
-                      setSelected('');
-                      onSelect?.('');
-                    }
-                  }}
-                >
-                  <title>{`${edge.source.port} → ${edge.target.port}`}</title>
-                </path>
+                <g key={edge.id}>
+                  <path
+                    data-edge-id={edge.id}
+                    className={'workflow-wire ' + (active ? 'is-active' : '')}
+                    d={routing.routes.get(edge.id)?.path || curve(from, to)}
+                    markerEnd={`url(#${marker})`}
+                  />
+                  <path
+                    data-edge-hit={edge.id}
+                    className="workflow-wire-hit"
+                    d={routing.routes.get(edge.id)?.path || curve(from, to)}
+                    role={onChange && !disabled ? 'button' : undefined}
+                    tabIndex={onChange && !disabled ? 0 : -1}
+                    aria-label={`연결 선택 ${edge.source.node}.${edge.source.port} → ${edge.target.node}.${edge.target.port}`}
+                    style={{ pointerEvents: onChange && !disabled ? 'stroke' : 'none' }}
+                    onPointerDown={(event) => {
+                      if (onChange && !disabled) {
+                        event.stopPropagation();
+                      }
+                    }}
+                    onClick={(event) => {
+                      if (onChange && !disabled) {
+                        event.stopPropagation();
+                        cancelConnection();
+                        setEdgeId(edge.id);
+                        setSelected('');
+                        onSelect?.('');
+                      }
+                    }}
+                    onKeyDown={(event) => {
+                      if ((event.key === 'Enter' || event.key === ' ') && onChange && !disabled) {
+                        event.preventDefault();
+                        cancelConnection();
+                        setEdgeId(edge.id);
+                        setSelected('');
+                        onSelect?.('');
+                      }
+                    }}
+                  >
+                    <title>{`${edge.source.port} → ${edge.target.port}`}</title>
+                  </path>
+                </g>
               );
             })}
             {previewFrom && cursor && (
@@ -766,6 +870,7 @@ export const WorkflowCanvas = ({
                         title={`${port} · ${box[direction][port]}`}
                         onPointerDown={(event) => {
                           if (
+                            rewiring ||
                             direction !== 'outputs' ||
                             event.button !== 0 ||
                             event.isPrimary === false ||
@@ -813,6 +918,19 @@ export const WorkflowCanvas = ({
                             suppressPortClick.current = false;
                             return;
                           }
+                          if (rewiring) {
+                            const expected = rewiring === 'source' ? 'outputs' : 'inputs';
+                            if (direction === expected) {
+                              replaceEndpoint({ node: box.id, port });
+                            } else {
+                              setConnectionError(
+                                expected === 'outputs'
+                                  ? '새 출력 포트를 선택하세요. 원래 연결은 유지됩니다.'
+                                  : '새 입력 포트를 선택하세요. 원래 연결은 유지됩니다.',
+                              );
+                            }
+                            return;
+                          }
                           if (direction === 'outputs') {
                             setSource({ node: box.id, port });
                             setConnectionError('');
@@ -841,7 +959,11 @@ export const WorkflowCanvas = ({
                 disabled={disabled || definition.nodes.length >= 100}
                 aria-expanded={adding === kind}
                 aria-controls={`${marker}-nodes`}
-                onClick={() => setAdding((previous) => (previous === kind ? null : kind))}
+                onClick={() => {
+                  cancelConnection();
+                  setEdgeId('');
+                  setAdding((previous) => (previous === kind ? null : kind));
+                }}
               >
                 <Plus size={17} />
                 {
@@ -870,31 +992,65 @@ export const WorkflowCanvas = ({
             )}
           </div>
         )}
-        <div className="workflow-graph-controls">
+        <div className="workflow-layout-actions" role="toolbar" aria-label="캔버스 배치">
           <button
             type="button"
-            className="ui02-icon"
-            aria-label="캔버스 축소"
-            onClick={() => zoom(1 / 1.2)}
+            aria-label="자동 정렬"
+            title="노드 자동 정렬"
+            onClick={arrange}
+            disabled={(!!onChange && disabled) || !definition.nodes.length}
           >
+            <LayoutGrid size={16} />
+            <span className="workflow-toolbar-label">자동 정렬</span>
+          </button>
+          <button
+            type="button"
+            aria-label="연결선 정리"
+            title="연결 관계를 유지하고 선 정리"
+            onClick={cleanupWires}
+          >
+            <GitBranch size={16} />
+            <span className="workflow-toolbar-label">선 정리</span>
+          </button>
+          <button
+            type="button"
+            aria-label="전체 노드 보기"
+            title="전체 보기"
+            onClick={() => setView(fitted())}
+          >
+            <Maximize size={16} />
+            <span className="workflow-toolbar-label">전체 보기</span>
+          </button>
+          <button type="button" aria-label="캔버스 축소" title="축소" onClick={() => zoom(1 / 1.2)}>
             <Minus size={16} />
           </button>
-          <span>{Math.round(view.scale * 100)}%</span>
-          <button
-            type="button"
-            className="ui02-icon"
-            aria-label="캔버스 확대"
-            onClick={() => zoom(1.2)}
-          >
+          {onChange && (
+            <button
+              type="button"
+              aria-label="연결 되돌리기"
+              title="연결 되돌리기"
+              onClick={undoConnection}
+              disabled={disabled || edgeHistory.key !== definition.id || !edgeHistory.values.length}
+            >
+              <Undo2 size={16} />
+              <span className="workflow-toolbar-label">연결 복구</span>
+            </button>
+          )}
+          <span className="workflow-toolbar-scale">{Math.round(view.scale * 100)}%</span>
+          <button type="button" aria-label="캔버스 확대" title="확대" onClick={() => zoom(1.2)}>
             <Plus size={16} />
           </button>
           <button
             type="button"
-            className="ui02-icon"
-            aria-label="전체 노드 보기"
-            onClick={() => setView(fitted())}
+            aria-label={onChange ? '정렬 되돌리기' : '배치 초기화'}
+            title={onChange ? '정렬 되돌리기' : '배치 초기화'}
+            onClick={undoLayout}
+            disabled={onChange ? disabled || !history.length : !previewPositions}
           >
-            <Maximize size={16} />
+            <Undo2 size={16} />
+            <span className="workflow-toolbar-label">
+              {onChange ? '정렬 되돌리기' : '배치 초기화'}
+            </span>
           </button>
         </div>
         {connectionError && (
@@ -902,23 +1058,94 @@ export const WorkflowCanvas = ({
             {connectionError}
           </p>
         )}
-        {edgeId && onChange && (
-          <div className="workflow-edge-action">
+        {selectedEdge && onChange && !disabled && (
+          <div
+            className="workflow-edge-action"
+            role="toolbar"
+            aria-label="연결 편집"
+            style={edgeToolPosition}
+          >
+            <strong>선택한 연결</strong>
+            <span>
+              {boxes.find((box) => box.id === selectedEdge.source.node)?.label}.
+              {selectedEdge.source.port} →{' '}
+              {boxes.find((box) => box.id === selectedEdge.target.node)?.label}.
+              {selectedEdge.target.port}
+            </span>
+            <div>
+              <button
+                type="button"
+                aria-label="선택한 연결 삭제"
+                title="연결 해제"
+                onClick={deleteConnection}
+              >
+                <Trash2 size={16} />
+                연결 해제
+              </button>
+              <button
+                type="button"
+                aria-label="연결 출력 바꾸기"
+                aria-pressed={rewiring === 'source'}
+                onClick={() => {
+                  setSource(null);
+                  setRewiring('source');
+                  setConnectionError('');
+                }}
+              >
+                <GitBranch size={16} />
+                출력 변경
+              </button>
+              <button
+                type="button"
+                aria-label="연결 입력 바꾸기"
+                aria-pressed={rewiring === 'target'}
+                onClick={() => {
+                  setSource(null);
+                  setRewiring('target');
+                  setConnectionError('');
+                }}
+              >
+                <GitBranch size={16} />
+                입력 변경
+              </button>
+            </div>
+            {rewiring && (
+              <label>
+                새 {rewiring === 'source' ? '출력' : '입력'} 포트
+                <select
+                  aria-label={rewiring === 'source' ? '호환 출력 포트' : '호환 입력 포트'}
+                  value=""
+                  onChange={(event) => {
+                    if (event.target.value) {
+                      replaceEndpoint(JSON.parse(event.target.value));
+                    }
+                  }}
+                >
+                  <option value="">호환 포트 선택 · 원래 연결 유지 중</option>
+                  {compatiblePorts.map((endpoint) => (
+                    <option
+                      key={endpoint.node + ':' + endpoint.port}
+                      value={JSON.stringify({ node: endpoint.node, port: endpoint.port })}
+                    >
+                      {endpoint.label} · {endpoint.node}.{endpoint.port}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {rewiring && (
+              <p>새 포트를 탭하거나 목록에서 선택하세요. 완료 전 원래 연결은 유지됩니다.</p>
+            )}
             <button
               type="button"
-              className="ui02-icon"
-              disabled={disabled}
-              aria-label="선택한 연결 삭제"
-              title="연결 삭제"
+              aria-label="연결 편집 취소"
               onClick={() => {
-                onChange({
-                  ...definition,
-                  edges: definition.edges.filter((edge) => edge.id !== edgeId),
-                });
+                cancelConnection();
                 setEdgeId('');
               }}
             >
-              <Trash2 size={17} />
+              <X size={16} />
+              취소
             </button>
           </div>
         )}
