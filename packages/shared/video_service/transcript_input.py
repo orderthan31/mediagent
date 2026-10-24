@@ -17,7 +17,7 @@ def parse_segments(raw):
     for value in values:
         if (
             not isinstance(value, dict)
-            or set(value) - {"start", "end", "text", "speaker"}
+            or set(value) - {"id", "start", "end", "text", "speaker"}
             or not {"start", "end", "text"} <= set(value)
             or any(
                 type(value[k]) not in (int, float) or not math.isfinite(value[k])

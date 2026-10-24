@@ -42,7 +42,10 @@ def schemas():
         "type": "object",
         "additionalProperties": False,
         "required": ["id", "revision"],
-        "properties": {"id": {"enum": sorted(CPU_AGENTS)}, "revision": {"const": "1"}},
+        "properties": {
+            "id": {"enum": sorted(CPU_AGENTS)},
+            "revision": {"enum": ["1", "3"]},
+        },
     }
     command = {
         "type": "object",
@@ -81,7 +84,9 @@ def schemas():
         }
         branch = {
             "properties": {
-                "agent": {"properties": {"id": {"const": role}}},
+                "agent": {
+                    "properties": {"id": {"const": role}, "revision": {"const": "1"}}
+                },
                 "inputs": {
                     "type": "object",
                     "additionalProperties": False,
@@ -97,6 +102,36 @@ def schemas():
                 },
             }
         }
+        if role == "generate_subtitle":
+            branch["properties"]["agent"]["properties"]["revision"] = {
+                "enum": ["1", "3"]
+            }
+            branch["properties"]["options"]["properties"]["language"] = {
+                "type": "string",
+                "pattern": "^[a-z]{2,3}$",
+            }
+            branch["allOf"] = [
+                {
+                    "if": {
+                        "properties": {
+                            "agent": {"properties": {"revision": {"const": "3"}}}
+                        }
+                    },
+                    "then": {
+                        "properties": {
+                            "options": {
+                                "required": ["format"],
+                                "properties": {"format": {"const": "srt_smi"}},
+                            }
+                        }
+                    },
+                    "else": {
+                        "properties": {
+                            "options": {"properties": {"format": {"enum": ["srt"]}}}
+                        }
+                    },
+                }
+            ]
         if role == "encode":
             branch["if"] = {
                 "properties": {
@@ -116,8 +151,16 @@ def schemas():
         "type": "object",
         "additionalProperties": False,
         "required": ["version", "owner", "command"],
-        "$defs": {"artifact": artifact, "input_artifact": {**deepcopy(artifact),
-                  "properties": {**deepcopy(artifact["properties"]), "source_owner_id": identity}}},
+        "$defs": {
+            "artifact": artifact,
+            "input_artifact": {
+                **deepcopy(artifact),
+                "properties": {
+                    **deepcopy(artifact["properties"]),
+                    "source_owner_id": identity,
+                },
+            },
+        },
         "properties": {
             "version": {"const": 1, "type": "integer"},
             "owner": identity,

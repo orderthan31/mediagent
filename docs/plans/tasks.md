@@ -1,6 +1,26 @@
 # 현재 구현 태스크
 
-## Gemini 용도 매핑 — 구현·격리 검증 완료 / 소스 검토·App publish 전
+## 현재 최우선: 기존 전체 작업(얼굴합성 제외) renewal 연결
+
+기존 업로드 d54/Gemini 목록 매핑 214f의 운영 수용은 종료 상태로 유지한다. 현재 운영은 accepted 214f scoped API/web·normal·기존 19+021이며 이번 후보와 분리한다. 아래 후보 진전은 소스 최종수용/App publish/운영 반영/기존 전체 기능 동등 종료가 아니다.
+
+- [x] 실제 refs/WIP/운영 pin 보존. main 없음, master 57d34e99 읽기 비교, renewal 214f 단독 격리 후보 작성.
+- [x] 공용 캔버스 내부 하단 도구·40px 선 선택·연결해제·입출력 재연결·취소/Esc·설정/모델핀 보존 undo. 실제 PC1440/390 조작과 정상 PostgreSQL/CAS 저장·재열기 완료. 이미 확인한 이 경계는 반복 시험하지 않는다.
+- [x] 기존 번역 프로필/모델·연결·키 개정 보존, 공식 근거 있는 Gemini 명시 전사 variant/개별 proof/새 호환 개정·NodeModelBinding 고정/저장·재열기. 실제 공급자 호출권한·인식 품질 수용은 아니다.
+- [x] 편집형 전체작업 정의: 분석→추출→전처리→전사→번역→원문/번역 SRT·SMI→선택 검수→영상 합성→검증. 검수 기본 노드는 유지하고 no-review는 명시 옵션으로만 만든다. 과거 저장 정의/티켓은 자동 교체하지 않는다.
+- [x] 명시 bounded batch 정책/티켓 호출 상한·노드 시간상한, PCM 프레임 분할·원본/입력/clock SHA·언어·후보/모델/연결개정 결속. 단일 음성 60초/2MiB·번역 100구간/16000 UTF-8 bytes·전역 입력/결과 한도는 그대로다.
+- [x] 후보 022 per-chunk intent/참조 cache/단조 호출 budget. 실제 PG에서 intent commit 전 외부 진입0, 완료 참조 재사용, 결과 commit 실패/유실 intent unknown·held/재과금 금지, 살아 있는 guard 비고아화, 고정 상한/언어/원본/PCM clock 변조 거부 확인. 운영 022/권한 적용은 안 했다.
+- [x] 저장한 실제 frontend 정의의 121초 합성 입력→정식 preview/create/plan/confirm/admit/run→독립 API/results/model 프로세스·별도 CPU consumer→분할 전사 3회→번역 1회→원문/번역 SRT·SMI→실제 영상 생성/전체 decode·인증 다운로드 SHA/manifest 확인. 실제 TLS MQ/S3와 PG, 통제 HTTP 응답이며 공급자 인증/품질·운영 사이트 증거가 아니다.
+- [x] 바뀐 경계만 좁게 검증: 실제 분할 사이 취소 뒤 다음 구간/번역0, 명시 기존 recovery·위험인지·새 동의로 완료 구간 재사용. dense 자막에서 100구간/16KB 분할과 ID/순서/시각 보존. 최신 guard 설치 프로세스의 완료 참조 재전달은 HTTP/추가 budget·receipt0, 위조 참조2개는 격리 큐만 거부하고 manifest 불변.
+- [x] subtitle revision3의 SRT+SMI 별도 출력/원문·번역 언어, 실제 .smi 인증 다운로드와 MQ 옵션별 output 검증. 기존 revision1/SRT 기본 계약은 유지한다.
+- [ ] master 선택 전처리(conservative/strong/silence3)·NVIDIA VAD/정확 시각복원과 검수·다국어 차이를 채운다. CPU 전처리 off/no-review의 기본 경로 성공을 기존 전체 작업 동등으로 종료하지 않는다.
+- [ ] 긴 원본의 역할별 CPU/clock 계약: 현재 기존 audio clock의 packed 300초와 CPU 역할별 256MiB 경계는 유지돼 있다. 새 분할 helper의 6시간/1GiB 상한은 전체 6시간 작업 지원 증거가 아니며 전역 한도를 풀어 해결하지 않는다.
+- [ ] 최종 좁은 source gate/검토·App publish→같은 사설사이트 운영 활성화/필요 WebM 의존 연결→실제 원본·워크플로우 선택/고정/실행·재생·다운로드. 020/022 및 최소 권한/전용 캐시/프로세스 연결은 격리 검증과 운영 적용을 분리한다.
+- [ ] 실제 공급자 유료 호출은 모델·입력길이·호출/비용 상한 승인 후에만 수행한다. 현재 호출은 통제된 격리 peer뿐이다. 얼굴합성/root키복사/포괄GRANT/새 공개망/타호스트 이전과 운영 #5/DLQ/accepted/initializer 조작은 제외한다.
+
+검증 정본: legacy-equivalent-workflow-214f1fe313/installed-long-evidence-r2 및 좁은 PG/코어 로그. 최초 하네스의 admit 뒤 run 누락은 waiting/runs0/outbox0/provider0으로 분리했고 원 사실을 보존했다. positive 설치 실행과 그 뒤 추가한 budget/언어/프레임 guard의 검증 세대를 분리한다. 예전 mutable app tag는 현재 inspect 불가이므로 당시 build log를 후대 전체 byte readback으로 표현하지 않으며 최신 guard 이미지는 별도 고정했다. 최종 후보 설치본의 shared/API 실제 113경로 byte readback 일치와 최신 프로세스의 완료 참조/위조 참조 경계를 확인했다. 호출 직전 원 PG 세션/정확 advisory guard 재검사와 실제 세션종료 뒤 adapter HTTP 진입0도 별도 좁게 검증했다. 기존 Starlette/httpx와 Vite chunk 경고·변경 Python의 부모 4진단을 숨기지 않는다.
+
+## Gemini 용도 매핑 — 214f 운영 수용 종료 / 아래는 당시 후보 기록
 
 - 업로드 d54a2e118e의 동일 사설 운영 반영과 대표311,042,538byte UI→등록/재조회→native다운로드 SHA 확인은 PM1563251284352700457 수용으로 종료했다. 원본23/작업8·기존19+021·006SHA/020부재·normal·기존자료/키/WIP/롤백 보존을 승계하며 업로드 재시험/재배포나 별도 docs-only 왕복은 요구하지 않는다. 아래13b/업로드 후보 문구는 그 당시의 역사기록이다.
 - 수용 classifier의 Gemini 정확3ID 제한 때문에 실제 기존키 GET의 gemini-2.5-pro 등 다른 확인된 텍스트 모델이 profile=None/용도 미확인이었다. 공급자 목록 자체는 계속 실제 GET으로 발견한다. capability 근거표는 드롭다운 모델목록의 대체물이 아니며 generateContent/이름접두만으로 용도를 부여하지 않는다.

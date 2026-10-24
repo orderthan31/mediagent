@@ -17,6 +17,7 @@ import {
   controlFieldLabels,
   controlValueLabels,
 } from './workflow-controls';
+import { createLegacyWorkflow } from './workflow-templates';
 import './workflow-editor.css';
 
 type Definition = CanvasDefinition & { catalog_version: number };
@@ -54,6 +55,7 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
   const [history, setHistory] = useState(false);
   const [inputName, setInputName] = useState('');
   const [inputType, setInputType] = useState('video');
+  const [templateNotice, setTemplateNotice] = useState('');
   const node = doc.nodes.find((item) => item.id === selected);
   const spec = resolvePorts(
     catalog.find((item) => item.id === node?.type),
@@ -118,34 +120,6 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
     });
     setSelected('');
   };
-  useEffect(() => {
-    const controller = new AbortController();
-    void (async () => {
-      try {
-        const [specs, saved] = await Promise.all([
-          request<{ nodes: CanvasSpec[] }>('/settings/node-catalog', { signal: controller.signal }),
-          initialId
-            ? request<Definition>(endpoint + '/' + initialId, { signal: controller.signal })
-            : Promise.resolve(null),
-        ]);
-        if (!controller.signal.aborted) {
-          setCatalog([...specs.nodes, ...(frontendOnly ? controlSpecs : [])]);
-          if (saved) {
-            setDoc(saved);
-          }
-        }
-      } catch (value) {
-        if (!controller.signal.aborted) {
-          setError(value instanceof Error ? value.message : '워크플로우를 불러오지 못했습니다.');
-        }
-      } finally {
-        if (!controller.signal.aborted) {
-          setBusy('');
-        }
-      }
-    })();
-    return () => controller.abort();
-  }, [initialId]);
   const panel =
     selected === '$input' ? (
       <fieldset disabled={!!busy}>
@@ -315,6 +289,34 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
         </Button>
       </fieldset>
     ) : undefined;
+  useEffect(() => {
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const [specs, saved] = await Promise.all([
+          request<{ nodes: CanvasSpec[] }>('/settings/node-catalog', { signal: controller.signal }),
+          initialId
+            ? request<Definition>(endpoint + '/' + initialId, { signal: controller.signal })
+            : Promise.resolve(null),
+        ]);
+        if (!controller.signal.aborted) {
+          setCatalog([...specs.nodes, ...(frontendOnly ? controlSpecs : [])]);
+          if (saved) {
+            setDoc(saved);
+          }
+        }
+      } catch (value) {
+        if (!controller.signal.aborted) {
+          setError(value instanceof Error ? value.message : '워크플로우를 불러오지 못했습니다.');
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setBusy('');
+        }
+      }
+    })();
+    return () => controller.abort();
+  }, [initialId]);
   return (
     <main className="workflow-editor">
       <PageTitle>{doc.name}</PageTitle>
@@ -330,6 +332,28 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
         <span className="workflow-save-state" role="status">
           {dirty ? '미저장' : status}
         </span>
+        {!initialId && (
+          <Button
+            variant="secondary"
+            disabled={!!busy || !catalog.length}
+            onClick={() => {
+              if (
+                dirty &&
+                !window.confirm('저장하지 않은 편집이 있습니다. 기존 전체 작업 초안으로 바꿀까요?')
+              ) {
+                return;
+              }
+              change(createLegacyWorkflow());
+              setSelected('');
+              setError('');
+              setTemplateNotice(
+                '얼굴합성 제외 초안입니다. 전사·번역 모델을 선택하고 저장하세요. 검수·전처리·인코딩은 노드에서 조정할 수 있습니다. 실행·유료 호출 승인은 별도입니다.',
+              );
+            }}
+          >
+            기존 전체 작업 만들기
+          </Button>
+        )}
         {doc.revision > 0 && (
           <Button variant="quiet" onClick={() => setHistory((previous) => !previous)}>
             이력
@@ -343,6 +367,11 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
           저장
         </Button>
       </div>
+      {templateNotice && (
+        <p className="workflow-template-notice" role="status">
+          {templateNotice}
+        </p>
+      )}
       {error && (
         <p role="alert" className="alert">
           {error}

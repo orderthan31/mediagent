@@ -28,6 +28,8 @@ LARGE_PROFILE = {
 def input_limit(agent, port, kind):
     if not isinstance(agent, dict) or set(agent) != {"id", "revision"}:
         raise ValueError("Invalid CPU input contract")
+    if agent["id"] == "generate_subtitle" and agent["revision"] == "3":
+        return MAX_CONTENT
     if agent["revision"] == "1":
         return MAX_CONTENT
     if agent["revision"] != "2" or agent["id"] not in LARGE_AGENTS:
@@ -66,8 +68,29 @@ def command_timeout(command):
     return LARGE_COMMAND_SECONDS if agent["revision"] == "2" else 90
 
 
+def model_runtime_seconds(max_calls):
+    if type(max_calls) is not int or not 1 <= max_calls <= 4096:
+        raise ValueError("Invalid bounded model call count")
+    return min(2 * 60 * 60, max_calls * 45 + 120)
+
+
 def lease_seconds(command):
     agent = command["agent"]
+    kind = {"transcribe": "transcription", "translate": "translation"}.get(
+        agent.get("id")
+    )
+    if kind and command.get(kind, {}).get("batch_policy"):
+        config = command[kind]
+        expected_policy = (
+            "bounded_60s_v1" if kind == "transcription" else "bounded_100x16k_v1"
+        )
+        expected = model_runtime_seconds(config.get("max_model_calls"))
+        if (
+            config.get("batch_policy") != expected_policy
+            or config.get("max_runtime_seconds") != expected
+        ):
+            raise ValueError("Invalid frozen bounded model deadline")
+        return expected
     input_limit(agent, "video", "video")
     return LARGE_LEASE_SECONDS if agent["revision"] == "2" else 120
 

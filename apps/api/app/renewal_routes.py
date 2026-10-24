@@ -5,7 +5,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import Field, StrictBool, StrictInt
 from video_service.cpu_agents import digest
 from video_service.original_upload_policy import MAX_ORIGINAL_UPLOAD
-from video_service.postgres import Conflict, Missing
+from video_service.postgres import Conflict
 from video_service.renewal_contracts import validate
 
 from .renewal import Body
@@ -100,7 +100,9 @@ def ledger(job):
     return {
         "job_id": job["id"],
         "ticket_number": str(job["ticket_number"]),
-        "status": 'PROCESSING_REVIEW' if job.get('processing_review') else statuses[job["status"]],
+        "status": "PROCESSING_REVIEW"
+        if job.get("processing_review")
+        else statuses[job["status"]],
         "original_filename": snapshot["asset"]["original_filename"],
         "expected_size": snapshot["asset"]["size_bytes"],
         "uploaded_bytes": snapshot["asset"]["size_bytes"],
@@ -111,8 +113,8 @@ def ledger(job):
         "quality_profile": "balanced",
         "error": None,
         "metadata": {
-            "processing_review": job.get('processing_review'),
-            "raw_status": job['status'],
+            "processing_review": job.get("processing_review"),
+            "raw_status": job["status"],
             "asset_id": job["asset_id"],
             "workflow": {
                 "definition_id": job["workflow_id"],
@@ -138,10 +140,12 @@ def mount_runtime(
     from video_service.content_store import MAX_CONTENT
 
     from .original_finalizations import OriginalFinalizations
+
     finalizations = OriginalFinalizations(runtime)
     from contextlib import asynccontextmanager
 
     from starlette.concurrency import run_in_threadpool
+
     previous_lifespan = app.router.lifespan_context
 
     @asynccontextmanager
@@ -154,8 +158,9 @@ def mount_runtime(
 
     app.router.lifespan_context = original_lifespan
 
-    if getattr(runtime, 'full_previews_enabled', False):
+    if getattr(runtime, "full_previews_enabled", False):
         from .full_preview_routes import mount_full_previews
+
         mount_full_previews(app, runtime, owner_dependency)
 
     administrator_dependency = Depends(administrator)
@@ -171,7 +176,12 @@ def mount_runtime(
 
     @app.get("/api/video-uploads")
     def uploads(owned=owner_dependency):
-        return {"uploads": [finalizations.snapshot(owned, r["upload_id"], r) for r in runtime.uploads(owned)]}
+        return {
+            "uploads": [
+                finalizations.snapshot(owned, r["upload_id"], r)
+                for r in runtime.uploads(owned)
+            ]
+        }
 
     @app.post("/api/video-uploads", status_code=201)
     def new_upload(body: Upload, owned=owner_dependency):
@@ -299,12 +309,23 @@ def mount_runtime(
             owned, selection.definition_id, selection.definition_revision
         )
         from video_service.cpu_input_policy import source_policy
-        cpu_policy = source_policy({"bytes": source["size_bytes"], "metadata": {
-            "registration_state": "verified" if source["content_verified"] else "unverified",
-            "media": source.get("media"),
-        }}, definition)
+
+        cpu_policy = source_policy(
+            {
+                "bytes": source["size_bytes"],
+                "metadata": {
+                    "registration_state": "verified"
+                    if source["content_verified"]
+                    else "unverified",
+                    "media": source.get("media"),
+                },
+            },
+            definition,
+        )
         if cpu_policy and broker_factory is None:
-            raise Conflict("Large CPU video requires the independent broker execution path")
+            raise Conflict(
+                "Large CPU video requires the independent broker execution path"
+            )
         runtime.asset_path(owned, selection.asset_id)
         inspection = runtime.inspect(
             owned, selection.definition_id, selection.definition_revision
@@ -322,12 +343,26 @@ def mount_runtime(
                     **({"cpu_input_policy": cpu_policy} if cpu_policy else {}),
                 }
             ),
-            "paid_roles": [role for node_type, role in (("translate", "translation"), ("transcribe", "transcription"))
-                           if getattr(runtime, role + "_runtime") and getattr(runtime, role + "_runtime").mode == "external"
-                           and any(n["type"] == node_type and n.get("model_ref") for n in definition["nodes"])],
+            "paid_roles": [
+                role
+                for node_type, role in (
+                    ("translate", "translation"),
+                    ("transcribe", "transcription"),
+                )
+                if getattr(runtime, role + "_runtime")
+                and getattr(runtime, role + "_runtime").mode == "external"
+                and any(
+                    n["type"] == node_type and n.get("model_ref")
+                    for n in definition["nodes"]
+                )
+            ],
             **({"cpu_input_policy": cpu_policy} if cpu_policy else {}),
             "notice": "작업 생성은 저장만 합니다. 작업 상세에서 계획 확인과 별도 실행이 필요합니다."
-                      + (" 대용량 CPU 전용: 원본4GiB/길이6시간/처리2시간/캐시10GiB/결과256MiB 한도입니다." if cpu_policy else ""),
+            + (
+                " 대용량 CPU 전용: 원본4GiB/길이6시간/처리2시간/캐시10GiB/결과256MiB 한도입니다."
+                if cpu_policy
+                else ""
+            ),
         }
 
     @app.post("/api/settings/work-entry/preview", dependencies=[Depends(administrator)])
@@ -347,7 +382,9 @@ def mount_runtime(
         )
         plan = selection_plan(owned, selection)
         if plan["paid_roles"] and not body.paid_confirmed:
-            raise HTTPException(403, "전사/번역 후보 전체의 외부 호출 비용 동의가 필요합니다.")
+            raise HTTPException(
+                403, "전사/번역 후보 전체의 외부 호출 비용 동의가 필요합니다."
+            )
         if plan["token"] != body.token:
             raise Conflict("입력/정의가 변경됐습니다. 다시 확인하세요.")
         return runtime.create(
@@ -429,12 +466,18 @@ def mount_runtime(
         return runtime.review_confirm(owned, identity, body.revision)
 
     @app.get("/api/renewal/jobs/{identity}/manifest")
-    def artifact_manifest(identity: str, download: bool = False, owned=owner_dependency):
+    def artifact_manifest(
+        identity: str, download: bool = False, owned=owner_dependency
+    ):
         raw = runtime.shared_manifest(owned, identity)
         return Response(
             raw,
             media_type="application/json",
-            headers={"Content-Disposition": f'attachment; filename="{identity}-manifest.json"'} if download else {},
+            headers={
+                "Content-Disposition": f'attachment; filename="{identity}-manifest.json"'
+            }
+            if download
+            else {},
         )
 
     @app.get("/api/renewal/jobs/{identity}/artifacts/{run_id}/{port}")
@@ -454,6 +497,10 @@ def mount_runtime(
         extension = {"video": "mp4", "audio": "wav", "subtitle": "srt"}.get(
             kind, "json"
         )
+        if kind == "subtitle":
+            from video_service.sami import subtitle_extension
+
+            extension = subtitle_extension(path)
         return FileResponse(
             path,
             media_type=mime.get(kind, "application/json"),
@@ -490,7 +537,7 @@ def mount_runtime(
 
     @app.get("/api/renewal/jobs/{identity}/inputs/{run_id}/{port}/preview")
     def input_preview(identity: str, run_id: str, port: str, owned=owner_dependency):
-        path, _ = runtime.shared_file(owned, identity, run_id, port, inputs=True, preview=True)
-        return FileResponse(
-            path, media_type="video/webm"
+        path, _ = runtime.shared_file(
+            owned, identity, run_id, port, inputs=True, preview=True
         )
+        return FileResponse(path, media_type="video/webm")

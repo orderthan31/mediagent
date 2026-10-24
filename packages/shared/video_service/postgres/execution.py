@@ -50,6 +50,7 @@ class Execution(Intake):
         self.translation_runtime = translation_runtime
         self.transcription_runtime = transcription_runtime
         from .ticket_artifacts import TicketArtifacts
+
         self.ticket_artifacts = TicketArtifacts(store)
 
     def catalog(self):
@@ -113,7 +114,9 @@ class Execution(Intake):
                 }
         return bindings
 
-    def _execution_reasons(self, db, definition, bindings, options, done_nodes=(), model_bindings=None):
+    def _execution_reasons(
+        self, db, definition, bindings, options, done_nodes=(), model_bindings=None
+    ):
         from .engine_runtimes import EngineRuntimes
 
         reasons = []
@@ -123,11 +126,21 @@ class Execution(Intake):
             role = self._engine_role(node)
             if node.get("model_ref"):
                 pin = (model_bindings or {}).get(node["id"])
-                kind = {"translate": "translation", "transcribe": "transcription"}.get(node["type"])
+                kind = {"translate": "translation", "transcribe": "transcription"}.get(
+                    node["type"]
+                )
                 executor = getattr(self, (kind or "unsupported") + "_runtime", None)
-                if (executor is None or not pin
-                        or not any(executor.available(p) for p in [pin, *pin.get("fallbacks", [])])):
-                    reasons.append("등록 모델의 실행 transport/사용 가능한 후보 없음: " + node["id"])
+                if (
+                    executor is None
+                    or not pin
+                    or not any(
+                        executor.available(p) for p in [pin, *pin.get("fallbacks", [])]
+                    )
+                ):
+                    reasons.append(
+                        "등록 모델의 실행 transport/사용 가능한 후보 없음: "
+                        + node["id"]
+                    )
             elif role:
                 pin = bindings.get(node["id"])
                 if not self.engine_runtime_enabled or not pin:
@@ -193,6 +206,7 @@ class Execution(Intake):
         owner, identity = job["owner_id"], job["id"]
         from .dispatch_queue import DispatchQueue
         from .job_processing_review import JobProcessingReview
+
         processing_review = JobProcessingReview(self).capture_in(db, job)
         runs = DispatchQueue.decorate_in(db, self._runs(db, owner, identity))
         return {
@@ -214,7 +228,10 @@ class Execution(Intake):
             return self._view(db, self._job(db, owner, identity, lock=True))
 
     def _shared_job(self, db, identity):
-        rows = db.execute("SELECT * FROM jobs WHERE id=%s LIMIT 2 FOR UPDATE", (resource_id(identity),)).fetchall()
+        rows = db.execute(
+            "SELECT * FROM jobs WHERE id=%s LIMIT 2 FOR UPDATE",
+            (resource_id(identity),),
+        ).fetchall()
         if not rows:
             raise Missing("작업을 찾을 수 없습니다.")
         if len(rows) != 1:
@@ -226,76 +243,167 @@ class Execution(Intake):
     @staticmethod
     def _shared_view(state, actor):
         # Media/graph data is shared; credentials, execution claims and locators are not.
-        keys = {"id", "ticket_number", "owner_id", "asset_id", "asset_owner_id", "workflow_id",
-                "workflow_revision", "status", "revision", "generation", "snapshot_sha256",
-                "parent_id", "created_at", "updated_at", "processing_review", "artifact_manifest"}
+        keys = {
+            "id",
+            "ticket_number",
+            "owner_id",
+            "asset_id",
+            "asset_owner_id",
+            "workflow_id",
+            "workflow_revision",
+            "status",
+            "revision",
+            "generation",
+            "snapshot_sha256",
+            "parent_id",
+            "created_at",
+            "updated_at",
+            "processing_review",
+            "artifact_manifest",
+        }
         value = {k: state[k] for k in keys if k in state}
-        value["snapshot"] = {k: v for k, v in state["snapshot"].items()
-                             if k in {"version", "asset", "inputs", "definition", "options", "recovery", "artifact_layout", "cpu_input_policy"}}
+        value["snapshot"] = {
+            k: v
+            for k, v in state["snapshot"].items()
+            if k
+            in {
+                "version",
+                "asset",
+                "inputs",
+                "definition",
+                "options",
+                "recovery",
+                "artifact_layout",
+                "cpu_input_policy",
+            }
+        }
         public_source = value["snapshot"].get("asset", {})
         if "original_uploaded_by" in public_source:
-            value["snapshot"]["asset"] = {**public_source, "uploaded_by": public_source["original_uploaded_by"]}
+            value["snapshot"]["asset"] = {
+                **public_source,
+                "uploaded_by": public_source["original_uploaded_by"],
+            }
         value["snapshot_redacted"] = True
         value["executed_by"] = state["owner_id"]
         value["access"] = {"can_manage": actor == state["owner_id"]}
-        run_keys = {"id", "node_id", "node_type", "status", "options", "inputs", "error_code",
-                    "input_sha256", "settings_sha256", "attempt", "iteration", "generation",
-                    "started_at", "completed_at", "result", "dispatch", "translation", "transcription"}
+        run_keys = {
+            "id",
+            "node_id",
+            "node_type",
+            "status",
+            "options",
+            "inputs",
+            "error_code",
+            "input_sha256",
+            "settings_sha256",
+            "attempt",
+            "iteration",
+            "generation",
+            "started_at",
+            "completed_at",
+            "result",
+            "dispatch",
+            "translation",
+            "transcription",
+        }
         value["runs"] = []
         for run in state.get("runs", []):
             public_run = {k: run[k] for k in run_keys if k in run}
             if run.get("result"):
-                public_run["result"] = {k: v for k, v in run["result"].items()
-                                        if k in {"status", "outputs", "previews", "reused_from", "translation", "transcription", "ticket_artifacts"}}
+                public_run["result"] = {
+                    k: v
+                    for k, v in run["result"].items()
+                    if k
+                    in {
+                        "status",
+                        "outputs",
+                        "previews",
+                        "reused_from",
+                        "translation",
+                        "transcription",
+                        "ticket_artifacts",
+                    }
+                }
             value["runs"].append(public_run)
         review_keys = {"id", "node_run_id", "revision", "status", "draft", "contract"}
-        value["reviews"] = [{k: v for k, v in r.items() if k in review_keys} for r in state.get("reviews", [])]
+        value["reviews"] = [
+            {k: v for k, v in r.items() if k in review_keys}
+            for r in state.get("reviews", [])
+        ]
         return value
 
     def shared_get(self, actor, identity):
         with self.database.connection() as db:
-            return self._shared_view(self._view(db, self._shared_job(db, identity)), actor)
+            return self._shared_view(
+                self._view(db, self._shared_job(db, identity)), actor
+            )
 
     def shared_jobs(self, actor):
         with self.database.connection() as db:
-            rows = db.execute("SELECT * FROM jobs ORDER BY created_at DESC,id,owner_id").fetchall()
+            rows = db.execute(
+                "SELECT * FROM jobs ORDER BY created_at DESC,id,owner_id"
+            ).fetchall()
             if len({r["id"] for r in rows}) != len(rows):
                 raise Conflict("작업 식별자가 중복되어 공용 조회할 수 없습니다.")
-            return [self._shared_view(self._view(db, self._job(db, r["owner_id"], r["id"], lock=True)), actor) for r in rows]
+            return [
+                self._shared_view(
+                    self._view(db, self._job(db, r["owner_id"], r["id"], lock=True)),
+                    actor,
+                )
+                for r in rows
+            ]
 
-    def shared_file(self, actor, identity, run_id, port, *, inputs=False, preview=False):
+    def shared_file(
+        self, actor, identity, run_id, port, *, inputs=False, preview=False
+    ):
         with self.database.connection() as db:
             job = self._shared_job(db, identity)
             state = self._view(db, job)
         run = next((r for r in state["runs"] if r["id"] == run_id), None)
         if not run or (not inputs and run["status"] != "completed"):
             raise Missing("완료된 산출물/고정 입력을 찾을 수 없습니다.")
-        reference = run["inputs"].get(port) if inputs else (run["result"] or {}).get("outputs", {}).get(port)
+        reference = (
+            run["inputs"].get(port)
+            if inputs
+            else (run["result"] or {}).get("outputs", {}).get(port)
+        )
         if not reference or (preview and reference["type"] != "video"):
             raise Missing("산출물/고정 입력을 찾을 수 없습니다.")
         if not inputs and self.ticket_artifacts.enabled(job):
             try:
-                return self.ticket_artifacts.output(job, state['runs'], run_id, port, preview=preview)
+                return self.ticket_artifacts.output(
+                    job, state["runs"], run_id, port, preview=preview
+                )
             except Missing:
                 if not preview:
                     raise
                 # A verified pass-through output may reuse its preserved source WebM.
                 # Manifest/hash failures are not caught and raw MP4 is never substituted.
-                return self._video_preview_state(state, reference), reference['type']
-        path = self._video_preview_state(state, reference) if preview else self.store.path(job["owner_id"], reference)
+                return self._video_preview_state(state, reference), reference["type"]
+        path = (
+            self._video_preview_state(state, reference)
+            if preview
+            else self.store.path(job["owner_id"], reference)
+        )
         return path, reference["type"]
 
     def shared_manifest(self, actor, identity):
         with self.database.connection() as db:
             job = self._shared_job(db, identity)
-            runs = self._runs(db, job['owner_id'], job['id'])
+            runs = self._runs(db, job["owner_id"], job["id"])
             return self.ticket_artifacts.read(job, runs)
 
     def jobs(self, owner):
         with self.database.connection() as db:
-            ids=[r['id'] for r in db.execute("SELECT id FROM jobs WHERE owner_id=%s ORDER BY created_at DESC,id",(owner,))]
+            ids = [
+                r["id"]
+                for r in db.execute(
+                    "SELECT id FROM jobs WHERE owner_id=%s ORDER BY created_at DESC,id",
+                    (owner,),
+                )
+            ]
         # Release each row lock separately; never hold child then parent list locks.
-        return [self.get(owner,identity) for identity in ids]
+        return [self.get(owner, identity) for identity in ids]
 
     def inspect(self, owner, identity, revision):
         definition = self.job_definition(owner, identity, revision)
@@ -306,9 +414,14 @@ class Execution(Intake):
             models = self._bindings(db, workflow_owner, definition, active=False)
             reasons += [
                 {"node_id": None, "message": message}
-                for message in self._execution_reasons(db, definition, bindings, None, model_bindings=models)
+                for message in self._execution_reasons(
+                    db, definition, bindings, None, model_bindings=models
+                )
             ]
-        if definition["inputs"] not in ({"video": "video"}, {"transcript": "transcript"}):
+        if definition["inputs"] not in (
+            {"video": "video"},
+            {"transcript": "transcript"},
+        ):
             reasons.append(
                 {
                     "node_id": None,
@@ -388,6 +501,7 @@ class Execution(Intake):
                 db, owner, definition_id, definition_revision
             )
             from ..cpu_input_policy import source_policy
+
             cpu_policy = source_policy(asset, definition)
             if cpu_policy and getattr(self.store, "storage_kind", None) != "s3":
                 raise ValueError("Large CPU input requires independent S3 transport")
@@ -400,13 +514,23 @@ class Execution(Intake):
             input_refs = {"video": reference}
             if definition["inputs"] == {"transcript": "transcript"}:
                 from .translation import segments
+
                 text = segments(options.get("transcript"))
-                input_refs = {"transcript": self.store.put(owner, [canonical(text)], "transcript")}
-            if any(n["type"] in {"translate", "transcribe"} and n.get("model_ref") for n in definition["nodes"]):
+                input_refs = {
+                    "transcript": self.store.put(owner, [canonical(text)], "transcript")
+                }
+            if any(
+                n["type"] in {"translate", "transcribe"} and n.get("model_ref")
+                for n in definition["nodes"]
+            ):
                 from .translation import languages
-                languages(options.get("source_language"), options.get("target_language", "ko"))
+
+                languages(
+                    options.get("source_language"), options.get("target_language", "ko")
+                )
             parent = self._job(db, owner, parent_id) if parent_id else None
             from .job_processing_review import JobProcessingReview
+
             if parent and JobProcessingReview.blocked_in(db, owner, parent_id):
                 raise Conflict("관리자 판단에 연결된 새 작업 절차를 사용하세요.")
             if parent and parent["status"] not in ("failed", "cancelled"):
@@ -479,32 +603,48 @@ class Execution(Intake):
                 return None
             references = list(job["snapshot"]["inputs"].values())
             if command is not None:
-                run = db.execute("SELECT request_sha256,inputs FROM node_runs WHERE owner_id=%s AND job_id=%s AND id=%s",
-                                 (owner, identity, command["attempt_id"])).fetchone()
+                run = db.execute(
+                    "SELECT request_sha256,inputs FROM node_runs WHERE owner_id=%s AND job_id=%s AND id=%s",
+                    (owner, identity, command["attempt_id"]),
+                ).fetchone()
                 if not run or run["request_sha256"] != digest(command):
                     raise Conflict("Unknown frozen CPU input request")
                 references = list(run["inputs"].values())
             else:
                 for run in self._runs(db, owner, identity):
                     if run["status"] == "completed":
-                        references.extend((run["result"] or {}).get("outputs", {}).values())
+                        references.extend(
+                            (run["result"] or {}).get("outputs", {}).values()
+                        )
             snapshot_sha = job["snapshot_sha256"]
         for ref in references:
             self.store.path(owner, ref)
-        return {"snapshot_sha256": snapshot_sha, "references": {digest(ref) for ref in references}}
+        return {
+            "snapshot_sha256": snapshot_sha,
+            "references": {digest(ref) for ref in references},
+        }
 
     def _checked_input(self, owner, job, reference, verified):
         if job["snapshot"].get("cpu_input_policy"):
-            if (not verified or verified["snapshot_sha256"] != job["snapshot_sha256"]
-                    or digest(reference) not in verified["references"]):
+            if (
+                not verified
+                or verified["snapshot_sha256"] != job["snapshot_sha256"]
+                or digest(reference) not in verified["references"]
+            ):
                 raise Conflict("CPU input context changed; reread required")
             return
         self.store.path(owner, reference)
 
     def _plan(self, db, job, verified=None):
         from .job_processing_review import JobProcessingReview
+
         if JobProcessingReview(self).capture_in(db, job):
-            return {'token':digest({'job':job['id'],'processing_review':True}),'ready':False,'reasons':['관리자 처리 확인이 필요합니다.'],'notice':'원 실행을 다시 시작하지 않습니다.'}
+            return {
+                "token": digest({"job": job["id"], "processing_review": True}),
+                "ready": False,
+                "reasons": ["관리자 처리 확인이 필요합니다."],
+                "notice": "원 실행을 다시 시작하지 않습니다.",
+            }
         for ref in job["snapshot"]["inputs"].values():
             self._checked_input(job["owner_id"], job, ref, verified)
         runs = self._runs(db, job["owner_id"], job["id"])
@@ -520,7 +660,10 @@ class Execution(Intake):
         reasons = []
         if not job["recovery_ready"]:
             reasons.append("복구 receipt 검증이 끝나지 않았습니다.")
-        if definition["inputs"] not in ({"video": "video"}, {"transcript": "transcript"}):
+        if definition["inputs"] not in (
+            {"video": "video"},
+            {"transcript": "transcript"},
+        ):
             reasons.append("추가 외부 입력 binding이 필요합니다.")
         reasons += self._execution_reasons(
             db,
@@ -546,23 +689,69 @@ class Execution(Intake):
             reasons.append("현재 상태에서 새 실행 승인을 만들 수 없습니다.")
         if any(r["status"] != "confirmed" for r in reviews):
             reasons.append("검수 내용을 먼저 저장하고 확정하세요.")
-        pending = [n for n in definition["nodes"] if n["type"] == "translate" and n.get("model_ref")
-                   and not any(r["node_id"] == n["id"] and r["status"] == "completed" for r in runs)]
-        pending_asr = [n for n in definition["nodes"] if n["type"] == "transcribe" and n.get("model_ref")
-                       and not any(r["node_id"] == n["id"] and r["status"] == "completed" for r in runs)]
-        external_roles = (["translation"] if pending and self.translation_runtime and self.translation_runtime.mode == "external" else []) + (["transcription"] if pending_asr and self.transcription_runtime and self.transcription_runtime.mode == "external" else [])
+        pending = [
+            n
+            for n in definition["nodes"]
+            if n["type"] == "translate"
+            and n.get("model_ref")
+            and not any(
+                r["node_id"] == n["id"] and r["status"] == "completed" for r in runs
+            )
+        ]
+        pending_asr = [
+            n
+            for n in definition["nodes"]
+            if n["type"] == "transcribe"
+            and n.get("model_ref")
+            and not any(
+                r["node_id"] == n["id"] and r["status"] == "completed" for r in runs
+            )
+        ]
+        external_roles = (
+            ["translation"]
+            if pending
+            and self.translation_runtime
+            and self.translation_runtime.mode == "external"
+            else []
+        ) + (
+            ["transcription"]
+            if pending_asr
+            and self.transcription_runtime
+            and self.transcription_runtime.mode == "external"
+            else []
+        )
         external = bool(external_roles)
         if external and not job["snapshot"].get("translation_paid_authorized"):
             reasons.append("전사/번역 후보 전체의 외부 호출 비용 동의가 필요합니다.")
         plan = {
-            **({"transcription_mode": self.transcription_runtime.mode if self.transcription_runtime else None,
-                "transcription_usage": [self.transcription_runtime.available(p) for n in pending_asr
-                                        for pin in [job["snapshot"]["model_bindings"][n["id"]]]
-                                        for p in [pin, *pin.get("fallbacks", [])]] if self.transcription_runtime else []} if pending_asr else {}),
-            "translation_mode": self.translation_runtime.mode if pending and self.translation_runtime else None,
-            "translation_usage": [self.translation_runtime.available(p) for n in pending
-                                  for pin in [job["snapshot"]["model_bindings"][n["id"]]]
-                                  for p in [pin, *pin.get("fallbacks", [])]] if self.translation_runtime else [],
+            **(
+                {
+                    "transcription_mode": self.transcription_runtime.mode
+                    if self.transcription_runtime
+                    else None,
+                    "transcription_usage": [
+                        self.transcription_runtime.available(p)
+                        for n in pending_asr
+                        for pin in [job["snapshot"]["model_bindings"][n["id"]]]
+                        for p in [pin, *pin.get("fallbacks", [])]
+                    ]
+                    if self.transcription_runtime
+                    else [],
+                }
+                if pending_asr
+                else {}
+            ),
+            "translation_mode": self.translation_runtime.mode
+            if pending and self.translation_runtime
+            else None,
+            "translation_usage": [
+                self.translation_runtime.available(p)
+                for n in pending
+                for pin in [job["snapshot"]["model_bindings"][n["id"]]]
+                for p in [pin, *pin.get("fallbacks", [])]
+            ]
+            if self.translation_runtime
+            else [],
             "snapshot_sha256": job["snapshot_sha256"],
             "generation": job["generation"],
             "revision": job["revision"],
@@ -577,7 +766,12 @@ class Execution(Intake):
                 for r in runs
             ],
             "reviews": reviews,
-            "cost": {"classification": "external_unpriced" if external else "verified_no_external_calls", "amount": None},
+            "cost": {
+                "classification": "external_unpriced"
+                if external
+                else "verified_no_external_calls",
+                "amount": None,
+            },
             "reasons": sorted(set(reasons)),
         }
         return {
@@ -586,7 +780,9 @@ class Execution(Intake):
             "reasons": plan["reasons"],
             "paid_roles": external_roles,
             "cost": plan["cost"],
-            "notice": "등록 모델 후보의 외부 호출은 비용이 발생할 수 있습니다. 금액은 미산정입니다." if external else "외부 유료 호출 없는 로컬/통제 HTTP 실행입니다. 동의 저장과 실행 요청은 별개입니다.",
+            "notice": "등록 모델 후보의 외부 호출은 비용이 발생할 수 있습니다. 금액은 미산정입니다."
+            if external
+            else "외부 유료 호출 없는 로컬/통제 HTTP 실행입니다. 동의 저장과 실행 요청은 별개입니다.",
             "snapshot_sha256": job["snapshot_sha256"],
             "generation": job["generation"],
         }
@@ -692,15 +888,21 @@ class Execution(Intake):
 
     def _insert_run(self, db, job, node, inputs, status):
         from .dispatch_queue import DispatchQueue
-        deferred = (status == "running"
-                    and node["type"] in getattr(self, "defer_broker_agents", ())
-                    and DispatchQueue.managed_in(db, node["type"]))
+
+        deferred = (
+            status == "running"
+            and node["type"] in getattr(self, "defer_broker_agents", ())
+            and DispatchQueue.managed_in(db, node["type"])
+        )
         if deferred:
             status = "waiting"
         identity = uuid4().hex
         from ..cpu_input_policy import LARGE_AGENTS, LARGE_PROFILE, lease_seconds
+
         cpu_policy = job["snapshot"].get("cpu_input_policy")
-        if cpu_policy and (cpu_policy != LARGE_PROFILE or node["type"] not in LARGE_AGENTS):
+        if cpu_policy and (
+            cpu_policy != LARGE_PROFILE or node["type"] not in LARGE_AGENTS
+        ):
             raise Conflict("Frozen CPU input policy is unsupported")
         command = {
             "protocol_version": 1,
@@ -711,15 +913,66 @@ class Execution(Intake):
             "inputs": inputs,
             "options": node["options"],
         }
-        if node["type"] in {"translate", "transcribe"} and node.get("model_ref") and status == "running":
+        if (
+            node["type"] == "generate_subtitle"
+            and node["options"].get("format") == "srt_smi"
+        ):
+            command["agent"]["revision"] = "3"
+            if "language" not in command["options"]:
+                producers = [
+                    edge["source"]["node"]
+                    for edge in job["snapshot"]["definition"]["edges"]
+                    if edge["target"] == {"node": node["id"], "port": "transcript"}
+                ]
+                translated_input = any(
+                    item["id"] in producers and item["type"] == "translate"
+                    for item in job["snapshot"]["definition"]["nodes"]
+                )
+                language = job["snapshot"]["options"].get(
+                    "target_language" if translated_input else "source_language", "und"
+                )
+                command["options"]["language"] = (
+                    "und" if language == "auto" else language
+                )
+        if (
+            node["type"] in {"translate", "transcribe"}
+            and node.get("model_ref")
+            and status == "running"
+        ):
             pin = job["snapshot"]["model_bindings"][node["id"]]
-            kind = {"translate": "translation", "transcribe": "transcription"}[node["type"]]
+            kind = {"translate": "translation", "transcribe": "transcription"}[
+                node["type"]
+            ]
             command[kind] = {
                 "candidates": [pin, *pin.get("fallbacks", [])],
                 "source_language": job["snapshot"]["options"]["source_language"],
-                **({"target_language": job["snapshot"]["options"]["target_language"]} if kind == "translation" else {}),
-                "paid_authorized": job["snapshot"].get("translation_paid_authorized", False),
+                **(
+                    {"target_language": job["snapshot"]["options"]["target_language"]}
+                    if kind == "translation"
+                    else {}
+                ),
+                "paid_authorized": job["snapshot"].get(
+                    "translation_paid_authorized", False
+                ),
             }
+            batch_policy = node["options"].get("batch_policy", "single")
+            if batch_policy != "single":
+                expected = (
+                    "bounded_60s_v1"
+                    if kind == "transcription"
+                    else "bounded_100x16k_v1"
+                )
+                if batch_policy != expected:
+                    raise Conflict("지원하지 않는 분할 실행 정책입니다.")
+                command[kind]["batch_policy"] = batch_policy
+                command[kind]["max_model_calls"] = int(
+                    node["options"].get("max_model_calls", "128")
+                )
+                from ..cpu_input_policy import model_runtime_seconds
+
+                command[kind]["max_runtime_seconds"] = model_runtime_seconds(
+                    command[kind]["max_model_calls"]
+                )
         elif self._engine_role(node) and status == "running":
             from ..engine_protocol import make_command
 
@@ -769,7 +1022,10 @@ class Execution(Intake):
             ),
         ).fetchone()
         if deferred:
-            row = db.execute("UPDATE node_runs SET started_at=NULL,lease_owner=NULL,lease_expires_at=NULL WHERE id=%s RETURNING *", (identity,)).fetchone()
+            row = db.execute(
+                "UPDATE node_runs SET started_at=NULL,lease_owner=NULL,lease_expires_at=NULL WHERE id=%s RETURNING *",
+                (identity,),
+            ).fetchone()
             DispatchQueue.enqueue_in(db, job, row)
         return row, command
 
@@ -839,6 +1095,7 @@ class Execution(Intake):
         with self.database.connection() as db:
             job = self._job(db, owner, identity, lock=True)
             from .job_processing_review import JobProcessingReview
+
             if JobProcessingReview(self).capture_in(db, job):
                 return None
             if (
@@ -949,9 +1206,15 @@ class Execution(Intake):
                         outputs = self._control_outputs(
                             owner, node["type"], inputs, node["options"]
                         )
-                        receipt = self.ticket_artifacts.capture(db, job, row, {
-                            "outputs": outputs, "transport": "application_control",
-                        })
+                        receipt = self.ticket_artifacts.capture(
+                            db,
+                            job,
+                            row,
+                            {
+                                "outputs": outputs,
+                                "transport": "application_control",
+                            },
+                        )
                         db.execute(
                             "UPDATE node_runs SET status='completed',result=%s,completed_at=now() WHERE owner_id=%s AND job_id=%s AND id=%s",
                             (
@@ -973,8 +1236,11 @@ class Execution(Intake):
                         )
                         indexed[node["id"]] = {**row, "status": "failed"}
                     continue
-                if not (command.get("translation") or command.get("transcription")) and (
-                    node["type"] not in CPU_AGENTS and not self._engine_role(node)
+                if not (
+                    command.get("translation") or command.get("transcription")
+                ) and (
+                    node["type"] not in CPU_AGENTS
+                    and not self._engine_role(node)
                     or node.get("model_ref")
                 ):
                     raise Conflict("비활성 실행 경로")
@@ -983,8 +1249,9 @@ class Execution(Intake):
                     if command["protocol_version"] == 2
                     else "agent.command.v1"
                 )
-                if command.get('translation') or command.get('transcription'):
+                if command.get("translation") or command.get("transcription"):
                     from ..registered_broker import COMMAND as REGISTERED_COMMAND
+
                     message_type = REGISTERED_COMMAND
                 self._write_outbox(
                     db, owner, identity, message_type, command, row["id"]
@@ -1023,6 +1290,7 @@ class Execution(Intake):
         with self.database.connection() as db:
             job = self._job(db, owner, command["run_id"], lock=True)
             from .job_processing_review import JobProcessingReview
+
             if JobProcessingReview(self).capture_in(db, job):
                 raise Conflict("관리자 확인 중인 원 실행은 다시 시작하지 않습니다.")
             run = db.execute(
@@ -1057,10 +1325,13 @@ class Execution(Intake):
             )
         if command.get("translation") or command.get("transcription"):
             from .translation import execute_translation
+
             result = execute_translation(self, owner, command)
             with self.database.connection() as db:
-                db.execute("UPDATE agent_deliveries SET status='completed',result=%s WHERE owner_id=%s AND job_id=%s AND node_run_id=%s AND status='started'",
-                           (Jsonb(result), owner, command["run_id"], command["attempt_id"]))
+                db.execute(
+                    "UPDATE agent_deliveries SET status='completed',result=%s WHERE owner_id=%s AND job_id=%s AND node_run_id=%s AND status='started'",
+                    (Jsonb(result), owner, command["run_id"], command["attempt_id"]),
+                )
             return result
         root = self.store.owner_root(owner)
         if self.fleet is not None:
@@ -1206,7 +1477,9 @@ class Execution(Intake):
         values = result.get("outputs")
         if not isinstance(values, dict) or set(values) != set(expected):
             raise ValueError("Agent output ports differ")
-        if result.get("transport") == "registered_http" and (command.get("translation") or command.get("transcription")):
+        if result.get("transport") == "registered_http" and (
+            command.get("translation") or command.get("transcription")
+        ):
             for port, reference in values.items():
                 if reference.get("type") != expected[port]:
                     raise ValueError("Translation output type differs")
@@ -1259,7 +1532,10 @@ class Execution(Intake):
         candidates = [(source_owner, asset["metadata"].get("web_preview", {}))]
         for run in state["runs"]:
             if run["status"] == "completed":
-                candidates.extend((owner, p) for p in (run["result"] or {}).get("previews", {}).values())
+                candidates.extend(
+                    (owner, p)
+                    for p in (run["result"] or {}).get("previews", {}).values()
+                )
         for storage_owner, preview in candidates:
             if (
                 preview.get("source_sha256") == reference["sha256"]
@@ -1306,11 +1582,13 @@ class Execution(Intake):
             if not valid:
                 raise Conflict("결과가 실행 요청과 다릅니다.")
             from .job_processing_review import JobProcessingReview
+
             processing = JobProcessingReview(self)
             processing.capture_in(db, job)
             if processing.late_in(db, job, run, command, result):
                 return self._view(db, job)
             from .dispatch_queue import DispatchQueue
+
             run = DispatchQueue.received_in(db, job, run, from_result=True)
             lease = db.execute(
                 "SELECT lease_expires_at>now() AS valid FROM node_runs WHERE owner_id=%s AND job_id=%s AND id=%s",
@@ -1389,8 +1667,11 @@ class Execution(Intake):
                     )
                     for port, ref in outputs.items():
                         if self.ticket_artifacts.enabled(job):
-                            ref = next(entry['storage'] for entry in receipt['ticket_artifacts']['entries']
-                                       if entry['output_port'] == port)
+                            ref = next(
+                                entry["storage"]
+                                for entry in receipt["ticket_artifacts"]["entries"]
+                                if entry["output_port"] == port
+                            )
                         db.execute(
                             "INSERT INTO artifacts(owner_id,job_id,node_run_id,id,type,storage_key,bytes,sha256) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
                             (
@@ -1405,10 +1686,16 @@ class Execution(Intake):
                             ),
                         )
                     from .video_previews import VideoPreviews
+
                     previews = VideoPreviews(self)
                     for port, ref in outputs.items():
                         if ref["type"] == "video":
-                            previews.enqueue_in(db, owner, previews.artifact_source(db, identity, run_id, port), automatic=True)
+                            previews.enqueue_in(
+                                db,
+                                owner,
+                                previews.artifact_source(db, identity, run_id, port),
+                                automatic=True,
+                            )
                 except (ValueError, KeyError, TypeError, OSError):
                     db.execute(
                         "UPDATE node_runs SET status='failed',error_code='agent_failed_or_unknown',result=%s,completed_at=now(),lease_owner=NULL,lease_expires_at=NULL WHERE owner_id=%s AND job_id=%s AND id=%s",
@@ -1419,7 +1706,11 @@ class Execution(Intake):
                                     "transport": "subprocess",
                                     "error": "agent_failed_or_unknown",
                                     "retryable": False,
-                                    **{kind: result[kind] for kind in ("translation", "transcription") if command.get(kind) and kind in result},
+                                    **{
+                                        kind: result[kind]
+                                        for kind in ("translation", "transcription")
+                                        if command.get(kind) and kind in result
+                                    },
                                 }
                             ),
                             owner,
@@ -1571,8 +1862,11 @@ class Execution(Intake):
         with self.database.connection() as db:
             job = self._job(db, owner, identity, lock=True)
             from .job_processing_review import JobProcessingReview
+
             if JobProcessingReview(self).capture_in(db, job):
-                raise Conflict("확인 중인 원 기록은 초기화하거나 취소로 덮어쓰지 않습니다.")
+                raise Conflict(
+                    "확인 중인 원 기록은 초기화하거나 취소로 덮어쓰지 않습니다."
+                )
             if job["status"] in ("completed", "failed", "cancelled"):
                 return self._view(db, job)
             if job["revision"] != revision:
@@ -1648,12 +1942,20 @@ class Execution(Intake):
             )
             run = db.execute(
                 "SELECT * FROM node_runs WHERE owner_id=%s AND job_id=%s AND id=%s",
-                (owner, row['job_id'], row['node_run_id']),
+                (owner, row["job_id"], row["node_run_id"]),
             ).fetchone()
-            receipt = self.ticket_artifacts.capture(db, job, run, {
-                "outputs": {"value": source}, "transport": "human_gate", "review_id": identity,
-                "review_revision": revision, "confirmed_sha256": confirmed_sha,
-            })
+            receipt = self.ticket_artifacts.capture(
+                db,
+                job,
+                run,
+                {
+                    "outputs": {"value": source},
+                    "transport": "human_gate",
+                    "review_id": identity,
+                    "review_revision": revision,
+                    "confirmed_sha256": confirmed_sha,
+                },
+            )
             db.execute(
                 "UPDATE node_runs SET status='completed',result=%s,completed_at=now() WHERE owner_id=%s AND job_id=%s AND id=%s",
                 (

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Any, Iterable
-
+from typing import Any
 
 NON_SPEECH_LABELS = {
     "숨소리",
@@ -44,14 +44,25 @@ class TranscriptSegment:
     end: float
     text: str
     speaker: str | None = None
+    id: str | int | None = None
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "TranscriptSegment":
+    def from_dict(cls, data: dict[str, Any]) -> TranscriptSegment:
+        identifier = data.get("id")
+        if "id" in data and (
+            type(identifier) not in (str, int)
+            or isinstance(identifier, str)
+            and (
+                not 1 <= len(identifier) <= 128 or any(ord(c) < 32 for c in identifier)
+            )
+        ):
+            raise ValueError("Invalid literal subtitle id")
         return cls(
             start=float(data["start"]),
             end=float(data["end"]),
             text=str(data.get("text", "")),
             speaker=data.get("speaker"),
+            id=identifier,
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -62,13 +73,19 @@ class TranscriptSegment:
         }
         if self.speaker:
             data["speaker"] = self.speaker
+        if self.id is not None:
+            data["id"] = self.id
         return data
 
-    def with_times(self, start: float, end: float) -> "TranscriptSegment":
-        return TranscriptSegment(start=start, end=end, text=self.text, speaker=self.speaker)
+    def with_times(self, start: float, end: float) -> TranscriptSegment:
+        return TranscriptSegment(
+            start=start, end=end, text=self.text, speaker=self.speaker, id=self.id
+        )
 
-    def with_text(self, text: str) -> "TranscriptSegment":
-        return TranscriptSegment(start=self.start, end=self.end, text=text, speaker=self.speaker)
+    def with_text(self, text: str) -> TranscriptSegment:
+        return TranscriptSegment(
+            start=self.start, end=self.end, text=text, speaker=self.speaker, id=self.id
+        )
 
 
 def _strip_wrapping_label(text: str) -> str | None:
@@ -96,7 +113,9 @@ def is_non_speech_text(text: str) -> bool:
     return False
 
 
-def filter_transcript_segments(segments: Iterable[TranscriptSegment], audio_filter="conservative") -> list[TranscriptSegment]:
+def filter_transcript_segments(
+    segments: Iterable[TranscriptSegment], audio_filter="conservative"
+) -> list[TranscriptSegment]:
     if audio_filter not in {"off", "conservative", "strong", "silence3"}:
         raise ValueError("Unsupported audio filter")
     if audio_filter == "off":
@@ -104,9 +123,13 @@ def filter_transcript_segments(segments: Iterable[TranscriptSegment], audio_filt
     return [segment for segment in segments if not is_non_speech_text(segment.text)]
 
 
-def transcript_segments_from_dicts(items: Iterable[dict[str, Any]]) -> list[TranscriptSegment]:
+def transcript_segments_from_dicts(
+    items: Iterable[dict[str, Any]],
+) -> list[TranscriptSegment]:
     return [TranscriptSegment.from_dict(item) for item in items]
 
 
-def transcript_segments_to_dicts(items: Iterable[TranscriptSegment]) -> list[dict[str, Any]]:
+def transcript_segments_to_dicts(
+    items: Iterable[TranscriptSegment],
+) -> list[dict[str, Any]]:
     return [item.to_dict() for item in items]

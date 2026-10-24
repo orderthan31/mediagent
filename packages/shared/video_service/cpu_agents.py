@@ -112,19 +112,34 @@ def process(arguments, *, cwd=None, timeout=60):
 def process_bounded(arguments, *, output, cwd, timeout, max_bytes=MAX_CONTENT):
     """Own child only: bounded work-file, silent diagnostics, finite wall time."""
     import time
+
     if type(max_bytes) is not int or not 0 < max_bytes <= MAX_CONTENT:
         raise ValueError("Invalid output budget")
-    child = subprocess.Popen(arguments, cwd=cwd, stdin=subprocess.DEVNULL,
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-        env={k: v for k, v in os.environ.items()
-             if k in ("PATH", "LANG", "HOME", "TMPDIR", "FONTCONFIG_PATH")})
+    child = subprocess.Popen(
+        arguments,
+        cwd=cwd,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        env={
+            k: v
+            for k, v in os.environ.items()
+            if k in ("PATH", "LANG", "HOME", "TMPDIR", "FONTCONFIG_PATH")
+        },
+    )
     deadline = time.monotonic() + timeout
     try:
         while child.poll() is None:
-            if time.monotonic() >= deadline or (output.exists() and output.stat().st_size > max_bytes):
+            if time.monotonic() >= deadline or (
+                output.exists() and output.stat().st_size > max_bytes
+            ):
                 raise ValueError("CPU output/time budget exceeded")
             time.sleep(0.1)
-        if child.returncode or not output.is_file() or not 0 < output.stat().st_size <= max_bytes:
+        if (
+            child.returncode
+            or not output.is_file()
+            or not 0 < output.stat().st_size <= max_bytes
+        ):
             raise ValueError("CPU output/process budget failed")
     finally:
         if child.poll() is None:
@@ -250,7 +265,11 @@ def run(command, input_root, output_root, *, agent=None):
     try:
         paths = {}
         for name, reference in command["inputs"].items():
-            path = reference_path(input_root, reference, max_bytes=input_limit(command["agent"], name, reference["type"]))
+            path = reference_path(
+                input_root,
+                reference,
+                max_bytes=input_limit(command["agent"], name, reference["type"]),
+            )
             # A byte copy, not a hardlink, freezes the actual input seen by ffmpeg.
             suffix = (
                 ".srt"
@@ -287,14 +306,30 @@ def run(command, input_root, output_root, *, agent=None):
             )
             outputs[port] = (file, output_type)
         elif kind == "generate_subtitle":
+            options = command["options"]
             raw = paths["transcript"].read_bytes()
-            if len(raw) > 1024 * 1024:
+            maximum = (
+                16 * 1024 * 1024 if command["agent"]["revision"] == "3" else 1024 * 1024
+            )
+            if len(raw) > maximum:
                 raise ValueError("Transcript size exceeded")
             file = work / "subtitles.srt"
             file.write_text(
                 segments_to_srt(segment_subtitles(_segments(raw))), encoding="utf-8"
             )
             outputs["subtitles"] = (file, "subtitle")
+            if options.get("format") == "srt_smi":
+                if command["agent"]["revision"] != "3":
+                    raise ValueError("SAMI export requires subtitle revision 3")
+                from .sami import segments_to_sami
+
+                sami = work / "subtitles.smi"
+                cues = segment_subtitles(_segments(raw))
+                sami.write_text(
+                    segments_to_sami(cues, language=options.get("language", "und")),
+                    encoding="utf-8",
+                )
+                outputs["sami"] = (sami, "subtitle")
         elif kind == "extract_audio":
             file = work / "audio.wav"
             process(
@@ -406,10 +441,14 @@ def run(command, input_root, output_root, *, agent=None):
             if command["agent"]["revision"] == "2":
                 # Bound disk output without ever accepting a truncated success.
                 args[-1:-1] = ["-fs", str(MAX_CONTENT + 1024 * 1024)]
-                process_bounded(args, output=file, cwd=work, timeout=LARGE_PROCESS_SECONDS)
+                process_bounded(
+                    args, output=file, cwd=work, timeout=LARGE_PROCESS_SECONDS
+                )
                 output_media = probe(file)
                 if abs(output_media["duration"] - source_media["duration"]) > 1:
-                    raise ValueError("Encoded duration differs or output budget truncated")
+                    raise ValueError(
+                        "Encoded duration differs or output budget truncated"
+                    )
             else:
                 process(args, cwd=work)
                 probe(file)
@@ -425,7 +464,11 @@ def run(command, input_root, output_root, *, agent=None):
                 "sha256": hashlib.sha256(file.read_bytes()).hexdigest(),
             }
         for port, reference in command["inputs"].items():
-            reference_path(input_root, reference, max_bytes=input_limit(command["agent"], port, reference["type"]))
+            reference_path(
+                input_root,
+                reference,
+                max_bytes=input_limit(command["agent"], port, reference["type"]),
+            )
         result["status"] = "completed"
     except Exception:  # noqa: BLE001 -- protocol boundary must suppress paths/credentials in errors
         # Keep per-attempt files for investigation; never leak raw ffmpeg/path errors.

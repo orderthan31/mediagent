@@ -159,14 +159,24 @@ def validate_command(command):
             raise ValueError
         for port, ref in command["inputs"].items():
             if (
-                set(ref) not in ({"storage_key", "sha256", "bytes", "type"},
-                                {"storage_key", "sha256", "bytes", "type", "source_owner_id"})
-                or ("source_owner_id" in ref and (not isinstance(ref["source_owner_id"], str)
-                    or not ID.fullmatch(ref["source_owner_id"])))
+                set(ref)
+                not in (
+                    {"storage_key", "sha256", "bytes", "type"},
+                    {"storage_key", "sha256", "bytes", "type", "source_owner_id"},
+                )
+                or (
+                    "source_owner_id" in ref
+                    and (
+                        not isinstance(ref["source_owner_id"], str)
+                        or not ID.fullmatch(ref["source_owner_id"])
+                    )
+                )
                 or not re.fullmatch(r"[a-f0-9]{64}", ref["sha256"])
                 or ref["storage_key"] != "blobs/" + ref["sha256"]
                 or type(ref["bytes"]) is not int
-                or not 0 < ref["bytes"] <= input_limit(command["agent"], port, ref["type"])
+                or not 0
+                < ref["bytes"]
+                <= input_limit(command["agent"], port, ref["type"])
             ):
                 raise ValueError
         validate_node(
@@ -225,7 +235,7 @@ def validate_result(command, result):
             ):
                 raise ValueError
         else:
-            spec = node_spec(command["agent"]["id"])
+            spec = node_spec(command["agent"]["id"], command["options"])
             if spec is None or set(result["outputs"]) != set(spec["outputs"]):
                 raise ValueError
             for port, ref in result["outputs"].items():
