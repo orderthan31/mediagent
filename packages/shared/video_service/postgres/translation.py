@@ -518,10 +518,16 @@ def execute_translation(runtime, owner, command):
     if executor is None:
         raise ValueError("registered_transport_not_enabled")
     input_info = {}
+    projection_trace = None
     if kind == "transcription":
         from ..audio_clock import restore_clock, validate_clock
         from ..audio_contract import MAX_AUDIO_BYTES, audio_info
 
+        clock_policy = config.get("clock_policy", "legacy_envelope_v1")
+        if clock_policy != command["options"].get(
+            "clock_policy", "legacy_envelope_v1"
+        ) or clock_policy not in {"legacy_envelope_v1", "packed_projection_v2"}:
+            raise ValueError("projection_policy_not_frozen_in_command")
         batched = config.get("batch_policy") == "bounded_60s_v1"
         try:
             if batched:
@@ -552,6 +558,13 @@ def execute_translation(runtime, owner, command):
             )
             if abs(validate_clock(clock) - info["duration_seconds"]) > 1 / 16000:
                 raise ValueError("audio_timeline_duration_mismatch")
+            if clock_policy == "packed_projection_v2":
+                from ..packed_projection import validate_projection_clock
+
+                if round(validate_projection_clock(clock) * 16000) != round(
+                    info["duration_seconds"] * 16000
+                ):
+                    raise ValueError("projection_audio_frame_count_mismatch")
         except (ValueError, KeyError, TypeError, OSError):
             translated = {
                 "status": "failed",
@@ -596,7 +609,42 @@ def execute_translation(runtime, owner, command):
                     paid_authorized=config["paid_authorized"],
                 )
             if translated["status"] == "completed":
-                translated["segments"] = restore_clock(translated["segments"], clock)
+                if clock_policy == "legacy_envelope_v1":
+                    translated["segments"] = restore_clock(
+                        translated["segments"], clock
+                    )
+                elif not cancelled():
+                    from ..packed_projection import project
+
+                    packed_reference = runtime.store.put(
+                        owner, [canonical(translated["segments"])], "transcript"
+                    )
+                    try:
+                        projected, projection_trace = project(
+                            translated["segments"], clock
+                        )
+                    except ValueError as error:
+                        # The model reply was successful, not an eligible provider failure.
+                        # Preserve its CAS and do not retry/fallback or publish bridged text.
+                        translated.update(
+                            status="failed",
+                            segments=None,
+                            input_error="packed_projection_failed",
+                            projection={
+                                "status": "held",
+                                "error": str(error),
+                                "packed_transcript": packed_reference,
+                            },
+                        )
+                    else:
+                        translated["segments"] = projected
+                        projection_trace.update(
+                            packed_transcript=packed_reference,
+                            audio_sha256=command["inputs"]["audio"]["sha256"],
+                            timeline_sha256=command["inputs"]["timeline"]["sha256"],
+                        )
+                else:
+                    translated.update(status="cancelled", segments=None)
             input_info = {
                 "audio": {**info, "sha256": command["inputs"]["audio"]["sha256"]},
                 "timeline_sha256": command["inputs"]["timeline"]["sha256"],
@@ -649,6 +697,13 @@ def execute_translation(runtime, owner, command):
         outputs["transcript"] = runtime.store.put(
             owner, [canonical(translated["segments"])], "transcript"
         )
+        if projection_trace is not None:
+            outputs["trace"] = runtime.store.put(
+                owner, [canonical(projection_trace)], "metadata"
+            )
+        if cancelled():
+            outputs = {}
+            translated.update(status="cancelled", selected=None)
     elif translated["status"] == "completed":
         translated.update(status="cancelled", selected=None)
     metadata = {k: v for k, v in translated.items() if k != "segments"}

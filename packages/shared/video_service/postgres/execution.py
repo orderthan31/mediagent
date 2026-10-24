@@ -970,6 +970,11 @@ class Execution(Intake):
                     "translation_paid_authorized", False
                 ),
             }
+            if (
+                kind == "transcription"
+                and node["options"].get("clock_policy") == "packed_projection_v2"
+            ):
+                command[kind]["clock_policy"] = "packed_projection_v2"
             batch_policy = node["options"].get("batch_policy", "single")
             if batch_policy != "single":
                 expected = (

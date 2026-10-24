@@ -15,6 +15,7 @@ def node(
     optional=(),
     choices=None,
     embedded=(),
+    conditional_outputs=None,
 ):
     return {
         "id": identity,
@@ -25,6 +26,7 @@ def node(
         "worker_role": role,
         "options": choices or {},
         "embedded_operations": list(embedded),
+        **({"conditional_outputs": conditional_outputs} if conditional_outputs else {}),
         "execution": "cpu_subprocess" if identity in CPU_AGENTS else "unavailable",
         "entrypoint": "mideagent-" + identity.replace("_", "-")
         if identity in CPU_AGENTS
@@ -65,8 +67,12 @@ NODES = [
         choices={
             "batch_policy": ["single", "bounded_60s_v1"],
             "max_model_calls": MODEL_CALL_LIMITS,
+            "clock_policy": ["legacy_envelope_v1", "packed_projection_v2"],
         },
         embedded=["filter_transcript", "restore_timeline"],
+        conditional_outputs={
+            "clock_policy": {"packed_projection_v2": {"trace": "metadata"}}
+        },
     ),
     node(
         "translate",
