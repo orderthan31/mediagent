@@ -28,6 +28,15 @@ LARGE_PROFILE = {
 def input_limit(agent, port, kind):
     if not isinstance(agent, dict) or set(agent) != {"id", "revision"}:
         raise ValueError("Invalid CPU input contract")
+    if agent["revision"] == "5":
+        from .long_audio_budget import CPU_ROLES, role_budget
+
+        if (
+            agent["id"] not in CPU_ROLES
+            or port not in role_budget(agent["id"])["inputs"]
+        ):
+            raise ValueError("unsupported_long_audio_input_port")
+        return role_budget(agent["id"])["inputs"][port]
     if (
         agent["id"] in {"generate_subtitle", "preprocess_audio"}
         and agent["revision"] == "3"
@@ -69,6 +78,10 @@ def source_policy(asset, definition):
 
 def command_timeout(command):
     agent = command["agent"]
+    if agent.get("revision") == "5":
+        from .long_audio_budget import validate_command
+
+        return validate_command(command)["command_seconds"]
     input_limit(agent, "video", "video")
     return LARGE_COMMAND_SECONDS if agent["revision"] == "2" else 90
 
@@ -96,6 +109,10 @@ def lease_seconds(command):
         ):
             raise ValueError("Invalid frozen bounded model deadline")
         return expected
+    if agent.get("revision") == "5":
+        from .long_audio_budget import validate_command
+
+        return validate_command(command)["lease_seconds"]
     input_limit(agent, "video", "video")
     return LARGE_LEASE_SECONDS if agent["revision"] == "2" else 120
 
@@ -108,6 +125,20 @@ def workspace(root, command):
     from pathlib import Path
 
     root = Path(root)
+    if command["agent"].get("revision") == "5":
+        from .long_audio_budget import validate_command
+
+        budget = validate_command(command)
+        if not root.is_absolute() or root.is_symlink() or not root.is_dir():
+            raise ValueError("explicit_private_long_audio_cache_required")
+        if (
+            any(root.glob("audio-v5-*"))
+            or shutil.disk_usage(root).free < budget["cache_bytes"]
+        ):
+            raise ValueError("long_audio_cache_held_or_insufficient")
+        with tempfile.TemporaryDirectory(prefix="audio-v5-", dir=root) as scoped:
+            yield Path(scoped)
+        return
     input_limit(command["agent"], "video", "video")
     if command["agent"]["revision"] != "2":
         yield root

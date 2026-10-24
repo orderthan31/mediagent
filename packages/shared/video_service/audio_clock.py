@@ -6,7 +6,7 @@ import math
 from .transcript_input import parse_segments
 
 
-def validate_clock(spans):
+def validate_clock(spans, *, max_packed_seconds=300):
     if not isinstance(spans, list) or not 1 <= len(spans) <= 4096:
         raise ValueError("invalid_audio_clock")
     previous_source = previous_packed = 0.0
@@ -34,7 +34,7 @@ def validate_clock(spans):
             or stop <= packed
             or abs((end - start) - (stop - packed)) > 1 / 16000
             or end > 86400
-            or stop > 300
+            or stop > max_packed_seconds
         ):
             raise ValueError("non_monotonic_audio_clock")
         previous_source, previous_packed = end, stop

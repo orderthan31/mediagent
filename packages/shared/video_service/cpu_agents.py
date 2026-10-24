@@ -110,11 +110,25 @@ def process(arguments, *, cwd=None, timeout=60, diagnostics=False):
     return raw
 
 
-def process_bounded(arguments, *, output, cwd, timeout, max_bytes=MAX_CONTENT):
+def process_bounded(
+    arguments, *, output, cwd, timeout, max_bytes=MAX_CONTENT, resource_budget=None
+):
     """Own child only: bounded work-file, silent diagnostics, finite wall time."""
     import time
 
-    if type(max_bytes) is not int or not 0 < max_bytes <= MAX_CONTENT:
+    maximum = MAX_CONTENT
+    if resource_budget is not None:
+        from .long_audio_budget import CPU_ROLES, role_budget
+
+        role = resource_budget.get("role")
+        if (
+            role not in CPU_ROLES
+            or resource_budget != role_budget(role)
+            or timeout > resource_budget["process_seconds"]
+        ):
+            raise ValueError("invalid_explicit_long_process_budget")
+        maximum = resource_budget["outputs"].get("audio", MAX_CONTENT)
+    if type(max_bytes) is not int or not 0 < max_bytes <= maximum:
         raise ValueError("Invalid output budget")
     child = subprocess.Popen(
         arguments,
@@ -224,6 +238,12 @@ def run(command, input_root, output_root, *, agent=None):
         "options",
     }
     if (
+        isinstance(command, dict)
+        and isinstance(command.get("agent"), dict)
+        and command["agent"].get("revision") == "5"
+    ):
+        fields.add("resource_budget")
+    if (
         not isinstance(command, dict)
         or set(command) != fields
         or command["protocol_version"] != 1
@@ -243,6 +263,9 @@ def run(command, input_root, output_root, *, agent=None):
             r"[a-f0-9]{32}", command[key]
         ):
             raise ValueError("Invalid attempt identity")
+    from .long_audio_budget import validate_command
+
+    long_budget = validate_command(command)
     validate_node(
         {
             "node": kind,
@@ -251,6 +274,8 @@ def run(command, input_root, output_root, *, agent=None):
         }
     )
     out_root = Path(output_root).resolve(strict=True)
+    if long_budget and shutil.disk_usage(out_root).free < long_budget["cache_bytes"]:
+        raise ValueError("insufficient_long_audio_private_cache")
     work = out_root / (command["run_id"] + "-" + command["attempt_id"])
     work.mkdir(mode=0o700, exist_ok=False)
     result = {
@@ -310,56 +335,96 @@ def run(command, input_root, output_root, *, agent=None):
             options = command["options"]
             raw = paths["transcript"].read_bytes()
             maximum = (
-                16 * 1024 * 1024 if command["agent"]["revision"] == "3" else 1024 * 1024
+                16 * 1024 * 1024
+                if command["agent"]["revision"] in {"3", "5"}
+                else 1024 * 1024
             )
             if len(raw) > maximum:
                 raise ValueError("Transcript size exceeded")
             file = work / "subtitles.srt"
-            file.write_text(
-                segments_to_srt(segment_subtitles(_segments(raw))), encoding="utf-8"
-            )
+            srt_text = segments_to_srt(segment_subtitles(_segments(raw)))
+            if long_budget:
+                serialized = srt_text.encode("utf-8")
+                if len(serialized) > long_budget["outputs"]["subtitles"]:
+                    raise ValueError("long_srt_serialized_byte_budget_exceeded")
+                file.write_bytes(serialized)
+            else:
+                file.write_text(srt_text, encoding="utf-8")
             outputs["subtitles"] = (file, "subtitle")
             if options.get("format") == "srt_smi":
-                if command["agent"]["revision"] != "3":
+                if command["agent"]["revision"] not in {"3", "5"}:
                     raise ValueError("SAMI export requires subtitle revision 3")
                 from .sami import segments_to_sami
 
                 sami = work / "subtitles.smi"
                 cues = segment_subtitles(_segments(raw))
-                sami.write_text(
-                    segments_to_sami(cues, language=options.get("language", "und")),
-                    encoding="utf-8",
+                sami_text = segments_to_sami(
+                    cues, language=options.get("language", "und")
                 )
+                if long_budget:
+                    serialized = sami_text.encode("utf-8")
+                    if len(serialized) > long_budget["outputs"]["sami"]:
+                        raise ValueError("long_sami_serialized_byte_budget_exceeded")
+                    sami.write_bytes(serialized)
+                else:
+                    sami.write_text(sami_text, encoding="utf-8")
                 outputs["sami"] = (sami, "subtitle")
         elif kind == "extract_audio":
             file = work / "audio.wav"
-            process(
-                [
-                    *ffmpeg(),
-                    "-i",
-                    str(paths["video"]),
-                    "-vn",
-                    "-ac",
-                    "1",
-                    "-ar",
-                    "16000",
-                    "-threads",
-                    "1",
-                    "-map_metadata",
-                    "-1",
-                    str(file),
-                ]
-            )
+            extract_arguments = [
+                *ffmpeg(),
+                "-i",
+                str(paths["video"]),
+                "-vn",
+                "-ac",
+                "1",
+                "-ar",
+                "16000",
+                "-threads",
+                "1",
+                "-map_metadata",
+                "-1",
+                str(file),
+            ]
+            if long_budget:
+                import wave
+
+                from .long_audio_budget import FRAMES
+
+                process_bounded(
+                    extract_arguments,
+                    output=file,
+                    cwd=work,
+                    timeout=long_budget["process_seconds"],
+                    max_bytes=long_budget["outputs"]["audio"],
+                    resource_budget=long_budget,
+                )
+                with wave.open(str(file), "rb") as extracted:
+                    if not 0 < extracted.getnframes() <= FRAMES:
+                        raise ValueError("long_extraction_frame_budget_exceeded")
+            else:
+                process(extract_arguments)
             outputs["audio"] = (file, "audio")
         elif kind == "preprocess_audio":
             options = command["options"]
-            region_profile = options.get("processing_profile") == "regions_pack_v4"
+            region_profile = options.get(
+                "processing_profile"
+            ) == "regions_pack_v4" or bool(
+                long_budget and "regions" in command["inputs"]
+            )
             packed_profile = options.get("processing_profile") in {
                 "silence_pack_v3",
                 "regions_pack_v4",
+                "regions_long_v5",
             }
             expected_revision = (
-                "4" if region_profile else "3" if packed_profile else "1"
+                "5"
+                if long_budget
+                else "4"
+                if region_profile
+                else "3"
+                if packed_profile
+                else "1"
             )
             if command["agent"]["revision"] != expected_revision:
                 raise ValueError("preprocess_profile_revision_mismatch")
@@ -370,23 +435,31 @@ def run(command, input_root, output_root, *, agent=None):
             import wave
 
             file = work / "normalized.wav"
-            process(
-                [
-                    *ffmpeg(),
-                    "-i",
-                    str(paths["audio"]),
-                    "-vn",
-                    "-ac",
-                    "1",
-                    "-ar",
-                    "16000",
-                    "-c:a",
-                    "pcm_s16le",
-                    *(["-t", "301"] if packed_profile else []),
-                    str(file),
-                ],
-                timeout=30 if packed_profile else 60,
-            )
+            normalize_arguments = [
+                *ffmpeg(),
+                "-i",
+                str(paths["audio"]),
+                "-vn",
+                "-ac",
+                "1",
+                "-ar",
+                "16000",
+                "-c:a",
+                "pcm_s16le",
+                *(["-t", "21601" if long_budget else "301"] if packed_profile else []),
+                str(file),
+            ]
+            if long_budget:
+                process_bounded(
+                    normalize_arguments,
+                    output=file,
+                    cwd=work,
+                    timeout=long_budget["process_seconds"],
+                    max_bytes=long_budget["outputs"]["audio"],
+                    resource_budget=long_budget,
+                )
+            else:
+                process(normalize_arguments, timeout=30 if packed_profile else 60)
             with wave.open(str(file), "rb") as audio:
                 duration = audio.getnframes() / audio.getframerate()
             if not 0 < duration <= 31536000:
@@ -412,6 +485,7 @@ def run(command, input_root, output_root, *, agent=None):
                     file,
                     packed,
                     options.get("audio_filter", "off"),
+                    max_seconds=21600 if long_budget else 300,
                     detect=lambda minimum: process(
                         [
                             *ffmpeg(),
@@ -425,7 +499,7 @@ def run(command, input_root, output_root, *, agent=None):
                             "null",
                             "-",
                         ],
-                        timeout=30,
+                        timeout=long_budget["process_seconds"] if long_budget else 30,
                         diagnostics=True,
                     ),
                 )
@@ -445,7 +519,28 @@ def run(command, input_root, output_root, *, agent=None):
                         vad=[(0, frame_count / 16000)],
                     )
                     packed = work / "regions.wav"
-                    mapping = copy_regions(file, packed, intervals)
+                    mapping = copy_regions(
+                        file,
+                        packed,
+                        intervals,
+                        max_seconds=21600 if long_budget else 300,
+                    )
+                if long_budget:
+                    from .long_audio_budget import make_clock
+
+                    with wave.open(str(file), "rb") as source_audio:
+                        source_frames = source_audio.getnframes()
+                    with wave.open(str(packed), "rb") as packed_audio:
+                        packed_frames = packed_audio.getnframes()
+                    with packed.open("rb") as stream:
+                        packed_sha = hashlib.file_digest(stream, "sha256").hexdigest()
+                    mapping = make_clock(
+                        mapping,
+                        source_sha256=command["inputs"]["audio"]["sha256"],
+                        audio_sha256=packed_sha,
+                        source_frames=source_frames,
+                        packed_frames=packed_frames,
+                    )
                 timeline.write_bytes(canonical(mapping))
                 file = packed
             outputs["audio"] = (file, "audio")
@@ -509,13 +604,16 @@ def run(command, input_root, output_root, *, agent=None):
             outputs["video"] = (file, "video")
         for name, (file, output_type) in outputs.items():
             size = file.stat().st_size
-            if not 0 < size <= MAX_CONTENT:
+            maximum = long_budget["outputs"][name] if long_budget else MAX_CONTENT
+            if not 0 < size <= maximum:
                 raise ValueError("Invalid output size")
+            with file.open("rb") as stream:
+                output_sha = hashlib.file_digest(stream, "sha256").hexdigest()
             result["outputs"][name] = {
                 "storage_key": file.relative_to(out_root).as_posix(),
                 "type": output_type,
                 "bytes": size,
-                "sha256": hashlib.sha256(file.read_bytes()).hexdigest(),
+                "sha256": output_sha,
             }
         for port, reference in command["inputs"].items():
             reference_path(

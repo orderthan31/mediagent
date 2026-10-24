@@ -160,7 +160,7 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
   const node = job?.snapshot.definition.nodes.find((item) => item.id === selected);
   const review = job?.reviews.find((item) => item.node_run_id === run?.id);
   const reviewFields =
-    review?.contract.kind === 'audio_regions_v1'
+    review && ['audio_regions_v1', 'audio_regions_long_v5'].includes(review.contract.kind || '')
       ? {
           ...review.contract.fields,
           propertyOrder: ['protected', 'removals', 'approved'],
@@ -440,17 +440,23 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
                       <section
                         aria-label="공통 검수"
                         className={
-                          review.contract.kind === 'audio_regions_v1'
+                          ['audio_regions_v1', 'audio_regions_long_v5'].includes(
+                            review.contract.kind || '',
+                          )
                             ? 'audio-region-review'
                             : undefined
                         }
                       >
                         <h4>
-                          {review.contract.kind === 'audio_regions_v1'
+                          {['audio_regions_v1', 'audio_regions_long_v5'].includes(
+                            review.contract.kind || '',
+                          )
                             ? '음성 보호·제거 구간 검수'
                             : '자료 확인'}
                         </h4>
-                        {review.contract.kind === 'audio_regions_v1' && (
+                        {['audio_regions_v1', 'audio_regions_long_v5'].includes(
+                          review.contract.kind || '',
+                        ) && (
                           <>
                             <audio
                               controls

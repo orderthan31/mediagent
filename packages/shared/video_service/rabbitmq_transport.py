@@ -135,18 +135,24 @@ class Delivery:
 
 def validate_command(command):
     try:
+        fields = {
+            "protocol_version",
+            "run_id",
+            "attempt_id",
+            "generation",
+            "agent",
+            "inputs",
+            "options",
+        }
+        if (
+            isinstance(command, dict)
+            and isinstance(command.get("agent"), dict)
+            and command["agent"].get("revision") == "5"
+        ):
+            fields.add("resource_budget")
         if (
             not isinstance(command, dict)
-            or set(command)
-            != {
-                "protocol_version",
-                "run_id",
-                "attempt_id",
-                "generation",
-                "agent",
-                "inputs",
-                "options",
-            }
+            or set(command) != fields
             or type(command["protocol_version"]) is not int
             or command["protocol_version"] != 1
             or type(command["generation"]) is not int
@@ -157,6 +163,9 @@ def validate_command(command):
             or command["agent"]["id"] not in CPU_AGENTS
         ):
             raise ValueError
+        from .long_audio_budget import validate_command as validate_budget
+
+        validate_budget(command)
         for port, ref in command["inputs"].items():
             if (
                 set(ref)
@@ -193,6 +202,9 @@ def validate_command(command):
 
 def validate_result(command, result):
     try:
+        from .long_audio_budget import validate_command as validate_budget
+
+        resource_budget = validate_budget(command)
         fields = {
             "protocol_version",
             "run_id",
@@ -246,7 +258,13 @@ def validate_result(command, result):
                     or not re.fullmatch(r"[a-f0-9]{64}", ref["sha256"])
                     or ref["storage_key"] != "blobs/" + ref["sha256"]
                     or type(ref["bytes"]) is not int
-                    or not 0 < ref["bytes"] <= 268435456
+                    or not 0
+                    < ref["bytes"]
+                    <= (
+                        resource_budget["outputs"].get(port, 0)
+                        if resource_budget
+                        else 268435456
+                    )
                     or ref["type"] != spec["outputs"][port]
                 ):
                     raise ValueError

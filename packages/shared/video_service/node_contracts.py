@@ -53,6 +53,7 @@ NODES = [
                 "legacy_v1",
                 "silence_pack_v3",
                 "regions_pack_v4",
+                "regions_long_v5",
                 "nvidia_regions_v4",
             ],
             "vad_mode": ["off", "nvidia"],
@@ -67,11 +68,18 @@ NODES = [
         choices={
             "batch_policy": ["single", "bounded_60s_v1"],
             "max_model_calls": MODEL_CALL_LIMITS,
-            "clock_policy": ["legacy_envelope_v1", "packed_projection_v2"],
+            "clock_policy": [
+                "legacy_envelope_v1",
+                "packed_projection_v2",
+                "packed_projection_v5",
+            ],
         },
         embedded=["filter_transcript", "restore_timeline"],
         conditional_outputs={
-            "clock_policy": {"packed_projection_v2": {"trace": "metadata"}}
+            "clock_policy": {
+                "packed_projection_v2": {"trace": "metadata"},
+                "packed_projection_v5": {"trace": "metadata"},
+            }
         },
     ),
     node(
@@ -189,13 +197,20 @@ NODES.extend(
                 role="control",
                 choices={
                     "data_type": VALUE_TYPES,
-                    "review_kind": ["approve_only", "audio_regions_v1"],
+                    "review_kind": [
+                        "approve_only",
+                        "audio_regions_v1",
+                        "audio_regions_long_v5",
+                    ],
                 },
             ),
             "execution": "explicit_review_ticket",
             "entrypoint": "controller-owned",
             "conditional_outputs": {
-                "review_kind": {"audio_regions_v1": {"regions": "audio_regions"}}
+                "review_kind": {
+                    "audio_regions_v1": {"regions": "audio_regions"},
+                    "audio_regions_long_v5": {"regions": "audio_regions"},
+                }
             },
             "port_types_from_options": {
                 "inputs": {"value": "data_type"},
@@ -235,6 +250,17 @@ NODES.extend(
         },
     ]
 )
+
+
+for _descriptor in NODES:
+    if _descriptor["id"] in {
+        "extract_audio",
+        "preprocess_audio",
+        "transcribe",
+        "translate",
+        "generate_subtitle",
+    }:
+        _descriptor["options"]["media_budget"] = ["legacy", "audio_long_v5"]
 
 
 def node_spec(identity, options=None):
@@ -306,9 +332,14 @@ def validate_node(payload):
         nvidia_regions = options.get("processing_profile") == "nvidia_regions_v4"
         if nvidia_regions and options.get("vad_mode") != "nvidia":
             raise ValueError("nvidia_regions_v4 requires explicit NVIDIA engine")
-        cpu_regions = options.get("processing_profile") == "regions_pack_v4"
+        cpu_regions = options.get("processing_profile") in {
+            "regions_pack_v4",
+            "regions_long_v5",
+        }
         if cpu_regions and (
-            options.get("vad_mode", "off") != "off" or "regions" not in inputs
+            options.get("vad_mode", "off") != "off"
+            or options.get("processing_profile") == "regions_pack_v4"
+            and "regions" not in inputs
         ):
             raise ValueError(
                 "regions_pack_v4 requires CPU mode and a region decision input"
@@ -327,10 +358,19 @@ def validate_node(payload):
         )
     if (
         selected["id"] == "review"
-        and options.get("review_kind") == "audio_regions_v1"
+        and options.get("review_kind") in {"audio_regions_v1", "audio_regions_long_v5"}
         and options.get("data_type") != "audio"
     ):
         raise ValueError("audio region review requires audio input")
+    if (
+        options.get("processing_profile") == "regions_long_v5"
+        or options.get("clock_policy") == "packed_projection_v5"
+    ) and options.get("media_budget") != "audio_long_v5":
+        raise ValueError("explicit_long_audio_budget_required")
+    if options.get("media_budget") == "audio_long_v5":
+        from .long_audio_budget import definition_policy
+
+        definition_policy({"nodes": [{"type": selected["id"], "options": options}]})
     if selected["id"] == "decision":
         from .decision_conditions import conditions
 

@@ -3,12 +3,22 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "owner", "command", "result"],
+  "required": [
+    "version",
+    "owner",
+    "command",
+    "result"
+  ],
   "$defs": {
     "artifact": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["storage_key", "sha256", "bytes", "type"],
+      "required": [
+        "storage_key",
+        "sha256",
+        "bytes",
+        "type"
+      ],
       "properties": {
         "storage_key": {
           "type": "string",
@@ -31,7 +41,12 @@
     "input_artifact": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["storage_key", "sha256", "bytes", "type"],
+      "required": [
+        "storage_key",
+        "sha256",
+        "bytes",
+        "type"
+      ],
       "properties": {
         "storage_key": {
           "type": "string",
@@ -97,7 +112,10 @@
         "agent": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["id", "revision"],
+          "required": [
+            "id",
+            "revision"
+          ],
           "properties": {
             "id": {
               "enum": [
@@ -110,7 +128,12 @@
               ]
             },
             "revision": {
-              "const": "1"
+              "enum": [
+                "1",
+                "3",
+                "4",
+                "5"
+              ]
             }
           }
         },
@@ -118,6 +141,9 @@
           "type": "object"
         },
         "options": {
+          "type": "object"
+        },
+        "resource_budget": {
           "type": "object"
         }
       },
@@ -128,6 +154,9 @@
               "properties": {
                 "id": {
                   "const": "analyze"
+                },
+                "revision": {
+                  "const": "1"
                 }
               }
             },
@@ -150,13 +179,16 @@
                   ]
                 }
               },
-              "required": ["video"]
+              "required": [
+                "video"
+              ]
             },
             "options": {
               "type": "object",
               "additionalProperties": false,
               "properties": {}
-            }
+            },
+            "resource_budget": false
           }
         },
         {
@@ -165,6 +197,9 @@
               "properties": {
                 "id": {
                   "const": "encode"
+                },
+                "revision": {
+                  "const": "1"
                 }
               }
             },
@@ -201,31 +236,51 @@
                   ]
                 }
               },
-              "required": ["video"]
+              "required": [
+                "video"
+              ]
             },
             "options": {
               "type": "object",
               "additionalProperties": false,
               "properties": {
                 "subtitle_mode": {
-                  "enum": ["burn", "soft", "none"]
+                  "enum": [
+                    "burn",
+                    "soft",
+                    "none"
+                  ]
                 },
                 "video_codec": {
-                  "enum": ["h264", "hevc"]
+                  "enum": [
+                    "h264",
+                    "hevc"
+                  ]
                 },
                 "resolution": {
-                  "enum": ["original", "1080p", "720p"]
+                  "enum": [
+                    "original",
+                    "1080p",
+                    "720p"
+                  ]
                 },
                 "quality_profile": {
-                  "enum": ["balanced", "high", "compact"]
+                  "enum": [
+                    "balanced",
+                    "high",
+                    "compact"
+                  ]
                 }
               }
-            }
+            },
+            "resource_budget": false
           },
           "if": {
             "properties": {
               "options": {
-                "required": ["subtitle_mode"],
+                "required": [
+                  "subtitle_mode"
+                ],
                 "properties": {
                   "subtitle_mode": {
                     "const": "none"
@@ -238,7 +293,9 @@
             "properties": {
               "inputs": {
                 "not": {
-                  "required": ["subtitles"]
+                  "required": [
+                    "subtitles"
+                  ]
                 }
               }
             }
@@ -246,7 +303,9 @@
           "else": {
             "properties": {
               "inputs": {
-                "required": ["subtitles"]
+                "required": [
+                  "subtitles"
+                ]
               }
             }
           }
@@ -257,6 +316,97 @@
               "properties": {
                 "id": {
                   "const": "extract_audio"
+                },
+                "revision": {
+                  "const": "5"
+                }
+              }
+            },
+            "inputs": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "video": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "storage_key",
+                    "sha256",
+                    "bytes",
+                    "type"
+                  ],
+                  "properties": {
+                    "storage_key": {
+                      "type": "string",
+                      "pattern": "^blobs/[a-f0-9]{64}$"
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    "bytes": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 268435456
+                    },
+                    "type": {
+                      "const": "video"
+                    },
+                    "source_owner_id": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{32}$"
+                    }
+                  }
+                }
+              },
+              "required": [
+                "video"
+              ]
+            },
+            "options": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "media_budget": {
+                  "const": "audio_long_v5"
+                }
+              },
+              "required": [
+                "media_budget"
+              ]
+            },
+            "resource_budget": {
+              "const": {
+                "profile": "audio_long_v5",
+                "role": "extract_audio",
+                "inputs": {
+                  "video": 268435456
+                },
+                "outputs": {
+                  "audio": 1073741824
+                },
+                "source_max_frames": 345600000,
+                "packed_max_frames": 345600000,
+                "process_seconds": 7200,
+                "command_seconds": 9000,
+                "lease_seconds": 9600,
+                "cache_bytes": 6442450944
+              }
+            }
+          },
+          "required": [
+            "resource_budget"
+          ]
+        },
+        {
+          "properties": {
+            "agent": {
+              "properties": {
+                "id": {
+                  "const": "extract_audio"
+                },
+                "revision": {
+                  "const": "1"
                 }
               }
             },
@@ -279,13 +429,22 @@
                   ]
                 }
               },
-              "required": ["video"]
+              "required": [
+                "video"
+              ]
             },
             "options": {
               "type": "object",
               "additionalProperties": false,
-              "properties": {}
-            }
+              "properties": {
+                "media_budget": {
+                  "enum": [
+                    "legacy"
+                  ]
+                }
+              }
+            },
+            "resource_budget": false
           }
         },
         {
@@ -294,6 +453,112 @@
               "properties": {
                 "id": {
                   "const": "generate_subtitle"
+                },
+                "revision": {
+                  "const": "5"
+                }
+              }
+            },
+            "inputs": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "transcript": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "storage_key",
+                    "sha256",
+                    "bytes",
+                    "type"
+                  ],
+                  "properties": {
+                    "storage_key": {
+                      "type": "string",
+                      "pattern": "^blobs/[a-f0-9]{64}$"
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    "bytes": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 16777216
+                    },
+                    "type": {
+                      "const": "transcript"
+                    },
+                    "source_owner_id": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{32}$"
+                    }
+                  }
+                }
+              },
+              "required": [
+                "transcript"
+              ]
+            },
+            "options": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "format": {
+                  "enum": [
+                    "srt",
+                    "srt_smi"
+                  ]
+                },
+                "language": {
+                  "type": "string",
+                  "pattern": "^[a-z]{2,3}$"
+                },
+                "media_budget": {
+                  "const": "audio_long_v5"
+                }
+              },
+              "required": [
+                "media_budget",
+                "format"
+              ]
+            },
+            "resource_budget": {
+              "const": {
+                "profile": "audio_long_v5",
+                "role": "generate_subtitle",
+                "inputs": {
+                  "transcript": 16777216
+                },
+                "outputs": {
+                  "subtitles": 16777216,
+                  "sami": 16777216
+                },
+                "source_max_frames": 345600000,
+                "packed_max_frames": 345600000,
+                "process_seconds": 7200,
+                "command_seconds": 9000,
+                "lease_seconds": 9600,
+                "cache_bytes": 67108864
+              }
+            }
+          },
+          "required": [
+            "resource_budget"
+          ]
+        },
+        {
+          "properties": {
+            "agent": {
+              "properties": {
+                "id": {
+                  "const": "generate_subtitle"
+                },
+                "revision": {
+                  "enum": [
+                    "1",
+                    "3"
+                  ]
                 }
               }
             },
@@ -316,14 +581,75 @@
                   ]
                 }
               },
-              "required": ["transcript"]
+              "required": [
+                "transcript"
+              ]
             },
             "options": {
               "type": "object",
               "additionalProperties": false,
-              "properties": {}
+              "properties": {
+                "format": {
+                  "enum": [
+                    "srt",
+                    "srt_smi"
+                  ]
+                },
+                "language": {
+                  "type": "string",
+                  "pattern": "^[a-z]{2,3}$"
+                },
+                "media_budget": {
+                  "enum": [
+                    "legacy"
+                  ]
+                }
+              }
+            },
+            "resource_budget": false
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "agent": {
+                    "properties": {
+                      "revision": {
+                        "const": "3"
+                      }
+                    }
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "options": {
+                    "required": [
+                      "format"
+                    ],
+                    "properties": {
+                      "format": {
+                        "const": "srt_smi"
+                      }
+                    }
+                  }
+                }
+              },
+              "else": {
+                "properties": {
+                  "options": {
+                    "properties": {
+                      "format": {
+                        "enum": [
+                          "srt"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
             }
-          }
+          ]
         },
         {
           "properties": {
@@ -331,6 +657,150 @@
               "properties": {
                 "id": {
                   "const": "preprocess_audio"
+                },
+                "revision": {
+                  "const": "5"
+                }
+              }
+            },
+            "inputs": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "audio": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "storage_key",
+                    "sha256",
+                    "bytes",
+                    "type"
+                  ],
+                  "properties": {
+                    "storage_key": {
+                      "type": "string",
+                      "pattern": "^blobs/[a-f0-9]{64}$"
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    "bytes": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 1073741824
+                    },
+                    "type": {
+                      "const": "audio"
+                    },
+                    "source_owner_id": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{32}$"
+                    }
+                  }
+                },
+                "regions": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "storage_key",
+                    "sha256",
+                    "bytes",
+                    "type"
+                  ],
+                  "properties": {
+                    "storage_key": {
+                      "type": "string",
+                      "pattern": "^blobs/[a-f0-9]{64}$"
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    "bytes": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 131072
+                    },
+                    "type": {
+                      "const": "audio_regions"
+                    },
+                    "source_owner_id": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{32}$"
+                    }
+                  }
+                }
+              },
+              "required": [
+                "audio"
+              ]
+            },
+            "options": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "audio_filter": {
+                  "enum": [
+                    "off",
+                    "conservative",
+                    "strong",
+                    "silence3"
+                  ]
+                },
+                "processing_profile": {
+                  "const": "regions_long_v5"
+                },
+                "vad_mode": {
+                  "const": "off"
+                },
+                "media_budget": {
+                  "const": "audio_long_v5"
+                }
+              },
+              "required": [
+                "media_budget",
+                "processing_profile"
+              ]
+            },
+            "resource_budget": {
+              "const": {
+                "profile": "audio_long_v5",
+                "role": "preprocess_audio",
+                "inputs": {
+                  "audio": 1073741824,
+                  "regions": 131072
+                },
+                "outputs": {
+                  "audio": 1073741824,
+                  "timeline": 16777216
+                },
+                "source_max_frames": 345600000,
+                "packed_max_frames": 345600000,
+                "process_seconds": 7200,
+                "command_seconds": 9000,
+                "lease_seconds": 9600,
+                "cache_bytes": 6442450944
+              }
+            }
+          },
+          "required": [
+            "resource_budget"
+          ]
+        },
+        {
+          "properties": {
+            "agent": {
+              "properties": {
+                "id": {
+                  "const": "preprocess_audio"
+                },
+                "revision": {
+                  "enum": [
+                    "1",
+                    "3",
+                    "4"
+                  ]
                 }
               }
             },
@@ -351,23 +821,169 @@
                       }
                     }
                   ]
+                },
+                "regions": {
+                  "allOf": [
+                    {
+                      "$ref": "#/$defs/input_artifact"
+                    },
+                    {
+                      "properties": {
+                        "type": {
+                          "const": "audio_regions"
+                        }
+                      }
+                    }
+                  ]
                 }
               },
-              "required": ["audio"]
+              "required": [
+                "audio"
+              ]
             },
             "options": {
               "type": "object",
               "additionalProperties": false,
               "properties": {
                 "audio_filter": {
-                  "enum": ["off", "conservative", "strong", "silence3"]
+                  "enum": [
+                    "off",
+                    "conservative",
+                    "strong",
+                    "silence3"
+                  ]
+                },
+                "processing_profile": {
+                  "enum": [
+                    "legacy_v1",
+                    "silence_pack_v3",
+                    "regions_pack_v4"
+                  ]
                 },
                 "vad_mode": {
-                  "enum": ["off", "nvidia"]
+                  "enum": [
+                    "off",
+                    "nvidia"
+                  ]
+                },
+                "media_budget": {
+                  "enum": [
+                    "legacy"
+                  ]
+                }
+              }
+            },
+            "resource_budget": false
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "agent": {
+                    "properties": {
+                      "revision": {
+                        "const": "1"
+                      }
+                    }
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "options": {
+                    "properties": {
+                      "processing_profile": {
+                        "const": "legacy_v1"
+                      }
+                    }
+                  },
+                  "inputs": {
+                    "not": {
+                      "required": [
+                        "regions"
+                      ]
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "agent": {
+                    "properties": {
+                      "revision": {
+                        "const": "3"
+                      }
+                    }
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "options": {
+                    "properties": {
+                      "processing_profile": {
+                        "const": "silence_pack_v3"
+                      },
+                      "vad_mode": {
+                        "enum": [
+                          "off"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "processing_profile"
+                    ]
+                  },
+                  "inputs": {
+                    "not": {
+                      "required": [
+                        "regions"
+                      ]
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "agent": {
+                    "properties": {
+                      "revision": {
+                        "const": "4"
+                      }
+                    }
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "options": {
+                    "properties": {
+                      "processing_profile": {
+                        "const": "regions_pack_v4"
+                      },
+                      "vad_mode": {
+                        "enum": [
+                          "off"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "processing_profile"
+                    ]
+                  },
+                  "inputs": {
+                    "required": [
+                      "regions"
+                    ]
+                  }
                 }
               }
             }
-          }
+          ]
         },
         {
           "properties": {
@@ -375,6 +991,9 @@
               "properties": {
                 "id": {
                   "const": "validate_video"
+                },
+                "revision": {
+                  "const": "1"
                 }
               }
             },
@@ -397,13 +1016,16 @@
                   ]
                 }
               },
-              "required": ["video"]
+              "required": [
+                "video"
+              ]
             },
             "options": {
               "type": "object",
               "additionalProperties": false,
               "properties": {}
-            }
+            },
+            "resource_budget": false
           }
         }
       ]
@@ -442,7 +1064,10 @@
         "agent": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["id", "revision"],
+          "required": [
+            "id",
+            "revision"
+          ],
           "properties": {
             "id": {
               "enum": [
@@ -455,7 +1080,12 @@
               ]
             },
             "revision": {
-              "const": "1"
+              "enum": [
+                "1",
+                "3",
+                "4",
+                "5"
+              ]
             }
           }
         },
@@ -464,21 +1094,25 @@
           "pattern": "^[a-f0-9]{64}$"
         },
         "status": {
-          "enum": ["completed", "failed"]
+          "enum": [
+            "completed",
+            "failed"
+          ]
         },
         "transport": {
           "const": "s3_subprocess"
         },
         "outputs": {
           "type": "object",
-          "additionalProperties": {
-            "$ref": "#/$defs/artifact"
-          }
+          "additionalProperties": true
         },
         "error": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["code", "retryable"],
+          "required": [
+            "code",
+            "retryable"
+          ],
           "properties": {
             "code": {
               "type": "string",
@@ -498,7 +1132,9 @@
         }
       },
       "then": {
-        "required": ["error"],
+        "required": [
+          "error"
+        ],
         "properties": {
           "outputs": {
             "maxProperties": 0
@@ -507,14 +1143,358 @@
       },
       "else": {
         "not": {
-          "required": ["error"]
+          "required": [
+            "error"
+          ]
         },
         "properties": {
           "outputs": {
             "minProperties": 1
           }
         }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "agent": {
+                "properties": {
+                  "revision": {
+                    "const": "5"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "oneOf": [
+              {
+                "properties": {
+                  "agent": {
+                    "properties": {
+                      "id": {
+                        "const": "extract_audio"
+                      }
+                    }
+                  },
+                  "outputs": {
+                    "type": "object",
+                    "properties": {
+                      "audio": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "storage_key",
+                          "sha256",
+                          "bytes",
+                          "type"
+                        ],
+                        "properties": {
+                          "storage_key": {
+                            "type": "string",
+                            "pattern": "^blobs/[a-f0-9]{64}$"
+                          },
+                          "sha256": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{64}$"
+                          },
+                          "bytes": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 1073741824
+                          },
+                          "type": {
+                            "const": "audio"
+                          }
+                        }
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "if": {
+                  "properties": {
+                    "status": {
+                      "const": "completed"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "outputs": {
+                      "required": [
+                        "audio"
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "agent": {
+                    "properties": {
+                      "id": {
+                        "const": "generate_subtitle"
+                      }
+                    }
+                  },
+                  "outputs": {
+                    "type": "object",
+                    "properties": {
+                      "subtitles": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "storage_key",
+                          "sha256",
+                          "bytes",
+                          "type"
+                        ],
+                        "properties": {
+                          "storage_key": {
+                            "type": "string",
+                            "pattern": "^blobs/[a-f0-9]{64}$"
+                          },
+                          "sha256": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{64}$"
+                          },
+                          "bytes": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 16777216
+                          },
+                          "type": {
+                            "const": "subtitle"
+                          }
+                        }
+                      },
+                      "sami": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "storage_key",
+                          "sha256",
+                          "bytes",
+                          "type"
+                        ],
+                        "properties": {
+                          "storage_key": {
+                            "type": "string",
+                            "pattern": "^blobs/[a-f0-9]{64}$"
+                          },
+                          "sha256": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{64}$"
+                          },
+                          "bytes": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 16777216
+                          },
+                          "type": {
+                            "const": "subtitle"
+                          }
+                        }
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "if": {
+                  "properties": {
+                    "status": {
+                      "const": "completed"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "outputs": {
+                      "required": [
+                        "subtitles"
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "agent": {
+                    "properties": {
+                      "id": {
+                        "const": "preprocess_audio"
+                      }
+                    }
+                  },
+                  "outputs": {
+                    "type": "object",
+                    "properties": {
+                      "audio": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "storage_key",
+                          "sha256",
+                          "bytes",
+                          "type"
+                        ],
+                        "properties": {
+                          "storage_key": {
+                            "type": "string",
+                            "pattern": "^blobs/[a-f0-9]{64}$"
+                          },
+                          "sha256": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{64}$"
+                          },
+                          "bytes": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 1073741824
+                          },
+                          "type": {
+                            "const": "audio"
+                          }
+                        }
+                      },
+                      "timeline": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "storage_key",
+                          "sha256",
+                          "bytes",
+                          "type"
+                        ],
+                        "properties": {
+                          "storage_key": {
+                            "type": "string",
+                            "pattern": "^blobs/[a-f0-9]{64}$"
+                          },
+                          "sha256": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{64}$"
+                          },
+                          "bytes": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 16777216
+                          },
+                          "type": {
+                            "const": "timeline_map"
+                          }
+                        }
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "if": {
+                  "properties": {
+                    "status": {
+                      "const": "completed"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "outputs": {
+                      "required": [
+                        "audio",
+                        "timeline"
+                      ]
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "else": {
+            "properties": {
+              "outputs": {
+                "additionalProperties": {
+                  "$ref": "#/$defs/artifact"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "result": {
+            "properties": {
+              "status": {
+                "const": "completed"
+              }
+            }
+          },
+          "command": {
+            "properties": {
+              "agent": {
+                "properties": {
+                  "id": {
+                    "const": "generate_subtitle"
+                  },
+                  "revision": {
+                    "const": "5"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "if": {
+          "properties": {
+            "command": {
+              "properties": {
+                "options": {
+                  "properties": {
+                    "format": {
+                      "const": "srt_smi"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "result": {
+              "properties": {
+                "outputs": {
+                  "required": [
+                    "sami"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "else": {
+          "properties": {
+            "result": {
+              "properties": {
+                "outputs": {
+                  "not": {
+                    "required": [
+                      "sami"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     }
-  }
+  ]
 }

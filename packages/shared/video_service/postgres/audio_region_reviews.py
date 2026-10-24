@@ -8,22 +8,28 @@ from ..cpu_agents import canonical
 KIND = "audio_regions_v1"
 
 
-def contract_for(store, owner, source):
+def contract_for(store, owner, source, *, kind=KIND):
     if source["type"] != "audio":
         raise ValueError("audio_region_review_requires_audio")
+    maximum = 21600 if kind == "audio_regions_long_v5" else 300
     path = store.path(owner, source)
     with wave.open(str(path), "rb") as stream:
         frames = stream.getnframes()
-        if (
-            (stream.getnchannels(), stream.getsampwidth(), stream.getframerate())
-            != (1, 2, 16000)
-            or not 0 < frames <= 16000 * 300
-            or len(stream.readframes(frames)) != frames * 2
-        ):
+        if (stream.getnchannels(), stream.getsampwidth(), stream.getframerate()) != (
+            1,
+            2,
+            16000,
+        ) or not 0 < frames <= 16000 * maximum:
             raise ValueError("audio_region_review_requires_bounded_pcm")
+        remaining = frames
+        while remaining:
+            count = min(remaining, 16000)
+            if len(stream.readframes(count)) != count * 2:
+                raise ValueError("incomplete_audio_region_source")
+            remaining -= count
     return {
         "version": 2,
-        "kind": KIND,
+        "kind": kind,
         "type": "audio",
         "source": source,
         "phase": "gate",

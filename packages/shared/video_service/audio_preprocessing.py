@@ -11,7 +11,7 @@ import wave
 from .audio_clock import validate_clock
 
 
-def pack_silence(source, destination, mode, *, detect):
+def pack_silence(source, destination, mode, *, detect, max_seconds=300):
     minimums = {"conservative": 10, "strong": 5, "silence3": 3}
     if mode not in {"off", *minimums}:
         raise ValueError("unsupported_silence_filter")
@@ -20,7 +20,7 @@ def pack_silence(source, destination, mode, *, detect):
         rate = audio.getframerate()
         if (audio.getnchannels(), audio.getsampwidth(), rate) != (1, 2, 16000):
             raise ValueError("silence_pack_requires_mono_pcm16_16k")
-        if not 0 < total <= rate * 300:
+        if not 0 < total <= rate * max_seconds:
             raise ValueError("silence_pack_v3_requires_existing_300s_clock")
         duration = total / rate
         removed = []
@@ -51,10 +51,10 @@ def pack_silence(source, destination, mode, *, detect):
             cursor = max(cursor, end)
         if cursor < duration:
             kept.append((cursor, duration))
-    return copy_regions(source, destination, kept)
+    return copy_regions(source, destination, kept, max_seconds=max_seconds)
 
 
-def copy_regions(source, destination, intervals):
+def copy_regions(source, destination, intervals, *, max_seconds=300):
     """Copy chosen original-clock PCM frames without expanding old clock limits."""
     with wave.open(str(source), "rb") as audio:
         total, rate = audio.getnframes(), audio.getframerate()
@@ -62,7 +62,7 @@ def copy_regions(source, destination, intervals):
             1,
             2,
             16000,
-        ) or not 0 < total <= 300 * rate:
+        ) or not 0 < total <= max_seconds * rate:
             raise ValueError("region_copy_requires_bounded_pcm")
         ranges = [(round(a * rate), round(b * rate)) for a, b in intervals]
         spans = []
@@ -80,7 +80,7 @@ def copy_regions(source, destination, intervals):
                 }
             )
             packed += count
-        validate_clock(spans)
+        validate_clock(spans, max_packed_seconds=max_seconds)
         with wave.open(str(destination), "wb") as output:
             output.setparams(audio.getparams())
             for first, last in ranges:

@@ -175,7 +175,7 @@ class Execution(Intake):
                 node["type"] == "preprocess_audio"
                 and node.get("options", {}).get("audio_filter", "off") != "off"
                 and node.get("options", {}).get("processing_profile")
-                not in {"silence_pack_v3", "regions_pack_v4"}
+                not in {"silence_pack_v3", "regions_pack_v4", "regions_long_v5"}
             ):
                 reasons.append(
                     "CPU 전처리는 필터 off 또는 명시 silence_pack_v3가 필요: "
@@ -280,6 +280,7 @@ class Execution(Intake):
                 "recovery",
                 "artifact_layout",
                 "cpu_input_policy",
+                "audio_pipeline_policy",
             }
         }
         public_source = value["snapshot"].get("asset", {})
@@ -506,7 +507,9 @@ class Execution(Intake):
                 db, owner, definition_id, definition_revision
             )
             from ..cpu_input_policy import source_policy
+            from ..long_audio_budget import definition_policy
 
+            audio_policy = definition_policy(definition)
             cpu_policy = source_policy(asset, definition)
             if cpu_policy and getattr(self.store, "storage_kind", None) != "s3":
                 raise ValueError("Large CPU input requires independent S3 transport")
@@ -551,6 +554,7 @@ class Execution(Intake):
                 snapshot_asset["uploaded_by"] = asset["owner_id"]
             snapshot = {
                 **({"cpu_input_policy": cpu_policy} if cpu_policy else {}),
+                **({"audio_pipeline_policy": audio_policy} if audio_policy else {}),
                 "version": 1,
                 "artifact_layout": 1,
                 "asset": snapshot_asset,
@@ -604,7 +608,10 @@ class Execution(Intake):
         # Immutable input verification must not hold the mutable job row lock.
         with self.database.connection() as db:
             job = self._job(db, owner, identity)
-            if not job["snapshot"].get("cpu_input_policy"):
+            if not (
+                job["snapshot"].get("cpu_input_policy")
+                or job["snapshot"].get("audio_pipeline_policy")
+            ):
                 return None
             references = list(job["snapshot"]["inputs"].values())
             if command is not None:
@@ -622,15 +629,25 @@ class Execution(Intake):
                             (run["result"] or {}).get("outputs", {}).values()
                         )
             snapshot_sha = job["snapshot_sha256"]
+        audio_contracts = {}
         for ref in references:
             self.store.path(owner, ref)
+            if job["snapshot"].get("audio_pipeline_policy") and ref["type"] == "audio":
+                from .audio_region_reviews import contract_for
+
+                audio_contracts[digest(ref)] = contract_for(
+                    self.store, owner, ref, kind="audio_regions_long_v5"
+                )
         return {
+            "audio_review_contracts": audio_contracts,
             "snapshot_sha256": snapshot_sha,
             "references": {digest(ref) for ref in references},
         }
 
     def _checked_input(self, owner, job, reference, verified):
-        if job["snapshot"].get("cpu_input_policy"):
+        if job["snapshot"].get("cpu_input_policy") or job["snapshot"].get(
+            "audio_pipeline_policy"
+        ):
             if (
                 not verified
                 or verified["snapshot_sha256"] != job["snapshot_sha256"]
@@ -729,6 +746,11 @@ class Execution(Intake):
         if external and not job["snapshot"].get("translation_paid_authorized"):
             reasons.append("전사/번역 후보 전체의 외부 호출 비용 동의가 필요합니다.")
         plan = {
+            **(
+                {"audio_pipeline_policy": job["snapshot"]["audio_pipeline_policy"]}
+                if job["snapshot"].get("audio_pipeline_policy")
+                else {}
+            ),
             **(
                 {
                     "transcription_mode": self.transcription_runtime.mode
@@ -909,6 +931,12 @@ class Execution(Intake):
             cpu_policy != LARGE_PROFILE or node["type"] not in LARGE_AGENTS
         ):
             raise Conflict("Frozen CPU input policy is unsupported")
+        audio_policy = job["snapshot"].get("audio_pipeline_policy")
+        if audio_policy:
+            from ..long_audio_budget import policy
+
+            if audio_policy != policy():
+                raise Conflict("frozen_long_audio_policy_changed")
         command = {
             "protocol_version": 1,
             "run_id": job["id"],
@@ -949,6 +977,14 @@ class Execution(Intake):
                 command["options"]["language"] = (
                     "und" if language == "auto" else language
                 )
+        if node["options"].get("media_budget") == "audio_long_v5":
+            from ..long_audio_budget import CPU_ROLES, command_budget
+
+            if not audio_policy:
+                raise Conflict("long_audio_snapshot_budget_missing")
+            command["resource_budget"] = command_budget(node["type"], node["options"])
+            if node["type"] in CPU_ROLES:
+                command["agent"]["revision"] = "5"
         if (
             node["type"] in {"translate", "transcribe"}
             and node.get("model_ref")
@@ -970,11 +1006,13 @@ class Execution(Intake):
                     "translation_paid_authorized", False
                 ),
             }
-            if (
-                kind == "transcription"
-                and node["options"].get("clock_policy") == "packed_projection_v2"
-            ):
-                command[kind]["clock_policy"] = "packed_projection_v2"
+            if kind == "transcription" and node["options"].get("clock_policy") in {
+                "packed_projection_v2",
+                "packed_projection_v5",
+            }:
+                command[kind]["clock_policy"] = node["options"]["clock_policy"]
+            if node["options"].get("media_budget") == "audio_long_v5":
+                command[kind]["media_budget"] = "audio_long_v5"
             batch_policy = node["options"].get("batch_policy", "single")
             if batch_policy != "single":
                 expected = (
@@ -1200,7 +1238,18 @@ class Execution(Intake):
                         },
                     }
                     draft = {"approved": False}
-                    if node["options"].get("review_kind") == "audio_regions_v1":
+                    if node["options"].get("review_kind") == "audio_regions_long_v5":
+                        contract = (
+                            (verified or {})
+                            .get("audio_review_contracts", {})
+                            .get(digest(inputs["value"]))
+                        )
+                        if not contract:
+                            raise Conflict(
+                                "long_audio_review_source_not_preflight_verified"
+                            )
+                        draft = {"approved": False, "protected": [], "removals": []}
+                    elif node["options"].get("review_kind") == "audio_regions_v1":
                         from .audio_region_reviews import contract_for
 
                         contract = contract_for(self.store, owner, inputs["value"])
@@ -1311,6 +1360,9 @@ class Execution(Intake):
             return None
 
     def execute_command(self, owner, command):
+        from ..long_audio_budget import validate_command
+
+        validate_command(command)
         # Reserve the exact delivery before starting a process. A duplicate whose
         # outcome is unknown never automatically launches a second process.
         with self.database.connection() as db:
@@ -1419,6 +1471,8 @@ class Execution(Intake):
                     (Jsonb(result), owner, command["run_id"], command["attempt_id"]),
                 )
             return result
+        from ..cpu_input_policy import command_timeout
+
         attempts = root / "attempts"
         if attempts.is_symlink():
             raise ValueError("Symlink attempt root denied")
@@ -1440,7 +1494,9 @@ class Execution(Intake):
                 check=False,
                 input=canonical(command),
                 capture_output=True,
-                timeout=90,
+                timeout=command_timeout(command)
+                if command["agent"]["revision"] == "5"
+                else 90,
                 env={
                     k: v
                     for k, v in __import__("os").environ.items()
@@ -1499,8 +1555,21 @@ class Execution(Intake):
             envelope(owner, command, result)
         elif result.get("transport") == "s3_engine":
             raise ValueError("Engine result cannot satisfy a CPU command")
+        from ..long_audio_budget import validate_command
+
+        audio_budget = validate_command(command)
         expected = spec(command["agent"]["id"], command["options"])["outputs"]
         values = result.get("outputs")
+        if audio_budget and (
+            not isinstance(values, dict)
+            or any(
+                not isinstance(ref, dict)
+                or type(ref.get("bytes")) is not int
+                or not 0 < ref["bytes"] <= audio_budget["outputs"].get(port, 0)
+                for port, ref in values.items()
+            )
+        ):
+            raise ValueError("long_audio_result_role_budget_exceeded")
         if not isinstance(values, dict) or set(values) != set(expected):
             raise ValueError("Agent output ports differ")
         if result.get("transport") == "registered_http" and (
@@ -1539,7 +1608,14 @@ class Execution(Intake):
                 raise ValueError("Output size differs")
             with path.open("rb") as stream:
                 stored = self.store.put(
-                    owner, iter(lambda: stream.read(1024 * 1024), b""), ref["type"]
+                    owner,
+                    iter(lambda: stream.read(1024 * 1024), b""),
+                    ref["type"],
+                    **(
+                        {"max_bytes": audio_budget["outputs"][port]}
+                        if audio_budget
+                        else {}
+                    ),
                 )
             if stored["sha256"] != ref["sha256"] or stored["bytes"] != ref["bytes"]:
                 raise ValueError("Output integrity differs")
@@ -1924,7 +2000,10 @@ class Execution(Intake):
                 "SELECT * FROM review_tasks WHERE id=%s LIMIT 2",
                 (resource_id(identity),),
             ).fetchall()
-            if len(rows) != 1 or rows[0]["contract"].get("kind") != "audio_regions_v1":
+            if len(rows) != 1 or rows[0]["contract"].get("kind") not in {
+                "audio_regions_v1",
+                "audio_regions_long_v5",
+            }:
                 raise Missing("음성 구간 검수 자료를 찾을 수 없습니다.")
             row = rows[0]
             self._shared_job(db, row["job_id"])
@@ -1942,7 +2021,10 @@ class Execution(Intake):
                 or job["status"] != "review_required"
             ):
                 raise Conflict("검수 상태가 바뀌었습니다. 편집은 보존하세요.")
-            if row["contract"].get("kind") == "audio_regions_v1":
+            if row["contract"].get("kind") in {
+                "audio_regions_v1",
+                "audio_regions_long_v5",
+            }:
                 from .audio_region_reviews import document_for
 
                 document_for(row["contract"], draft)
@@ -1972,7 +2054,8 @@ class Execution(Intake):
                 row["revision"] != revision
                 or (
                     row["draft"].get("approved") is not True
-                    if row["contract"].get("kind") == "audio_regions_v1"
+                    if row["contract"].get("kind")
+                    in {"audio_regions_v1", "audio_regions_long_v5"}
                     else row["draft"] != {"approved": True}
                 )
                 or job["status"] != "review_required"
@@ -1981,7 +2064,10 @@ class Execution(Intake):
             source = row["contract"]["source"]
             self.store.path(owner, source)
             outputs = {"value": source}
-            if row["contract"].get("kind") == "audio_regions_v1":
+            if row["contract"].get("kind") in {
+                "audio_regions_v1",
+                "audio_regions_long_v5",
+            }:
                 if row["status"] == "confirmed":
                     return public(row)
                 from .audio_region_reviews import document_for

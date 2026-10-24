@@ -480,9 +480,13 @@ def execute_translation(runtime, owner, command):
     from psycopg.types.json import Jsonb
 
     from ..cpu_agents import digest
+    from ..long_audio_budget import validate_command
 
+    audio_budget = validate_command(command)
     kind = "transcription" if command.get("transcription") else "translation"
     config = command[kind]
+    if bool(audio_budget) != (config.get("media_budget") == "audio_long_v5"):
+        raise ValueError("long_audio_model_budget_not_frozen")
     executor = getattr(runtime, kind + "_runtime")
 
     def cancelled():
@@ -526,9 +530,17 @@ def execute_translation(runtime, owner, command):
         clock_policy = config.get("clock_policy", "legacy_envelope_v1")
         if clock_policy != command["options"].get(
             "clock_policy", "legacy_envelope_v1"
-        ) or clock_policy not in {"legacy_envelope_v1", "packed_projection_v2"}:
+        ) or clock_policy not in {
+            "legacy_envelope_v1",
+            "packed_projection_v2",
+            "packed_projection_v5",
+        }:
             raise ValueError("projection_policy_not_frozen_in_command")
         batched = config.get("batch_policy") == "bounded_60s_v1"
+        if audio_budget and (not batched or clock_policy != "packed_projection_v5"):
+            raise ValueError("long_audio_requires_batched_projection_v5")
+        if clock_policy == "packed_projection_v5" and not audio_budget:
+            raise ValueError("long_clock_without_frozen_budget")
         try:
             if batched:
                 import io
@@ -537,7 +549,11 @@ def execute_translation(runtime, owner, command):
                 from ..audio_batches import MAX_BATCH_AUDIO_BYTES, RATE
 
                 audio = runtime.store.read(
-                    owner, command["inputs"]["audio"], limit=MAX_BATCH_AUDIO_BYTES
+                    owner,
+                    command["inputs"]["audio"],
+                    limit=audio_budget["inputs"]["audio"]
+                    if audio_budget
+                    else MAX_BATCH_AUDIO_BYTES,
                 )
                 with wave.open(io.BytesIO(audio), "rb") as normalized:
                     info = {
@@ -552,18 +568,46 @@ def execute_translation(runtime, owner, command):
                 info = audio_info(audio)
             from ..audio_clock import registered_clock
 
-            clock = registered_clock(
-                json.loads(runtime.store.read(owner, command["inputs"]["timeline"])),
-                audio_sha256=command["inputs"]["audio"]["sha256"],
+            clock_value = json.loads(
+                runtime.store.read(
+                    owner,
+                    command["inputs"]["timeline"],
+                    limit=audio_budget["inputs"]["timeline"]
+                    if audio_budget
+                    else 1024 * 1024,
+                )
             )
-            if abs(validate_clock(clock) - info["duration_seconds"]) > 1 / 16000:
+            if audio_budget:
+                from ..long_audio_budget import read_clock
+
+                clock = read_clock(
+                    clock_value, audio_sha256=command["inputs"]["audio"]["sha256"]
+                )
+            else:
+                clock = registered_clock(
+                    clock_value, audio_sha256=command["inputs"]["audio"]["sha256"]
+                )
+            if audio_budget:
+                frames = round(info["duration_seconds"] * 16000)
+                required_calls = (frames + 60 * 16000 - 1) // (60 * 16000)
+                if required_calls > config["max_model_calls"]:
+                    raise ValueError("long_audio_call_cap_below_actual_frame_minimum")
+            if (
+                abs(
+                    validate_clock(
+                        clock, max_packed_seconds=21600 if audio_budget else 300
+                    )
+                    - info["duration_seconds"]
+                )
+                > 1 / 16000
+            ):
                 raise ValueError("audio_timeline_duration_mismatch")
-            if clock_policy == "packed_projection_v2":
+            if clock_policy in {"packed_projection_v2", "packed_projection_v5"}:
                 from ..packed_projection import validate_projection_clock
 
-                if round(validate_projection_clock(clock) * 16000) != round(
-                    info["duration_seconds"] * 16000
-                ):
+                if round(
+                    validate_projection_clock(clock, policy=clock_policy) * 16000
+                ) != round(info["duration_seconds"] * 16000):
                     raise ValueError("projection_audio_frame_count_mismatch")
         except (ValueError, KeyError, TypeError, OSError):
             translated = {
@@ -617,11 +661,20 @@ def execute_translation(runtime, owner, command):
                     from ..packed_projection import project
 
                     packed_reference = runtime.store.put(
-                        owner, [canonical(translated["segments"])], "transcript"
+                        owner,
+                        [canonical(translated["segments"])],
+                        "transcript",
+                        **(
+                            {"max_bytes": audio_budget["outputs"]["transcript"]}
+                            if audio_budget
+                            else {}
+                        ),
                     )
                     try:
-                        projected, projection_trace = project(
-                            translated["segments"], clock
+                        projected, projection_trace = (
+                            project(translated["segments"], clock, policy=clock_policy)
+                            if clock_policy == "packed_projection_v5"
+                            else project(translated["segments"], clock)
                         )
                     except ValueError as error:
                         # The model reply was successful, not an eligible provider failure.
@@ -661,24 +714,48 @@ def execute_translation(runtime, owner, command):
                     limit=MAX_BATCH_TRANSCRIPT_BYTES,
                 )
             )
-            ledger = ModelBatchLedger(
-                runtime.database, owner, command, max_calls=config["max_model_calls"]
-            )
-            translated = executor.translate_batched(
-                config["candidates"],
-                source,
-                source_language=config["source_language"],
-                target_language=config["target_language"],
-                cancelled=cancelled,
-                record=record,
-                persist=lambda index, rows: runtime.store.put(
-                    owner, [canonical(rows)], "transcript"
-                ),
-                load=lambda reference: json.loads(runtime.store.read(owner, reference)),
-                ledger=ledger,
-                max_calls=config["max_model_calls"],
-                paid_authorized=config["paid_authorized"],
-            )
+            if audio_budget:
+                from ..transcript_batches import split_transcript
+
+                required_calls = sum(1 for _ in split_transcript(source))
+                input_info.update(
+                    required_model_calls=required_calls,
+                    canonical_source_bytes=len(canonical(source)),
+                )
+            else:
+                required_calls = 0
+            if audio_budget and required_calls > config["max_model_calls"]:
+                translated = {
+                    "status": "failed",
+                    "attempts": [],
+                    "selected": None,
+                    "segments": None,
+                    "input_error": "long_translation_cap_below_serialized_minimum",
+                }
+            else:
+                ledger = ModelBatchLedger(
+                    runtime.database,
+                    owner,
+                    command,
+                    max_calls=config["max_model_calls"],
+                )
+                translated = executor.translate_batched(
+                    config["candidates"],
+                    source,
+                    source_language=config["source_language"],
+                    target_language=config["target_language"],
+                    cancelled=cancelled,
+                    record=record,
+                    persist=lambda index, rows: runtime.store.put(
+                        owner, [canonical(rows)], "transcript"
+                    ),
+                    load=lambda reference: json.loads(
+                        runtime.store.read(owner, reference)
+                    ),
+                    ledger=ledger,
+                    max_calls=config["max_model_calls"],
+                    paid_authorized=config["paid_authorized"],
+                )
         else:
             source = json.loads(
                 runtime.store.read(owner, command["inputs"]["transcript"], limit=16000)
@@ -695,11 +772,25 @@ def execute_translation(runtime, owner, command):
     outputs = {}
     if translated["status"] == "completed" and not cancelled():
         outputs["transcript"] = runtime.store.put(
-            owner, [canonical(translated["segments"])], "transcript"
+            owner,
+            [canonical(translated["segments"])],
+            "transcript",
+            **(
+                {"max_bytes": audio_budget["outputs"]["transcript"]}
+                if audio_budget
+                else {}
+            ),
         )
         if projection_trace is not None:
             outputs["trace"] = runtime.store.put(
-                owner, [canonical(projection_trace)], "metadata"
+                owner,
+                [canonical(projection_trace)],
+                "metadata",
+                **(
+                    {"max_bytes": audio_budget["outputs"]["trace"]}
+                    if audio_budget
+                    else {}
+                ),
             )
         if cancelled():
             outputs = {}

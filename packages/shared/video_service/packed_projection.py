@@ -10,9 +10,12 @@ from .transcript_input import parse_segments
 MAX_BYTES = 16 * 1024 * 1024
 
 
-def validate_projection_clock(spans):
-    duration = validate_clock(spans)
-    if spans[-1]["source_end"] > 300:
+def validate_projection_clock(spans, *, policy="packed_projection_v2"):
+    if policy not in {"packed_projection_v2", "packed_projection_v5"}:
+        raise ValueError("unsupported_projection_policy")
+    maximum = 6 * 60 * 60 if policy == "packed_projection_v5" else 300
+    duration = validate_clock(spans, max_packed_seconds=maximum)
+    if spans[-1]["source_end"] > maximum:
         raise ValueError("projection_v2_budget_exceeded")
     if any(
         abs(number * 16000 - round(number * 16000)) > 1e-6
@@ -35,8 +38,8 @@ def validate_projection_clock(spans):
     return duration
 
 
-def project(segments, spans):
-    duration = validate_projection_clock(spans)
+def project(segments, spans, *, policy="packed_projection_v2"):
+    duration = validate_projection_clock(spans, policy=policy)
     parse_segments(canonical(segments))
     if len(canonical(segments)) > MAX_BYTES:
         raise ValueError("projection_v2_budget_exceeded")
@@ -47,8 +50,8 @@ def project(segments, spans):
         raise ValueError("projection_duplicate_input_id")
     source_sha = hashlib.sha256(canonical(segments)).hexdigest()
     trace = {
-        "version": 2,
-        "policy": "packed_projection_v2",
+        "version": 5 if policy == "packed_projection_v5" else 2,
+        "policy": policy,
         "packed_transcript_sha256": source_sha,
         "timeline_spans_sha256": hashlib.sha256(canonical(spans)).hexdigest(),
         "rows": [],
