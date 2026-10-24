@@ -457,6 +457,14 @@ def mount_runtime(
             acknowledge_duplicate_risk=body.acknowledge_duplicate_risk,
         )
 
+    @app.get("/api/renewal/reviews/{identity}/source")
+    def review_source(identity: str, owned=owner_dependency):
+        return FileResponse(
+            runtime.review_source(owned, identity),
+            media_type="audio/wav",
+            filename="review-audio.wav",
+        )
+
     @app.post("/api/renewal/reviews/{identity}/save")
     def review_save(identity: str, body: Review, owned=owner_dependency):
         return runtime.review_save(owned, identity, body.revision, body.draft)

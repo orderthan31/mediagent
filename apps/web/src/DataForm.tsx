@@ -4,6 +4,7 @@ import { Button } from './hangyeol/primitives/button';
 import { Input } from './hangyeol/primitives/input';
 import {
   formDefaults,
+  orderedFields,
   type FieldSchema,
   type FormValue,
   type ReviewMaterial,
@@ -41,7 +42,7 @@ export const DataField = ({
       <fieldset className="data-object" disabled={locked}>
         {depth > 0 && <legend>{label}</legend>}
         <div className="data-form-grid">
-          {Object.entries(schema.properties || {}).map(([key, child]) => (
+          {orderedFields(schema).map(([key, child]) => (
             <DataField
               key={key}
               schema={child}
@@ -59,7 +60,10 @@ export const DataField = ({
   if (schema.type === 'array' && schema.items) {
     const rows = Array.isArray(value) ? value : [];
     const minimum = schema.minItems ?? 0;
-    const maximum = Math.min(schema.maxItems ?? 100, 100);
+    const maximum = Math.min(
+      schema.maxItems ?? 100,
+      schema.format === 'audio-regions' ? 1024 : 100,
+    );
     return (
       <fieldset className="data-array" disabled={locked}>
         <legend>

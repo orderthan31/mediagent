@@ -44,7 +44,7 @@ def schemas():
         "required": ["id", "revision"],
         "properties": {
             "id": {"enum": sorted(CPU_AGENTS)},
-            "revision": {"enum": ["1", "3"]},
+            "revision": {"enum": ["1", "3", "4"]},
         },
     }
     command = {
@@ -103,42 +103,41 @@ def schemas():
             }
         }
         if role == "preprocess_audio":
-            branch["properties"]["inputs"]["not"] = {"required": ["regions"]}
-            branch["properties"]["options"]["properties"]["processing_profile"] = {
-                "enum": ["legacy_v1", "silence_pack_v3"]
-            }
             branch["properties"]["agent"]["properties"]["revision"] = {
-                "enum": ["1", "3"]
+                "enum": ["1", "3", "4"]
             }
-            branch["allOf"] = [
-                {
-                    "if": {
-                        "properties": {
-                            "agent": {"properties": {"revision": {"const": "3"}}}
-                        }
-                    },
-                    "then": {
-                        "properties": {
-                            "options": {
-                                "required": ["processing_profile"],
-                                "properties": {
-                                    "processing_profile": {"const": "silence_pack_v3"},
-                                    "vad_mode": {"enum": ["off"]},
-                                },
-                            }
-                        }
-                    },
-                    "else": {
-                        "properties": {
-                            "options": {
-                                "properties": {
-                                    "processing_profile": {"enum": ["legacy_v1"]},
+            branch["properties"]["options"]["properties"]["processing_profile"] = {
+                "enum": ["legacy_v1", "silence_pack_v3", "regions_pack_v4"]
+            }
+            branch["allOf"] = []
+            for revision, profile in [
+                ("1", "legacy_v1"),
+                ("3", "silence_pack_v3"),
+                ("4", "regions_pack_v4"),
+            ]:
+                opts = {"properties": {"processing_profile": {"const": profile}}}
+                if revision != "1":
+                    opts["required"] = ["processing_profile"]
+                    opts["properties"]["vad_mode"] = {"enum": ["off"]}
+                inputs_rule = (
+                    {"required": ["regions"]}
+                    if revision == "4"
+                    else {"not": {"required": ["regions"]}}
+                )
+                branch["allOf"].append(
+                    {
+                        "if": {
+                            "properties": {
+                                "agent": {
+                                    "properties": {"revision": {"const": revision}}
                                 }
                             }
-                        }
-                    },
-                }
-            ]
+                        },
+                        "then": {
+                            "properties": {"options": opts, "inputs": inputs_rule}
+                        },
+                    }
+                )
         if role == "generate_subtitle":
             branch["properties"]["agent"]["properties"]["revision"] = {
                 "enum": ["1", "3"]

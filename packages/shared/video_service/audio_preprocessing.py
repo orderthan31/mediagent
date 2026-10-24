@@ -51,7 +51,20 @@ def pack_silence(source, destination, mode, *, detect):
             cursor = max(cursor, end)
         if cursor < duration:
             kept.append((cursor, duration))
-        ranges = [(round(a * rate), round(b * rate)) for a, b in kept]
+    return copy_regions(source, destination, kept)
+
+
+def copy_regions(source, destination, intervals):
+    """Copy chosen original-clock PCM frames without expanding old clock limits."""
+    with wave.open(str(source), "rb") as audio:
+        total, rate = audio.getnframes(), audio.getframerate()
+        if (audio.getnchannels(), audio.getsampwidth(), rate) != (
+            1,
+            2,
+            16000,
+        ) or not 0 < total <= 300 * rate:
+            raise ValueError("region_copy_requires_bounded_pcm")
+        ranges = [(round(a * rate), round(b * rate)) for a, b in intervals]
         spans = []
         packed = 0
         for first, last in ranges:

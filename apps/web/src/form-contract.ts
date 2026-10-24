@@ -6,7 +6,7 @@ export type FieldChoice = { value: string; label: string; image?: string };
 export type FieldSchema = {
   type: 'string' | 'number' | 'integer' | 'boolean' | 'object' | 'array';
   title: string;
-  format?: 'multiline' | 'seconds';
+  format?: 'multiline' | 'seconds' | 'audio-regions';
   readOnly?: boolean;
   default?: FormValue;
   const?: FormValue;
@@ -21,6 +21,7 @@ export type FieldSchema = {
   minItems?: number;
   maxItems?: number;
   order?: { from: string; to: string; message: string };
+  propertyOrder?: string[];
 };
 export type FormIssue = { path: string; message: string };
 export type ReviewMaterial = {
@@ -184,4 +185,15 @@ export const readonlyChanges = (
     return before.some((item, index) => readonlyChanges(schema.items!, item, after[index] ?? null));
   }
   return false;
+};
+
+/** Display-only explicit order; absent metadata preserves existing form ordering. */
+export const orderedFields = (schema: FieldSchema): [string, FieldSchema][] => {
+  const entries = Object.entries(schema.properties || {});
+  const order = schema.propertyOrder || [];
+  return entries.sort(([a], [b]) => {
+    const left = order.indexOf(a),
+      right = order.indexOf(b);
+    return (left < 0 ? order.length : left) - (right < 0 ? order.length : right);
+  });
 };

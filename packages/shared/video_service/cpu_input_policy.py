@@ -33,6 +33,8 @@ def input_limit(agent, port, kind):
         and agent["revision"] == "3"
     ):
         return MAX_CONTENT
+    if agent["id"] == "preprocess_audio" and agent["revision"] == "4":
+        return 131072 if port == "regions" and kind == "audio_regions" else MAX_CONTENT
     if agent["revision"] == "1":
         return MAX_CONTENT
     if agent["revision"] != "2" or agent["id"] not in LARGE_AGENTS:

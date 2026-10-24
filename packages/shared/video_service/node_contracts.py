@@ -47,7 +47,12 @@ NODES = [
         optional=["regions"],
         choices={
             "audio_filter": ["off", "conservative", "strong", "silence3"],
-            "processing_profile": ["legacy_v1", "silence_pack_v3", "nvidia_regions_v4"],
+            "processing_profile": [
+                "legacy_v1",
+                "silence_pack_v3",
+                "regions_pack_v4",
+                "nvidia_regions_v4",
+            ],
             "vad_mode": ["off", "nvidia"],
         },
     ),
@@ -176,10 +181,16 @@ NODES.extend(
                 {"value": "video"},
                 {"value": "video"},
                 role="control",
-                choices={"data_type": VALUE_TYPES},
+                choices={
+                    "data_type": VALUE_TYPES,
+                    "review_kind": ["approve_only", "audio_regions_v1"],
+                },
             ),
             "execution": "explicit_review_ticket",
             "entrypoint": "controller-owned",
+            "conditional_outputs": {
+                "review_kind": {"audio_regions_v1": {"regions": "audio_regions"}}
+            },
             "port_types_from_options": {
                 "inputs": {"value": "data_type"},
                 "outputs": {"value": "data_type"},
@@ -226,6 +237,11 @@ def node_spec(identity, options=None):
         return None
     selected = deepcopy(selected)
     supplied = options if isinstance(options, dict) else {}
+    if (
+        identity == "preprocess_audio"
+        and supplied.get("processing_profile") == "regions_pack_v4"
+    ):
+        selected["optional_inputs"].remove("regions")
     if identity == "generate_subtitle" and supplied.get("format") == "srt_smi":
         selected["outputs"]["sami"] = "subtitle"
     for direction, ports in selected.get("port_types_from_options", {}).items():
@@ -233,6 +249,8 @@ def node_spec(identity, options=None):
             value = supplied.get(key, selected["options"][key][0])
             if isinstance(value, str) and value in selected["options"][key]:
                 selected[direction][port] = value
+    for key, variants in selected.get("conditional_outputs", {}).items():
+        selected["outputs"].update(variants.get(supplied.get(key), {}))
     return selected
 
 
@@ -282,9 +300,16 @@ def validate_node(payload):
         nvidia_regions = options.get("processing_profile") == "nvidia_regions_v4"
         if nvidia_regions and options.get("vad_mode") != "nvidia":
             raise ValueError("nvidia_regions_v4 requires explicit NVIDIA engine")
-        if "regions" in inputs and not nvidia_regions:
+        cpu_regions = options.get("processing_profile") == "regions_pack_v4"
+        if cpu_regions and (
+            options.get("vad_mode", "off") != "off" or "regions" not in inputs
+        ):
             raise ValueError(
-                "audio regions require explicit nvidia_regions_v4 contract"
+                "regions_pack_v4 requires CPU mode and a region decision input"
+            )
+        if "regions" in inputs and not (nvidia_regions or cpu_regions):
+            raise ValueError(
+                "audio regions require an explicit region processing contract"
             )
     if (
         selected["id"] == "preprocess_audio"
@@ -294,6 +319,12 @@ def validate_node(payload):
         raise ValueError(
             "silence_pack_v3 is a CPU-only profile; NVIDIA VAD needs its explicit engine contract"
         )
+    if (
+        selected["id"] == "review"
+        and options.get("review_kind") == "audio_regions_v1"
+        and options.get("data_type") != "audio"
+    ):
+        raise ValueError("audio region review requires audio input")
     if selected["id"] == "decision":
         from .decision_conditions import conditions
 

@@ -17,3 +17,18 @@
   color: var(--g-soft);
   font-size: var(--m-type-label);
 }
+
+.audio-region-review audio {
+  max-width: 100%;
+}
+.audio-region-review .data-checkbox {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+}
+.audio-region-review .data-checkbox input {
+  width: auto;
+  flex: 0 0 auto;
+}

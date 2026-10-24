@@ -55,7 +55,12 @@ type Review = {
   revision: number;
   status: string;
   draft: FormData;
-  contract: { fields: FieldSchema; source: Reference };
+  contract: {
+    fields: FieldSchema;
+    source: Reference;
+    kind?: string;
+    audio?: { duration_seconds: number; source_frames: number; source_sha256: string };
+  };
 };
 type State = {
   artifact_manifest?: {
@@ -154,6 +159,21 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
   const run = job?.runs.find((item) => item.node_id === selected);
   const node = job?.snapshot.definition.nodes.find((item) => item.id === selected);
   const review = job?.reviews.find((item) => item.node_run_id === run?.id);
+  const reviewFields =
+    review?.contract.kind === 'audio_regions_v1'
+      ? {
+          ...review.contract.fields,
+          propertyOrder: ['protected', 'removals', 'approved'],
+          properties: Object.fromEntries(
+            Object.entries(review.contract.fields.properties || {}).map(([key, field]) => [
+              key,
+              field.type === 'array' && field.items
+                ? { ...field, items: { ...field.items, propertyOrder: ['start', 'end', 'kind'] } }
+                : field,
+            ]),
+          ),
+        }
+      : review?.contract.fields;
   const outputs = run?.status === 'completed' ? run.result?.outputs || {} : {};
   const translation =
     run?.result?.transcription ||
@@ -417,10 +437,46 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
                       </section>
                     )}
                     {review && canManage && (
-                      <section aria-label="공통 검수">
-                        <h4>자료 확인</h4>
+                      <section
+                        aria-label="공통 검수"
+                        className={
+                          review.contract.kind === 'audio_regions_v1'
+                            ? 'audio-region-review'
+                            : undefined
+                        }
+                      >
+                        <h4>
+                          {review.contract.kind === 'audio_regions_v1'
+                            ? '음성 보호·제거 구간 검수'
+                            : '자료 확인'}
+                        </h4>
+                        {review.contract.kind === 'audio_regions_v1' && (
+                          <>
+                            <audio
+                              controls
+                              preload="none"
+                              src={mediaUrl('/renewal/reviews/' + review.id + '/source')}
+                            />
+                            <p>
+                              원본 오디오의 초 단위 구간입니다. 보호 구간은 적용 시 앞뒤 0.3초를 더
+                              보호하며, 겹친 제거 제안은 전체 취소합니다.
+                            </p>
+                            <p>
+                              후속 음성 필터가 off면 보호·제거 결정은 적용하지 않습니다. NVIDIA
+                              VAD를 선택하면 마지막에 VAD 유지 구간과 겹치는 부분만 남습니다.
+                            </p>
+                            <p>
+                              직접 지정한 결정입니다. 자동 보컬 탐지·확인 결과가 아닙니다.
+                              저장·확정만으로 실행하지 않습니다.
+                            </p>
+                            <p>
+                              원본 길이 {review.contract.audio?.duration_seconds.toFixed(3)}초 · 각
+                              목록 최대 1,024개
+                            </p>
+                          </>
+                        )}
                         <DataForm
-                          schema={review.contract.fields}
+                          schema={reviewFields!}
                           value={drafts[review.id] ?? review.draft}
                           disabled={busy || review.status === 'confirmed'}
                           onChange={(value) => {

@@ -50,4 +50,7 @@
 - 기본 경로 소스 e25831b36e와 CPU 무음 전처리 9392b123은 PM 수용/App publish 완료이고 운영은 미반영이다. 후속 silence_pack_v3는 새 명시 profile/revision3의 CPU 전처리이며 master의 10/5/3초 무음 임계·-45dB·0.2초 padding과 정확 프레임 복사/기존 원시각 복원을 사용한다. legacy_v1/off·과거 티켓은 자동 교체하지 않는다. NVIDIA VAD, 보호/보컬 구간·긴 clock·검수/다국어는 별도 잔여다.
 - NVIDIA 후속 nvidia_regions_v4는 CPU silence profile의 별칭이 아니다. regions 입력은 원본 audio SHA/PCM frame 수에 묶인 CAS 결정이며, master와 같은 보호 확장·전체 veto·원본좌표 제거 뒤 NVIDIA 확률에서 재산출한 유지구간을 마지막에 교차한다. CUDA 요청/실제 device 표기·model SHA·duration·확률/구간 일치를 검증한다. 입력 결정 적용과 자동 탐지/독립 재확인, 통제 응답과 실제 GPU inference를 구분한다.
 - NVIDIA wrapper를 registered ASR에 넘길 때 audio SHA/명시 profile/source frames/구간 범위를 먼저 검증한다. old list clock/전역 300초 한도는 유지한다. 통제된 wrapper 소비의 단일·분할 ASR/번역 검증은 실제 GPU→ASR 전체 여정의 증거가 아니다. legacy packed 교차문장 분리/trace는 아직 잔여다.
+- fd5b455b의 NVIDIA 명시 계약/구간 적용은 소스 수용·App publish 완료이고 GPU 실실행/운영은 미반영이다. 후속 audio_regions_v1 검수는 원본 audio/frame을 읽기 고정하고 보호/제거 결정만 수정·확정한다. 확정 시 CAS를 만들되 실행하지 않으며 새 동의 후 regions_pack_v4/revision4 CPU 또는 명시 NVIDIA 입력으로 전달한다. 일반 검수와 기존 프로필은 그대로 유지한다.
+- 제품 검수 배열의 표시 순서는 JSONB 속성순서에 기대지 않는다. 새 음성 구간 폼에만 시작→끝/보호→제거→확인 순서를 명시하고, 그 외 폼의 기본 배열/표시 한도는 유지한다. 메타데이터 source/player는 읽기 전용이며 검수 저장 실패 시 편집을 보존한다.
+- 자동 보컬 도메인 프로토콜과 실제 등록 모델 실행을 구분한다. 전자는 원본 frame 문맥/의미 보존·독립 확인·veto/취소·호출 수 제약을 통제 응답으로 검증하지만 기본 모델·HTTP·키·제품 활성화 경로가 없다. 목적 호환 proof/영속 intent/unknown·비용 승인이 연결되기 전 실제 호출할 수 있는 runtime로 수용하지 않는다.
 - 기존 audio-clock 300초/CPU 역할 한도를 전역 확장하지 않는다. 필요한 긴 전처리/clock/역할별 예산은 별도 명시 버전과 새 티켓에 결속한다. 유료 호출만 모델·길이·호출/비용 상한 승인을 분리하고 나머지 비유료 구현을 계속한다.

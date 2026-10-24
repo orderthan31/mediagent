@@ -353,8 +353,15 @@ def run(command, input_root, output_root, *, agent=None):
             outputs["audio"] = (file, "audio")
         elif kind == "preprocess_audio":
             options = command["options"]
-            packed_profile = options.get("processing_profile") == "silence_pack_v3"
-            if packed_profile != (command["agent"]["revision"] == "3"):
+            region_profile = options.get("processing_profile") == "regions_pack_v4"
+            packed_profile = options.get("processing_profile") in {
+                "silence_pack_v3",
+                "regions_pack_v4",
+            }
+            expected_revision = (
+                "4" if region_profile else "3" if packed_profile else "1"
+            )
+            if command["agent"]["revision"] != expected_revision:
                 raise ValueError("preprocess_profile_revision_mismatch")
             if options.get("vad_mode", "off") != "off":
                 raise ValueError("cpu_preprocess_nvidia_requires_engine")
@@ -422,6 +429,23 @@ def run(command, input_root, output_root, *, agent=None):
                         diagnostics=True,
                     ),
                 )
+                if region_profile:
+                    from .audio_preprocessing import copy_regions
+                    from .audio_regions import region_intervals
+
+                    document = json.loads(paths["regions"].read_bytes())
+                    with wave.open(str(file), "rb") as normalized:
+                        frame_count = normalized.getnframes()
+                    intervals = region_intervals(
+                        [(s["source_start"], s["source_end"]) for s in mapping],
+                        document,
+                        source_sha256=command["inputs"]["audio"]["sha256"],
+                        source_frames=frame_count,
+                        audio_filter=options.get("audio_filter", "off"),
+                        vad=[(0, frame_count / 16000)],
+                    )
+                    packed = work / "regions.wav"
+                    mapping = copy_regions(file, packed, intervals)
                 timeline.write_bytes(canonical(mapping))
                 file = packed
             outputs["audio"] = (file, "audio")

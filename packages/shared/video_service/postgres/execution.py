@@ -175,7 +175,7 @@ class Execution(Intake):
                 node["type"] == "preprocess_audio"
                 and node.get("options", {}).get("audio_filter", "off") != "off"
                 and node.get("options", {}).get("processing_profile")
-                != "silence_pack_v3"
+                not in {"silence_pack_v3", "regions_pack_v4"}
             ):
                 reasons.append(
                     "CPU 전처리는 필터 off 또는 명시 silence_pack_v3가 필요: "
@@ -924,6 +924,11 @@ class Execution(Intake):
         ):
             command["agent"]["revision"] = "3"
         if (
+            node["type"] == "preprocess_audio"
+            and node["options"].get("processing_profile") == "regions_pack_v4"
+        ):
+            command["agent"]["revision"] = "4"
+        if (
             node["type"] == "generate_subtitle"
             and node["options"].get("format") == "srt_smi"
         ):
@@ -1189,6 +1194,12 @@ class Execution(Intake):
                             "required": ["approved"],
                         },
                     }
+                    draft = {"approved": False}
+                    if node["options"].get("review_kind") == "audio_regions_v1":
+                        from .audio_region_reviews import contract_for
+
+                        contract = contract_for(self.store, owner, inputs["value"])
+                        draft = {"approved": False, "protected": [], "removals": []}
                     db.execute(
                         "INSERT INTO review_tasks(owner_id,job_id,node_run_id,id,revision,contract,draft,status) VALUES (%s,%s,%s,%s,1,%s,%s,'draft')",
                         (
@@ -1197,7 +1208,7 @@ class Execution(Intake):
                             row["id"],
                             review_id,
                             Jsonb(contract),
-                            Jsonb({"approved": False}),
+                            Jsonb(draft),
                         ),
                     )
                     db.execute(
@@ -1205,8 +1216,8 @@ class Execution(Intake):
                         (
                             owner,
                             review_id,
-                            Jsonb({"approved": False}),
-                            digest({"approved": False}),
+                            Jsonb(draft),
+                            digest(draft),
                         ),
                     )
                     indexed[node["id"]] = row
@@ -1901,9 +1912,20 @@ class Execution(Intake):
             raise Missing("검수 자료를 찾을 수 없습니다.")
         return row
 
+    def review_source(self, actor, identity):
+        # All authenticated users may read shared media; edits retain owner gates.
+        with self.database.connection() as db:
+            rows = db.execute(
+                "SELECT * FROM review_tasks WHERE id=%s LIMIT 2",
+                (resource_id(identity),),
+            ).fetchall()
+            if len(rows) != 1 or rows[0]["contract"].get("kind") != "audio_regions_v1":
+                raise Missing("음성 구간 검수 자료를 찾을 수 없습니다.")
+            row = rows[0]
+            self._shared_job(db, row["job_id"])
+        return self.store.path(row["owner_id"], row["contract"]["source"])
+
     def review_save(self, owner, identity, revision, draft):
-        if draft != {"approved": True} and draft != {"approved": False}:
-            raise ValueError("검수 확인 필드 오류")
         with self.database.connection() as db:
             # All review/cancel/admission writes take the job lock before review lock.
             hint = self._review(db, owner, identity)
@@ -1915,6 +1937,12 @@ class Execution(Intake):
                 or job["status"] != "review_required"
             ):
                 raise Conflict("검수 상태가 바뀌었습니다. 편집은 보존하세요.")
+            if row["contract"].get("kind") == "audio_regions_v1":
+                from .audio_region_reviews import document_for
+
+                document_for(row["contract"], draft)
+            elif draft != {"approved": True} and draft != {"approved": False}:
+                raise ValueError("검수 확인 필드 오류")
             next_revision = revision + 1
             db.execute(
                 "INSERT INTO review_revisions VALUES (%s,%s,%s,%s,%s,now())",
@@ -1937,14 +1965,33 @@ class Execution(Intake):
             row = self._review(db, owner, identity, lock=True)
             if (
                 row["revision"] != revision
-                or row["draft"] != {"approved": True}
+                or (
+                    row["draft"].get("approved") is not True
+                    if row["contract"].get("kind") == "audio_regions_v1"
+                    else row["draft"] != {"approved": True}
+                )
                 or job["status"] != "review_required"
             ):
                 raise Conflict("저장된 최신 검수 자료를 확인하세요.")
             source = row["contract"]["source"]
             self.store.path(owner, source)
+            outputs = {"value": source}
+            if row["contract"].get("kind") == "audio_regions_v1":
+                if row["status"] == "confirmed":
+                    return public(row)
+                from .audio_region_reviews import document_for
+
+                document = document_for(row["contract"], row["draft"])
+                outputs["regions"] = self.store.put(
+                    owner, [canonical(document)], "audio_regions"
+                )
             confirmed_sha = digest(
-                {"draft": row["draft"], "source": source, "revision": revision}
+                {
+                    "draft": row["draft"],
+                    "source": source,
+                    "revision": revision,
+                    **({"regions": outputs["regions"]} if "regions" in outputs else {}),
+                }
             )
             db.execute(
                 "UPDATE review_tasks SET status='confirmed',confirmed_sha256=%s WHERE owner_id=%s AND id=%s",
@@ -1959,7 +2006,7 @@ class Execution(Intake):
                 job,
                 run,
                 {
-                    "outputs": {"value": source},
+                    "outputs": outputs,
                     "transport": "human_gate",
                     "review_id": identity,
                     "review_revision": revision,
