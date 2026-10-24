@@ -1,8 +1,22 @@
+import type { ModelProfile } from './ModelProfileFields';
+
+export type CatalogProfileVariant = {
+  profile: ModelProfile;
+  runtime_uses: string[];
+  registration_token?: string;
+  reason: string;
+  evidence: string[];
+};
 type PurposeItem = {
   runtime_uses: string[];
   profile: unknown | null;
+  profile_variants?: Record<string, CatalogProfileVariant>;
   classification_status?: 'supported' | 'unsupported' | 'unknown';
   provider_purpose?: string;
+};
+export const selectCatalogPurpose = <T extends PurposeItem>(item: T, purpose: string): T => {
+  const variant = item.profile_variants?.[purpose];
+  return variant ? { ...item, ...variant } : item;
 };
 export const catalogPurposeLabel = (item: PurposeItem) => {
   if (item.runtime_uses.length) {

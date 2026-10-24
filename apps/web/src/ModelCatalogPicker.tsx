@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { request } from './api';
-import { catalogPurposeLabel } from './model-catalog-purpose';
+import {
+  catalogPurposeLabel,
+  selectCatalogPurpose,
+  type CatalogProfileVariant,
+} from './model-catalog-purpose';
 import { Button } from './hangyeol/primitives/button';
 import type { ServingConnection } from './serving-connection';
 import type { ModelProfile } from './ModelProfileFields';
@@ -10,6 +14,7 @@ export type CatalogModel = {
   label: string;
   profile: ModelProfile | null;
   runtime_uses: string[];
+  profile_variants?: Record<string, CatalogProfileVariant>;
   classification_status?: 'supported' | 'unsupported' | 'unknown';
   provider_purpose?: string;
   registration_token?: string;
@@ -88,8 +93,12 @@ export const ModelCatalogPicker = ({
       }
     }
   };
-  const selected = catalog?.models.find((item) => item.id === model);
-  const candidates = catalog?.models.filter((item) => matches(item, purpose)) || [];
+  const selectedRaw = catalog?.models.find((item) => item.id === model);
+  const selected = selectedRaw ? selectCatalogPurpose(selectedRaw, purpose) : undefined;
+  const candidates =
+    catalog?.models
+      .map((item) => selectCatalogPurpose(item, purpose))
+      .filter((item) => matches(item, purpose)) || [];
   const noKey = connection.credential !== 'reference_set';
   const legacy = connection.address_mode === 'legacy_preserved';
   useEffect(() => {
@@ -133,8 +142,9 @@ export const ModelCatalogPicker = ({
           value={purpose}
           onChange={(event) => {
             setPurpose(event.target.value);
-            if (selected && !matches(selected, event.target.value)) {
-              onPick(null, binding);
+            if (selectedRaw) {
+              const next = selectCatalogPurpose(selectedRaw, event.target.value);
+              onPick(matches(next, event.target.value) ? next : null, binding);
             }
           }}
         >
@@ -151,7 +161,7 @@ export const ModelCatalogPicker = ({
           value={model}
           disabled={!catalog || busy}
           onChange={(event) => {
-            onPick(catalog?.models.find((item) => item.id === event.target.value) || null, binding);
+            onPick(candidates.find((item) => item.id === event.target.value) || null, binding);
           }}
         >
           <option value="">목록 조회 후 모델 선택</option>

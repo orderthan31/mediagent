@@ -204,6 +204,7 @@ def classify(provider, item, protocol, *, catalog_items=None):
                 **details,
                 "profile": None,
                 "classification_status": "unsupported",
+                "profile_variants": {},
                 "reason": "Gemini 정본 프로토콜이 아닌 연결에는 용도를 자동 부여하지 않습니다.",
             }
         profile = details["profile"]
@@ -298,6 +299,23 @@ def classify(provider, item, protocol, *, catalog_items=None):
                 )
             }
         )
+    if details and details.get("profile_variants"):
+        variants = {}
+        for purpose, variant in details["profile_variants"].items():
+            declared = validate_profile(**variant["profile"])
+            uses = []
+            if "text_generation" in declared["capabilities"]:
+                uses.append("translation")
+            if supports_transcription(declared, protocol, model):
+                uses.append("transcription")
+            if purpose in uses:
+                variants[purpose] = {
+                    **variant,
+                    "profile": declared,
+                    "runtime_uses": sorted(uses),
+                }
+        if variants:
+            result["profile_variants"] = variants
     return result
 
 
@@ -523,17 +541,21 @@ class ModelCatalog:
                 "조회 중 공급자 연결이 변경됐습니다. 목록을 다시 조회하세요."
             )
         for model in models:
-            if model["profile"]:
-                model["registration_token"] = self.credentials.seal_catalog_entry(
-                    owner,
-                    connection_id,
-                    {
-                        "connection_revision": revision,
-                        "connection_sha256": row["sha256"],
-                        "model": model["id"],
-                        "profile": model["profile"],
-                    },
-                )
+            selections = [model, *model.get("profile_variants", {}).values()]
+            for selection in selections:
+                if selection["profile"]:
+                    selection["registration_token"] = (
+                        self.credentials.seal_catalog_entry(
+                            owner,
+                            connection_id,
+                            {
+                                "connection_revision": revision,
+                                "connection_sha256": row["sha256"],
+                                "model": model["id"],
+                                "profile": selection["profile"],
+                            },
+                        )
+                    )
         return {
             "provider": row["provider"],
             "connection_id": connection_id,

@@ -1,7 +1,8 @@
 """Curated primary capability evidence intersected with the installed text adapter.
 
 Catalogs remain live/discovered. This table is not a provider-model dropdown and
-never asserts inference, price/quality, or timestamped audio support.
+never asserts inference or price/quality. Timed-audio compatibility is an
+explicit opt-in profile, separate from the unchanged translation default.
 """
 
 from copy import deepcopy
@@ -40,6 +41,31 @@ _LEGACY_PROFILE = {
     "input_modalities": ["audio", "image", "text", "video"],
     "output_modalities": ["text"],
 }
+
+
+def _transcription_variant(model):
+    if model not in {"gemini-2.5-flash", "gemini-2.5-pro", "gemini-3.8-flash"}:
+        return {}
+    return {
+        "transcription": {
+            "profile": {
+                "model_types": ["text", "speech_recognition", "multimodal"],
+                "capabilities": [
+                    "text_generation",
+                    "speech_recognition",
+                    "structured_output",
+                ],
+                "input_modalities": ["audio", "text"],
+                "output_modalities": ["text"],
+            },
+            "reason": "공식 음성입력·구조화 출력 근거와 inline WAV/수치 시각 전사 어댑터의 호환 후보입니다. 전사 용도를 명시 선택해 새 등록/개정으로 저장해야 합니다. 실제 호출권한·인식 정확도는 미검증이며 단일 호출 60초/2MiB 제한은 유지됩니다. 긴 영상은 별도 분할 실행이 필요합니다.",
+            "evidence": [
+                _DOC_ROOT + model,
+                "https://ai.google.dev/gemini-api/docs/audio",
+                "https://ai.google.dev/gemini-api/docs/structured-output",
+            ],
+        }
+    }
 
 
 def classify_gemini(item, catalog_items=None):
@@ -196,6 +222,7 @@ def classify_gemini(item, catalog_items=None):
             )
         return {
             "profile": deepcopy(_LEGACY_PROFILE if model in _LEGACY else _TEXT_PROFILE),
+            "profile_variants": _transcription_variant(model),
             "classification_status": "supported",
             "provider_purpose": "텍스트 생성",
             "reason": reason,
