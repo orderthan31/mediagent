@@ -41,3 +41,14 @@ def test_explicit_targets_freeze_per_node_and_legacy_target_remains(db,admin,mov
     for run in done['runs']:
         if run['node_type']=='translate':
             assert json.loads(runtime.store.read(owner,run['result']['outputs']['transcript']))[0]['text']=='전체 문장'
+
+
+def test_default_video_acceptance_does_not_activate_uninstalled_020(db,admin,movie,tmp_path,monkeypatch):
+    from video_service.postgres.video_previews import VideoPreviews
+    def forbidden(*args,**kwargs):raise AssertionError('unactivated preview hook entered')
+    monkeypatch.setattr(VideoPreviews,'enqueue_in',forbidden)
+    runtime=Execution(db,ContentStore(tmp_path));owner=admin[0]['id']
+    graph={'catalog_version':1,'revision':0,'name':'default-off preview proof','inputs':{'video':'video'},'nodes':[{'id':'encode','type':'encode','options':{'subtitle_mode':'none'},'position':{'x':400,'y':0}}],'edges':[{'id':'source','source':{'node':'$input','port':'video'},'target':{'node':'encode','port':'video'}}]}
+    definition=runtime.save_definition(owner,uuid4().hex,graph);asset=runtime.ingest(owner,'controlled-default-preview.mp4',movie)
+    job=runtime.create(owner,asset['asset_id'],definition['id'],definition['revision'],request_id=uuid4().hex)
+    admit(runtime,owner,job['id']);done=runtime.run_local(owner,job['id']);assert done['status']=='completed',done
