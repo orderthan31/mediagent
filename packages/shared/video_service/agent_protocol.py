@@ -103,6 +103,10 @@ def schemas():
             }
         }
         if role == "preprocess_audio":
+            branch["properties"]["inputs"]["not"] = {"required": ["regions"]}
+            branch["properties"]["options"]["properties"]["processing_profile"] = {
+                "enum": ["legacy_v1", "silence_pack_v3"]
+            }
             branch["properties"]["agent"]["properties"]["revision"] = {
                 "enum": ["1", "3"]
             }

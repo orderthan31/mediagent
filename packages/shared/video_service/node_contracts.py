@@ -42,11 +42,12 @@ NODES = [
     node(
         "preprocess_audio",
         "음성 전처리",
-        {"audio": "audio"},
+        {"audio": "audio", "regions": "audio_regions"},
         {"audio": "audio", "timeline": "timeline_map"},
+        optional=["regions"],
         choices={
             "audio_filter": ["off", "conservative", "strong", "silence3"],
-            "processing_profile": ["legacy_v1", "silence_pack_v3"],
+            "processing_profile": ["legacy_v1", "silence_pack_v3", "nvidia_regions_v4"],
             "vad_mode": ["off", "nvidia"],
         },
     ),
@@ -277,6 +278,14 @@ def validate_node(payload):
         for k, v in options.items()
     ):
         raise ValueError("지원하지 않는 처리 옵션 조합입니다.")
+    if selected["id"] == "preprocess_audio":
+        nvidia_regions = options.get("processing_profile") == "nvidia_regions_v4"
+        if nvidia_regions and options.get("vad_mode") != "nvidia":
+            raise ValueError("nvidia_regions_v4 requires explicit NVIDIA engine")
+        if "regions" in inputs and not nvidia_regions:
+            raise ValueError(
+                "audio regions require explicit nvidia_regions_v4 contract"
+            )
     if (
         selected["id"] == "preprocess_audio"
         and options.get("processing_profile") == "silence_pack_v3"

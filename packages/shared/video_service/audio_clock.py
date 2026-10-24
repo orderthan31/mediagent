@@ -2,6 +2,7 @@
 
 import json
 import math
+
 from .transcript_input import parse_segments
 
 
@@ -66,3 +67,43 @@ def restore_clock(segments, spans):
     ]
     parse_segments(json.dumps(values).encode())
     return values
+
+
+def registered_clock(value, *, audio_sha256):
+    """Bind only the explicit NVIDIA-regions clock; retain legacy list semantics."""
+    if isinstance(value, list):
+        validate_clock(value)
+        return value
+    import re
+
+    if (
+        not isinstance(value, dict)
+        or set(value) != {"version", "audio_sha256", "source_sha256", "spans", "engine"}
+        or type(value["version"]) is not int
+        or value["version"] != 2
+        or value["audio_sha256"] != audio_sha256
+        or not isinstance(value["source_sha256"], str)
+        or not re.fullmatch(r"[a-f0-9]{64}", value["source_sha256"])
+    ):
+        raise ValueError("nvidia_clock_audio_pin_mismatch")
+    engine = value["engine"]
+    if (
+        not isinstance(engine, dict)
+        or engine.get("processing_profile") != "nvidia_regions_v4"
+        or type(engine.get("source_frames")) is not int
+        or not 0 < engine["source_frames"] <= 300 * 16000
+        or type(engine.get("duration_seconds")) not in (int, float)
+        or engine["duration_seconds"] != engine["source_frames"] / 16000
+    ):
+        raise ValueError("unsupported_nvidia_clock_contract")
+    spans = value["spans"]
+    validate_clock(spans)
+    if spans[-1]["source_end"] > engine["duration_seconds"]:
+        raise ValueError("nvidia_clock_outside_source_frames")
+    if any(
+        abs(number * 16000 - round(number * 16000)) > 1e-6
+        for span in spans
+        for number in span.values()
+    ):
+        raise ValueError("nvidia_clock_requires_pcm_frame_boundary")
+    return spans

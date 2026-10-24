@@ -544,7 +544,12 @@ def execute_translation(runtime, owner, command):
                     owner, command["inputs"]["audio"], limit=MAX_AUDIO_BYTES
                 )
                 info = audio_info(audio)
-            clock = json.loads(runtime.store.read(owner, command["inputs"]["timeline"]))
+            from ..audio_clock import registered_clock
+
+            clock = registered_clock(
+                json.loads(runtime.store.read(owner, command["inputs"]["timeline"])),
+                audio_sha256=command["inputs"]["audio"]["sha256"],
+            )
             if abs(validate_clock(clock) - info["duration_seconds"]) > 1 / 16000:
                 raise ValueError("audio_timeline_duration_mismatch")
         except (ValueError, KeyError, TypeError, OSError):

@@ -9,6 +9,7 @@ import subprocess
 import sys
 import wave
 from pathlib import Path
+
 from video_service.cpu_agents import canonical
 
 
@@ -46,6 +47,7 @@ def child(argv, work):
 def face_execute(store, owner, command, config, work):
     import math
     import shutil
+
     from video_service.cpu_agents import digest
     from video_service.engine_protocol import reference
 
@@ -203,7 +205,8 @@ def execute(store, owner, command, config):
         return face_execute(store, owner, command, config, work)
     if role != "preprocess_audio":
         raise ValueError("gpu_role_not_implemented")
-    if command["options"].get("audio_filter", "off") != "off":
+    region_profile = command["options"].get("processing_profile") == "nvidia_regions_v4"
+    if not region_profile and command["options"].get("audio_filter", "off") != "off":
         raise ValueError("gpu_vad_supports_filter_off_only")
     model = Path(config["model_dir"]) / "vad_multilingual_marblenet.nemo"
     with model.open("rb") as stream:
@@ -219,6 +222,51 @@ def execute(store, owner, command, config):
         ) or not 0 < stream.getnframes() <= 16000 * 300:
             raise ValueError("bounded_16khz_mono_audio_required")
         frames = stream.readframes(stream.getnframes())
+    selected_intervals = None
+    if region_profile:
+        from video_service.audio_preprocessing import pack_silence
+        from video_service.audio_regions import region_intervals
+        from video_service.cpu_agents import ffmpeg, process
+
+        if len(frames) != stream.getnframes() * 2:
+            raise ValueError("incomplete_vad_source_frames")
+        source_frames = len(frames) // 2
+        source_duration = source_frames / 16000
+        spans = pack_silence(
+            audio,
+            work / "silence-candidate.wav",
+            command["options"].get("audio_filter", "off"),
+            detect=lambda minimum: process(
+                [
+                    *ffmpeg(),
+                    "-loglevel",
+                    "info",
+                    "-i",
+                    str(audio),
+                    "-af",
+                    f"silencedetect=noise=-45dB:d={minimum}",
+                    "-f",
+                    "null",
+                    "-",
+                ],
+                timeout=30,
+                diagnostics=True,
+            ),
+        )
+        region_ref = command["inputs"].get("regions")
+        document = (
+            json.loads(store.read(owner, region_ref, limit=131072))
+            if region_ref
+            else None
+        )
+        selected_intervals = region_intervals(
+            [(s["source_start"], s["source_end"]) for s in spans],
+            document,
+            source_sha256=command["inputs"]["audio"]["sha256"],
+            source_frames=source_frames,
+            audio_filter=command["options"].get("audio_filter", "off"),
+            vad=[(0, source_duration)],
+        )
     report_path = work / "vad.json"
     child(
         [
@@ -238,6 +286,10 @@ def execute(store, owner, command, config):
         ],
         work,
     )
+    if region_profile and (
+        report_path.is_symlink() or not 0 < report_path.stat().st_size <= 1024 * 1024
+    ):
+        raise ValueError("bounded_vad_report_required")
     report = json.loads(report_path.read_bytes())
     if (
         report["device"] != "cuda"
@@ -246,10 +298,42 @@ def execute(store, owner, command, config):
         or not report["intervals"]
     ):
         raise ValueError("actual_cuda_vad_required")
+    intervals = report["intervals"]
+    if region_profile:
+        from .vad import retained_intervals
+
+        if (
+            type(report.get("version")) is not int
+            or report["version"] != 2
+            or report.get("requested_device") != "cuda"
+            or type(report.get("cuda_peak_allocated_bytes")) is not int
+            or not isinstance(report.get("probabilities"), list)
+            or any(type(value) not in (int, float) for value in report["probabilities"])
+        ):
+            raise ValueError("explicit_cuda_vad_report_required")
+        if (
+            type(report.get("duration_seconds")) not in (int, float)
+            or report["duration_seconds"] != source_duration
+        ):
+            raise ValueError("vad_report_source_duration_mismatch")
+        recomputed = retained_intervals(report.get("probabilities"), source_duration)
+        if report["intervals"] != [list(pair) for pair in recomputed]:
+            raise ValueError("vad_report_intervals_probability_mismatch")
+        intervals = [
+            (max(a, c), min(b, d))
+            for a, b in selected_intervals
+            for c, d in recomputed
+            if min(b, d) > max(a, c)
+        ]
+        report = {
+            **report,
+            "processing_profile": "nvidia_regions_v4",
+            "source_frames": source_frames,
+        }
     chunks = []
     spans = []
     last_source = packed = 0
-    for start, end in report["intervals"]:
+    for start, end in intervals:
         left, right = round(start * 16000), round(end * 16000)
         if left < last_source or right <= left or right > len(frames) // 2:
             raise ValueError("invalid_vad_intervals")
@@ -264,6 +348,10 @@ def execute(store, owner, command, config):
         )
         packed += right - left
         last_source = right
+    if region_profile:
+        from video_service.audio_clock import validate_clock
+
+        validate_clock(spans)
     output = io.BytesIO()
     with wave.open(output, "wb") as stream:
         stream.setparams((1, 2, 16000, 0, "NONE", "not compressed"))

@@ -13,8 +13,11 @@
 - [x] 저장한 실제 frontend 정의의 121초 합성 입력→정식 preview/create/plan/confirm/admit/run→독립 API/results/model 프로세스·별도 CPU consumer→분할 전사 3회→번역 1회→원문/번역 SRT·SMI→실제 영상 생성/전체 decode·인증 다운로드 SHA/manifest 확인. 실제 TLS MQ/S3와 PG, 통제 HTTP 응답이며 공급자 인증/품질·운영 사이트 증거가 아니다.
 - [x] 바뀐 경계만 좁게 검증: 실제 분할 사이 취소 뒤 다음 구간/번역0, 명시 기존 recovery·위험인지·새 동의로 완료 구간 재사용. dense 자막에서 100구간/16KB 분할과 ID/순서/시각 보존. 최신 guard 설치 프로세스의 완료 참조 재전달은 HTTP/추가 budget·receipt0, 위조 참조2개는 격리 큐만 거부하고 manifest 불변.
 - [x] subtitle revision3의 SRT+SMI 별도 출력/원문·번역 언어, 실제 .smi 인증 다운로드와 MQ 옵션별 output 검증. 기존 revision1/SRT 기본 계약은 유지한다.
-- [x] 후속 CPU 후보의 명시 silence_pack_v3/revision3로 conservative(10초)·strong(5초)·silence3(3초), -45dB/0.2초 padding과 정수 PCM-frame 복사를 연결했다. off/revision1을 자동 변경하지 않으며 기존 300초 clock·256MiB 한도를 유지한다. 새 정의/정식 티켓→설치된 CPU 자식 실행과 원시각 복원을 좁게 검증한다. 운영 반영·NVIDIA VAD·긴 clock 지원은 아니다.
-- [ ] master NVIDIA VAD/긴 시각복원, 보호/보컬 구간 옵션 및 검수·다국어 차이를 채운다. CPU 전처리 off/no-review의 기본 경로 성공을 기존 전체 작업 동등으로 종료하지 않는다.
+- [x] CPU 전처리 9392b123은 PM1563438659888218175에서 소스 수용/App publish 완료했고 원격 renewal SHA도 같은 값으로 재조회했다. 운영·NVIDIA 실실행 수용은 아니다. 명시 silence_pack_v3/revision3로 conservative(10초)·strong(5초)·silence3(3초), -45dB/0.2초 padding과 정수 PCM-frame 복사를 연결했다. off/revision1을 자동 변경하지 않으며 기존 300초 clock·256MiB 한도를 유지한다. 새 정의/정식 티켓→설치된 CPU 자식 실행과 원시각 복원을 좁게 검증한다. 운영 반영·NVIDIA VAD·긴 clock 지원은 아니다.
+- [x] 후속 미수용 후보: nvidia_regions_v4는 명시 NVIDIA 엔진/고정 모델/옵션 명령만 사용한다. source SHA·PCM frame 수에 묶인 선택 audio_regions CAS 입력을 검증하고, master 순서(무음 유지구간→보호 0.3초 확장/합침→겹친 제거제안 전체 veto→원본좌표 제거→VAD 최종 교집합)로 적용한다. CPU 프로필/기존 GPU off-only 경로는 자동 승격하지 않는다.
+- [x] 통제 CUDA-child 응답으로 정확 PCM·빈 결과 실패·잘못된 source pin의 child 진입0·CPU 요청/위조 VAD 구간 거부를 확인한다. 실제 PG 저장 정의/정식 티켓은 protocol2 GPU/model pin을 claim만 하고 dispatch하지 않는다. 별도 통제 clock-shaped 입력으로 기존 registered ASR 단일/분할·번역 소비와 잘못된 audio pin의 HTTP0을 검증한다. 이를 실제 GPU→ASR 전체 여정이나 S3/MQ·품질로 합치지 않는다.
+- [ ] 실제 NVIDIA GPU inference 및 운영 target/slot 등록·기동은 별도 명시 실행 경계다. 소스 수용으로 실행하지 않는다. 모델 파일 SHA·입력 SHA/길이·단일 실행 상한을 고정한 비운영 fixture만 별도 판단하며 외부 공급자 유료 호출과 혼동하지 않는다.
+- [ ] 자동 vocalization 30초 중첩 탐지/독립 재확인 호출, 보호/제거 결정 producer·제품 검수 입력, CPU 보호구간 프로필, master packed 교차문장 분리/trace, 긴 시각복원 및 검수·다국어 차이를 채운다. 현재 CAS 결정 적용은 탐지·확인 품질 수용이 아니다. CPU 전처리 off/no-review의 기본 경로 성공을 기존 전체 작업 동등으로 종료하지 않는다.
 - [ ] 긴 원본의 역할별 CPU/clock 계약: 현재 기존 audio clock의 packed 300초와 CPU 역할별 256MiB 경계는 유지돼 있다. 새 분할 helper의 6시간/1GiB 상한은 전체 6시간 작업 지원 증거가 아니며 전역 한도를 풀어 해결하지 않는다.
 - [x] 기본 경로 3묶음의 좁은 source gate/PM 수용·App publish(e25831b36e). 이후 CPU 후보 및 남은 동등성은 별도 미수용이다.
 - [ ] 같은 사설사이트 운영 활성화/필요 WebM 의존 연결→실제 원본·워크플로우 선택/고정/실행·재생·다운로드. 020/022 및 최소 권한/전용 캐시/프로세스 연결은 격리 검증과 운영 적용을 분리한다.
