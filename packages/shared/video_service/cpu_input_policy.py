@@ -28,7 +28,10 @@ LARGE_PROFILE = {
 def input_limit(agent, port, kind):
     if not isinstance(agent, dict) or set(agent) != {"id", "revision"}:
         raise ValueError("Invalid CPU input contract")
-    if agent["id"] == "generate_subtitle" and agent["revision"] == "3":
+    if (
+        agent["id"] in {"generate_subtitle", "preprocess_audio"}
+        and agent["revision"] == "3"
+    ):
         return MAX_CONTENT
     if agent["revision"] == "1":
         return MAX_CONTENT

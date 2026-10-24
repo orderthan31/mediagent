@@ -2,7 +2,7 @@
 
 ## 현재 최우선: 기존 전체 작업(얼굴합성 제외) renewal 연결
 
-기존 업로드 d54/Gemini 목록 매핑 214f의 운영 수용은 종료 상태로 유지한다. 현재 운영은 accepted 214f scoped API/web·normal·기존 19+021이며 이번 후보와 분리한다. 아래 후보 진전은 소스 최종수용/App publish/운영 반영/기존 전체 기능 동등 종료가 아니다.
+기존 업로드 d54/Gemini 목록 매핑 214f의 운영 수용은 종료 상태로 유지한다. 현재 운영은 accepted 214f scoped API/web·normal·기존 19+021이며 이번 후보와 분리한다. PM1563433804524421122에서 60135e8d2d→04c35f4691→e25831b36e의 기본 경로 소스와 제출된 격리 증거를 수용하고 App publish를 완료했다. Windows 원 저장소의 원격 renewal도 e25831b36e67852aa8314f2e4544246881ab1e93으로 읽기 재조회했다. 운영 반영·기존 전체 기능 동등·실제 공급자 품질/유료 실행은 아직 미완료다.
 
 - [x] 실제 refs/WIP/운영 pin 보존. main 없음, master 57d34e99 읽기 비교, renewal 214f 단독 격리 후보 작성.
 - [x] 공용 캔버스 내부 하단 도구·40px 선 선택·연결해제·입출력 재연결·취소/Esc·설정/모델핀 보존 undo. 실제 PC1440/390 조작과 정상 PostgreSQL/CAS 저장·재열기 완료. 이미 확인한 이 경계는 반복 시험하지 않는다.
@@ -13,9 +13,11 @@
 - [x] 저장한 실제 frontend 정의의 121초 합성 입력→정식 preview/create/plan/confirm/admit/run→독립 API/results/model 프로세스·별도 CPU consumer→분할 전사 3회→번역 1회→원문/번역 SRT·SMI→실제 영상 생성/전체 decode·인증 다운로드 SHA/manifest 확인. 실제 TLS MQ/S3와 PG, 통제 HTTP 응답이며 공급자 인증/품질·운영 사이트 증거가 아니다.
 - [x] 바뀐 경계만 좁게 검증: 실제 분할 사이 취소 뒤 다음 구간/번역0, 명시 기존 recovery·위험인지·새 동의로 완료 구간 재사용. dense 자막에서 100구간/16KB 분할과 ID/순서/시각 보존. 최신 guard 설치 프로세스의 완료 참조 재전달은 HTTP/추가 budget·receipt0, 위조 참조2개는 격리 큐만 거부하고 manifest 불변.
 - [x] subtitle revision3의 SRT+SMI 별도 출력/원문·번역 언어, 실제 .smi 인증 다운로드와 MQ 옵션별 output 검증. 기존 revision1/SRT 기본 계약은 유지한다.
-- [ ] master 선택 전처리(conservative/strong/silence3)·NVIDIA VAD/정확 시각복원과 검수·다국어 차이를 채운다. CPU 전처리 off/no-review의 기본 경로 성공을 기존 전체 작업 동등으로 종료하지 않는다.
+- [x] 후속 CPU 후보의 명시 silence_pack_v3/revision3로 conservative(10초)·strong(5초)·silence3(3초), -45dB/0.2초 padding과 정수 PCM-frame 복사를 연결했다. off/revision1을 자동 변경하지 않으며 기존 300초 clock·256MiB 한도를 유지한다. 새 정의/정식 티켓→설치된 CPU 자식 실행과 원시각 복원을 좁게 검증한다. 운영 반영·NVIDIA VAD·긴 clock 지원은 아니다.
+- [ ] master NVIDIA VAD/긴 시각복원, 보호/보컬 구간 옵션 및 검수·다국어 차이를 채운다. CPU 전처리 off/no-review의 기본 경로 성공을 기존 전체 작업 동등으로 종료하지 않는다.
 - [ ] 긴 원본의 역할별 CPU/clock 계약: 현재 기존 audio clock의 packed 300초와 CPU 역할별 256MiB 경계는 유지돼 있다. 새 분할 helper의 6시간/1GiB 상한은 전체 6시간 작업 지원 증거가 아니며 전역 한도를 풀어 해결하지 않는다.
-- [ ] 최종 좁은 source gate/검토·App publish→같은 사설사이트 운영 활성화/필요 WebM 의존 연결→실제 원본·워크플로우 선택/고정/실행·재생·다운로드. 020/022 및 최소 권한/전용 캐시/프로세스 연결은 격리 검증과 운영 적용을 분리한다.
+- [x] 기본 경로 3묶음의 좁은 source gate/PM 수용·App publish(e25831b36e). 이후 CPU 후보 및 남은 동등성은 별도 미수용이다.
+- [ ] 같은 사설사이트 운영 활성화/필요 WebM 의존 연결→실제 원본·워크플로우 선택/고정/실행·재생·다운로드. 020/022 및 최소 권한/전용 캐시/프로세스 연결은 격리 검증과 운영 적용을 분리한다.
 - [ ] 실제 공급자 유료 호출은 모델·입력길이·호출/비용 상한 승인 후에만 수행한다. 현재 호출은 통제된 격리 peer뿐이다. 얼굴합성/root키복사/포괄GRANT/새 공개망/타호스트 이전과 운영 #5/DLQ/accepted/initializer 조작은 제외한다.
 
 검증 정본: legacy-equivalent-workflow-214f1fe313/installed-long-evidence-r2 및 좁은 PG/코어 로그. 최초 하네스의 admit 뒤 run 누락은 waiting/runs0/outbox0/provider0으로 분리했고 원 사실을 보존했다. positive 설치 실행과 그 뒤 추가한 budget/언어/프레임 guard의 검증 세대를 분리한다. 예전 mutable app tag는 현재 inspect 불가이므로 당시 build log를 후대 전체 byte readback으로 표현하지 않으며 최신 guard 이미지는 별도 고정했다. 최종 후보 설치본의 shared/API 실제 113경로 byte readback 일치와 최신 프로세스의 완료 참조/위조 참조 경계를 확인했다. 호출 직전 원 PG 세션/정확 advisory guard 재검사와 실제 세션종료 뒤 adapter HTTP 진입0도 별도 좁게 검증했다. 기존 Starlette/httpx와 Vite chunk 경고·변경 Python의 부모 4진단을 숨기지 않는다.

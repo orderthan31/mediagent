@@ -46,6 +46,7 @@ NODES = [
         {"audio": "audio", "timeline": "timeline_map"},
         choices={
             "audio_filter": ["off", "conservative", "strong", "silence3"],
+            "processing_profile": ["legacy_v1", "silence_pack_v3"],
             "vad_mode": ["off", "nvidia"],
         },
     ),
@@ -276,6 +277,14 @@ def validate_node(payload):
         for k, v in options.items()
     ):
         raise ValueError("지원하지 않는 처리 옵션 조합입니다.")
+    if (
+        selected["id"] == "preprocess_audio"
+        and options.get("processing_profile") == "silence_pack_v3"
+        and options.get("vad_mode", "off") != "off"
+    ):
+        raise ValueError(
+            "silence_pack_v3 is a CPU-only profile; NVIDIA VAD needs its explicit engine contract"
+        )
     if selected["id"] == "decision":
         from .decision_conditions import conditions
 

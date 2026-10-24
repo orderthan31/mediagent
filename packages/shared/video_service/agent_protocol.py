@@ -102,6 +102,39 @@ def schemas():
                 },
             }
         }
+        if role == "preprocess_audio":
+            branch["properties"]["agent"]["properties"]["revision"] = {
+                "enum": ["1", "3"]
+            }
+            branch["allOf"] = [
+                {
+                    "if": {
+                        "properties": {
+                            "agent": {"properties": {"revision": {"const": "3"}}}
+                        }
+                    },
+                    "then": {
+                        "properties": {
+                            "options": {
+                                "required": ["processing_profile"],
+                                "properties": {
+                                    "processing_profile": {"const": "silence_pack_v3"},
+                                    "vad_mode": {"enum": ["off"]},
+                                },
+                            }
+                        }
+                    },
+                    "else": {
+                        "properties": {
+                            "options": {
+                                "properties": {
+                                    "processing_profile": {"enum": ["legacy_v1"]},
+                                }
+                            }
+                        }
+                    },
+                }
+            ]
         if role == "generate_subtitle":
             branch["properties"]["agent"]["properties"]["revision"] = {
                 "enum": ["1", "3"]

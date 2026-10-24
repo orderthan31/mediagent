@@ -89,7 +89,7 @@ def reference_path(root, reference, *, max_bytes=MAX_CONTENT):
     return path
 
 
-def process(arguments, *, cwd=None, timeout=60):
+def process(arguments, *, cwd=None, timeout=60, diagnostics=False):
     # No shell, stdin, implicit hardware, URL protocols or environment proxy.
     result = subprocess.run(
         arguments,
@@ -104,9 +104,10 @@ def process(arguments, *, cwd=None, timeout=60):
             if k in ("PATH", "LANG", "HOME", "TMPDIR", "FONTCONFIG_PATH")
         },
     )
-    if result.returncode or len(result.stdout) > 1024 * 1024:
+    raw = result.stderr if diagnostics else result.stdout
+    if result.returncode or len(raw) > 1024 * 1024:
         raise ValueError("CPU media processing failed")
-    return result.stdout
+    return raw
 
 
 def process_bounded(arguments, *, output, cwd, timeout, max_bytes=MAX_CONTENT):
@@ -351,13 +352,13 @@ def run(command, input_root, output_root, *, agent=None):
             )
             outputs["audio"] = (file, "audio")
         elif kind == "preprocess_audio":
-            # CPU-only normalization contract. NVIDIA VAD and packed silence
-            # filtering are not silently substituted with a successful no-op.
             options = command["options"]
-            if (
-                options.get("vad_mode", "off") != "off"
-                or options.get("audio_filter", "off") != "off"
-            ):
+            packed_profile = options.get("processing_profile") == "silence_pack_v3"
+            if packed_profile != (command["agent"]["revision"] == "3"):
+                raise ValueError("preprocess_profile_revision_mismatch")
+            if options.get("vad_mode", "off") != "off":
+                raise ValueError("cpu_preprocess_nvidia_requires_engine")
+            if not packed_profile and options.get("audio_filter", "off") != "off":
                 raise ValueError("cpu_preprocess_supports_off_only")
             import wave
 
@@ -374,8 +375,10 @@ def run(command, input_root, output_root, *, agent=None):
                     "16000",
                     "-c:a",
                     "pcm_s16le",
+                    *(["-t", "301"] if packed_profile else []),
                     str(file),
-                ]
+                ],
+                timeout=30 if packed_profile else 60,
             )
             with wave.open(str(file), "rb") as audio:
                 duration = audio.getnframes() / audio.getframerate()
@@ -394,6 +397,33 @@ def run(command, input_root, output_root, *, agent=None):
                     ]
                 )
             )
+            if packed_profile:
+                from .audio_preprocessing import pack_silence
+
+                packed = work / "packed.wav"
+                mapping = pack_silence(
+                    file,
+                    packed,
+                    options.get("audio_filter", "off"),
+                    detect=lambda minimum: process(
+                        [
+                            *ffmpeg(),
+                            "-loglevel",
+                            "info",
+                            "-i",
+                            str(file),
+                            "-af",
+                            f"silencedetect=noise=-45dB:d={minimum}",
+                            "-f",
+                            "null",
+                            "-",
+                        ],
+                        timeout=30,
+                        diagnostics=True,
+                    ),
+                )
+                timeline.write_bytes(canonical(mapping))
+                file = packed
             outputs["audio"] = (file, "audio")
             outputs["timeline"] = (timeline, "timeline_map")
         elif kind == "encode":

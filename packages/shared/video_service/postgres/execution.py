@@ -174,8 +174,13 @@ class Execution(Intake):
             elif (
                 node["type"] == "preprocess_audio"
                 and node.get("options", {}).get("audio_filter", "off") != "off"
+                and node.get("options", {}).get("processing_profile")
+                != "silence_pack_v3"
             ):
-                reasons.append("CPU 전처리는 필터 off만 지원: " + node["id"])
+                reasons.append(
+                    "CPU 전처리는 필터 off 또는 명시 silence_pack_v3가 필요: "
+                    + node["id"]
+                )
         return reasons
 
     def _job(self, db, owner, identity, *, lock=False):
@@ -913,6 +918,11 @@ class Execution(Intake):
             "inputs": inputs,
             "options": node["options"],
         }
+        if (
+            node["type"] == "preprocess_audio"
+            and node["options"].get("processing_profile") == "silence_pack_v3"
+        ):
+            command["agent"]["revision"] = "3"
         if (
             node["type"] == "generate_subtitle"
             and node["options"].get("format") == "srt_smi"
