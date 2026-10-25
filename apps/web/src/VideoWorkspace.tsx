@@ -496,10 +496,16 @@ export const VideoWorkspace = () => {
               onPause={(key) => queue.pause(key)}
               onResume={(key) => queue.resume(key)}
               onRemove={(key) => {
-                const item=queue.items.find((value)=>value.key===key);
+                const item = queue.items.find((value) => value.key === key);
                 queue.pause(key);
-                if(item?.jobId&&item.state!=='done') void action(item.jobId,async()=>{await jsonPost(`/video-uploads/${item.jobId}/cancel`,{});queue.remove(key);});
-                else queue.remove(key);
+                if (item?.jobId && item.state !== 'done') {
+                  void action(item.jobId, async () => {
+                    await jsonPost(`/video-uploads/${item.jobId}/cancel`, {});
+                    queue.remove(key);
+                  });
+                } else {
+                  queue.remove(key);
+                }
               }}
               onRegister={(id) =>
                 void action(id, () =>
@@ -560,7 +566,10 @@ export const VideoWorkspace = () => {
             />
           </main>
         ) : renewalBackend && route === '#/settings/legacy' ? (
-          <main><PageTitle>작업</PageTitle><a href="#/jobs">현재 작업으로 이동</a></main>
+          <main>
+            <PageTitle>작업</PageTitle>
+            <a href="#/jobs">현재 작업으로 이동</a>
+          </main>
         ) : renewalBackend &&
           (!runtimeReady || workflowTicketsView || route === '#/serving/roles') &&
           !(route.startsWith('#/account') || (servingView && route !== '#/serving/roles')) ? (
@@ -593,7 +602,6 @@ export const VideoWorkspace = () => {
                 <a className="ui02-text-action" href="#/serving">
                   서빙 관리
                 </a>
-
               </>
             )}
           </main>
@@ -647,7 +655,11 @@ export const VideoWorkspace = () => {
             />
           )
         ) : settingsView ? (
-          renewalBackend ? <SystemResources /> : <SettingsPage />
+          renewalBackend ? (
+            <SystemResources />
+          ) : (
+            <SettingsPage />
+          )
         ) : jobId ? (
           renewalBackend ? (
             <RenewalJobDetail id={jobId} key={jobId} />
@@ -776,8 +788,17 @@ export const VideoWorkspace = () => {
 };
 const Thumbnail = ({ assetId }: { assetId: string }) => {
   const [failed, setFailed] = useState(false);
-  const [posterVersion,setPosterVersion]=useState(0);
-  useEffect(()=>{if(!failed)return;const timer=setTimeout(()=>{setPosterVersion((v)=>v+1);setFailed(false);},15000);return()=>clearTimeout(timer);},[failed]);
+  const [posterVersion, setPosterVersion] = useState(0);
+  useEffect(() => {
+    if (!failed) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      setPosterVersion((v) => v + 1);
+      setFailed(false);
+    }, 15000);
+    return () => clearTimeout(timer);
+  }, [failed]);
   return (
     <div className="asset-thumbnail">
       {failed ? (

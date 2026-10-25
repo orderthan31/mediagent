@@ -53,12 +53,13 @@ export const StorageUploads = ({
     entries.findIndex((entry) => keyOf(entry) === selected),
   );
   const entry = entries[index];
-  if (!entry)
+  if (!entry) {
     return (
       <p className="upload-strip-empty" role="status">
         {online ? '진행 중인 업로드 없음 · 원본 파일당 최대 4 GiB' : '업로드 정보 확인 불가'}
       </p>
     );
+  }
   const item = 'key' in entry ? entry : null;
   const session = 'upload_id' in entry ? entry : null;
   const name = item ? item.name : session!.filename;

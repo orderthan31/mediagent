@@ -112,10 +112,13 @@ export const FullVideoPreview = ({ resource }: { resource: string }) => {
       )}
       {value?.state === 'held' && <p>이전 실행의 종료를 확인하기 전에는 다시 생성하지 않습니다.</p>}
       {value?.error_code && <p>생성을 완료하지 못했습니다. 원본은 그대로 보관됩니다.</p>}
-      <details><summary>미리보기 생성 한도</summary><p>
-        전용 한도: 원본 4 GiB·6시간·8,294,400픽셀/각 변4096, 출력 512 MiB, 전체 처리 4시간, 디스크
-        10 GiB, 동시 생성 1개. 원본 파일은 변경하지 않습니다.
-      </p></details>
+      <details>
+        <summary>미리보기 생성 한도</summary>
+        <p>
+          전용 한도: 원본 4 GiB·6시간·8,294,400픽셀/각 변4096, 출력 512 MiB, 전체 처리 4시간, 디스크
+          10 GiB, 동시 생성 1개. 원본 파일은 변경하지 않습니다.
+        </p>
+      </details>
       {value?.state === 'not_requested' && (
         <Button disabled={busy || !!error} onClick={() => void action(resource)}>
           미리보기 만들기
@@ -136,7 +139,11 @@ export const FullVideoPreview = ({ resource }: { resource: string }) => {
             controls
             playsInline
             preload="metadata"
-            poster={resource.startsWith('/videos/') ? mediaUrl(resource.replace('/preview/full','/thumbnail')) : undefined}
+            poster={
+              resource.startsWith('/videos/')
+                ? mediaUrl(resource.replace('/preview/full', '/thumbnail'))
+                : undefined
+            }
             style={{ width: '100%', maxWidth: 960 }}
             src={mediaUrl(value.download_url)}
           />

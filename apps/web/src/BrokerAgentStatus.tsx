@@ -87,9 +87,7 @@ export const BrokerAgentStatus = ({
       {current?.control_available && current.control_registered === false && (
         <section aria-label="에이전트 제어 연결">
           <h2>원격 제어 연결 안 됨</h2>
-          <p>
-            현재 원격 시작·중지를 지원하지 않습니다. 실행 현황은 위에서 확인할 수 있습니다.
-          </p>
+          <p>현재 원격 시작·중지를 지원하지 않습니다. 실행 현황은 위에서 확인할 수 있습니다.</p>
         </section>
       )}
       {agents.length > 0 && (
