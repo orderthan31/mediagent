@@ -375,7 +375,7 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
       {!initialId && (
         <details className="workflow-template-notice">
           <summary>자막 검수·다국어 초안 만들기</summary>
-          <label>
+          <label className="workflow-template-toggle">
             <input
               type="checkbox"
               checked={subtitleVideos}
@@ -383,7 +383,7 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
             />
             원문·각 번역 언어별 영상까지 출력
           </label>
-          <label>
+          <label className="workflow-template-toggle">
             <input
               type="checkbox"
               checked={subtitleLong}

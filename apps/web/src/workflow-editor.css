@@ -103,3 +103,15 @@
     display: none;
   }
 }
+
+.workflow-template-notice .workflow-template-toggle {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+}
+.workflow-template-notice .workflow-template-toggle input[type='checkbox'] {
+  width: auto;
+  flex: 0 0 auto;
+  margin: 0;
+}
