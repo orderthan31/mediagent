@@ -106,8 +106,9 @@ class Execution(Intake):
 
     @staticmethod
     def _engine_role(node):
-        if node["type"] in {"translate", "transcribe", "vocalize"} and node.get(
-            "model_ref"
+        if node["type"] in {"translate", "transcribe", "vocalize"} and (
+            node.get("model_ref")
+            or node.get("options", {}).get("model_source") == "registered_api"
         ):
             return None
         if node["type"] in {"transcribe", "translate", "faceswap"}:
@@ -147,6 +148,16 @@ class Execution(Intake):
             if node["id"] in done_nodes:
                 continue
             role = self._engine_role(node)
+            if (
+                node["type"] in {"transcribe", "translate", "vocalize"}
+                and not node.get("model_ref")
+                and (
+                    node["type"] == "vocalize"
+                    or node.get("options", {}).get("model_source") == "registered_api"
+                )
+            ):
+                reasons.append("등록 API 모델 선택이 필요: " + node["id"])
+                continue
             if node.get("model_ref"):
                 pin = (model_bindings or {}).get(node["id"])
                 kind = {

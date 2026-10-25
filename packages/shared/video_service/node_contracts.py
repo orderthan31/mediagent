@@ -315,6 +315,10 @@ NODES.extend(
     ]
 )
 
+for _registered_stage in NODES:
+    if _registered_stage["id"] in {"transcribe", "translate"}:
+        _registered_stage["options"]["model_source"] = ["registered_api"]
+
 for _descriptor in NODES:
     if _descriptor["id"] in {
         "extract_audio",
