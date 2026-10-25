@@ -18,7 +18,7 @@ const labels: Record<Preview['state'], string> = {
   not_requested: '아직 요청하지 않음',
   queued: '대기 중 · 요청은 저장됨',
   running: '생성 중',
-  ready: '전체길이 검증·저장 완료',
+  ready: '미리보기 준비 완료',
   cancelled: '취소됨',
   failed: '생성 실패',
   held: '실행 확인 필요 · 자동 재실행 안 함',
@@ -93,10 +93,10 @@ export const FullVideoPreview = ({ resource }: { resource: string }) => {
   return (
     <section
       className="execution-artifact"
-      aria-label="전체길이 WebM"
+      aria-label="영상 미리보기"
       style={{ minWidth: 0, maxWidth: '100%', overflowWrap: 'anywhere' }}
     >
-      <h3>전체길이 WebM</h3>
+      <h3>영상 미리보기</h3>
       <p role="status">
         {error
           ? '최신 상태 확인 실패'
@@ -108,17 +108,17 @@ export const FullVideoPreview = ({ resource }: { resource: string }) => {
       </p>
       {error && <p role="alert">{error}</p>}
       {value?.state === 'queued' && (
-        <p>별도 실행기가 대기 작업을 처리합니다. 화면을 닫아도 요청은 유지됩니다.</p>
+        <p>미리보기를 만들 차례를 기다리고 있습니다. 화면을 닫아도 계속 진행됩니다.</p>
       )}
       {value?.state === 'held' && <p>이전 실행의 종료를 확인하기 전에는 다시 생성하지 않습니다.</p>}
-      {value?.error_code && <p>진단: {value.error_code}</p>}
-      <p>
+      {value?.error_code && <p>생성을 완료하지 못했습니다. 원본은 그대로 보관됩니다.</p>}
+      <details><summary>미리보기 생성 한도</summary><p>
         전용 한도: 원본 4 GiB·6시간·8,294,400픽셀/각 변4096, 출력 512 MiB, 전체 처리 4시간, 디스크
-        10 GiB, 동시 생성 1개. 30초판·원본과 별도이며 최대치 성능 보장은 아닙니다.
-      </p>
+        10 GiB, 동시 생성 1개. 원본 파일은 변경하지 않습니다.
+      </p></details>
       {value?.state === 'not_requested' && (
         <Button disabled={busy || !!error} onClick={() => void action(resource)}>
-          전체길이 생성 요청
+          미리보기 만들기
         </Button>
       )}
       {value?.can_cancel && value.id && (
@@ -127,7 +127,7 @@ export const FullVideoPreview = ({ resource }: { resource: string }) => {
           disabled={busy || !!value.cancel_requested}
           onClick={() => void action('/video-previews/' + value.id + '/cancel')}
         >
-          전체길이 생성 취소
+          미리보기 생성 취소
         </Button>
       )}
       {ready && value?.download_url && (
@@ -139,11 +139,9 @@ export const FullVideoPreview = ({ resource }: { resource: string }) => {
             style={{ width: '100%', maxWidth: 960 }}
             src={mediaUrl(value.download_url)}
           />
-          <p>
-            전체길이 {value.media?.duration.toFixed(3)}초 · SHA256 {value.sha256}
-          </p>
+          <p>재생시간 {value.media?.duration.toFixed(1)}초</p>
           <a href={mediaUrl(value.download_url + '?download=true')} download>
-            전체길이 WebM 받기
+            WebM 받기
           </a>
         </>
       )}

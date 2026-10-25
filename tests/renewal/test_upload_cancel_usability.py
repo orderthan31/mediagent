@@ -67,3 +67,50 @@ def test_upload_cancel_preserves_session_and_parts_and_refuses_resume(
                 ).fetchone()["n"]
                 == 1
             )
+
+
+def test_complete_cancelled_upload_stays_cancelled_in_list_and_get(db, admin, tmp_path):
+    app = create_app(
+        db,
+        allowed_origins=["https://testserver"],
+        secure_cookies=False,
+        content_store=ContentStore(tmp_path),
+    )
+    with TestClient(app, base_url="https://testserver") as c:
+        login = c.post(
+            "/api/auth/login",
+            headers={"Origin": "https://testserver"},
+            json={"username": admin[0]["username"], "password": admin[1]},
+        )
+        headers = {
+            "Origin": "https://testserver",
+            "X-CSRF-Token": login.json()["csrf_token"],
+            "Content-Type": "application/json",
+        }
+        u = c.post(
+            "/api/video-uploads",
+            headers=headers,
+            json={
+                "filename": "complete-cancel-test.mov",
+                "size": 4,
+                "request_id": "complete-cancel-proof",
+            },
+        ).json()
+        base = "/api/video-uploads/" + u["upload_id"]
+        assert (
+            c.put(
+                base + "/chunks?offset=0",
+                headers={**headers, "Content-Type": "application/octet-stream"},
+                content=b"abcd",
+            ).status_code
+            == 200
+        )
+        assert c.delete(base, headers=headers).status_code == 200
+        assert c.get(base).json()["status"] == "CANCELLED"
+        listed = next(
+            row
+            for row in c.get("/api/video-uploads").json()["uploads"]
+            if row["upload_id"] == u["upload_id"]
+        )
+        assert listed["status"] == "CANCELLED" and not listed["resumable"]
+        assert c.post(base + "/complete", headers=headers).status_code == 409

@@ -124,7 +124,7 @@ export const StorageUploads = ({
           <button
             type="button"
             className="ui02-icon"
-            aria-label={`${item ? '업로드 목록에서 제거' : '업로드 삭제'}: ${name}`}
+            aria-label={`${item ? '업로드 취소' : '업로드 취소'}: ${name}`}
             title={item ? '목록에서 제거' : '업로드 삭제'}
             onClick={() => (item ? onRemove(item.key) : onDeleteSession(session!))}
           >

@@ -88,6 +88,7 @@ export const VideoWorkspace = () => {
     } | null>(null);
   const [confirm, setConfirm] = useState<{
     title: string;
+    confirmLabel?: string;
     action: () => Promise<void>;
   } | null>(null);
   const [queue] = useState(
@@ -762,6 +763,7 @@ export const VideoWorkspace = () => {
         {confirm && (
           <Confirm
             title={confirm.title}
+            confirmLabel={confirm.confirmLabel}
             error={error}
             busy={!!busy}
             onClose={() => setConfirm(null)}
@@ -796,12 +798,14 @@ const Thumbnail = ({ assetId }: { assetId: string }) => {
 };
 const Confirm = ({
   title,
+  confirmLabel = '삭제',
   error,
   busy,
   onClose,
   onConfirm,
 }: {
   title: string;
+  confirmLabel?: string;
   error: string;
   busy: boolean;
   onClose: () => void;
@@ -835,7 +839,7 @@ const Confirm = ({
           취소
         </Button>
         <Button className="storage-confirm-delete" disabled={busy} onClick={onConfirm}>
-          삭제
+          {confirmLabel}
         </Button>
       </div>
     </dialog>

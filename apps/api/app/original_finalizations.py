@@ -27,6 +27,8 @@ class OriginalFinalizations:
 
     def snapshot(self, owner, identity, row=None):
         row = row or self.runtime.upload_get(owner, identity)
+        if row.get("status") == "CANCELLED":
+            return {**row, "finalization_state": "cancelled"}
         if row["asset_id"]:
             return {**row, "finalization_state": "complete"}
         key = (owner, identity)
@@ -69,6 +71,8 @@ class OriginalFinalizations:
 
     def start(self, owner, identity):
         row = self.runtime.upload_get(owner, identity)
+        if row.get("status") == "CANCELLED":
+            raise Conflict("취소된 업로드입니다. 전송한 부분은 보존됩니다.")
         if row["asset_id"]:
             return self.snapshot(owner, identity, row)
         if row["uploaded_bytes"] != row["expected_size"]:
