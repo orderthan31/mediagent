@@ -127,7 +127,7 @@ export const FullVideoPreview = ({ resource }: { resource: string }) => {
           disabled={busy || !!value.cancel_requested}
           onClick={() => void action('/video-previews/' + value.id + '/cancel')}
         >
-          미리보기 생성 취소
+          {value.state === 'ready' ? '미리보기 사용 중지' : '미리보기 생성 취소'}
         </Button>
       )}
       {ready && value?.download_url && (
@@ -136,6 +136,7 @@ export const FullVideoPreview = ({ resource }: { resource: string }) => {
             controls
             playsInline
             preload="metadata"
+            poster={resource.startsWith('/videos/') ? mediaUrl(resource.replace('/preview/full','/thumbnail')) : undefined}
             style={{ width: '100%', maxWidth: 960 }}
             src={mediaUrl(value.download_url)}
           />

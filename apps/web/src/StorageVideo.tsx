@@ -51,9 +51,7 @@ export const StorageVideoInfo = ({ video, assetId }: { video: VideoAsset; assetI
   <section className="storage-video-info" aria-label="원본 영상 정보">
     <div className="storage-preview">
       {video.web_preview && video.web_preview.status !== 'ready' ? (
-        <p role="status">
-          미리보기를 준비하고 있습니다. 준비 상태는 아래에서 확인할 수 있습니다.
-        </p>
+        !renewalBackend ? <p role="status">미리보기를 준비하고 있습니다.</p> : null
       ) : (
         <video
           controls
