@@ -159,9 +159,10 @@ class PreviewWorker:
         import subprocess
         import time
         from pathlib import Path
+
         from .cpu_agents import ffmpeg, probe
+        from .object_store import ObjectStoreError, S3ContentStore
         from .postgres.video_previews import FULL_PROFILE
-        from .object_store import S3ContentStore, ObjectStoreError
 
         if (
             self.guard is None
@@ -216,6 +217,89 @@ class PreviewWorker:
                     or original["width"] * original["height"] > profile["max_pixels"]
                 ):
                     raise ValueError("Native preview source budget exceeded")
+                # Publish the small verified poster first; long WebM encoding remains independent.
+                from psycopg.types.json import Jsonb
+
+                from .content_store import ContentStore
+
+                poster = work / "thumbnail.jpg"
+                with self._owned():
+                    current, eligible = self._current(row)
+                    if not eligible or current["cancel_requested"]:
+                        raise Conflict("Preview source changed before thumbnail")
+                    child = subprocess.Popen(
+                        [
+                            *ffmpeg(),
+                            "-i",
+                            str(source),
+                            "-frames:v",
+                            "1",
+                            "-vf",
+                            "scale=480:-2",
+                            "-threads",
+                            "1",
+                            str(poster),
+                        ],
+                        stdin=subprocess.DEVNULL,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        env={
+                            k: v
+                            for k, v in os.environ.items()
+                            if k in ("PATH", "LANG", "HOME", "FONTCONFIG_PATH")
+                        },
+                    )
+                    self._stage(row, "loading")
+                poster_deadline = min(deadline, time.monotonic() + 30)
+                while child.poll() is None:
+                    current, eligible = self._current(row)
+                    if current["cancel_requested"] or not eligible:
+                        self._stop_child(child)
+                        self._finish(
+                            row,
+                            "cancelled" if current["cancel_requested"] else "held",
+                            error="thumbnail_source_changed",
+                        )
+                        return
+                    if time.monotonic() > poster_deadline:
+                        raise ValueError("Thumbnail budget exceeded")
+                    time.sleep(0.1)
+                if child.returncode or not poster.is_file():
+                    raise ValueError("Thumbnail generation failed")
+                child = None
+                poster_ref = ContentStore.put(
+                    store,
+                    row["storage_owner_id"],
+                    [poster.read_bytes()],
+                    "image",
+                    max_bytes=4 * 1024 * 1024,
+                )
+                if getattr(store, "storage_kind", None) == "s3":
+                    with poster.open("rb") as stream:
+                        store._create(
+                            store._key(
+                                row["storage_owner_id"], poster_ref["storage_key"]
+                            ),
+                            stream,
+                            poster_ref["sha256"],
+                            poster_ref["bytes"],
+                        )
+                checked = store.path(row["storage_owner_id"], poster_ref)
+                if (
+                    hashlib.sha256(checked.read_bytes()).hexdigest()
+                    != poster_ref["sha256"]
+                ):
+                    raise ValueError("Thumbnail SHA mismatch")
+                with self._owned() as db:
+                    current, eligible = self._current(row)
+                    if not eligible or current["cancel_requested"]:
+                        raise Conflict(
+                            "Preview source changed before thumbnail publication"
+                        )
+                    db.execute(
+                        "UPDATE video_preview_jobs SET thumbnail_ref=%s,thumbnail_verified_at=now()WHERE id=%s AND state='running'AND worker_instance=%s",
+                        (Jsonb(poster_ref), row["id"], self.instance),
+                    )
                 target = work / "full.webm"
                 args = [
                     *ffmpeg(),
@@ -402,8 +486,9 @@ def main():
     import argparse
     import json
     import signal
-    from pathlib import Path
     import time
+    from pathlib import Path
+
     from .object_store import from_config
     from .postgres import Database
     from .postgres.execution import Execution
@@ -444,7 +529,12 @@ def main():
     signal.signal(signal.SIGINT, request_stop)
     previews = VideoPreviews(
         Execution(
-            Database(Path(args.dsn_file).read_text().strip()), from_config(config)
+            Database(Path(args.dsn_file).read_text().strip()),
+            __import__(
+                "video_service.transport_files", fromlist=["object_store"]
+            ).object_store(args.object_config)
+            if "access_key_file" in config
+            else from_config(config),
         )
     )
     with PreviewWorker(previews, cache).exclusive() as worker:

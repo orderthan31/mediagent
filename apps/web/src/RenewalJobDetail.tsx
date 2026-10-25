@@ -250,15 +250,15 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
           </section>
           {job.artifact_manifest && (
             <section className="shared-job-custody" aria-label="티켓별 산출물">
-              <strong>정상 채택 산출물 {job.artifact_manifest.entry_count}개</strong>
+              <strong>작업 파일 {job.artifact_manifest.entry_count}개</strong>
               <p>
                 {job.artifact_manifest.layout === 'ticket_v1'
-                  ? '티켓 기준 저장 · 중간·최종 산출물을 포함합니다.'
-                  : '기존 CAS 참조 · 자료를 이동하지 않고 조회합니다.'}
+                  ? '중간 결과와 최종 파일을 확인하고 받을 수 있습니다.'
+                  : '기존 저장 자료 참조 · 자료를 이동하지 않고 조회합니다.'}
               </p>
               {job.artifact_manifest.entry_count > 0 && (
                 <a href={mediaUrl(base + '/manifest?download=true')} download>
-                  산출물 manifest 받기
+                  파일 목록 받기
                 </a>
               )}
             </section>
@@ -419,10 +419,10 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
                         ) : (
                           <>
                             <a href={url(port)} target="_blank" rel="noreferrer">
-                              산출물 열기
+                              파일 보기
                             </a>
                             <a href={url(port) + '?download=true'} download>
-                              산출물 받기
+                              파일 받기
                             </a>
                           </>
                         )}

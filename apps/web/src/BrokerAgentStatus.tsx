@@ -86,7 +86,7 @@ export const BrokerAgentStatus = ({
       )}
       {current?.control_available && current.control_registered === false && (
         <section aria-label="에이전트 제어 연결">
-          <h2>제어 대상 등록 대기</h2>
+          <h2>원격 제어 연결 안 됨</h2>
           <p>
             제어·복구 API는 연결됐습니다. 이 에이전트는 아직 제어 대상으로 등록되지 않아
             시작·중지·개수 변경과 복구 판단을 사용할 수 없습니다. 현재 실행은 유지됩니다.

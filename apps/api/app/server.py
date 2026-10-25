@@ -83,14 +83,26 @@ def load_bootstrap(path):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--bootstrap-file", required=True)
-    parser.add_argument("--admission-mode", required=True, choices=("normal", "maintenance"))
+    parser.add_argument(
+        "--admission-mode", required=True, choices=("normal", "maintenance")
+    )
     parser.add_argument("--enable-broker", action="store_true")
-    parser.add_argument("--enable-registered-models", action="store_true",
-                        help="Enable explicitly bound registered-model MQ delivery; never run providers inside the API")
-    parser.add_argument("--allow-controlled-models", action="store_true",
-                        help="Disposable tests only: allow an explicitly pinned loopback HTTP policy")
-    parser.add_argument("--enable-control", action="store_true",
-                        help="Connect the fixed-host mailbox/recovery API only; never enroll or start targets")
+    parser.add_argument(
+        "--enable-registered-models",
+        action="store_true",
+        help="Enable explicitly bound registered-model MQ delivery; never run providers inside the API",
+    )
+    parser.add_argument(
+        "--allow-controlled-models",
+        action="store_true",
+        help="Disposable tests only: allow an explicitly pinned loopback HTTP policy",
+    )
+    parser.add_argument(
+        "--enable-control",
+        action="store_true",
+        help="Connect the fixed-host mailbox/recovery API only; never enroll or start targets",
+    )
+    parser.add_argument("--enable-full-previews", action="store_true")
     args = parser.parse_args()
     if args.enable_registered_models and not args.enable_broker:
         parser.error("Registered models require --enable-broker")
@@ -104,7 +116,10 @@ def main():
         if policy.mode != args.admission_mode:
             raise ValueError("admission_requirement_mismatch")
         if policy.mode == "maintenance" and (
-            not args.enable_control or args.enable_broker or args.enable_registered_models or args.allow_controlled_models
+            not args.enable_control
+            or args.enable_broker
+            or args.enable_registered_models
+            or args.allow_controlled_models
             or not config["secure_cookies"]
             or any(urlsplit(o).scheme != "https" for o in config["allowed_origins"])
         ):
@@ -125,12 +140,16 @@ def main():
     if policy.mode == "normal":
         try:
             store, credentials, broker_factory = runtime_components(
-                database, config, enable_broker=args.enable_broker,
+                database,
+                config,
+                enable_broker=args.enable_broker,
                 enable_registered=args.enable_registered_models,
                 allow_controlled_models=args.allow_controlled_models,
             )
         except Exception:  # noqa: BLE001 -- private bootstrap values must never reach diagnostics
-            parser.error("Runtime startup prerequisites failed; server was not opened. Values are never logged.")
+            parser.error(
+                "Runtime startup prerequisites failed; server was not opened. Values are never logged."
+            )
     remote_control = control_recovery = target_handover = None
     if args.enable_control:
         from video_service.postgres.control_recovery import ControlRecovery
@@ -141,6 +160,7 @@ def main():
             control_recovery = ControlRecovery(remote_control)
         if policy.mode == "normal" or policy.handover:
             from video_service.postgres.target_handover import TargetHandover
+
             target_handover = TargetHandover(remote_control)
     import psycopg
 
@@ -157,16 +177,27 @@ def main():
             control_recovery=control_recovery,
             target_handover=target_handover,
             admission_policy=policy,
-            translation_runtime=getattr(broker_factory, 'translation_runtime', None),
-            transcription_runtime=getattr(broker_factory, 'transcription_runtime', None),
+            full_previews_enabled=args.enable_full_previews,
+            translation_runtime=getattr(broker_factory, "translation_runtime", None),
+            transcription_runtime=getattr(
+                broker_factory, "transcription_runtime", None
+            ),
         )
     except (ValueError, psycopg.Error):
-        parser.error("Admission startup prerequisites failed; server was not opened. Values are never logged.")
+        parser.error(
+            "Admission startup prerequisites failed; server was not opened. Values are never logged."
+        )
 
     @app.get("/healthz", include_in_schema=False)
     def liveness():
-        return {"status": "ok", "check": "liveness", "admission_mode": policy.mode,
-                "handover_enabled": policy.handover if policy.mode == "maintenance" else bool(target_handover)}
+        return {
+            "status": "ok",
+            "check": "liveness",
+            "admission_mode": policy.mode,
+            "handover_enabled": policy.handover
+            if policy.mode == "maintenance"
+            else bool(target_handover),
+        }
 
     uvicorn.run(
         app,

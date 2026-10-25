@@ -190,6 +190,11 @@ def mount_runtime(
     def new_upload(body: Upload, owned=owner_dependency):
         return runtime.upload_create(owned, body.filename, body.size, body.request_id)
 
+    @app.delete("/api/video-uploads/{identity}")
+    @app.post("/api/video-uploads/{identity}/cancel")
+    def cancel_original_upload(identity: str, owned=owner_dependency):
+        return runtime.upload_cancel(owned, identity)
+
     @app.get("/api/video-uploads/{identity}")
     def upload(identity: str, owned=owner_dependency):
         return finalizations.snapshot(owned, identity)

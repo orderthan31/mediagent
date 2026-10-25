@@ -164,6 +164,7 @@ def create_app(
     admission_policy=None,
     translation_runtime=None,
     transcription_runtime=None,
+    full_previews_enabled=False,
 ):
     from .admission import AdmissionPolicy
 
@@ -172,26 +173,46 @@ def create_app(
         raise ValueError("invalid_admission_policy")
     policy.preflight(database, remote_control)
     if policy.mode == "maintenance":
-        if (not secure_cookies or any(urlsplit(o).scheme != "https" for o in allowed_origins)
-                or content_store is not None or local_execution or agent_executor is not None
-                or cpu_driver is not None or broker_factory is not None or credential_store is not None or translation_runtime is not None or transcription_runtime is not None):
+        if (
+            not secure_cookies
+            or any(urlsplit(o).scheme != "https" for o in allowed_origins)
+            or content_store is not None
+            or local_execution
+            or agent_executor is not None
+            or cpu_driver is not None
+            or broker_factory is not None
+            or credential_store is not None
+            or translation_runtime is not None
+            or transcription_runtime is not None
+        ):
             raise ValueError("maintenance_requires_secure_metadata_only_runtime")
         if not policy.handover:
             target_handover = None
         elif target_handover is None:
             raise ValueError("maintenance_requires_target_handover")
-    for role, runtime in (("translation", translation_runtime), ("transcription", transcription_runtime)):
+    for role, runtime in (
+        ("translation", translation_runtime),
+        ("transcription", transcription_runtime),
+    ):
         if runtime is None:
             continue
-        bound_broker = (broker_factory is not None
-                        and getattr(content_store, "storage_kind", None) == "s3"
-                        and getattr(broker_factory, "registered_factory", None) is not None
-                        and getattr(broker_factory, role + "_runtime", None) is runtime
-                        and bool(getattr(runtime, "policy_sha256", None))
-                        and runtime.policy_sha256 == getattr(broker_factory, "registered_policy_sha256", None))
-        if (not local_execution or content_store is None or credential_store is None
-                or runtime.credentials is not credential_store or credential_store.database is not database
-                or (broker_factory is not None and not bound_broker)):
+        bound_broker = (
+            broker_factory is not None
+            and getattr(content_store, "storage_kind", None) == "s3"
+            and getattr(broker_factory, "registered_factory", None) is not None
+            and getattr(broker_factory, role + "_runtime", None) is runtime
+            and bool(getattr(runtime, "policy_sha256", None))
+            and runtime.policy_sha256
+            == getattr(broker_factory, "registered_policy_sha256", None)
+        )
+        if (
+            not local_execution
+            or content_store is None
+            or credential_store is None
+            or runtime.credentials is not credential_store
+            or credential_store.database is not database
+            or (broker_factory is not None and not bound_broker)
+        ):
             raise ValueError(role + "_requires_explicit_same_store_and_bound_delivery")
     origins = frozenset(allowed_origins)
     if not origins or any(
@@ -227,18 +248,33 @@ def create_app(
         from video_service.postgres.broker_fleet import BrokerFleet
         from video_service.postgres.worker_telemetry import WorkerTelemetry
 
-        fleet = BrokerFleet(database, broker_factory, telemetry=WorkerTelemetry(database))
+        fleet = BrokerFleet(
+            database, broker_factory, telemetry=WorkerTelemetry(database)
+        )
     else:
         fleet = Fleet(database, cpu_driver)
 
-    if control_recovery is not None and (remote_control is None or control_recovery.store is not remote_control or control_recovery.database is not database):
+    if control_recovery is not None and (
+        remote_control is None
+        or control_recovery.store is not remote_control
+        or control_recovery.database is not database
+    ):
         raise ValueError("Recovery requires the same explicit fixed-host mailbox")
-    if target_handover is not None and (remote_control is None or target_handover.store is not remote_control or target_handover.database is not database):
-        raise ValueError("Target handover requires the same explicit fixed-host mailbox")
+    if target_handover is not None and (
+        remote_control is None
+        or target_handover.store is not remote_control
+        or target_handover.database is not database
+    ):
+        raise ValueError(
+            "Target handover requires the same explicit fixed-host mailbox"
+        )
     if remote_control is not None:
         if cpu_driver is not None:
-            raise ValueError("Fixed-host control cannot share a local process controller")
+            raise ValueError(
+                "Fixed-host control cannot share a local process controller"
+            )
         from video_service.postgres.remote_control import ControlledFleet
+
         fleet = ControlledFleet(fleet, remote_control)
 
     @asynccontextmanager
@@ -282,7 +318,10 @@ def create_app(
             return JSONResponse(
                 {"detail": "maintenance_admission_closed"},
                 status_code=503,
-                headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
+                headers={
+                    "Cache-Control": "no-store",
+                    "X-Content-Type-Options": "nosniff",
+                },
             )
         content_type = request.headers.get("content-type", "").split(";")[0].lower()
         binary = (
@@ -535,13 +574,18 @@ def create_app(
         return {"models": registry.models(value["user"]["id"]), "providers": PROVIDERS}
 
     @app.post("/api/settings/serving-connections/{identity}/model-catalog")
-    def official_model_catalog(identity: str, body: ModelCatalogRequest, value=administrator_dependency):
+    def official_model_catalog(
+        identity: str, body: ModelCatalogRequest, value=administrator_dependency
+    ):
         from video_service.model_catalog import ModelCatalog
+
         if credential_store is None:
             raise HTTPException(503, "credential_store_unavailable")
-        return ModelCatalog(registry, credential_store,
-                            transport=getattr(app.state, 'model_catalog_transport', None)).query(
-            value["user"]["id"], identity, body.connection_revision)
+        return ModelCatalog(
+            registry,
+            credential_store,
+            transport=getattr(app.state, "model_catalog_transport", None),
+        ).query(value["user"]["id"], identity, body.connection_revision)
 
     @app.post("/api/settings/registered-models/compatibility")
     def compatibility(body: Compatibility, value=administrator_dependency):
@@ -555,8 +599,9 @@ def create_app(
         if body.discovery_token is not None:
             if credential_store is None:
                 raise HTTPException(503, "credential_store_unavailable")
-            data['catalog_binding'] = credential_store.open_catalog_entry(
-                value['user']['id'], body.connection_id, body.discovery_token)
+            data["catalog_binding"] = credential_store.open_catalog_entry(
+                value["user"]["id"], body.connection_id, body.discovery_token
+            )
         return registry.save_model(value["user"]["id"], identity, **data)
 
     @app.post("/api/settings/registered-models/{identity}/availability")
@@ -580,25 +625,41 @@ def create_app(
         return sources.register(value["user"]["id"], identity, **body.model_dump())
 
     if target_handover is not None:
+
         @app.get("/api/admin/agents/{identity}/target-handover")
         def target_handover_status(identity: str, value=administrator_dependency):
             return target_handover.status(value["user"]["id"], identity)
 
         @app.post("/api/admin/agents/{identity}/target-handover/preview")
-        def target_handover_preview(identity: str, body: TargetHandoverPreview, value=administrator_dependency):
-            return target_handover.preview(value["user"]["id"], identity, body.candidate_id)
+        def target_handover_preview(
+            identity: str, body: TargetHandoverPreview, value=administrator_dependency
+        ):
+            return target_handover.preview(
+                value["user"]["id"], identity, body.candidate_id
+            )
 
         @app.post("/api/admin/agents/{identity}/target-handover/decisions")
-        def target_handover_decision(identity: str, body: TargetHandoverDecision, value=administrator_dependency):
-            return target_handover.submit(value["user"]["id"], identity, **body.model_dump())
+        def target_handover_decision(
+            identity: str, body: TargetHandoverDecision, value=administrator_dependency
+        ):
+            return target_handover.submit(
+                value["user"]["id"], identity, **body.model_dump()
+            )
 
     if control_recovery is not None:
+
         @app.get("/api/admin/agents/{identity}/recovery")
         def recovery_status(identity: str, value=administrator_dependency):
             if not remote_control.has(identity):
-                fleet.get(identity)  # Validate the product agent; do not invent registrations.
-                return {"registered": False, "request_id": None, "history": [],
-                        "unavailable_reason": "control_target_not_registered"}
+                fleet.get(
+                    identity
+                )  # Validate the product agent; do not invent registrations.
+                return {
+                    "registered": False,
+                    "request_id": None,
+                    "history": [],
+                    "unavailable_reason": "control_target_not_registered",
+                }
             return control_recovery.status(identity)
 
         @app.post("/api/admin/agents/{identity}/recovery/preview")
@@ -606,8 +667,12 @@ def create_app(
             return control_recovery.preview(value["user"]["id"], identity)
 
         @app.post("/api/admin/agents/{identity}/recovery/decisions")
-        def recovery_decision(identity: str, body: ControlReviewDecision, value=administrator_dependency):
-            return control_recovery.submit(value["user"]["id"], identity, **body.model_dump())
+        def recovery_decision(
+            identity: str, body: ControlReviewDecision, value=administrator_dependency
+        ):
+            return control_recovery.submit(
+                value["user"]["id"], identity, **body.model_dump()
+            )
 
     @app.get("/api/admin/agents")
     def agent_list(value=administrator_dependency):
@@ -633,7 +698,9 @@ def create_app(
                 raise HTTPException(422, "제어 요청 ID가 필요합니다.")
             assert remote_control is not None  # startup preflight requires this mailbox
             return remote_control.configure(
-                value["user"]["id"], identity, **body.model_dump(),
+                value["user"]["id"],
+                identity,
+                **body.model_dump(),
                 expected_slot=policy.slot_id,
             )
         configuration = body.model_dump(exclude={"request_id"})
@@ -642,6 +709,10 @@ def create_app(
                 raise HTTPException(422, "제어 요청 ID가 필요합니다.")
             configuration["request_id"] = body.request_id
         return fleet.configure(value["user"]["id"], identity, **configuration)
+
+    from .system_resource_routes import mount_system_resources
+
+    mount_system_resources(app, session)
 
     if content_store is not None:
         from video_service.postgres.execution import Execution
@@ -653,10 +724,13 @@ def create_app(
             content_store,
             agent_executor=agent_executor,
             fleet=fleet if cpu_driver is not None else None,
-            engine_runtime_enabled=bool(getattr(broker_factory, "engine_factory", None)),
+            engine_runtime_enabled=bool(
+                getattr(broker_factory, "engine_factory", None)
+            ),
             translation_runtime=translation_runtime,
             transcription_runtime=transcription_runtime,
         )
+        runtime.full_previews_enabled = bool(full_previews_enabled)
         mount_runtime(
             app,
             runtime,
@@ -666,6 +740,7 @@ def create_app(
             broker_factory=broker_factory,
         )
         from .processing_review_routes import mount_processing_review
+
         mount_processing_review(app, runtime, administrator)
     elif local_execution:
         raise ValueError("CPU execution requires an explicit private content store")

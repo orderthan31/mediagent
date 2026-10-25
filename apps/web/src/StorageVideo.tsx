@@ -27,8 +27,8 @@ export const StorageAssetRow = ({
         {video.provenance.kind === 'result'
           ? '결과에서 등록'
           : video.provenance.kind === 'preserved_legacy'
-            ? '보존 이관 원본'
-            : '업로드 원본'}
+            ? '원본'
+            : '원본'}
       </Badge>
       <h2 className="ui02-list-title">{video.original_filename}</h2>
       <ul className="storage-metadata" aria-label="영상 정보">
@@ -52,7 +52,7 @@ export const StorageVideoInfo = ({ video, assetId }: { video: VideoAsset; assetI
     <div className="storage-preview">
       {video.web_preview && video.web_preview.status !== 'ready' ? (
         <p role="status">
-          기존 30초 미리보기가 없습니다. 원본 받기와 아래 전체길이 생성을 이용하세요.
+          미리보기를 준비하고 있습니다. 준비 상태는 아래에서 확인할 수 있습니다.
         </p>
       ) : (
         <video
@@ -108,7 +108,7 @@ export const StorageVideoInfo = ({ video, assetId }: { video: VideoAsset; assetI
             {video.provenance.kind === 'result'
               ? '결과 영상에서 등록'
               : video.provenance.kind === 'preserved_legacy'
-                ? '구버전 보존 이관'
+                ? '파일 등록'
                 : '파일 업로드'}
             {video.provenance.parent_asset_id && (
               <a href={`#/videos/${video.provenance.parent_asset_id}`}>이전 원본</a>

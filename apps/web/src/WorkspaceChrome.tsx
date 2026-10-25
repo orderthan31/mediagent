@@ -72,7 +72,7 @@ export const WorkspaceChrome = ({
   const current = accountView ? { name: '계정 관리', href: '#/account' } : sections[group];
   const child =
     route === '#/settings/legacy'
-      ? '구버전 이력'
+      ? '작업'
       : route === '#/account/new'
         ? '발급'
         : route === '#/serving/connections'

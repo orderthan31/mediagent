@@ -13,6 +13,7 @@ import { PublishingAuth } from './PublishingAuth';
 import { JobDetail } from './JobDetail';
 import { RenewalJobDetail } from './RenewalJobDetail';
 import { SettingsPage } from './SettingsPage';
+import { SystemResources } from './SystemResources';
 import { ModelRegistryPage } from './ModelRegistryPage';
 import { ProviderConnections } from './ProviderConnections';
 import { ServingPage } from './ServingPage';
@@ -36,7 +37,6 @@ import {
 } from './video-api';
 import { Theme } from './hangyeol/foundation/theme';
 import { WorkspaceChrome } from './WorkspaceChrome';
-import { LegacyArchivePage } from './LegacyArchivePage';
 import { WorkflowCatalog } from './WorkflowCatalog';
 import { AgentCatalog } from './AgentCatalog';
 import { useWorkspaceAuth } from './AuthGate';
@@ -180,7 +180,7 @@ export const VideoWorkspace = () => {
     }
     setVideos(v.videos);
     setJobs(j.jobs);
-    setSessions(u.uploads);
+    setSessions(u.uploads.filter((item) => item.status !== 'CANCELLED'));
     setOnline(true);
     setHasConfirmedList(true);
     setListFailed(false);
@@ -494,7 +494,12 @@ export const VideoWorkspace = () => {
               busy={busy}
               onPause={(key) => queue.pause(key)}
               onResume={(key) => queue.resume(key)}
-              onRemove={(key) => queue.remove(key)}
+              onRemove={(key) => {
+                const item=queue.items.find((value)=>value.key===key);
+                queue.pause(key);
+                if(item?.jobId&&item.state!=='done') void action(item.jobId,async()=>{await jsonPost(`/video-uploads/${item.jobId}/cancel`,{});queue.remove(key);});
+                else queue.remove(key);
+              }}
               onRegister={(id) =>
                 void action(id, () =>
                   finishOriginalUpload(id, new AbortController().signal, uploadRequest),
@@ -503,7 +508,7 @@ export const VideoWorkspace = () => {
               onChooseResume={(id) => chooseResume(id)}
               onDeleteSession={(session) =>
                 setConfirm({
-                  title: `${session.filename} 업로드를 삭제할까요?`,
+                  title: `${session.filename} 업로드를 취소할까요? 전송된 부분은 보존됩니다.`,
                   action: async () => {
                     await request(`/video-uploads/${session.upload_id}`, {
                       method: 'DELETE',
@@ -554,9 +559,9 @@ export const VideoWorkspace = () => {
             />
           </main>
         ) : renewalBackend && route === '#/settings/legacy' ? (
-          <LegacyArchivePage />
+          <main><PageTitle>작업</PageTitle><a href="#/jobs">현재 작업으로 이동</a></main>
         ) : renewalBackend &&
-          (!runtimeReady || workflowTicketsView || settingsView || route === '#/serving/roles') &&
+          (!runtimeReady || workflowTicketsView || route === '#/serving/roles') &&
           !(route.startsWith('#/account') || (servingView && route !== '#/serving/roles')) ? (
           <main className="serving-page">
             <PageTitle>
@@ -587,10 +592,7 @@ export const VideoWorkspace = () => {
                 <a className="ui02-text-action" href="#/serving">
                   서빙 관리
                 </a>
-                <br />
-                <a className="ui02-text-action" href="#/settings/legacy">
-                  이관된 구버전 이력
-                </a>
+
               </>
             )}
           </main>
@@ -644,7 +646,7 @@ export const VideoWorkspace = () => {
             />
           )
         ) : settingsView ? (
-          <SettingsPage />
+          renewalBackend ? <SystemResources /> : <SettingsPage />
         ) : jobId ? (
           renewalBackend ? (
             <RenewalJobDetail id={jobId} key={jobId} />
@@ -772,13 +774,15 @@ export const VideoWorkspace = () => {
 };
 const Thumbnail = ({ assetId }: { assetId: string }) => {
   const [failed, setFailed] = useState(false);
+  const [posterVersion,setPosterVersion]=useState(0);
+  useEffect(()=>{if(!failed)return;const timer=setTimeout(()=>{setPosterVersion((v)=>v+1);setFailed(false);},15000);return()=>clearTimeout(timer);},[failed]);
   return (
     <div className="asset-thumbnail">
       {failed ? (
         <FileVideo size={24} aria-label="미리보기 없음" />
       ) : (
         <img
-          src={mediaUrl(`/videos/${assetId}/thumbnail`)}
+          src={mediaUrl(`/videos/${assetId}/thumbnail?v=${posterVersion}`)}
           width={480}
           height={270}
           alt=""

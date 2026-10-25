@@ -30,8 +30,12 @@ def public_upload(row):
         "expected_size": row["expected_size"],
         "uploaded_bytes": row["uploaded_bytes"],
         "asset_id": row["asset_id"],
-        "status": "COMPLETED" if row["asset_id"] else "UPLOADING",
-        "resumable": not bool(row["asset_id"]),
+        "status": "CANCELLED"
+        if row.get("cancelled_at")
+        else "COMPLETED"
+        if row["asset_id"]
+        else "UPLOADING",
+        "resumable": not bool(row["asset_id"]) and not bool(row.get("cancelled_at")),
         "created_at": row["created_at"].isoformat(),
     }
 
@@ -41,12 +45,22 @@ def public_asset(row):
     large_policy = None
     if row["bytes"] > MAX_CONTENT:
         from ..cpu_input_policy import source_policy
+
         try:
-            large_policy = source_policy(row, {"nodes": [{"type": "encode"}, {"type": "validate_video"}]})
+            large_policy = source_policy(
+                row, {"nodes": [{"type": "encode"}, {"type": "validate_video"}]}
+            )
         except ValueError:
             pass
     return {
-        **({"processing_roles": ["encode", "validate_video"], "processing_limits": large_policy} if large_policy else {}),
+        **(
+            {
+                "processing_roles": ["encode", "validate_video"],
+                "processing_limits": large_policy,
+            }
+            if large_policy
+            else {}
+        ),
         "asset_id": row["id"],
         "uploaded_by": legacy.get("original_owner_id") if legacy else row["owner_id"],
         "original_filename": row["filename"],
@@ -81,7 +95,9 @@ class Intake:
         return row
 
     def _shared_asset(self, db, identity):
-        rows = db.execute("SELECT * FROM assets WHERE id=%s LIMIT 2", (resource_id(identity),)).fetchall()
+        rows = db.execute(
+            "SELECT * FROM assets WHERE id=%s LIMIT 2", (resource_id(identity),)
+        ).fetchall()
         if not rows:
             raise Missing("원본을 찾을 수 없습니다.")
         if len(rows) != 1:
@@ -108,7 +124,9 @@ class Intake:
 
     def assets(self, owner):
         with self.database.connection() as db:
-            rows = db.execute("SELECT * FROM assets ORDER BY created_at DESC,id,owner_id").fetchall()
+            rows = db.execute(
+                "SELECT * FROM assets ORDER BY created_at DESC,id,owner_id"
+            ).fetchall()
             if len({r["id"] for r in rows}) != len(rows):
                 raise Conflict("원본 식별자가 중복되어 공용 조회할 수 없습니다.")
             return [public_asset(r) for r in rows]
@@ -123,8 +141,17 @@ class Intake:
         with self.database.connection() as db:
             row = self._shared_asset(db, identity)
             reference = row["metadata"].get("thumbnail")
+            if reference is None and getattr(self, "full_previews_enabled", False):
+                from .video_previews import VideoPreviews
+
+                match = db.execute(
+                    "SELECT * FROM video_preview_jobs WHERE subject->>'asset_id'=%s AND source_ref->>'sha256'=%s AND thumbnail_ref IS NOT NULL AND NOT cancel_requested ORDER BY created_at DESC LIMIT 1",
+                    (identity, row["sha256"]),
+                ).fetchone()
+                if match and VideoPreviews(self).binding_matches(db, match):
+                    reference = match["thumbnail_ref"]
             if reference is None:
-                raise Missing("썸네일이 없습니다.")
+                raise Missing("썸네일을 준비하고 있습니다.")
         return self.store.path(row["owner_id"], reference)
 
     def web_preview_path(self, owner, identity):
@@ -135,8 +162,14 @@ class Intake:
             state.get("status") != "ready"
             or state.get("source_sha256") != row["sha256"]
         ):
+            if getattr(self, "full_previews_enabled", False):
+                from .video_previews import VideoPreviews
+
+                status = VideoPreviews(self).asset_status(owner, identity)
+                if status.get("state") == "ready":
+                    return VideoPreviews(self).file(owner, status["id"])
             raise Missing(
-                "웹 전용 WebM이 준비되지 않았습니다. 원본은 다운로드할 수 있습니다."
+                "미리보기를 준비하고 있습니다. 원본은 다운로드할 수 있습니다."
             )
         return self.store.path(row["owner_id"], state["reference"])
 
@@ -179,6 +212,26 @@ class Intake:
         with self.database.connection() as db:
             return public_upload(self._upload(db, owner, identity))
 
+    def upload_cancel(self, owner, identity):
+        identity = resource_id(identity)
+        with self.database.connection() as db:
+            key = "original-upload-complete:" + owner + ":" + identity
+            if not db.execute(
+                "SELECT pg_try_advisory_xact_lock(hashtextextended(current_schema()||%s,0))AS yes",
+                (key,),
+            ).fetchone()["yes"]:
+                raise Conflict("원본 등록이 진행 중입니다. 상태를 다시 확인하세요.")
+            row = self._upload(db, owner, identity, lock=True)
+            if row["asset_id"]:
+                raise Conflict("등록된 원본은 업로드 취소로 삭제하지 않습니다.")
+            if row.get("cancelled_at"):
+                return public_upload(row)
+            row = db.execute(
+                "UPDATE source_uploads SET cancelled_at=now(),cancelled_by=%s WHERE owner_id=%s AND id=%s RETURNING *",
+                (owner, owner, identity),
+            ).fetchone()
+            return public_upload(row)
+
     def uploads(self, owner):
         with self.database.connection() as db:
             return [
@@ -199,6 +252,8 @@ class Intake:
             raise ValueError("청크 크기/위치 오류")
         with self.database.connection() as db:
             row = self._upload(db, owner, identity, lock=True)
+            if row.get("cancelled_at"):
+                raise Conflict("취소된 업로드입니다. 전송한 부분은 보존됩니다.")
             if row["asset_id"]:
                 raise Conflict("이미 등록한 원본의 업로드는 변경할 수 없습니다.")
             previous = db.execute(
@@ -317,6 +372,8 @@ class Intake:
                 )
             with guard.transaction():
                 row = self._upload(guard, owner, identity)
+                if row.get("cancelled_at"):
+                    raise Conflict("취소된 업로드입니다.")
                 if row["asset_id"]:
                     return public_upload(row)
                 if row["uploaded_bytes"] != row["expected_size"]:
@@ -542,8 +599,12 @@ class Intake:
             if node.get("model_ref"):
                 bindings[node["id"]]["owner_id"] = owner
             if node.get("fallback_refs"):
-                extra = {"nodes": [{"id": str(i), "model_ref": ref}
-                                   for i, ref in enumerate(node["fallback_refs"])]}
+                extra = {
+                    "nodes": [
+                        {"id": str(i), "model_ref": ref}
+                        for i, ref in enumerate(node["fallback_refs"])
+                    ]
+                }
                 resolved = self._bindings(db, owner, extra, active=active)
                 bindings[node["id"]]["fallbacks"] = list(resolved.values())
         return bindings
