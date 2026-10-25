@@ -276,7 +276,7 @@ def validate(payload):
 
                 refs = n["fallback_refs"]
                 if (
-                    n["type"] not in {"translate", "transcribe"}
+                    n["type"] not in {"translate", "transcribe", "vocalize"}
                     or not n.get("model_ref")
                     or not isinstance(refs, list)
                     or len(refs) > 3

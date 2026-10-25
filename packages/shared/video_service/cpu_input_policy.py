@@ -94,14 +94,18 @@ def model_runtime_seconds(max_calls):
 
 def lease_seconds(command):
     agent = command["agent"]
-    kind = {"transcribe": "transcription", "translate": "translation"}.get(
-        agent.get("id")
-    )
+    kind = {
+        "transcribe": "transcription",
+        "translate": "translation",
+        "vocalize": "vocalization",
+    }.get(agent.get("id"))
     if kind and command.get(kind, {}).get("batch_policy"):
         config = command[kind]
-        expected_policy = (
-            "bounded_60s_v1" if kind == "transcription" else "bounded_100x16k_v1"
-        )
+        expected_policy = {
+            "transcription": "bounded_60s_v1",
+            "translation": "bounded_100x16k_v1",
+            "vocalization": "bounded_vocalization_v1",
+        }[kind]
         expected = model_runtime_seconds(config.get("max_model_calls"))
         if (
             config.get("batch_policy") != expected_policy

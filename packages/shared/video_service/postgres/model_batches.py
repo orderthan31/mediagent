@@ -27,15 +27,25 @@ class ModelBatchLedger:
         self.job, self.attempt = command["run_id"], command["attempt_id"]
         self.command_sha = digest(command)
         self.max_calls = max_calls
-        self.kind = {"transcribe": "transcription", "translate": "translation"}.get(
-            command["agent"]["id"]
-        )
+        self.kind = {
+            "transcribe": "transcription",
+            "translate": "translation",
+            "vocalize": "vocalization",
+        }.get(command["agent"]["id"])
         if self.kind is None or self.kind not in command:
             raise ValueError("model_budget_requires_registered_command")
-        expected_policy = (
-            "bounded_60s_v1" if self.kind == "transcription" else "bounded_100x16k_v1"
-        )
+        expected_policy = {
+            "transcription": "bounded_60s_v1",
+            "translation": "bounded_100x16k_v1",
+            "vocalization": "bounded_vocalization_v1",
+        }[self.kind]
         frozen = command[self.kind]
+        if self.kind == "vocalization" and (
+            max_calls > 128
+            or frozen.get("purpose") != "vocalization_regions_v1"
+            or frozen.get("strength") not in {"conservative", "strong", "silence3"}
+        ):
+            raise ValueError("invalid_frozen_vocalization_policy")
         if (
             frozen.get("batch_policy") != expected_policy
             or frozen.get("max_model_calls") != max_calls
@@ -94,16 +104,20 @@ class ModelBatchLedger:
         ):
             raise ValueError("chunk_context_does_not_match_frozen_model_pins")
         frozen = self.command[self.kind]
-        port = "audio" if self.kind == "transcription" else "transcript"
-        unit = "pcm_frame" if self.kind == "transcription" else "segment_index"
+        port = "transcript" if self.kind == "translation" else "audio"
+        unit = "segment_index" if self.kind == "translation" else "pcm_frame"
         clock = (
             self.command["inputs"]["timeline"]["sha256"]
             if self.kind == "transcription"
             else None
         )
         start, end = context.get("span_start"), context.get("span_end")
-        maximum = 60 * 16000 if self.kind == "transcription" else 100
-        total = 6 * 60 * 60 * 16000 if self.kind == "transcription" else 10000
+        maximum = 100 if self.kind == "translation" else 60 * 16000
+        total = {
+            "transcription": 6 * 60 * 60 * 16000,
+            "translation": 10000,
+            "vocalization": 300 * 16000,
+        }[self.kind]
         if (
             context.get("source_sha256") != self.command["inputs"][port]["sha256"]
             or context.get("clock_sha256") != clock
@@ -290,7 +304,12 @@ class _Chunk:
             raise ValueError("invalid_model_failure_code")
         if code == "cancelled":
             outcome, state = "cancelled", "cancelled"
-        elif code in {"delivery_unknown", "transport_unknown", "timeout"}:
+        elif code in {
+            "delivery_unknown",
+            "transport_unknown",
+            "timeout",
+            "outcome_unknown",
+        }:
             outcome, state = "unknown", "held"
         else:
             self.ledger._live(self.db)

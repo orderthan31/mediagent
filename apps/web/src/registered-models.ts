@@ -5,6 +5,7 @@ export type RegisteredVersion = ModelReference & {
   protocol?: string;
   translation_supported?: boolean;
   transcription_supported?: boolean;
+  vocalization_supported?: boolean;
   transcription_format?: string | null;
   connection_id?: string;
   connection_revision?: number;
@@ -47,6 +48,7 @@ export const modalityLabels: Record<string, string> = {
 export const capabilityLabels: Record<string, string> = {
   text_generation: '텍스트 생성',
   speech_recognition: '음성 인식',
+  vocalization_classification: '보컬 소리 판정',
   speech_synthesis: '음성 합성',
   image_understanding: '이미지 이해',
   structured_output: '구조화 출력',
@@ -82,6 +84,7 @@ export const typeDefaults: Record<
 };
 export const nodeModelRoles: Record<string, string> = {
   transcribe: 'transcription',
+  vocalize: 'vocalization',
   translate: 'translation',
   decision: 'decision',
   tts: 'tts',
@@ -100,6 +103,13 @@ export const supportsModelRole = (model: RegisteredVersion, role: string) => {
         inputs.includes('audio') &&
         outputs.includes('text') &&
         features.includes('speech_recognition')
+      );
+    case 'vocalization':
+      return (
+        inputs.includes('audio') &&
+        outputs.includes('text') &&
+        features.includes('structured_output') &&
+        features.includes('vocalization_classification')
       );
     case 'translation':
       return (

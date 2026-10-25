@@ -39,6 +39,18 @@ MODEL_CALL_LIMITS = [
 ]
 
 NODES = [
+    node(
+        "vocalize",
+        "자동 보컬 판정",
+        {"audio": "audio"},
+        {"regions": "audio_regions"},
+        role="vocalization",
+        choices={
+            "strength": ["conservative", "strong", "silence3"],
+            "batch_policy": ["bounded_vocalization_v1"],
+            "max_model_calls": [str(x) for x in (1, 2, 3, 4, 8, 16, 32, 64, 128)],
+        },
+    ),
     node("analyze", "영상 분석", {"video": "video"}, {"metadata": "media_metadata"}),
     node("extract_audio", "오디오 추출", {"video": "video"}, {"audio": "audio"}),
     node(
@@ -393,6 +405,11 @@ def validate_node(payload):
         from .subtitle_tracks import names
 
         names(options, inputs)
+    if selected["id"] == "vocalize" and (
+        set(options) != {"strength", "batch_policy", "max_model_calls"}
+        or options.get("batch_policy") != "bounded_vocalization_v1"
+    ):
+        raise ValueError("explicit_bounded_vocalization_policy_required")
     if (
         selected["id"] == "translate"
         and options.get("translation_profile", "legacy") == "language_target_v1"

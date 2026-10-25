@@ -69,6 +69,13 @@ class BrokerFleet:
             "observations": [],
             "unavailable_reason": "원격 시작·중지·확장 제어는 아직 연결되지 않았습니다.",
         }
+        if agent == "vocalize":
+            return {
+                **value,
+                "runtime": "application_registered_model",
+                "state": "controller",
+                "unavailable_reason": "등록 모델 작업 실행자가 처리합니다. 모델 선택과 작업 실행 승인은 별도입니다.",
+            }
         if agent in CONTROLLER_NODES:
             return {
                 **value,

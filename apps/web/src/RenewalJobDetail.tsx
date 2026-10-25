@@ -32,6 +32,14 @@ type TranslationTrace = {
     transition?: string;
   }[];
 };
+type VocalTrace = {
+  status?: string;
+  held?: boolean;
+  error?: string | null;
+  call_count?: number;
+  reused_chunks?: number;
+  chunks?: unknown[];
+};
 type Run = {
   id: string;
   node_id: string;
@@ -43,12 +51,14 @@ type Run = {
   error_code?: string;
   translation?: TranslationTrace;
   transcription?: TranslationTrace;
+  vocalization?: VocalTrace;
   result: {
     outputs: Record<string, Reference>;
     previews?: Record<string, { status: string }>;
     reused_from?: { job_id: string };
     translation?: TranslationTrace;
     transcription?: TranslationTrace;
+    vocalization?: VocalTrace;
   } | null;
 };
 type Review = {
@@ -177,6 +187,7 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
         }
       : review?.contract.fields;
   const outputs = run?.status === 'completed' ? run.result?.outputs || {} : {};
+  const vocalization = run?.result?.vocalization || run?.vocalization;
   const translation =
     run?.result?.transcription ||
     run?.transcription ||
@@ -349,6 +360,23 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
                         </a>
                       </section>
                     ))}
+                    {vocalization && (
+                      <section aria-label="보컬 판정 실행 기록">
+                        <h4>보컬 판정 실행 기록</h4>
+                        <p>
+                          기록된 호출: {vocalization.call_count ?? '확인 중'} · 완료 결과 재사용:{' '}
+                          {vocalization.reused_chunks ?? '확인 중'}
+                        </p>
+                        {vocalization.held && (
+                          <p role="alert">
+                            응답 확인이 필요해 중단했습니다. 자동으로 다시 호출하지 않습니다.
+                          </p>
+                        )}
+                        {vocalization.error && (
+                          <p>{translationLabels[vocalization.error] || vocalization.error}</p>
+                        )}
+                      </section>
+                    )}
                     {translation && (
                       <section aria-label={`${traceLabel} 실행 기록`}>
                         <h4>{traceLabel} 실행 기록</h4>

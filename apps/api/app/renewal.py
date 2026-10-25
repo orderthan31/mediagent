@@ -177,6 +177,7 @@ def create_app(
     admission_policy=None,
     translation_runtime=None,
     transcription_runtime=None,
+    vocalization_runtime=None,
     full_previews_enabled=False,
 ):
     from .admission import AdmissionPolicy
@@ -197,6 +198,7 @@ def create_app(
             or credential_store is not None
             or translation_runtime is not None
             or transcription_runtime is not None
+            or vocalization_runtime is not None
         ):
             raise ValueError("maintenance_requires_secure_metadata_only_runtime")
         if not policy.handover:
@@ -206,6 +208,7 @@ def create_app(
     for role, runtime in (
         ("translation", translation_runtime),
         ("transcription", transcription_runtime),
+        ("vocalization", vocalization_runtime),
     ):
         if runtime is None:
             continue
@@ -742,6 +745,7 @@ def create_app(
             ),
             translation_runtime=translation_runtime,
             transcription_runtime=transcription_runtime,
+            vocalization_runtime=vocalization_runtime,
         )
         runtime.full_previews_enabled = bool(full_previews_enabled)
         mount_runtime(

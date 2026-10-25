@@ -28,12 +28,15 @@ export const NodeModelBinding = ({
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const role = modelRole || nodeModelRoles[type];
-  const roleLabel = role === 'transcription' ? '전사' : '번역';
+  const roleLabel =
+    role === 'vocalization' ? '보컬 판정' : role === 'transcription' ? '전사' : '번역';
   const wireSupported = (model: RegisteredVersion) =>
     !(frontendOnly || renewalBackend) ||
-    (role === 'transcription'
-      ? model.transcription_supported === true
-      : role !== 'translation' || model.translation_supported !== false);
+    (role === 'vocalization'
+      ? model.vocalization_supported === true
+      : role === 'transcription'
+        ? model.transcription_supported === true
+        : role !== 'translation' || model.translation_supported !== false);
   const selected = models.find((row) => row.id === value?.model_id);
   const pinned = selected?.versions[String(value?.revision)];
   const pinnedAvailable =
@@ -110,7 +113,7 @@ export const NodeModelBinding = ({
           )}
         </select>
       </label>
-      {['translate', 'transcribe'].includes(type) && fallbackChanged && (
+      {['translate', 'transcribe', 'vocalize'].includes(type) && fallbackChanged && (
         <section aria-label={`${roleLabel} 폴백`}>
           <h4>{roleLabel} 폴백</h4>
           {role === 'transcription' && (

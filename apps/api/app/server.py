@@ -179,6 +179,7 @@ def main():
             admission_policy=policy,
             full_previews_enabled=args.enable_full_previews,
             translation_runtime=getattr(broker_factory, "translation_runtime", None),
+            vocalization_runtime=getattr(broker_factory, "vocalization_runtime", None),
             transcription_runtime=getattr(
                 broker_factory, "transcription_runtime", None
             ),

@@ -52,6 +52,7 @@ class Execution(Intake):
         engine_runtime_enabled=False,
         translation_runtime=None,
         transcription_runtime=None,
+        vocalization_runtime=None,
     ):
         super().__init__(database, store)
         self.agent_executor = agent_executor
@@ -59,6 +60,7 @@ class Execution(Intake):
         self.engine_runtime_enabled = bool(engine_runtime_enabled)
         self.translation_runtime = translation_runtime
         self.transcription_runtime = transcription_runtime
+        self.vocalization_runtime = vocalization_runtime
         from .ticket_artifacts import TicketArtifacts
 
         self.ticket_artifacts = TicketArtifacts(store)
@@ -95,7 +97,9 @@ class Execution(Intake):
 
     @staticmethod
     def _engine_role(node):
-        if node["type"] in {"translate", "transcribe"} and node.get("model_ref"):
+        if node["type"] in {"translate", "transcribe", "vocalize"} and node.get(
+            "model_ref"
+        ):
             return None
         if node["type"] in {"transcribe", "translate", "faceswap"}:
             return node["type"]
@@ -136,9 +140,11 @@ class Execution(Intake):
             role = self._engine_role(node)
             if node.get("model_ref"):
                 pin = (model_bindings or {}).get(node["id"])
-                kind = {"translate": "translation", "transcribe": "transcription"}.get(
-                    node["type"]
-                )
+                kind = {
+                    "translate": "translation",
+                    "transcribe": "transcription",
+                    "vocalize": "vocalization",
+                }.get(node["type"])
                 executor = getattr(self, (kind or "unsupported") + "_runtime", None)
                 if (
                     executor is None
@@ -212,7 +218,7 @@ class Execution(Intake):
         ).fetchall()
         for row in rows:
             delivery = row.pop("delivery_result") or {}
-            for kind in ("translation", "transcription"):
+            for kind in ("translation", "transcription", "vocalization"):
                 if kind in delivery:
                     row[kind] = delivery[kind]
         return rows
@@ -321,6 +327,7 @@ class Execution(Intake):
             "dispatch",
             "translation",
             "transcription",
+            "vocalization",
         }
         value["runs"] = []
         for run in state.get("runs", []):
@@ -337,6 +344,7 @@ class Execution(Intake):
                         "reused_from",
                         "translation",
                         "transcription",
+                        "vocalization",
                         "ticket_artifacts",
                     }
                 }
@@ -548,7 +556,8 @@ class Execution(Intake):
                     "transcript": self.store.put(owner, [canonical(text)], "transcript")
                 }
             if any(
-                n["type"] in {"translate", "transcribe"} and n.get("model_ref")
+                n["type"] in {"translate", "transcribe", "vocalize"}
+                and n.get("model_ref")
                 for n in definition["nodes"]
             ):
                 from .translation import languages
@@ -770,10 +779,36 @@ class Execution(Intake):
             and self.transcription_runtime.mode == "external"
             else []
         )
+        pending_vocal = [
+            n
+            for n in definition["nodes"]
+            if n["type"] == "vocalize"
+            and n.get("model_ref")
+            and not any(
+                r["node_id"] == n["id"] and r["status"] == "completed" for r in runs
+            )
+        ]
+        if (
+            pending_vocal
+            and self.vocalization_runtime
+            and self.vocalization_runtime.mode == "external"
+        ):
+            external_roles.append("vocalization")
         external = bool(external_roles)
         if external and not job["snapshot"].get("translation_paid_authorized"):
             reasons.append("전사/번역 후보 전체의 외부 호출 비용 동의가 필요합니다.")
         plan = {
+            "vocalization_mode": self.vocalization_runtime.mode
+            if pending_vocal and self.vocalization_runtime
+            else None,
+            "vocalization_usage": [
+                self.vocalization_runtime.available(p)
+                for n in pending_vocal
+                for pin in [job["snapshot"]["model_bindings"][n["id"]]]
+                for p in [pin, *pin.get("fallbacks", [])]
+            ]
+            if self.vocalization_runtime
+            else [],
             **(
                 {"audio_pipeline_policy": job["snapshot"]["audio_pipeline_policy"]}
                 if job["snapshot"].get("audio_pipeline_policy")
@@ -1014,14 +1049,16 @@ class Execution(Intake):
             if node["type"] in CPU_ROLES:
                 command["agent"]["revision"] = "5"
         if (
-            node["type"] in {"translate", "transcribe"}
+            node["type"] in {"translate", "transcribe", "vocalize"}
             and node.get("model_ref")
             and status == "running"
         ):
             pin = job["snapshot"]["model_bindings"][node["id"]]
-            kind = {"translate": "translation", "transcribe": "transcription"}[
-                node["type"]
-            ]
+            kind = {
+                "translate": "translation",
+                "transcribe": "transcription",
+                "vocalize": "vocalization",
+            }[node["type"]]
             command[kind] = {
                 "candidates": [pin, *pin.get("fallbacks", [])],
                 "source_language": job["snapshot"]["options"]["source_language"],
@@ -1039,6 +1076,11 @@ class Execution(Intake):
                     "translation_paid_authorized", False
                 ),
             }
+            if kind == "vocalization":
+                command[kind].update(
+                    purpose="vocalization_regions_v1",
+                    strength=node["options"]["strength"],
+                )
             if kind == "transcription" and node["options"].get("clock_policy") in {
                 "packed_projection_v2",
                 "packed_projection_v5",
@@ -1048,11 +1090,11 @@ class Execution(Intake):
                 command[kind]["media_budget"] = "audio_long_v5"
             batch_policy = node["options"].get("batch_policy", "single")
             if batch_policy != "single":
-                expected = (
-                    "bounded_60s_v1"
-                    if kind == "transcription"
-                    else "bounded_100x16k_v1"
-                )
+                expected = {
+                    "transcription": "bounded_60s_v1",
+                    "translation": "bounded_100x16k_v1",
+                    "vocalization": "bounded_vocalization_v1",
+                }[kind]
                 if batch_policy != expected:
                     raise Conflict("지원하지 않는 분할 실행 정책입니다.")
                 command[kind]["batch_policy"] = batch_policy
@@ -1386,7 +1428,9 @@ class Execution(Intake):
                         indexed[node["id"]] = {**row, "status": "failed"}
                     continue
                 if not (
-                    command.get("translation") or command.get("transcription")
+                    command.get("translation")
+                    or command.get("transcription")
+                    or command.get("vocalization")
                 ) and (
                     node["type"] not in CPU_AGENTS
                     and not self._engine_role(node)
@@ -1398,7 +1442,11 @@ class Execution(Intake):
                     if command["protocol_version"] == 2
                     else "agent.command.v1"
                 )
-                if command.get("translation") or command.get("transcription"):
+                if (
+                    command.get("translation")
+                    or command.get("transcription")
+                    or command.get("vocalization")
+                ):
                     from ..registered_broker import COMMAND as REGISTERED_COMMAND
 
                     message_type = REGISTERED_COMMAND
@@ -1475,10 +1523,19 @@ class Execution(Intake):
                 "INSERT INTO agent_deliveries(owner_id,job_id,node_run_id,command_sha256,status) VALUES (%s,%s,%s,%s,'started')",
                 (owner, command["run_id"], command["attempt_id"], digest(command)),
             )
-        if command.get("translation") or command.get("transcription"):
+        if (
+            command.get("translation")
+            or command.get("transcription")
+            or command.get("vocalization")
+        ):
             from .translation import execute_translation
 
-            result = execute_translation(self, owner, command)
+            if command.get("vocalization"):
+                from .vocalization import execute_vocalization
+
+                result = execute_vocalization(self, owner, command)
+            else:
+                result = execute_translation(self, owner, command)
             with self.database.connection() as db:
                 db.execute(
                     "UPDATE agent_deliveries SET status='completed',result=%s WHERE owner_id=%s AND job_id=%s AND node_run_id=%s AND status='started'",
@@ -1647,7 +1704,9 @@ class Execution(Intake):
         if not isinstance(values, dict) or set(values) != set(expected):
             raise ValueError("Agent output ports differ")
         if result.get("transport") == "registered_http" and (
-            command.get("translation") or command.get("transcription")
+            command.get("translation")
+            or command.get("transcription")
+            or command.get("vocalization")
         ):
             for port, reference in values.items():
                 if reference.get("type") != expected[port]:
@@ -1832,6 +1891,8 @@ class Execution(Intake):
                             "agent_instance_id",
                             "translation",
                             "transcription",
+                            "vocalization",
+                            "vocalization",
                         )
                     }
                     receipt["outputs"] = outputs
@@ -1887,7 +1948,11 @@ class Execution(Intake):
                                     "retryable": False,
                                     **{
                                         kind: result[kind]
-                                        for kind in ("translation", "transcription")
+                                        for kind in (
+                                            "translation",
+                                            "transcription",
+                                            "vocalization",
+                                        )
                                         if command.get(kind) and kind in result
                                     },
                                 }
