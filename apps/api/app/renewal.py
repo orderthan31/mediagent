@@ -124,7 +124,20 @@ class JsonBodyLimit:
             and scope["method"] == "PUT"
             and re.fullmatch(r"/api/video-uploads/[a-f0-9]{32}/chunks", scope["path"])
         )
-        limit = 4194304 if binary else 65536
+        subtitle_save = (
+            self.uploads
+            and scope["method"] == "POST"
+            and re.fullmatch(
+                r"/api/renewal/reviews/[a-f0-9]{32}/subtitle-tracks/[a-zA-Z0-9.-]{1,80}/save",
+                scope["path"],
+            )
+        )
+        # Exact new per-track route only; legacy JSON/4MiB upload bounds unchanged.
+        limit = (
+            (16 * 1024 * 1024 + 4096)
+            if subtitle_save
+            else (4194304 if binary else 65536)
+        )
         size, messages = 0, []
         while True:
             message = await receive()

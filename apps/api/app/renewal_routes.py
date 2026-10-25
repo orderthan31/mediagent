@@ -139,6 +139,9 @@ def mount_runtime(
     from .projection_recovery_routes import mount_projection_recoveries
 
     mount_projection_recoveries(app, runtime, owner_dependency)
+    from .subtitle_track_routes import mount_subtitle_tracks
+
+    mount_subtitle_tracks(app, runtime, owner_dependency)
 
     from video_service.content_store import MAX_CONTENT
 

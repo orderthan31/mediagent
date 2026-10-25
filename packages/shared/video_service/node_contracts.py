@@ -162,6 +162,7 @@ NODES = [
 from .decision_conditions import OPTIONS as DECISION_OPTIONS
 
 VALUE_TYPES = [
+    "subtitle_tracks",
     "video",
     "audio",
     "transcript",
@@ -203,6 +204,7 @@ NODES.extend(
                         "approve_only",
                         "audio_regions_v1",
                         "audio_regions_long_v5",
+                        "subtitle_tracks_v1",
                     ],
                 },
             ),
@@ -254,6 +256,45 @@ NODES.extend(
 )
 
 
+NODES.extend(
+    [
+        {
+            **node(
+                "subtitle_tracks",
+                "원문·다국어 자막 묶기",
+                {
+                    "original": "transcript",
+                    "translated": "transcript",
+                    **{"additional_" + str(i): "transcript" for i in range(1, 5)},
+                },
+                {"tracks": "subtitle_tracks"},
+                role="control",
+                optional=["additional_" + str(i) for i in range(1, 5)],
+                choices={
+                    "original_language": [""],
+                    "translated_language": [""],
+                    **{"additional_" + str(i) + "_language": [""] for i in range(1, 5)},
+                },
+            ),
+            "execution": "explicit_graph_ticket",
+            "entrypoint": "controller-owned",
+        },
+        {
+            **node(
+                "subtitle_outputs",
+                "검수 자막·다국어 파일 생성",
+                {"tracks": "subtitle_tracks"},
+                {"subtitles": "subtitle", "manifest": "artifact_manifest"},
+                role="control",
+                choices={"format": ["srt", "srt_smi"]},
+                conditional_outputs={"format": {"srt_smi": {"sami": "subtitle"}}},
+            ),
+            "execution": "explicit_graph_ticket",
+            "entrypoint": "controller-owned",
+        },
+    ]
+)
+
 for _descriptor in NODES:
     if _descriptor["id"] in {
         "extract_audio",
@@ -276,6 +317,10 @@ def node_spec(identity, options=None):
         and supplied.get("processing_profile") == "regions_pack_v4"
     ):
         selected["optional_inputs"].remove("regions")
+    if identity == "subtitle_tracks":
+        for i in range(1, 5):
+            if supplied.get("additional_" + str(i) + "_language"):
+                selected["optional_inputs"].remove("additional_" + str(i))
     if identity == "generate_subtitle" and supplied.get("format") == "srt_smi":
         selected["outputs"]["sami"] = "subtitle"
     for direction, ports in selected.get("port_types_from_options", {}).items():
@@ -325,19 +370,49 @@ def validate_node(payload):
         or (
             not re.fullmatch(r"[a-z]{2,3}", v)
             if selected["id"] == "generate_subtitle" and k == "language"
-            else not (v==''or len(v)<=64 and re.fullmatch(r'[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*',v))
-            if selected['id']=='translate'and k=='target_language'
+            else not (
+                v == ""
+                or v == "auto"
+                and selected["id"] == "subtitle_tracks"
+                and k == "original_language"
+                or re.fullmatch(r"[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*", v)
+                and len(v) <= 64
+            )
+            if (
+                selected["id"] == "translate"
+                and k == "target_language"
+                or selected["id"] == "subtitle_tracks"
+                and k.endswith("_language")
+            )
             else v not in selected["options"][k]
         )
         for k, v in options.items()
     ):
         raise ValueError("지원하지 않는 처리 옵션 조합입니다.")
-    if selected['id']=='translate':
-        if options.get('translation_profile','legacy')=='language_target_v1':
-            if not options.get('target_language')or options['target_language']=='auto'or options.get('batch_policy')!='bounded_100x16k_v1'or 'max_model_calls'not in options:
-                raise ValueError('명시 언어별 번역은 대상 언어와 분할 호출 상한이 필요합니다.')
-        elif options.get('target_language'):
-            raise ValueError('명시 언어별 번역 프로필을 선택하세요.')
+    if selected["id"] == "subtitle_tracks":
+        from .subtitle_tracks import names
+
+        names(options, inputs)
+    if (
+        selected["id"] == "translate"
+        and options.get("translation_profile", "legacy") == "language_target_v1"
+    ):
+        from .subtitle_tracks import language
+
+        language(options.get("target_language"))
+        if (
+            options.get("batch_policy") != "bounded_100x16k_v1"
+            or "max_model_calls" not in options
+        ):
+            raise ValueError("explicit_language_translation_requires_batched_budget")
+    elif selected["id"] == "translate" and options.get("target_language"):
+        raise ValueError("explicit_translation_language_profile_required")
+    if (
+        selected["id"] == "review"
+        and options.get("review_kind") == "subtitle_tracks_v1"
+        and options.get("data_type") != "subtitle_tracks"
+    ):
+        raise ValueError("subtitle_review_requires_tracks_input")
     if selected["id"] == "preprocess_audio":
         nvidia_regions = options.get("processing_profile") == "nvidia_regions_v4"
         if nvidia_regions and options.get("vad_mode") != "nvidia":

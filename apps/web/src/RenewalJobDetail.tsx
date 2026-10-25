@@ -6,6 +6,7 @@ import { dispatchLabel } from './dispatch-status';
 import { processingLabel, type ProcessingProjection } from './processing-review-state';
 import { JobProcessingReview } from './JobProcessingReview';
 import { ProjectionRecoveryPanel } from './ProjectionRecoveryPanel';
+import { SubtitleTrackReview, SubtitleOutputs } from './SubtitleTracksPanel';
 import { PageTitle } from './PageTitle';
 import { LoadingSkeleton } from './LoadingSkeleton';
 import { Button } from './hangyeol/primitives/button';
@@ -431,13 +432,25 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
                         </p>
                       </section>
                     ))}
-                    {review && !canManage && (
+                    {review?.contract.kind === 'subtitle_tracks_v1' && (
+                      <SubtitleTrackReview
+                        review={review}
+                        canManage={canManage}
+                        assetId={job.snapshot.asset.asset_id}
+                        onChanged={() => {
+                          setPlan(null);
+                          setConsent(null);
+                          void reload();
+                        }}
+                      />
+                    )}
+                    {review && review.contract.kind !== 'subtitle_tracks_v1' && !canManage && (
                       <section className="execution-review" aria-label="검수 내용 읽기 전용">
                         <h4>검수 내용 · 읽기 전용</h4>
                         <pre>{JSON.stringify(review.draft, null, 2)}</pre>
                       </section>
                     )}
-                    {review && canManage && (
+                    {review && review.contract.kind !== 'subtitle_tracks_v1' && canManage && (
                       <section
                         aria-label="공통 검수"
                         className={
@@ -538,6 +551,9 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
             />
           </section>
           {job.status === 'failed' && <ProjectionRecoveryPanel key={job.id} jobId={job.id} />}
+          {job.snapshot.definition.nodes.some((item) => item.type === 'subtitle_outputs') && (
+            <SubtitleOutputs jobId={job.id} revision={job.revision} />
+          )}
           {canManage && (
             <section
               className="ticket-panel"

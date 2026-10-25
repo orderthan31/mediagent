@@ -11,7 +11,17 @@ from ..rabbitmq_transport import BrokerError
 from ..renewal_contracts import catalog
 from . import Conflict, Missing
 
-CONTROLLER_NODES = frozenset({"select", "join", "review", "control_if", "control_switch"})
+CONTROLLER_NODES = frozenset(
+    {
+        "subtitle_tracks",
+        "subtitle_outputs",
+        "select",
+        "join",
+        "review",
+        "control_if",
+        "control_switch",
+    }
+)
 ENGINE_NODES = frozenset({"transcribe", "translate", "faceswap"})
 
 
@@ -84,12 +94,24 @@ class BrokerFleet:
             workers = observed["workers"]
             state = "unknown"
             if observed["collector"]["healthy"] and workers:
-                for candidate in ("busy", "ready", "connected", "stopping", "heartbeat_lost", "stopped"):
+                for candidate in (
+                    "busy",
+                    "ready",
+                    "connected",
+                    "stopping",
+                    "heartbeat_lost",
+                    "stopped",
+                ):
                     if any(worker["state"] == candidate for worker in workers):
                         state = candidate
                         break
-            return {**value, **observed, "telemetry": True, "state": state,
-                    "observed_at": observed["collector"]["received_at"]}
+            return {
+                **value,
+                **observed,
+                "telemetry": True,
+                "state": state,
+                "observed_at": observed["collector"]["received_at"],
+            }
         for family, factory in factories:
             try:
                 with factory() as client:
@@ -101,7 +123,8 @@ class BrokerFleet:
                     "family": family,
                     "status": "unknown",
                     "error_code": code
-                    if code in {"broker_observation_forbidden", "broker_observation_failed"}
+                    if code
+                    in {"broker_observation_forbidden", "broker_observation_failed"}
                     else "broker_observation_failed",
                     "consumers": None,
                     "messages_ready": None,
@@ -114,7 +137,9 @@ class BrokerFleet:
             **value,
             "state": "connected" if consumers else "disconnected",
             "consumers": consumers,
-            "messages_ready": sum(item["messages_ready"] for item in value["observations"]),
+            "messages_ready": sum(
+                item["messages_ready"] for item in value["observations"]
+            ),
         }
 
     def list(self):
@@ -123,4 +148,6 @@ class BrokerFleet:
     def configure(self, actor, agent, **configuration):
         if agent not in self.kinds:
             raise Missing("에이전트를 찾을 수 없습니다.")
-        raise Conflict("AMQP 원격 제어가 연결되지 않았습니다. 설정만 켜짐으로 저장하지 않습니다.")
+        raise Conflict(
+            "AMQP 원격 제어가 연결되지 않았습니다. 설정만 켜짐으로 저장하지 않습니다."
+        )

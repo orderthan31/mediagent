@@ -17,7 +17,7 @@ import {
   controlFieldLabels,
   controlValueLabels,
 } from './workflow-controls';
-import { createLegacyWorkflow } from './workflow-templates';
+import { createLegacyWorkflow, createSubtitleReviewWorkflow } from './workflow-templates';
 import './workflow-editor.css';
 
 type Definition = CanvasDefinition & { catalog_version: number };
@@ -50,6 +50,9 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
   const [validation, setValidation] = useState<Validation | null>(null);
   const [busy, setBusy] = useState('load');
   const [error, setError] = useState('');
+  const [subtitleSource, setSubtitleSource] = useState('en');
+  const [subtitleTarget, setSubtitleTarget] = useState('ko');
+  const [subtitleExtras, setSubtitleExtras] = useState('ja');
   const [status, setStatus] = useState('');
   const [dirty, setDirty] = useState(false);
   const [history, setHistory] = useState(false);
@@ -367,6 +370,67 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
           저장
         </Button>
       </div>
+      {!initialId && (
+        <details className="workflow-template-notice">
+          <summary>자막 검수·다국어 초안 만들기</summary>
+          <label>
+            원문 언어 코드
+            <Input
+              aria-label="초안 원문 언어"
+              value={subtitleSource}
+              onChange={(event) => setSubtitleSource(event.target.value)}
+            />
+          </label>
+          <label>
+            주 번역 언어 코드
+            <Input
+              aria-label="초안 주 번역 언어"
+              value={subtitleTarget}
+              onChange={(event) => setSubtitleTarget(event.target.value)}
+            />
+          </label>
+          <label>
+            추가 언어 코드 (쉼표 구분, 최대 4개)
+            <Input
+              aria-label="초안 추가 언어"
+              value={subtitleExtras}
+              onChange={(event) => setSubtitleExtras(event.target.value)}
+            />
+          </label>
+          <Button
+            disabled={!!busy || !catalog.some((item) => item.id === 'subtitle_tracks')}
+            onClick={() => {
+              if (
+                dirty &&
+                !window.confirm('현재 미저장 편집을 자막 검수·다국어 초안으로 바꿀까요?')
+              ) {
+                return;
+              }
+              try {
+                change(
+                  createSubtitleReviewWorkflow({
+                    sourceLanguage: subtitleSource,
+                    targetLanguage: subtitleTarget,
+                    additionalLanguages: subtitleExtras
+                      .split(',')
+                      .map((value) => value.trim())
+                      .filter(Boolean),
+                  }),
+                );
+                setSelected('');
+                setError('');
+                setTemplateNotice(
+                  '새 명시 프로필 초안입니다. 각 전사·번역 노드의 모델을 고정하고 저장하세요. 작업의 원문·주 번역 언어는 이 초안과 같아야 합니다. 검수 저장·확정·새 실행 승인은 별도입니다. 다국어 파일 생성과 여러 언어의 영상 내장은 다른 범위입니다.',
+                );
+              } catch (reason) {
+                setError(reason instanceof Error ? reason.message : '언어 설정 오류');
+              }
+            }}
+          >
+            자막 검수·다국어 초안 적용
+          </Button>
+        </details>
+      )}
       {templateNotice && (
         <p className="workflow-template-notice" role="status">
           {templateNotice}

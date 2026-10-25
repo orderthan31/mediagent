@@ -21,7 +21,17 @@ from . import Conflict, Missing
 from .intake import Intake, public_asset, request_id
 from .registry import resource_id
 
-CONTROL = frozenset({"select", "join", "review", "control_if", "control_switch"})
+CONTROL = frozenset(
+    {
+        "select",
+        "join",
+        "review",
+        "control_if",
+        "control_switch",
+        "subtitle_tracks",
+        "subtitle_outputs",
+    }
+)
 TERMINAL = frozenset(
     {"completed", "failed", "cancelled", "skipped", "blocked", "quarantined"}
 )
@@ -509,6 +519,16 @@ class Execution(Intake):
             from ..cpu_input_policy import source_policy
             from ..long_audio_budget import definition_policy
 
+            for track_node in definition["nodes"]:
+                if track_node["type"] == "subtitle_tracks" and (
+                    track_node["options"]["original_language"]
+                    != options.get("source_language")
+                    or track_node["options"]["translated_language"]
+                    != options.get("target_language", "ko")
+                ):
+                    raise ValueError(
+                        "작업 원문·주 번역 언어는 명시 자막 묶기 설정과 같아야 합니다."
+                    )
             audio_policy = definition_policy(definition)
             cpu_policy = source_policy(asset, definition)
             if cpu_policy and getattr(self.store, "storage_kind", None) != "s3":
@@ -571,6 +591,14 @@ class Execution(Intake):
                 if parent
                 else None,
             }
+            from .subtitle_tracks import selected
+
+            if selected(snapshot):
+                from copy import deepcopy
+
+                from ..subtitle_tracks import POLICY
+
+                snapshot["subtitle_tracks_policy"] = deepcopy(POLICY)
             # Serialize duplicate creation IDs without depending on a unique-error fallback.
             db.execute(
                 "SELECT pg_advisory_xact_lock(hashtextextended(%s,0))",
@@ -998,7 +1026,12 @@ class Execution(Intake):
                 "candidates": [pin, *pin.get("fallbacks", [])],
                 "source_language": job["snapshot"]["options"]["source_language"],
                 **(
-                    {"target_language": node['options']['target_language'] if node['options'].get('translation_profile')=='language_target_v1' else job["snapshot"]["options"]["target_language"]}
+                    {
+                        "target_language": node["options"]["target_language"]
+                        if node["options"].get("translation_profile")
+                        == "language_target_v1"
+                        else job["snapshot"]["options"]["target_language"]
+                    }
                     if kind == "translation"
                     else {}
                 ),
@@ -1150,6 +1183,9 @@ class Execution(Intake):
 
     def claim_next(self, owner, identity):
         verified = self._preflight_cpu_inputs(owner, identity)
+        from .subtitle_tracks import SubtitleTracks
+
+        subtitle_staged = SubtitleTracks(self).preflight(owner, identity)
         with self.database.connection() as db:
             job = self._job(db, owner, identity, lock=True)
             from .job_processing_review import JobProcessingReview
@@ -1196,6 +1232,13 @@ class Execution(Intake):
                     row, _ = self._insert_run(db, job, node, {}, status)
                     indexed[node["id"]] = row
                     continue
+                if (
+                    node["type"] in {"subtitle_tracks", "subtitle_outputs"}
+                    or node.get("options", {}).get("review_kind")
+                    == "subtitle_tracks_v1"
+                ) and node["id"] not in (subtitle_staged or {}):
+                    # Stage a newly completed control parent outside the lock next claim.
+                    continue
                 for ref in inputs.values():
                     self._checked_input(owner, job, ref, verified)
                 instance = None
@@ -1238,7 +1281,26 @@ class Execution(Intake):
                         },
                     }
                     draft = {"approved": False}
-                    if node["options"].get("review_kind") == "audio_regions_long_v5":
+                    if node["options"].get("review_kind") == "subtitle_tracks_v1":
+                        staged = (subtitle_staged or {}).get(node["id"])
+                        if (
+                            not staged
+                            or staged["inputs_sha256"] != digest(inputs)
+                            or staged["snapshot_sha256"] != job["snapshot_sha256"]
+                        ):
+                            raise Conflict("자막 자료가 바뀌었습니다. 재검증하세요.")
+                        contract = staged["contract"]
+                        draft = {
+                            "approved": False,
+                            "tracks": {
+                                name: {
+                                    "transcript": track["transcript"],
+                                    "lineage": track["lineage"],
+                                }
+                                for name, track in contract["tracks"].items()
+                            },
+                        }
+                    elif node["options"].get("review_kind") == "audio_regions_long_v5":
                         contract = (
                             (verified or {})
                             .get("audio_review_contracts", {})
@@ -1278,9 +1340,21 @@ class Execution(Intake):
                     continue
                 if node["type"] in CONTROL:
                     try:
-                        outputs = self._control_outputs(
-                            owner, node["type"], inputs, node["options"]
-                        )
+                        if node["type"] in {"subtitle_tracks", "subtitle_outputs"}:
+                            staged = (subtitle_staged or {}).get(node["id"])
+                            if (
+                                not staged
+                                or staged["inputs_sha256"] != digest(inputs)
+                                or staged["snapshot_sha256"] != job["snapshot_sha256"]
+                            ):
+                                raise Conflict(
+                                    "자막 자료가 바뀌었습니다. 재검증하세요."
+                                )
+                            outputs = staged["outputs"]
+                        else:
+                            outputs = self._control_outputs(
+                                owner, node["type"], inputs, node["options"]
+                            )
                         receipt = self.ticket_artifacts.capture(
                             db,
                             job,
@@ -1787,13 +1861,20 @@ class Execution(Intake):
                                 ref["sha256"],
                             ),
                         )
-                    if getattr(self, 'full_previews_enabled', False):
+                    if getattr(self, "full_previews_enabled", False):
                         from .video_previews import VideoPreviews
 
                         previews = VideoPreviews(self)
                         for port, ref in outputs.items():
                             if ref["type"] == "video":
-                                previews.enqueue_in(db, owner, previews.artifact_source(db, identity, run_id, port), automatic=True)
+                                previews.enqueue_in(
+                                    db,
+                                    owner,
+                                    previews.artifact_source(
+                                        db, identity, run_id, port
+                                    ),
+                                    automatic=True,
+                                )
                 except (ValueError, KeyError, TypeError, OSError):
                     db.execute(
                         "UPDATE node_runs SET status='failed',error_code='agent_failed_or_unknown',result=%s,completed_at=now(),lease_owner=NULL,lease_expires_at=NULL WHERE owner_id=%s AND job_id=%s AND id=%s",
@@ -2017,7 +2098,15 @@ class Execution(Intake):
                 or job["status"] != "review_required"
             ):
                 raise Conflict("검수 상태가 바뀌었습니다. 편집은 보존하세요.")
-            if row["contract"].get("kind") in {
+            if row["contract"].get("kind") == "subtitle_tracks_v1":
+                if (
+                    not isinstance(draft, dict)
+                    or set(draft) != {"approved", "tracks"}
+                    or type(draft["approved"]) is not bool
+                    or draft["tracks"] != row["draft"]["tracks"]
+                ):
+                    raise ValueError("자막 내용은 언어별 저장 경로로 저장하세요.")
+            elif row["contract"].get("kind") in {
                 "audio_regions_v1",
                 "audio_regions_long_v5",
             }:
@@ -2042,6 +2131,12 @@ class Execution(Intake):
             return public(row)
 
     def review_confirm(self, owner, identity, revision):
+        with self.database.connection() as read_db:
+            hint = self._review(read_db, owner, identity)
+        if hint["contract"].get("kind") == "subtitle_tracks_v1":
+            from .subtitle_tracks import SubtitleTracks
+
+            return SubtitleTracks(self).confirm(owner, identity, revision)
         with self.database.connection() as db:
             hint = self._review(db, owner, identity)
             job = self._job(db, owner, hint["job_id"], lock=True)

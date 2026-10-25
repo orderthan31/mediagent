@@ -100,6 +100,8 @@ def definition_policy(definition):
             and options.get("media_budget", "legacy") == "legacy"
         ):
             continue
+        if role in {"subtitle_tracks", "subtitle_outputs"}:
+            continue
         if role not in ROLES:
             raise ValueError("long_audio_role_budget_not_implemented")
         if role == "review":
@@ -108,6 +110,8 @@ def definition_policy(definition):
                 kind == "audio_regions_long_v5"
                 and options.get("data_type") == "audio"
                 or kind == "approve_only"
+                or kind == "subtitle_tracks_v1"
+                and options.get("data_type") == "subtitle_tracks"
             ):
                 continue
             raise ValueError("long_audio_requires_explicit_audio_review")
