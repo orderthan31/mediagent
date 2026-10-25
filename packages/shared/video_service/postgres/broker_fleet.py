@@ -15,6 +15,7 @@ CONTROLLER_NODES = frozenset(
     {
         "subtitle_tracks",
         "subtitle_outputs",
+        "subtitle_track",
         "select",
         "join",
         "review",

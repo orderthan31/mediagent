@@ -100,7 +100,7 @@ def definition_policy(definition):
             and options.get("media_budget", "legacy") == "legacy"
         ):
             continue
-        if role in {"subtitle_tracks", "subtitle_outputs"}:
+        if role in {"subtitle_tracks", "subtitle_outputs", "subtitle_track"}:
             continue
         if role not in ROLES:
             raise ValueError("long_audio_role_budget_not_implemented")

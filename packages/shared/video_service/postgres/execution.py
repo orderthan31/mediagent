@@ -30,6 +30,7 @@ CONTROL = frozenset(
         "control_switch",
         "subtitle_tracks",
         "subtitle_outputs",
+        "subtitle_track",
     }
 )
 TERMINAL = frozenset(
@@ -1242,6 +1243,15 @@ class Execution(Intake):
         from .subtitle_tracks import SubtitleTracks
 
         subtitle_staged = SubtitleTracks(self).preflight(owner, identity)
+        if verified and subtitle_staged:
+            for material in subtitle_staged.values():
+                if material["snapshot_sha256"] != verified["snapshot_sha256"]:
+                    raise Conflict("staged_subtitle_snapshot_changed")
+                for reference in material.get("outputs", {}).values():
+                    # Actual bytes are checked before taking the scheduling lock;
+                    # staged input/snapshot digests are checked again at adoption.
+                    self.store.path(owner, reference)
+                    verified["references"].add(digest(reference))
         with self.database.connection() as db:
             job = self._job(db, owner, identity, lock=True)
             from .job_processing_review import JobProcessingReview
@@ -1289,7 +1299,8 @@ class Execution(Intake):
                     indexed[node["id"]] = row
                     continue
                 if (
-                    node["type"] in {"subtitle_tracks", "subtitle_outputs"}
+                    node["type"]
+                    in {"subtitle_tracks", "subtitle_outputs", "subtitle_track"}
                     or node.get("options", {}).get("review_kind")
                     == "subtitle_tracks_v1"
                 ) and node["id"] not in (subtitle_staged or {}):
@@ -1396,7 +1407,11 @@ class Execution(Intake):
                     continue
                 if node["type"] in CONTROL:
                     try:
-                        if node["type"] in {"subtitle_tracks", "subtitle_outputs"}:
+                        if node["type"] in {
+                            "subtitle_tracks",
+                            "subtitle_outputs",
+                            "subtitle_track",
+                        }:
                             staged = (subtitle_staged or {}).get(node["id"])
                             if (
                                 not staged

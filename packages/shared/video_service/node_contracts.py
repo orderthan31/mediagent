@@ -40,6 +40,14 @@ MODEL_CALL_LIMITS = [
 
 NODES = [
     node(
+        "subtitle_track",
+        "언어별 영상용 자막 선택",
+        {"manifest": "artifact_manifest"},
+        {"subtitles": "subtitle"},
+        role="control",
+        choices={"track": ["translated"]},
+    ),
+    node(
         "vocalize",
         "자동 보컬 판정",
         {"audio": "audio"},
@@ -380,7 +388,14 @@ def validate_node(payload):
     if any(
         not isinstance(v, str)
         or (
-            not re.fullmatch(r"[a-z]{2,3}", v)
+            not (
+                len(v) <= 80
+                and re.fullmatch(
+                    r"original|translated(?:\.[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*)?", v
+                )
+            )
+            if selected["id"] == "subtitle_track" and k == "track"
+            else not re.fullmatch(r"[a-z]{2,3}", v)
             if selected["id"] == "generate_subtitle" and k == "language"
             else not (
                 v == ""

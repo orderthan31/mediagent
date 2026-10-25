@@ -85,6 +85,7 @@ def catalog():
                 *CONTROL_TYPES,
                 "subtitle_tracks",
                 "subtitle_outputs",
+                "subtitle_track",
                 "select",
                 "join",
                 "review",
@@ -100,6 +101,7 @@ def catalog():
             in (
                 "subtitle_tracks",
                 "subtitle_outputs",
+                "subtitle_track",
                 "select",
                 "join",
                 "review",

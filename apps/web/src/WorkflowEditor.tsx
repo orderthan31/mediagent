@@ -53,6 +53,8 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
   const [subtitleSource, setSubtitleSource] = useState('en');
   const [subtitleTarget, setSubtitleTarget] = useState('ko');
   const [subtitleExtras, setSubtitleExtras] = useState('ja');
+  const [subtitleVideos, setSubtitleVideos] = useState(false);
+  const [subtitleLong, setSubtitleLong] = useState(false);
   const [status, setStatus] = useState('');
   const [dirty, setDirty] = useState(false);
   const [history, setHistory] = useState(false);
@@ -374,6 +376,27 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
         <details className="workflow-template-notice">
           <summary>자막 검수·다국어 초안 만들기</summary>
           <label>
+            <input
+              type="checkbox"
+              checked={subtitleVideos}
+              onChange={(event) => setSubtitleVideos(event.target.checked)}
+            />
+            원문·각 번역 언어별 영상까지 출력
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={subtitleLong}
+              onChange={(event) => setSubtitleLong(event.target.checked)}
+            />
+            긴 입력용 분할 처리 프로필 사용
+          </label>
+          <p>
+            검수 확정 후 언어별 자막을 원본 영상에 넣고 CPU로 각각 출력합니다. 입력·산출물 크기와
+            모델 호출 상한은 별도 제한이며, 모델 실행 승인은 따로 필요합니다.
+          </p>
+
+          <label>
             원문 언어 코드
             <Input
               aria-label="초안 원문 언어"
@@ -411,6 +434,8 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
                   createSubtitleReviewWorkflow({
                     sourceLanguage: subtitleSource,
                     targetLanguage: subtitleTarget,
+                    videoTracks: subtitleVideos,
+                    longInput: subtitleLong,
                     additionalLanguages: subtitleExtras
                       .split(',')
                       .map((value) => value.trim())
@@ -420,7 +445,7 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
                 setSelected('');
                 setError('');
                 setTemplateNotice(
-                  '새 명시 프로필 초안입니다. 각 전사·번역 노드의 모델을 고정하고 저장하세요. 작업의 원문·주 번역 언어는 이 초안과 같아야 합니다. 검수 저장·확정·새 실행 승인은 별도입니다. 다국어 파일 생성과 여러 언어의 영상 내장은 다른 범위입니다.',
+                  '새 명시 프로필 초안입니다. 각 전사·번역 노드의 모델을 고정하고 저장하세요. 작업의 원문·주 번역 언어는 이 초안과 같아야 합니다. 검수 저장·확정·새 실행 승인은 별도입니다. 언어별 영상 출력을 선택하면 언어마다 별도 영상을 생성합니다. 한 파일의 다중 자막 스트림과는 다릅니다.',
                 );
               } catch (reason) {
                 setError(reason instanceof Error ? reason.message : '언어 설정 오류');

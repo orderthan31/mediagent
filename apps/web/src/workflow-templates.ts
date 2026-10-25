@@ -103,10 +103,14 @@ export const createSubtitleReviewWorkflow = ({
   sourceLanguage,
   targetLanguage,
   additionalLanguages = [],
+  videoTracks = false,
+  longInput = false,
 }: {
   sourceLanguage: string;
   targetLanguage: string;
   additionalLanguages?: string[];
+  videoTracks?: boolean;
+  longInput?: boolean;
 }): EditableWorkflow => {
   const pattern = /^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/;
   if (
@@ -180,5 +184,65 @@ export const createSubtitleReviewWorkflow = ({
   link('subtitle_tracks', 'tracks', 'review_subtitles', 'value');
   link('review_subtitles', 'value', 'subtitle_files', 'tracks');
   link('subtitle_files', 'subtitles', 'encode', 'subtitles');
+  if (longInput) {
+    for (const stage of doc.nodes) {
+      if (stage.type === 'extract_audio') {
+        stage.options.media_budget = 'audio_long_v5';
+      }
+      if (stage.type === 'preprocess_audio') {
+        Object.assign(stage.options, {
+          media_budget: 'audio_long_v5',
+          processing_profile: 'regions_long_v5',
+          vad_mode: 'off',
+        });
+      }
+      if (stage.type === 'transcribe') {
+        Object.assign(stage.options, {
+          media_budget: 'audio_long_v5',
+          clock_policy: 'packed_projection_v5',
+        });
+      }
+      if (stage.type === 'translate') {
+        stage.options.media_budget = 'audio_long_v5';
+      }
+    }
+  }
+  if (videoTracks) {
+    doc.nodes = doc.nodes.filter((stage) => !['encode', 'validate'].includes(stage.id));
+    doc.edges = doc.edges.filter(
+      (edge) =>
+        !['encode', 'validate'].includes(edge.source.node) &&
+        !['encode', 'validate'].includes(edge.target.node),
+    );
+    for (const [index, track] of [
+      'original',
+      'translated',
+      ...additionalLanguages.map((code) => 'translated.' + code),
+    ].entries()) {
+      const pick = 'video_track_' + index,
+        encode = 'video_encode_' + index,
+        validate = 'video_validate_' + index;
+      const y = 40 + index * 240;
+      doc.nodes.push(
+        { id: pick, type: 'subtitle_track', position: { x: 2440, y }, options: { track } },
+        {
+          id: encode,
+          type: 'encode',
+          position: { x: 2740, y },
+          options: {
+            subtitle_mode: 'burn',
+            video_codec: 'h264',
+            resolution: 'original',
+            quality_profile: 'balanced',
+          },
+        },
+        { id: validate, type: 'validate_video', position: { x: 3040, y }, options: {} },
+      );
+      link('subtitle_files', 'manifest', pick, 'manifest');
+      link(pick, 'subtitles', encode, 'subtitles');
+      link('$input', 'video', encode, 'video');
+      link(encode, 'video', validate, 'video');
+    }
+  }
   return doc;
 };

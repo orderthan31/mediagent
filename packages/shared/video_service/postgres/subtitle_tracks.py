@@ -22,7 +22,7 @@ from .registry import resource_id
 
 def selected(snapshot):
     return any(
-        node["type"] in {"subtitle_tracks", "subtitle_outputs"}
+        node["type"] in {"subtitle_tracks", "subtitle_outputs", "subtitle_track"}
         or node.get("options", {}).get("review_kind") == "subtitle_tracks_v1"
         for node in snapshot["definition"]["nodes"]
     )
@@ -214,6 +214,53 @@ class SubtitleTracks:
         )
         return outputs
 
+    def select_for_video(self, job, node, reference):
+        """Select exact reviewed SRT bytes off-lock; no rerender replacement or model call."""
+        owner = job["owner_id"]
+        manifest = self.read(owner, reference, "artifact_manifest", MANIFEST_BYTES)
+        if (
+            manifest.get("kind") != "subtitle_outputs_v1"
+            or manifest.get("version") != 1
+            or manifest.get("source_video_sha256") != job["snapshot"]["asset"]["sha256"]
+        ):
+            raise ValueError("subtitle_video_manifest_source_mismatch")
+        bundle = self.bundle(owner, manifest["source_bundle"], job["snapshot"])
+        if not bundle.get("review") or manifest.get("review") != bundle["review"]:
+            raise ValueError("subtitle_video_requires_same_confirmed_review")
+        name = node["options"]["track"]
+        track = manifest.get("tracks", {}).get(name)
+        original = bundle["tracks"].get(name)
+        if (
+            not track
+            or not original
+            or any(
+                track.get(k) != original[k]
+                for k in ("language", "transcript", "lineage")
+            )
+        ):
+            raise ValueError("subtitle_video_track_binding_mismatch")
+        selected = track["files"]["srt"]
+        ref = selected["reference"]
+        if (
+            selected.get("filename") != name + ".srt"
+            or ref.get("type") != "subtitle"
+            or type(ref.get("bytes")) is not int
+            or not 0 < ref["bytes"] <= TRACK_BYTES
+        ):
+            raise ValueError("subtitle_video_file_budget_or_type")
+        raw = self.store.read(owner, ref, limit=TRACK_BYTES)
+        rows = self.read(owner, track["transcript"], "transcript", TRACK_BYTES)
+        expected = segments_to_srt(
+            [TranscriptSegment.from_dict(row) for row in rows]
+        ).encode("utf-8")
+        if (
+            raw != expected
+            or len(raw) != ref["bytes"]
+            or hashlib.sha256(raw).hexdigest() != ref["sha256"]
+        ):
+            raise ValueError("subtitle_video_file_differs_from_reviewed_track")
+        return {"subtitles": deepcopy(ref)}
+
     def preflight(self, owner, identity):
         r = self.runtime
         with self.database.connection() as db:
@@ -226,7 +273,8 @@ class SubtitleTracks:
             ready = []
             for node in job["snapshot"]["definition"]["nodes"]:
                 if node["id"] in runs or not (
-                    node["type"] in {"subtitle_tracks", "subtitle_outputs"}
+                    node["type"]
+                    in {"subtitle_tracks", "subtitle_outputs", "subtitle_track"}
                     or node.get("options", {}).get("review_kind")
                     == "subtitle_tracks_v1"
                 ):
@@ -258,6 +306,10 @@ class SubtitleTracks:
                 item["outputs"] = self.compose(job, node, inputs, producers)
             elif node["type"] == "subtitle_outputs":
                 item["outputs"] = self.export(job, node, inputs["tracks"])
+            elif node["type"] == "subtitle_track":
+                if producers.get("manifest", {}).get("node_type") != "subtitle_outputs":
+                    raise ValueError("subtitle_track_requires_accepted_export_producer")
+                item["outputs"] = self.select_for_video(job, node, inputs["manifest"])
             else:
                 item["contract"] = self.contract(job, inputs["value"])
             staged[node["id"]] = item

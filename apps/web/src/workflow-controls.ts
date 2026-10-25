@@ -2,7 +2,7 @@ import type { CanvasSpec } from './WorkflowCanvas';
 
 // Publishing-only controls. These descriptors do not register an execution engine.
 export const isControlNode = (type: string) =>
-  type.startsWith('control_') || ['select', 'join'].includes(type);
+  type.startsWith('control_') || ['select', 'join', 'subtitle_track'].includes(type);
 const dataTypes = [
   'video',
   'audio',
@@ -70,6 +70,7 @@ export const controlSpecs: CanvasSpec[] = [
 ];
 export const controlFieldLabels: Record<string, string> = {
   data_type: '자료 유형',
+  track: '자막 트랙 이름',
   operator: '조건',
   field: '비교할 필드',
   compare_value: '비교값',
