@@ -9,7 +9,10 @@ from uuid import uuid4
 import httpx
 import pytest
 from test_execution import admit
+from test_long_audio_execution import long_wire as _long_wire
 from test_packed_projection_execution import projection_wire as _wire
+
+long_wire = _long_wire
 from test_transcription_execution import audio_graph
 from test_vocalization_execution import admin as _admin
 from test_vocalization_execution import db as _db
