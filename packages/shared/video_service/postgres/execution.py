@@ -798,17 +798,23 @@ class Execution(Intake):
         if external and not job["snapshot"].get("translation_paid_authorized"):
             reasons.append("전사/번역 후보 전체의 외부 호출 비용 동의가 필요합니다.")
         plan = {
-            "vocalization_mode": self.vocalization_runtime.mode
-            if pending_vocal and self.vocalization_runtime
-            else None,
-            "vocalization_usage": [
-                self.vocalization_runtime.available(p)
-                for n in pending_vocal
-                for pin in [job["snapshot"]["model_bindings"][n["id"]]]
-                for p in [pin, *pin.get("fallbacks", [])]
-            ]
-            if self.vocalization_runtime
-            else [],
+            **(
+                {
+                    "vocalization_mode": self.vocalization_runtime.mode
+                    if pending_vocal and self.vocalization_runtime
+                    else None,
+                    "vocalization_usage": [
+                        self.vocalization_runtime.available(p)
+                        for n in pending_vocal
+                        for pin in [job["snapshot"]["model_bindings"][n["id"]]]
+                        for p in [pin, *pin.get("fallbacks", [])]
+                    ]
+                    if self.vocalization_runtime
+                    else [],
+                }
+                if pending_vocal
+                else {}
+            ),
             **(
                 {"audio_pipeline_policy": job["snapshot"]["audio_pipeline_policy"]}
                 if job["snapshot"].get("audio_pipeline_policy")

@@ -526,3 +526,27 @@ def test_model_disabled_after_intent_is_rechecked_before_transport(
     result = runtime.execute_command(owner, command)
     assert calls == [], "disabled frozen model must not enter the HTTP adapter"
     assert result["status"] == "failed"
+
+
+def test_existing_asr_plan_does_not_gain_vocal_policy_fields(
+    db, admin, movie, tmp_path, monkeypatch
+):
+    from test_model_batch_ledger import formal_attempt
+    import video_service.postgres.execution as module
+
+    runtime, owner, command = formal_attempt(db, admin, movie, tmp_path)
+    contexts = []
+    original = module.digest
+
+    def capture(value):
+        if isinstance(value, dict) and "snapshot_sha256" in value and "runs" in value:
+            contexts.append(value)
+        return original(value)
+
+    monkeypatch.setattr(module, "digest", capture)
+    runtime.plan(owner, command["run_id"])
+    assert contexts
+    assert all(
+        "vocalization_mode" not in value and "vocalization_usage" not in value
+        for value in contexts
+    )
