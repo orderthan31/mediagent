@@ -71,6 +71,14 @@ class Execution(Intake):
 
         value = catalog()
         value["local_engine_transport_enabled"] = self.engine_runtime_enabled
+        if self.vocalization_runtime is not None:
+            for stage in value["nodes"]:
+                if stage["id"] == "vocalize":
+                    stage.update(
+                        execution="registered_http",
+                        entrypoint="trusted_registered_application",
+                        runtime_scope="configuration_not_inference_readiness",
+                    )
         if not self.engine_runtime_enabled:
             return value
         with self.database.connection() as db:

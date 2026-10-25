@@ -448,6 +448,13 @@ def test_authenticated_product_api_real_loopback_detect_confirm_cpu_and_download
             )
             assert login.status_code == 200
             client.headers["X-CSRF-Token"] = login.json()["csrf_token"]
+            catalog = client.get("/api/settings/node-catalog").json()
+            vocal = next(n for n in catalog["nodes"] if n["id"] == "vocalize")
+            assert (
+                vocal["execution"] == "registered_http"
+                and vocal["runtime_scope"] == "configuration_not_inference_readiness"
+            )
+
             response = client.post(
                 "/api/renewal/jobs/" + ticket["id"] + "/run", json={}
             )
