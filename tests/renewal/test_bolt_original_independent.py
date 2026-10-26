@@ -10,7 +10,6 @@ from test_packed_projection_execution import projection_wire as _wire
 from test_vocalization_execution import admin as _admin
 from test_vocalization_execution import db as _db
 from test_vocalization_execution import movie as _movie
-from video_service.content_store import ContentStore
 from video_service.postgres.credentials import CredentialStore
 from video_service.postgres.execution import Execution
 from video_service.postgres.registry import Registry
@@ -108,7 +107,7 @@ def test_actual_user_api_graph_two_review_gates_and_cpu_downloads(
     with source.open("rb") as stream:
         sha = hashlib.file_digest(stream, "sha256").hexdigest()
     assert size > 268435456
-    ref = store.import_original_file(owner, source, sha256=sha, byte_count=size)
+    store.import_original_file(owner, source, sha256=sha, byte_count=size)
     asset_id = uuid4().hex
     with db.connection() as c:
         c.execute(

@@ -44,8 +44,6 @@ def public_asset(row):
     legacy = row["metadata"].get("legacy_origin")
     large_policy = None
     if row["bytes"] > MAX_CONTENT:
-        from ..cpu_input_policy import source_policy
-
         try:
             from ..original_video_budget import source_policy as original_source_policy
 
