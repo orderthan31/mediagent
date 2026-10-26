@@ -47,15 +47,37 @@ def public_asset(row):
         from ..cpu_input_policy import source_policy
 
         try:
-            large_policy = source_policy(
-                row, {"nodes": [{"type": "encode"}, {"type": "validate_video"}]}
+            from ..original_video_budget import source_policy as original_source_policy
+
+            large_policy = original_source_policy(
+                row,
+                {
+                    "nodes": [
+                        {"type": "analyze"},
+                        {"type": "extract_audio"},
+                        {"type": "preprocess_audio"},
+                        {"type": "transcribe"},
+                        {"type": "translate"},
+                        {"type": "encode"},
+                        {"type": "validate_video"},
+                    ]
+                },
             )
         except ValueError:
             pass
     return {
         **(
             {
-                "processing_roles": ["encode", "validate_video"],
+                "processing_roles": [
+                    "analyze",
+                    "extract_audio",
+                    "preprocess_audio",
+                    "transcribe",
+                    "translate",
+                    "generate_subtitle",
+                    "encode",
+                    "validate_video",
+                ],
                 "processing_limits": large_policy,
             }
             if large_policy

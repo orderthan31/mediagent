@@ -1,0 +1,405 @@
+{
+  "id": "087f3d9e6e4047b1b5bc073a1bdcc45b",
+  "name": "실제 API 테스트 · 전체 영상 작업",
+  "edges": [
+    {
+      "id": "495aefbf891e431e9cd2d6130a0922c1",
+      "source": {
+        "node": "$input",
+        "port": "video"
+      },
+      "target": {
+        "node": "analyze",
+        "port": "video"
+      }
+    },
+    {
+      "id": "c34c60ed785449cb864318f872d56259",
+      "source": {
+        "node": "$input",
+        "port": "video"
+      },
+      "target": {
+        "node": "extract",
+        "port": "video"
+      }
+    },
+    {
+      "id": "94ce81a80ba94ba48184fba8acb837ce",
+      "source": {
+        "node": "extract",
+        "port": "audio"
+      },
+      "target": {
+        "node": "preprocess",
+        "port": "audio"
+      }
+    },
+    {
+      "id": "bafb67295e3d49ac85b598dd2f606c3d",
+      "source": {
+        "node": "preprocess",
+        "port": "audio"
+      },
+      "target": {
+        "node": "transcribe",
+        "port": "audio"
+      }
+    },
+    {
+      "id": "64d2e6b9eebd418e9f2568506ce88cd7",
+      "source": {
+        "node": "preprocess",
+        "port": "timeline"
+      },
+      "target": {
+        "node": "transcribe",
+        "port": "timeline"
+      }
+    },
+    {
+      "id": "9f59c5c55d7446d59f463f8109a65504",
+      "source": {
+        "node": "review_transcript",
+        "port": "value"
+      },
+      "target": {
+        "node": "translate",
+        "port": "transcript"
+      }
+    },
+    {
+      "id": "e825fca353564f76b3dabbcfb80cf6a0",
+      "source": {
+        "node": "transcribe",
+        "port": "transcript"
+      },
+      "target": {
+        "node": "subtitle_tracks",
+        "port": "original"
+      }
+    },
+    {
+      "id": "cab7d19139394f19aba45eaf3dbc85de",
+      "source": {
+        "node": "translate",
+        "port": "transcript"
+      },
+      "target": {
+        "node": "subtitle_tracks",
+        "port": "translated"
+      }
+    },
+    {
+      "id": "a709de4666324a36a5ab32773b625af8",
+      "source": {
+        "node": "subtitle_tracks",
+        "port": "tracks"
+      },
+      "target": {
+        "node": "review_subtitles",
+        "port": "value"
+      }
+    },
+    {
+      "id": "b39538406f89428cb228c8e808a74962",
+      "source": {
+        "node": "review_subtitles",
+        "port": "value"
+      },
+      "target": {
+        "node": "subtitle_files",
+        "port": "tracks"
+      }
+    },
+    {
+      "id": "8059135c5ecf41be90d2d2384fb3ccdc",
+      "source": {
+        "node": "subtitle_files",
+        "port": "manifest"
+      },
+      "target": {
+        "node": "video_track_0",
+        "port": "manifest"
+      }
+    },
+    {
+      "id": "85e36b8defb84f30b4a5029e0b33e7a0",
+      "source": {
+        "node": "video_track_0",
+        "port": "subtitles"
+      },
+      "target": {
+        "node": "video_encode_0",
+        "port": "subtitles"
+      }
+    },
+    {
+      "id": "93ac43b9aefe4ae289bea702642c62a1",
+      "source": {
+        "node": "$input",
+        "port": "video"
+      },
+      "target": {
+        "node": "video_encode_0",
+        "port": "video"
+      }
+    },
+    {
+      "id": "04d69ac0e453414883825aa6876b7528",
+      "source": {
+        "node": "video_encode_0",
+        "port": "video"
+      },
+      "target": {
+        "node": "video_validate_0",
+        "port": "video"
+      }
+    },
+    {
+      "id": "9363ba66fd2a45f5b9d1264ac5acde58",
+      "source": {
+        "node": "subtitle_files",
+        "port": "manifest"
+      },
+      "target": {
+        "node": "video_track_1",
+        "port": "manifest"
+      }
+    },
+    {
+      "id": "649aa5d1f16349968027e5503a35105c",
+      "source": {
+        "node": "video_track_1",
+        "port": "subtitles"
+      },
+      "target": {
+        "node": "video_encode_1",
+        "port": "subtitles"
+      }
+    },
+    {
+      "id": "5b5ef28884b54ed4802f8a53d9aa1173",
+      "source": {
+        "node": "$input",
+        "port": "video"
+      },
+      "target": {
+        "node": "video_encode_1",
+        "port": "video"
+      }
+    },
+    {
+      "id": "f5892d3892d24dbd9d5a81791ae4afec",
+      "source": {
+        "node": "video_encode_1",
+        "port": "video"
+      },
+      "target": {
+        "node": "video_validate_1",
+        "port": "video"
+      }
+    },
+    {
+      "id": "asr-review",
+      "source": {
+        "node": "transcribe",
+        "port": "transcript"
+      },
+      "target": {
+        "node": "review_transcript",
+        "port": "value"
+      }
+    }
+  ],
+  "nodes": [
+    {
+      "id": "analyze",
+      "type": "analyze",
+      "options": {},
+      "position": {
+        "x": 340,
+        "y": 320
+      }
+    },
+    {
+      "id": "extract",
+      "type": "extract_audio",
+      "options": {},
+      "position": {
+        "x": 340,
+        "y": 40
+      }
+    },
+    {
+      "id": "preprocess",
+      "type": "preprocess_audio",
+      "options": {
+        "vad_mode": "off",
+        "audio_filter": "off",
+        "processing_profile": "silence_pack_v3"
+      },
+      "position": {
+        "x": 640,
+        "y": 40
+      }
+    },
+    {
+      "id": "transcribe",
+      "type": "transcribe",
+      "options": {
+        "batch_policy": "bounded_60s_v1",
+        "model_source": "registered_api",
+        "max_model_calls": "4"
+      },
+      "position": {
+        "x": 940,
+        "y": 40
+      },
+      "model_ref": {
+        "model_id": "f0ebc96cb3814899875709186a619da8",
+        "revision": 2
+      }
+    },
+    {
+      "id": "translate",
+      "type": "translate",
+      "options": {
+        "batch_policy": "bounded_100x16k_v1",
+        "model_source": "registered_api",
+        "max_model_calls": "4",
+        "target_language": "ko",
+        "translation_profile": "language_target_v1"
+      },
+      "position": {
+        "x": 1240,
+        "y": 40
+      },
+      "model_ref": {
+        "model_id": "1eb4535883f64147859909846efc2a81",
+        "revision": 1
+      }
+    },
+    {
+      "id": "subtitle_tracks",
+      "type": "subtitle_tracks",
+      "options": {
+        "original_language": "auto",
+        "translated_language": "ko"
+      },
+      "position": {
+        "x": 1540,
+        "y": 40
+      }
+    },
+    {
+      "id": "review_subtitles",
+      "type": "review",
+      "options": {
+        "data_type": "subtitle_tracks",
+        "review_kind": "subtitle_tracks_v1"
+      },
+      "position": {
+        "x": 1840,
+        "y": 40
+      }
+    },
+    {
+      "id": "subtitle_files",
+      "type": "subtitle_outputs",
+      "options": {
+        "format": "srt_smi"
+      },
+      "position": {
+        "x": 2140,
+        "y": 40
+      }
+    },
+    {
+      "id": "video_track_0",
+      "type": "subtitle_track",
+      "options": {
+        "track": "original"
+      },
+      "position": {
+        "x": 2440,
+        "y": 40
+      }
+    },
+    {
+      "id": "video_encode_0",
+      "type": "encode",
+      "options": {
+        "resolution": "original",
+        "video_codec": "h264",
+        "subtitle_mode": "burn",
+        "quality_profile": "balanced"
+      },
+      "position": {
+        "x": 2740,
+        "y": 40
+      }
+    },
+    {
+      "id": "video_validate_0",
+      "type": "validate_video",
+      "options": {},
+      "position": {
+        "x": 3040,
+        "y": 40
+      }
+    },
+    {
+      "id": "video_track_1",
+      "type": "subtitle_track",
+      "options": {
+        "track": "translated"
+      },
+      "position": {
+        "x": 2440,
+        "y": 280
+      }
+    },
+    {
+      "id": "video_encode_1",
+      "type": "encode",
+      "options": {
+        "resolution": "original",
+        "video_codec": "h264",
+        "subtitle_mode": "burn",
+        "quality_profile": "balanced"
+      },
+      "position": {
+        "x": 2740,
+        "y": 280
+      }
+    },
+    {
+      "id": "video_validate_1",
+      "type": "validate_video",
+      "options": {},
+      "position": {
+        "x": 3040,
+        "y": 280
+      }
+    },
+    {
+      "id": "review_transcript",
+      "type": "review",
+      "options": {
+        "data_type": "transcript",
+        "review_kind": "approve_only"
+      },
+      "position": {
+        "x": 1100,
+        "y": 300
+      }
+    }
+  ],
+  "inputs": {
+    "video": "video"
+  },
+  "revision": 3,
+  "executable": false,
+  "catalog_version": 1
+}

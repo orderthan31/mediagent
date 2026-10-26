@@ -47,7 +47,10 @@ def validate_reference(reference):
         raise ObjectStoreError("Invalid artifact digest")
     if not valid_content_key(reference["storage_key"], reference["sha256"]):
         raise ObjectStoreError("Invalid artifact key")
-    if type(reference["bytes"]) is not int or not 0 < reference["bytes"] <= MAX_STORED_CONTENT:
+    if (
+        type(reference["bytes"]) is not int
+        or not 0 < reference["bytes"] <= MAX_STORED_CONTENT
+    ):
         raise ObjectStoreError("Invalid artifact size")
     if not isinstance(reference["type"], str) or not re.fullmatch(
         "[a-z_]{1,50}", reference["type"]
@@ -122,6 +125,25 @@ class S3ContentStore(ContentStore):
             if body is not None:
                 body.close()
 
+    def verify_descriptor(self, owner, reference):
+        """HEAD-only admission; the independent worker still verifies every byte."""
+        owner, reference = reference_origin(owner, reference)
+        validate_reference(reference)
+        from botocore.exceptions import BotoCoreError, ClientError
+
+        try:
+            head = self.client.head_object(
+                Bucket=self.bucket, Key=self._key(owner, reference["storage_key"])
+            )
+        except (BotoCoreError, ClientError):
+            raise ObjectStoreError("Original object descriptor unavailable") from None
+        if (
+            head.get("ContentLength") != reference["bytes"]
+            or head.get("Metadata", {}).get("sha256") != reference["sha256"]
+        ):
+            raise ObjectStoreError("Original object descriptor mismatch")
+        return reference
+
     def path(self, owner, reference):
         try:
             owner, reference = reference_origin(owner, reference)
@@ -147,12 +169,17 @@ class S3ContentStore(ContentStore):
         return ContentStore.path(self, owner, stored)
 
     def bind_ticket(self, owner, key, reference):
-        if (not isinstance(reference, dict) or not valid_content_key(key, reference.get("sha256"))
-                or not key.startswith("tickets/")):
+        if (
+            not isinstance(reference, dict)
+            or not valid_content_key(key, reference.get("sha256"))
+            or not key.startswith("tickets/")
+        ):
             raise ObjectStoreError("Invalid ticket content key")
         source = self.path(owner, reference)
         with source.open("rb") as body:
-            self._create(self._key(owner, key), body, reference["sha256"], reference["bytes"])
+            self._create(
+                self._key(owner, key), body, reference["sha256"], reference["bytes"]
+            )
         value = {k: reference[k] for k in ("sha256", "bytes", "type")}
         value["storage_key"] = key
         self.path(owner, value)

@@ -22,12 +22,20 @@ type Inspection = {
     options: Record<string, string>;
     model?: RegisteredVersion;
     model_error?: string;
+    model_required?: boolean;
+    model_ref?: { model_id: string; revision: number };
   }[];
   reasons: { message: string; node_id: string | null }[];
 };
 type StartPlan = {
   token: string;
   paid_roles: string[];
+  model_call_budgets?: {
+    node_id: string;
+    role: string;
+    max_calls: number;
+    minimum_audio_calls: number | null;
+  }[];
   notice: string;
 };
 export const WorkflowStart = () => {
@@ -374,7 +382,16 @@ export const WorkflowStart = () => {
                     />
                   ) : selectedNode ? (
                     <div className="entry-node-info">
-                      {selectedNode.model && <p>모델: {selectedNode.model.name}</p>}
+                      {selectedNode.model_required && <p>등록 API 모델 필수</p>}
+                      {selectedNode.model ? (
+                        <p>
+                          모델: {selectedNode.model.name} · r{selectedNode.model.revision}
+                        </p>
+                      ) : selectedNode.model_required ? (
+                        <p role="alert">
+                          이 단계의 호환 등록 모델을 선택하고 워크플로우를 저장하세요.
+                        </p>
+                      ) : null}
                       {selectedNode.model_error && <p role="alert">{selectedNode.model_error}</p>}
                       <dl>
                         {Object.entries(selectedNode.options).map(([key, value]) => (
@@ -410,6 +427,26 @@ export const WorkflowStart = () => {
           )}
           <div className="work-entry-actions page-actions">
             {plan && <p>{plan.notice}</p>}
+            {plan?.model_call_budgets?.length ? (
+              <section aria-label="이번 작업 모델 호출 상한">
+                <h3>모델 호출 상한</h3>
+                <ul>
+                  {plan.model_call_budgets.map((item) => (
+                    <li key={item.node_id}>
+                      {item.role === 'transcribe' ? '전사' : '번역'} · {item.node_id}: 최대{' '}
+                      {item.max_calls}회
+                      {item.minimum_audio_calls !== null
+                        ? ` · 원본 길이 기준 ${item.minimum_audio_calls}개 오디오 구간 예상`
+                        : ''}
+                    </li>
+                  ))}
+                </ul>
+                <p>
+                  실제 구간 수는 전처리 결과에 따라 달라집니다. 이 화면의 확인만으로 API를 호출하지
+                  않습니다.
+                </p>
+              </section>
+            ) : null}
             {plan && plan.paid_roles.length > 0 && (
               <label className="serving-check">
                 <input

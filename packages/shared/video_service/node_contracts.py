@@ -319,6 +319,17 @@ for _registered_stage in NODES:
     if _registered_stage["id"] in {"transcribe", "translate"}:
         _registered_stage["options"]["model_source"] = ["registered_api"]
 
+for _original_stage in NODES:
+    if _original_stage["id"] in {
+        "analyze",
+        "extract_audio",
+        "encode",
+        "validate_video",
+    }:
+        values = _original_stage["options"].setdefault("media_budget", ["legacy"])
+        if "original_video_v6" not in values:
+            values.append("original_video_v6")
+
 for _descriptor in NODES:
     if _descriptor["id"] in {
         "extract_audio",
@@ -327,7 +338,9 @@ for _descriptor in NODES:
         "translate",
         "generate_subtitle",
     }:
-        _descriptor["options"]["media_budget"] = ["legacy", "audio_long_v5"]
+        _descriptor["options"]["media_budget"] = ["legacy", "audio_long_v5"] + (
+            ["original_video_v6"] if _descriptor["id"] == "extract_audio" else []
+        )
 
 
 def node_spec(identity, options=None):

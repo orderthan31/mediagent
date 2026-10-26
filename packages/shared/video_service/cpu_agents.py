@@ -121,13 +121,15 @@ def process_bounded(
         from .long_audio_budget import CPU_ROLES, role_budget
 
         role = resource_budget.get("role")
+        if resource_budget.get("profile") == "original_video_v6":
+            from .original_video_budget import CPU_ROLES, role_budget
         if (
             role not in CPU_ROLES
             or resource_budget != role_budget(role)
             or timeout > resource_budget["process_seconds"]
         ):
             raise ValueError("invalid_explicit_long_process_budget")
-        maximum = resource_budget["outputs"].get("audio", MAX_CONTENT)
+        maximum = max(resource_budget["outputs"].values())
     if type(max_bytes) is not int or not 0 < max_bytes <= maximum:
         raise ValueError("Invalid output budget")
     child = subprocess.Popen(
@@ -240,7 +242,7 @@ def run(command, input_root, output_root, *, agent=None):
     if (
         isinstance(command, dict)
         and isinstance(command.get("agent"), dict)
-        and command["agent"].get("revision") == "5"
+        and command["agent"].get("revision") in {"5", "6"}
     ):
         fields.add("resource_budget")
     if (
@@ -315,7 +317,7 @@ def run(command, input_root, output_root, *, agent=None):
         outputs = {}
         if kind in ("analyze", "validate_video"):
             data = probe(paths["video"])
-            if command["agent"]["revision"] == "2":
+            if command["agent"]["revision"] in {"2", "6"}:
                 validate_media(data)
             port, output_type = (
                 ("metadata", "media_metadata")
@@ -547,7 +549,7 @@ def run(command, input_root, output_root, *, agent=None):
             outputs["timeline"] = (timeline, "timeline_map")
         elif kind == "encode":
             source_media = probe(paths["video"])
-            if command["agent"]["revision"] == "2":
+            if command["agent"]["revision"] in {"2", "6"}:
                 validate_media(source_media)
             options = command["options"]
             mode = options.get("subtitle_mode", "burn")
@@ -587,11 +589,21 @@ def run(command, input_root, output_root, *, agent=None):
             ]
             if codec == "hevc":
                 args[-1:-1] = ["-x265-params", "pools=none:frame-threads=1"]
-            if command["agent"]["revision"] == "2":
+            if command["agent"]["revision"] in {"2", "6"}:
                 # Bound disk output without ever accepting a truncated success.
-                args[-1:-1] = ["-fs", str(MAX_CONTENT + 1024 * 1024)]
+                maximum = (
+                    long_budget["outputs"]["video"] if long_budget else MAX_CONTENT
+                )
+                args[-1:-1] = ["-fs", str(maximum + 1024 * 1024)]
                 process_bounded(
-                    args, output=file, cwd=work, timeout=LARGE_PROCESS_SECONDS
+                    args,
+                    output=file,
+                    cwd=work,
+                    timeout=long_budget["process_seconds"]
+                    if long_budget
+                    else LARGE_PROCESS_SECONDS,
+                    max_bytes=maximum,
+                    resource_budget=long_budget,
                 )
                 output_media = probe(file)
                 if abs(output_media["duration"] - source_media["duration"]) > 1:

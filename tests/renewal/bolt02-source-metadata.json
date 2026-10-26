@@ -1,0 +1,31 @@
+{
+  "owner_id": "229107cd9b784bf6af81cdf9dc2643f2",
+  "id": "d8cfed97e5394adeab073678b5cf09f8",
+  "filename": "BOLT02.mp4",
+  "storage_key": "sha256:03fd0154052a1dea4d8529355276653d2d270f82b9da6cf9b32fad7656593216",
+  "bytes": 674707577,
+  "sha256": "03fd0154052a1dea4d8529355276653d2d270f82b9da6cf9b32fad7656593216",
+  "metadata": {
+    "media": {
+      "width": 688,
+      "height": 396,
+      "duration": 5453.12,
+      "has_audio": true,
+      "frame_rate": "25/1"
+    },
+    "thumbnail": {
+      "type": "image",
+      "bytes": 1879,
+      "sha256": "35a2b76481024b6a10a8f35b2a4ba73e999e8d2f570bd3b6e5a4a8acaeb7ed64",
+      "storage_key": "blobs/35a2b76481024b6a10a8f35b2a4ba73e999e8d2f570bd3b6e5a4a8acaeb7ed64"
+    },
+    "media_type": "video/mp4",
+    "web_preview": {
+      "reason": "original_registered_independently",
+      "status": "unavailable"
+    },
+    "duration_seconds": 5453.12,
+    "registration_state": "verified"
+  },
+  "created_at": "2026-10-25T02:37:24.410149+00:00"
+}

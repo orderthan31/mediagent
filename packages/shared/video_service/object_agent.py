@@ -21,6 +21,7 @@ from .object_store import ObjectStoreError, from_config
 
 def execute(store, owner, command, *, agent):
     from .rabbitmq_transport import validate_command
+
     validate_command(command)
     if agent not in CPU_AGENTS or command["agent"]["id"] != agent:
         raise ObjectStoreError("Explicit CPU agent mismatch")
@@ -50,11 +51,16 @@ def execute(store, owner, command, *, agent):
             target = attempts / key
             if target.is_symlink() or target.parent.is_symlink():
                 raise ObjectStoreError("Symlink output denied")
+            from .long_audio_budget import validate_command as validate_budget
+
+            frozen_budget = validate_budget(command)
+            maximum = frozen_budget["outputs"][port] if frozen_budget else 268435456
             with target.open("rb") as stream:
                 stored = store.put(
                     owner,
                     iter(lambda: stream.read(1024 * 1024), b""),
                     reference["type"],
+                    max_bytes=maximum,
                 )
             if (
                 stored["sha256"] != reference["sha256"]
@@ -115,9 +121,13 @@ class ObjectAgentExecutor:
         if len(completed.stdout) > 65536:
             raise ObjectStoreError("Agent response size exceeded")
         result = json.loads(completed.stdout)
-        if (completed.returncode == 1 and command["agent"]["revision"] == "2"
-                and result.get("status") == "failed"):
+        if (
+            completed.returncode == 1
+            and command["agent"]["revision"] in {"2", "5", "6"}
+            and result.get("status") == "failed"
+        ):
             from .rabbitmq_transport import validate_result
+
             validate_result(command, result)
             return result
         if completed.returncode != 0 or result.get("request_sha256") != digest(command):
@@ -141,8 +151,10 @@ def main():
         command = json.loads(raw)
         with workspace(config["cache_root"], command) as scoped:
             result = execute(
-                from_config({**config, "cache_root": str(scoped)}), args.owner,
-                command, agent=args.agent,
+                from_config({**config, "cache_root": str(scoped)}),
+                args.owner,
+                command,
+                agent=args.agent,
             )
         sys.stdout.buffer.write(canonical(result))
         return 0 if result["status"] == "completed" else 1

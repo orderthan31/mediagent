@@ -101,7 +101,15 @@ class Execution(Intake):
                 node["runtime_scope"] = "configuration_not_inference_readiness"
                 node["workflow_binding"] = node["id"] != "faceswap"
                 if node["id"] in {"transcribe", "translate"}:
-                    node["execution"] = "engine_amqp"
+                    runtime = getattr(
+                        self,
+                        "transcription_runtime"
+                        if node["id"] == "transcribe"
+                        else "translation_runtime",
+                        None,
+                    )
+                    if runtime is None:
+                        node["execution"] = "engine_amqp"
         return value
 
     @staticmethod
@@ -317,6 +325,7 @@ class Execution(Intake):
                 "artifact_layout",
                 "cpu_input_policy",
                 "audio_pipeline_policy",
+                "source_definition_sha256",
             }
         }
         public_source = value["snapshot"].get("asset", {})
@@ -456,6 +465,13 @@ class Execution(Intake):
             bindings = self._engine_bindings(db, definition)
             workflow_owner, _ = self._job_definition(db, owner, identity, revision)
             models = self._bindings(db, workflow_owner, definition, active=False)
+            model_names = {
+                key: db.execute(
+                    "SELECT name FROM model_revisions WHERE owner_id=%s AND model_id=%s AND revision=%s",
+                    (pin["owner_id"], pin["model_id"], pin["revision"]),
+                ).fetchone()["name"]
+                for key, pin in models.items()
+            }
             reasons += [
                 {"node_id": None, "message": message}
                 for message in self._execution_reasons(
@@ -490,7 +506,40 @@ class Execution(Intake):
             "definition_revision": revision,
             "model_ready": not reasons,
             "summary": [
-                {k: n[k] for k in ("id", "type", "options")}
+                {
+                    **{k: n[k] for k in ("id", "type", "options")},
+                    **(
+                        {
+                            "model_required": True,
+                            "model_ref": n.get("model_ref"),
+                            "model": {
+                                **{
+                                    k: models[n["id"]][k]
+                                    for k in (
+                                        "model_id",
+                                        "revision",
+                                        "name",
+                                        "provider",
+                                        "protocol",
+                                        "connection_id",
+                                        "connection_revision",
+                                        "model_types",
+                                        "input_modalities",
+                                        "output_modalities",
+                                        "capabilities",
+                                    )
+                                    if k in models[n["id"]]
+                                },
+                                "model": models[n["id"]].get("remote_model"),
+                                "name": model_names[n["id"]],
+                            }
+                            if n["id"] in models
+                            else None,
+                        }
+                        if n["type"] in {"transcribe", "translate", "vocalize"}
+                        else {}
+                    ),
+                }
                 for n in definition["nodes"]
             ],
             "reasons": reasons,
@@ -546,6 +595,10 @@ class Execution(Intake):
             )
             from ..cpu_input_policy import source_policy
             from ..long_audio_budget import definition_policy
+            from ..original_video_budget import resolve_definition
+
+            original_definition_sha = digest(definition)
+            definition = resolve_definition(asset, definition)
 
             for track_node in definition["nodes"]:
                 if track_node["type"] == "subtitle_tracks" and (
@@ -564,7 +617,10 @@ class Execution(Intake):
             reference = self.asset_reference(asset)
             if asset["owner_id"] != owner:
                 reference = {**reference, "source_owner_id": asset["owner_id"]}
-            self.store.path(owner, reference)
+            if cpu_policy and cpu_policy.get("id") == "original_video_v6":
+                self.store.verify_descriptor(owner, reference)
+            else:
+                self.store.path(owner, reference)
             bindings = self._bindings(db, workflow_owner, definition, active=False)
             engine_bindings = self._engine_bindings(db, definition)
             input_refs = {"video": reference}
@@ -604,6 +660,11 @@ class Execution(Intake):
             snapshot = {
                 **({"cpu_input_policy": cpu_policy} if cpu_policy else {}),
                 **({"audio_pipeline_policy": audio_policy} if audio_policy else {}),
+                **(
+                    {"source_definition_sha256": original_definition_sha}
+                    if digest(definition) != original_definition_sha
+                    else {}
+                ),
                 "version": 1,
                 "artifact_layout": 1,
                 "asset": snapshot_asset,
@@ -1016,8 +1077,18 @@ class Execution(Intake):
         from ..cpu_input_policy import LARGE_AGENTS, LARGE_PROFILE, lease_seconds
 
         cpu_policy = job["snapshot"].get("cpu_input_policy")
+        from ..original_video_budget import CPU_ROLES as VIDEO_ROLES
+        from ..original_video_budget import ID as ORIGINAL_ID
+        from ..original_video_budget import policy as original_policy
+        from ..original_video_budget import role_budget as original_role_budget
+
+        original_video = bool(cpu_policy and cpu_policy.get("id") == ORIGINAL_ID)
         if cpu_policy and (
-            cpu_policy != LARGE_PROFILE or node["type"] not in LARGE_AGENTS
+            (original_video and cpu_policy != original_policy())
+            or (
+                not original_video
+                and (cpu_policy != LARGE_PROFILE or node["type"] not in LARGE_AGENTS)
+            )
         ):
             raise Conflict("Frozen CPU input policy is unsupported")
         audio_policy = job["snapshot"].get("audio_pipeline_policy")
@@ -1031,10 +1102,16 @@ class Execution(Intake):
             "run_id": job["id"],
             "attempt_id": identity,
             "generation": job["generation"],
-            "agent": {"id": node["type"], "revision": "2" if cpu_policy else "1"},
+            "agent": {
+                "id": node["type"],
+                "revision": "2" if cpu_policy and not original_video else "1",
+            },
             "inputs": inputs,
             "options": node["options"],
         }
+        if original_video and node["type"] in VIDEO_ROLES:
+            command["agent"]["revision"] = "6"
+            command["resource_budget"] = original_role_budget(node["type"])
         if (
             node["type"] == "preprocess_audio"
             and node["options"].get("processing_profile") == "silence_pack_v3"
@@ -1665,9 +1742,7 @@ class Execution(Intake):
                 check=False,
                 input=canonical(command),
                 capture_output=True,
-                timeout=command_timeout(command)
-                if command["agent"]["revision"] == "5"
-                else 90,
+                timeout=command_timeout(command),
                 env={
                     k: v
                     for k, v in __import__("os").environ.items()

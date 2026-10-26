@@ -320,7 +320,18 @@ def mount_runtime(
             owned, selection.definition_id, selection.definition_revision
         )
         from video_service.cpu_input_policy import source_policy
+        from video_service.original_video_budget import resolve_definition
 
+        original_asset = {
+            "bytes": source["size_bytes"],
+            "metadata": {
+                "registration_state": "verified"
+                if source["content_verified"]
+                else "unverified",
+                "media": source.get("media"),
+            },
+        }
+        execution_definition = resolve_definition(original_asset, definition)
         cpu_policy = source_policy(
             {
                 "bytes": source["size_bytes"],
@@ -331,13 +342,20 @@ def mount_runtime(
                     "media": source.get("media"),
                 },
             },
-            definition,
+            execution_definition,
         )
         if cpu_policy and broker_factory is None:
             raise Conflict(
                 "Large CPU video requires the independent broker execution path"
             )
-        runtime.asset_path(owned, selection.asset_id)
+        if cpu_policy and cpu_policy.get("id") == "original_video_v6":
+            with runtime.database.connection() as db:
+                original_row = runtime._shared_asset(db, selection.asset_id)
+            runtime.store.verify_descriptor(
+                original_row["owner_id"], runtime.asset_reference(original_row)
+            )
+        else:
+            runtime.asset_path(owned, selection.asset_id)
         inspection = runtime.inspect(
             owned, selection.definition_id, selection.definition_revision
         )
@@ -368,11 +386,30 @@ def mount_runtime(
                 )
             ],
             **({"cpu_input_policy": cpu_policy} if cpu_policy else {}),
+            "execution_definition_sha256": digest(execution_definition),
+            "model_call_budgets": [
+                {
+                    "node_id": n["id"],
+                    "role": n["type"],
+                    "max_calls": int(n["options"].get("max_model_calls", "128")),
+                    "minimum_audio_calls": __import__("math").ceil(
+                        (source.get("media") or {}).get("duration", 0) / 60
+                    )
+                    if n["type"] == "transcribe"
+                    else None,
+                }
+                for n in definition["nodes"]
+                if n["type"] in {"transcribe", "translate"}
+            ],
             "notice": "작업 생성은 저장만 합니다. 작업 상세에서 계획 확인과 별도 실행이 필요합니다."
             + (
-                " 대용량 CPU 전용: 원본4GiB/길이6시간/처리2시간/캐시10GiB/결과256MiB 한도입니다."
-                if cpu_policy
-                else ""
+                " 선택 원본에 맞춘 독립 역할별 영상·PCM·clock·모델 분할 예산이 적용됩니다."
+                if cpu_policy and cpu_policy.get("id") == "original_video_v6"
+                else (
+                    " 대용량 CPU 전용: 원본4GiB/길이6시간/처리2시간/캐시10GiB/결과256MiB 한도입니다."
+                    if cpu_policy
+                    else ""
+                )
             ),
         }
 

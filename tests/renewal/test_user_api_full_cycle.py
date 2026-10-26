@@ -71,6 +71,12 @@ def test_actual_user_api_graph_two_review_gates_and_cpu_downloads(
         if n["type"] in {"transcribe", "translate"}:
             n["model_ref"] = refs[0 if n["type"] == "transcribe" else 1]
     definition = runtime.save_definition(owner, uuid4().hex, graph)
+    inspection = runtime.inspect(owner, definition["id"], definition["revision"])
+    for item in inspection["summary"]:
+        if item["type"] in {"transcribe", "translate"}:
+            assert item["model_required"] is True
+            assert item["model"]["name"] == "controlled subtitle tracks"
+            assert item["model_ref"]["revision"] == 1
     asset = runtime.ingest(owner, "isolated-short-real-media.mp4", movie)
     job = runtime.create(
         owner,

@@ -380,6 +380,9 @@ def schemas():
             },
         }
     ]
+    from .original_video_budget import extend_schemas
+
+    extend_schemas(request, response)
     return {
         "agent.command.v1.schema.json": request,
         "agent.result.v1.schema.json": response,

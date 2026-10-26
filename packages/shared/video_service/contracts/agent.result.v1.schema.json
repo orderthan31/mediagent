@@ -132,7 +132,8 @@
                 "1",
                 "3",
                 "4",
-                "5"
+                "5",
+                "6"
               ]
             }
           }
@@ -186,7 +187,14 @@
             "options": {
               "type": "object",
               "additionalProperties": false,
-              "properties": {}
+              "properties": {
+                "media_budget": {
+                  "enum": [
+                    "legacy",
+                    "original_video_v6"
+                  ]
+                }
+              }
             },
             "resource_budget": false
           }
@@ -269,6 +277,12 @@
                     "balanced",
                     "high",
                     "compact"
+                  ]
+                },
+                "media_budget": {
+                  "enum": [
+                    "legacy",
+                    "original_video_v6"
                   ]
                 }
               }
@@ -1023,10 +1037,463 @@
             "options": {
               "type": "object",
               "additionalProperties": false,
-              "properties": {}
+              "properties": {
+                "media_budget": {
+                  "enum": [
+                    "legacy",
+                    "original_video_v6"
+                  ]
+                }
+              }
             },
             "resource_budget": false
           }
+        },
+        {
+          "properties": {
+            "agent": {
+              "properties": {
+                "id": {
+                  "const": "analyze"
+                },
+                "revision": {
+                  "const": "6"
+                }
+              }
+            },
+            "inputs": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "video": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "storage_key",
+                    "sha256",
+                    "bytes",
+                    "type"
+                  ],
+                  "properties": {
+                    "storage_key": {
+                      "type": "string",
+                      "pattern": "^blobs/[a-f0-9]{64}$"
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    "bytes": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 4294967296
+                    },
+                    "type": {
+                      "const": "video"
+                    },
+                    "source_owner_id": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{32}$"
+                    }
+                  }
+                }
+              },
+              "required": [
+                "video"
+              ]
+            },
+            "options": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "media_budget": {
+                  "const": "original_video_v6"
+                }
+              },
+              "required": [
+                "media_budget"
+              ]
+            },
+            "resource_budget": {
+              "const": {
+                "profile": "original_video_v6",
+                "role": "analyze",
+                "inputs": {
+                  "video": 4294967296
+                },
+                "outputs": {
+                  "metadata": 16777216
+                },
+                "source_max_frames": 345600000,
+                "packed_max_frames": 345600000,
+                "process_seconds": 7200,
+                "command_seconds": 9000,
+                "lease_seconds": 9600,
+                "cache_bytes": 6442450944
+              }
+            }
+          },
+          "required": [
+            "resource_budget"
+          ]
+        },
+        {
+          "properties": {
+            "agent": {
+              "properties": {
+                "id": {
+                  "const": "encode"
+                },
+                "revision": {
+                  "const": "6"
+                }
+              }
+            },
+            "inputs": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "video": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "storage_key",
+                    "sha256",
+                    "bytes",
+                    "type"
+                  ],
+                  "properties": {
+                    "storage_key": {
+                      "type": "string",
+                      "pattern": "^blobs/[a-f0-9]{64}$"
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    "bytes": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 4294967296
+                    },
+                    "type": {
+                      "const": "video"
+                    },
+                    "source_owner_id": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{32}$"
+                    }
+                  }
+                },
+                "subtitles": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "storage_key",
+                    "sha256",
+                    "bytes",
+                    "type"
+                  ],
+                  "properties": {
+                    "storage_key": {
+                      "type": "string",
+                      "pattern": "^blobs/[a-f0-9]{64}$"
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    "bytes": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 16777216
+                    },
+                    "type": {
+                      "const": "subtitle"
+                    },
+                    "source_owner_id": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{32}$"
+                    }
+                  }
+                }
+              },
+              "required": [
+                "video"
+              ]
+            },
+            "options": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "subtitle_mode": {
+                  "enum": [
+                    "burn",
+                    "soft",
+                    "none"
+                  ]
+                },
+                "video_codec": {
+                  "enum": [
+                    "h264",
+                    "hevc"
+                  ]
+                },
+                "resolution": {
+                  "enum": [
+                    "original",
+                    "1080p",
+                    "720p"
+                  ]
+                },
+                "quality_profile": {
+                  "enum": [
+                    "balanced",
+                    "high",
+                    "compact"
+                  ]
+                },
+                "media_budget": {
+                  "const": "original_video_v6"
+                }
+              },
+              "required": [
+                "media_budget"
+              ]
+            },
+            "resource_budget": {
+              "const": {
+                "profile": "original_video_v6",
+                "role": "encode",
+                "inputs": {
+                  "video": 4294967296,
+                  "subtitles": 16777216
+                },
+                "outputs": {
+                  "video": 4294967296
+                },
+                "source_max_frames": 345600000,
+                "packed_max_frames": 345600000,
+                "process_seconds": 7200,
+                "command_seconds": 9000,
+                "lease_seconds": 9600,
+                "cache_bytes": 10737418240
+              }
+            }
+          },
+          "if": {
+            "properties": {
+              "options": {
+                "required": [
+                  "subtitle_mode"
+                ],
+                "properties": {
+                  "subtitle_mode": {
+                    "const": "none"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "inputs": {
+                "not": {
+                  "required": [
+                    "subtitles"
+                  ]
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "inputs": {
+                "required": [
+                  "subtitles"
+                ]
+              }
+            }
+          },
+          "required": [
+            "resource_budget"
+          ]
+        },
+        {
+          "properties": {
+            "agent": {
+              "properties": {
+                "id": {
+                  "const": "extract_audio"
+                },
+                "revision": {
+                  "const": "6"
+                }
+              }
+            },
+            "inputs": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "video": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "storage_key",
+                    "sha256",
+                    "bytes",
+                    "type"
+                  ],
+                  "properties": {
+                    "storage_key": {
+                      "type": "string",
+                      "pattern": "^blobs/[a-f0-9]{64}$"
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    "bytes": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 4294967296
+                    },
+                    "type": {
+                      "const": "video"
+                    },
+                    "source_owner_id": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{32}$"
+                    }
+                  }
+                }
+              },
+              "required": [
+                "video"
+              ]
+            },
+            "options": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "media_budget": {
+                  "const": "original_video_v6"
+                }
+              },
+              "required": [
+                "media_budget"
+              ]
+            },
+            "resource_budget": {
+              "const": {
+                "profile": "original_video_v6",
+                "role": "extract_audio",
+                "inputs": {
+                  "video": 4294967296
+                },
+                "outputs": {
+                  "audio": 1073741824
+                },
+                "source_max_frames": 345600000,
+                "packed_max_frames": 345600000,
+                "process_seconds": 7200,
+                "command_seconds": 9000,
+                "lease_seconds": 9600,
+                "cache_bytes": 6442450944
+              }
+            }
+          },
+          "required": [
+            "resource_budget"
+          ]
+        },
+        {
+          "properties": {
+            "agent": {
+              "properties": {
+                "id": {
+                  "const": "validate_video"
+                },
+                "revision": {
+                  "const": "6"
+                }
+              }
+            },
+            "inputs": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "video": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "storage_key",
+                    "sha256",
+                    "bytes",
+                    "type"
+                  ],
+                  "properties": {
+                    "storage_key": {
+                      "type": "string",
+                      "pattern": "^blobs/[a-f0-9]{64}$"
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    "bytes": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 4294967296
+                    },
+                    "type": {
+                      "const": "video"
+                    },
+                    "source_owner_id": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{32}$"
+                    }
+                  }
+                }
+              },
+              "required": [
+                "video"
+              ]
+            },
+            "options": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "media_budget": {
+                  "const": "original_video_v6"
+                }
+              },
+              "required": [
+                "media_budget"
+              ]
+            },
+            "resource_budget": {
+              "const": {
+                "profile": "original_video_v6",
+                "role": "validate_video",
+                "inputs": {
+                  "video": 4294967296
+                },
+                "outputs": {
+                  "report": 16777216
+                },
+                "source_max_frames": 345600000,
+                "packed_max_frames": 345600000,
+                "process_seconds": 7200,
+                "command_seconds": 9000,
+                "lease_seconds": 9600,
+                "cache_bytes": 6442450944
+              }
+            }
+          },
+          "required": [
+            "resource_budget"
+          ]
         }
       ]
     },
@@ -1084,7 +1551,8 @@
                 "1",
                 "3",
                 "4",
-                "5"
+                "5",
+                "6"
               ]
             }
           }
@@ -1160,7 +1628,7 @@
               "agent": {
                 "properties": {
                   "revision": {
-                    "const": "5"
+                    "const": "6"
                   }
                 }
               }
@@ -1173,12 +1641,131 @@
                   "agent": {
                     "properties": {
                       "id": {
+                        "const": "analyze"
+                      }
+                    }
+                  },
+                  "outputs": {
+                    "properties": {
+                      "metadata": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "storage_key",
+                          "sha256",
+                          "bytes",
+                          "type"
+                        ],
+                        "properties": {
+                          "storage_key": {
+                            "type": "string",
+                            "pattern": "^blobs/[a-f0-9]{64}$"
+                          },
+                          "sha256": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{64}$"
+                          },
+                          "bytes": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 16777216
+                          },
+                          "type": {
+                            "const": "media_metadata"
+                          }
+                        }
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "if": {
+                  "properties": {
+                    "status": {
+                      "const": "completed"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "outputs": {
+                      "required": [
+                        "metadata"
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "agent": {
+                    "properties": {
+                      "id": {
+                        "const": "encode"
+                      }
+                    }
+                  },
+                  "outputs": {
+                    "properties": {
+                      "video": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "storage_key",
+                          "sha256",
+                          "bytes",
+                          "type"
+                        ],
+                        "properties": {
+                          "storage_key": {
+                            "type": "string",
+                            "pattern": "^blobs/[a-f0-9]{64}$"
+                          },
+                          "sha256": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{64}$"
+                          },
+                          "bytes": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 4294967296
+                          },
+                          "type": {
+                            "const": "video"
+                          }
+                        }
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "if": {
+                  "properties": {
+                    "status": {
+                      "const": "completed"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "outputs": {
+                      "required": [
+                        "video"
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "agent": {
+                    "properties": {
+                      "id": {
                         "const": "extract_audio"
                       }
                     }
                   },
                   "outputs": {
-                    "type": "object",
                     "properties": {
                       "audio": {
                         "type": "object",
@@ -1234,14 +1821,13 @@
                   "agent": {
                     "properties": {
                       "id": {
-                        "const": "generate_subtitle"
+                        "const": "validate_video"
                       }
                     }
                   },
                   "outputs": {
-                    "type": "object",
                     "properties": {
-                      "subtitles": {
+                      "report": {
                         "type": "object",
                         "additionalProperties": false,
                         "required": [
@@ -1265,35 +1851,7 @@
                             "maximum": 16777216
                           },
                           "type": {
-                            "const": "subtitle"
-                          }
-                        }
-                      },
-                      "sami": {
-                        "type": "object",
-                        "additionalProperties": false,
-                        "required": [
-                          "storage_key",
-                          "sha256",
-                          "bytes",
-                          "type"
-                        ],
-                        "properties": {
-                          "storage_key": {
-                            "type": "string",
-                            "pattern": "^blobs/[a-f0-9]{64}$"
-                          },
-                          "sha256": {
-                            "type": "string",
-                            "pattern": "^[a-f0-9]{64}$"
-                          },
-                          "bytes": {
-                            "type": "integer",
-                            "minimum": 1,
-                            "maximum": 16777216
-                          },
-                          "type": {
-                            "const": "subtitle"
+                            "const": "validation_report"
                           }
                         }
                       }
@@ -1312,97 +1870,7 @@
                   "properties": {
                     "outputs": {
                       "required": [
-                        "subtitles"
-                      ]
-                    }
-                  }
-                }
-              },
-              {
-                "properties": {
-                  "agent": {
-                    "properties": {
-                      "id": {
-                        "const": "preprocess_audio"
-                      }
-                    }
-                  },
-                  "outputs": {
-                    "type": "object",
-                    "properties": {
-                      "audio": {
-                        "type": "object",
-                        "additionalProperties": false,
-                        "required": [
-                          "storage_key",
-                          "sha256",
-                          "bytes",
-                          "type"
-                        ],
-                        "properties": {
-                          "storage_key": {
-                            "type": "string",
-                            "pattern": "^blobs/[a-f0-9]{64}$"
-                          },
-                          "sha256": {
-                            "type": "string",
-                            "pattern": "^[a-f0-9]{64}$"
-                          },
-                          "bytes": {
-                            "type": "integer",
-                            "minimum": 1,
-                            "maximum": 1073741824
-                          },
-                          "type": {
-                            "const": "audio"
-                          }
-                        }
-                      },
-                      "timeline": {
-                        "type": "object",
-                        "additionalProperties": false,
-                        "required": [
-                          "storage_key",
-                          "sha256",
-                          "bytes",
-                          "type"
-                        ],
-                        "properties": {
-                          "storage_key": {
-                            "type": "string",
-                            "pattern": "^blobs/[a-f0-9]{64}$"
-                          },
-                          "sha256": {
-                            "type": "string",
-                            "pattern": "^[a-f0-9]{64}$"
-                          },
-                          "bytes": {
-                            "type": "integer",
-                            "minimum": 1,
-                            "maximum": 16777216
-                          },
-                          "type": {
-                            "const": "timeline_map"
-                          }
-                        }
-                      }
-                    },
-                    "additionalProperties": false
-                  }
-                },
-                "if": {
-                  "properties": {
-                    "status": {
-                      "const": "completed"
-                    }
-                  }
-                },
-                "then": {
-                  "properties": {
-                    "outputs": {
-                      "required": [
-                        "audio",
-                        "timeline"
+                        "report"
                       ]
                     }
                   }
@@ -1411,13 +1879,274 @@
             ]
           },
           "else": {
-            "properties": {
-              "outputs": {
-                "additionalProperties": {
-                  "$ref": "#/$defs/artifact"
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "agent": {
+                      "properties": {
+                        "revision": {
+                          "const": "5"
+                        }
+                      }
+                    }
+                  }
+                },
+                "then": {
+                  "oneOf": [
+                    {
+                      "properties": {
+                        "agent": {
+                          "properties": {
+                            "id": {
+                              "const": "extract_audio"
+                            }
+                          }
+                        },
+                        "outputs": {
+                          "type": "object",
+                          "properties": {
+                            "audio": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "storage_key",
+                                "sha256",
+                                "bytes",
+                                "type"
+                              ],
+                              "properties": {
+                                "storage_key": {
+                                  "type": "string",
+                                  "pattern": "^blobs/[a-f0-9]{64}$"
+                                },
+                                "sha256": {
+                                  "type": "string",
+                                  "pattern": "^[a-f0-9]{64}$"
+                                },
+                                "bytes": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 1073741824
+                                },
+                                "type": {
+                                  "const": "audio"
+                                }
+                              }
+                            }
+                          },
+                          "additionalProperties": false
+                        }
+                      },
+                      "if": {
+                        "properties": {
+                          "status": {
+                            "const": "completed"
+                          }
+                        }
+                      },
+                      "then": {
+                        "properties": {
+                          "outputs": {
+                            "required": [
+                              "audio"
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "properties": {
+                        "agent": {
+                          "properties": {
+                            "id": {
+                              "const": "generate_subtitle"
+                            }
+                          }
+                        },
+                        "outputs": {
+                          "type": "object",
+                          "properties": {
+                            "subtitles": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "storage_key",
+                                "sha256",
+                                "bytes",
+                                "type"
+                              ],
+                              "properties": {
+                                "storage_key": {
+                                  "type": "string",
+                                  "pattern": "^blobs/[a-f0-9]{64}$"
+                                },
+                                "sha256": {
+                                  "type": "string",
+                                  "pattern": "^[a-f0-9]{64}$"
+                                },
+                                "bytes": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 16777216
+                                },
+                                "type": {
+                                  "const": "subtitle"
+                                }
+                              }
+                            },
+                            "sami": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "storage_key",
+                                "sha256",
+                                "bytes",
+                                "type"
+                              ],
+                              "properties": {
+                                "storage_key": {
+                                  "type": "string",
+                                  "pattern": "^blobs/[a-f0-9]{64}$"
+                                },
+                                "sha256": {
+                                  "type": "string",
+                                  "pattern": "^[a-f0-9]{64}$"
+                                },
+                                "bytes": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 16777216
+                                },
+                                "type": {
+                                  "const": "subtitle"
+                                }
+                              }
+                            }
+                          },
+                          "additionalProperties": false
+                        }
+                      },
+                      "if": {
+                        "properties": {
+                          "status": {
+                            "const": "completed"
+                          }
+                        }
+                      },
+                      "then": {
+                        "properties": {
+                          "outputs": {
+                            "required": [
+                              "subtitles"
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "properties": {
+                        "agent": {
+                          "properties": {
+                            "id": {
+                              "const": "preprocess_audio"
+                            }
+                          }
+                        },
+                        "outputs": {
+                          "type": "object",
+                          "properties": {
+                            "audio": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "storage_key",
+                                "sha256",
+                                "bytes",
+                                "type"
+                              ],
+                              "properties": {
+                                "storage_key": {
+                                  "type": "string",
+                                  "pattern": "^blobs/[a-f0-9]{64}$"
+                                },
+                                "sha256": {
+                                  "type": "string",
+                                  "pattern": "^[a-f0-9]{64}$"
+                                },
+                                "bytes": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 1073741824
+                                },
+                                "type": {
+                                  "const": "audio"
+                                }
+                              }
+                            },
+                            "timeline": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "storage_key",
+                                "sha256",
+                                "bytes",
+                                "type"
+                              ],
+                              "properties": {
+                                "storage_key": {
+                                  "type": "string",
+                                  "pattern": "^blobs/[a-f0-9]{64}$"
+                                },
+                                "sha256": {
+                                  "type": "string",
+                                  "pattern": "^[a-f0-9]{64}$"
+                                },
+                                "bytes": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 16777216
+                                },
+                                "type": {
+                                  "const": "timeline_map"
+                                }
+                              }
+                            }
+                          },
+                          "additionalProperties": false
+                        }
+                      },
+                      "if": {
+                        "properties": {
+                          "status": {
+                            "const": "completed"
+                          }
+                        }
+                      },
+                      "then": {
+                        "properties": {
+                          "outputs": {
+                            "required": [
+                              "audio",
+                              "timeline"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  ]
+                },
+                "else": {
+                  "properties": {
+                    "outputs": {
+                      "additionalProperties": {
+                        "$ref": "#/$defs/artifact"
+                      }
+                    }
+                  }
                 }
               }
-            }
+            ]
           }
         }
       ]

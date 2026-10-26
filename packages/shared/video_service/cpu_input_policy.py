@@ -28,6 +28,13 @@ LARGE_PROFILE = {
 def input_limit(agent, port, kind):
     if not isinstance(agent, dict) or set(agent) != {"id", "revision"}:
         raise ValueError("Invalid CPU input contract")
+    if agent["revision"] == "6":
+        from .original_video_budget import role_budget
+
+        caps = role_budget(agent["id"])["inputs"]
+        if port not in caps:
+            raise ValueError("unsupported_original_video_input_port")
+        return caps[port]
     if agent["revision"] == "5":
         from .long_audio_budget import CPU_ROLES, role_budget
 
@@ -56,6 +63,11 @@ def source_policy(asset, definition):
     size = asset["bytes"]
     if type(size) is not int or not 0 < size <= LARGE_INPUT_BYTES:
         raise ValueError("CPU video source exceeds explicit 4 GiB input limit")
+    from .original_video_budget import selected
+    from .original_video_budget import source_policy as full_source_policy
+
+    if selected(asset, definition):
+        return full_source_policy(asset, definition)
     if size <= MAX_CONTENT:
         return None
     nodes = definition.get("nodes", [])
@@ -78,6 +90,10 @@ def source_policy(asset, definition):
 
 def command_timeout(command):
     agent = command["agent"]
+    if agent.get("revision") == "6":
+        from .original_video_budget import validate_command
+
+        return validate_command(command)["command_seconds"]
     if agent.get("revision") == "5":
         from .long_audio_budget import validate_command
 
@@ -113,6 +129,10 @@ def lease_seconds(command):
         ):
             raise ValueError("Invalid frozen bounded model deadline")
         return expected
+    if agent.get("revision") == "6":
+        from .original_video_budget import validate_command
+
+        return validate_command(command)["lease_seconds"]
     if agent.get("revision") == "5":
         from .long_audio_budget import validate_command
 
@@ -129,6 +149,22 @@ def workspace(root, command):
     from pathlib import Path
 
     root = Path(root)
+    if command["agent"].get("revision") == "6":
+        from .original_video_budget import validate_command
+
+        budget = validate_command(command)
+        if (
+            not root.is_absolute()
+            or root.is_symlink()
+            or not root.is_dir()
+            or shutil.disk_usage(root).free < budget["cache_bytes"]
+        ):
+            raise ValueError("private_original_video_cache_required")
+        if any(root.glob("original-v6-*")):
+            raise ValueError("original_video_cache_held")
+        with tempfile.TemporaryDirectory(prefix="original-v6-", dir=root) as scoped:
+            yield Path(scoped)
+        return
     if command["agent"].get("revision") == "5":
         from .long_audio_budget import validate_command
 

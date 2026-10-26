@@ -147,7 +147,7 @@ def validate_command(command):
         if (
             isinstance(command, dict)
             and isinstance(command.get("agent"), dict)
-            and command["agent"].get("revision") == "5"
+            and command["agent"].get("revision") in {"5", "6"}
         ):
             fields.add("resource_budget")
         if (

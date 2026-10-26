@@ -145,28 +145,27 @@ const renewalProfiles: Record<string, Profile> = {
     ],
   },
   transcribe: {
-    role: '구간별 실제 음성 전사',
-    api: '고정 로컬 경로는 외부 API 불필요',
-    engine: 'faster-whisper · CPU int8 · engine MQ',
-    model: 'Whisper tiny.en · 명시 등록된 artifact만',
-    access: '모노 16kHz PCM 오디오 · 대응하는 타임라인',
+    role: '구간별 음성 전사',
+    api: '필수 · 워크플로우에 선택한 등록 API 모델',
+    engine: '독립 전사 실행자 · 오디오 분할 및 원본 시각 복원',
+    model: '음성 입력·시각 포함 전사를 지원하는 등록 모델 필수',
+    access: '검증된 오디오 구간 · 원본 영상은 전송하지 않음',
     conditions: [
-      '현재 설치 프로필은 영어 전사만 지원',
-      '최대 300초 PCM 입력',
-      '원본 오디오 시계로 구간 복원',
-      '등록 모델 참조/외부 provider 실행 transport는 별도 미지원',
+      '모델·연결 개정을 작업에 고정',
+      '호출 상한·비용 동의 후에만 실행',
+      '로컬/GPU 모델로 자동 대체하지 않음',
     ],
   },
   translate: {
-    role: '전사문 번역',
-    api: '고정 로컬 경로는 외부 API 불필요',
-    engine: 'CTranslate2 · CPU int8 · engine MQ',
-    model: 'OPUS-MT en→de · 명시 등록된 artifact만',
+    role: '전사문을 선택한 언어로 번역',
+    api: '필수 · 워크플로우에 선택한 등록 API 모델',
+    engine: '독립 번역 실행자 · 자막 ID·순서·시각 보존',
+    model: '텍스트 번역 호환 등록 모델 필수',
     access: '전사문 텍스트 · 원본 미디어 전송 없음',
     conditions: [
-      '현재 설치 프로필은 영어→독일어만 지원',
-      '원본 구간 시간을 유지',
-      '다른 언어/등록 모델/외부 provider로 자동 대체하지 않음',
+      '모델·연결 개정을 작업에 고정',
+      '호출 상한·비용 동의 후에만 실행',
+      '로컬/GPU 모델로 자동 대체하지 않음',
     ],
   },
   faceswap: {
@@ -256,7 +255,17 @@ export const AgentInformation = ({ agent }: { agent: Agent }) => {
         </dl>
       </section>
       <section className="ui02-definition-summary">
-        <h2>등록된 물리 엔진</h2>
+        <h2>
+          {['transcribe', 'translate'].includes(agent.id)
+            ? '보존된 기존 고정 엔진 정보'
+            : '등록된 물리 엔진'}
+        </h2>
+        {['transcribe', 'translate'].includes(agent.id) && (
+          <p>
+            현재 작업의 전사·번역 모델은 워크플로우에서 선택한 등록 API 모델입니다. 아래의 기존
+            엔진으로 자동 대체하지 않습니다.
+          </p>
+        )}
         {physical ? (
           <>
             <dl className="ui02-agent-facts">

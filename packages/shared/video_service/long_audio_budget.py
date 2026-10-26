@@ -95,6 +95,11 @@ def definition_policy(definition):
         return None
     for node in nodes:
         role, options = node["type"], node.get("options", {})
+        from .original_video_budget import CPU_ROLES as VIDEO_ROLES
+        from .original_video_budget import ID as VIDEO_ID
+
+        if role in VIDEO_ROLES and options.get("media_budget") == VIDEO_ID:
+            continue
         if (
             role in {"analyze", "encode", "validate_video"}
             and options.get("media_budget", "legacy") == "legacy"
@@ -165,6 +170,10 @@ def command_budget(role, options):
 
 def validate_command(command):
     role = command["agent"]["id"]
+    if command["agent"].get("revision") == "6":
+        from .original_video_budget import validate_command as validate_original
+
+        return validate_original(command)
     selected = command.get("options", {}).get("media_budget") == ID
     if not selected:
         if (
