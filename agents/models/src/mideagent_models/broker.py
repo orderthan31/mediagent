@@ -28,6 +28,9 @@ class RoleReceiver:
             c.execute(
                 "CREATE TABLE IF NOT EXISTS role_artifact_deliveries(task TEXT NOT NULL,kind TEXT NOT NULL,envelope_sha TEXT NOT NULL,attempts INTEGER NOT NULL DEFAULT 0,state TEXT NOT NULL,response TEXT,error_code TEXT,PRIMARY KEY(task,kind))"
             )
+            c.execute(
+                "CREATE TABLE IF NOT EXISTS role_cancel_ack_deliveries(task TEXT NOT NULL,kind TEXT NOT NULL,envelope_sha TEXT NOT NULL,attempts INTEGER NOT NULL DEFAULT 0,state TEXT NOT NULL,response TEXT,error_code TEXT,PRIMARY KEY(task,kind))"
+            )
 
     def receive(self, packet):
         packet = validate(packet, "result")
@@ -110,13 +113,56 @@ class RoleReceiver:
         packet = validate(packet, kind)
         task = packet["task_id"] if kind == "cancel_ack" else packet["task"]["task_id"]
         digest = hashlib.sha256(canonical(packet)).hexdigest()
+
+        def delivery_sql(statement):
+            return (
+                statement.replace(
+                    "role_artifact_deliveries", "role_cancel_ack_deliveries"
+                )
+                if kind == "cancel_ack"
+                else statement
+            )
+
         with self.agent.state.lock(task, "artifact-" + kind):
             with self.agent.state.connect() as c:
                 c.execute("BEGIN IMMEDIATE")
+                if kind == "cancel_ack":
+                    try:
+                        self.agent.state.cancel_in(
+                            c, task, envelope_sha=packet["request_sha256"]
+                        )
+                    except ValueError as error:
+                        if str(error) == "cancel_role_scope_mismatch":
+                            raise InvalidRoleDelivery(
+                                "cancel_role_scope_mismatch"
+                            ) from None
+                        raise
                 row = c.execute(
-                    "SELECT * FROM role_artifact_deliveries WHERE task=?AND kind=?",
+                    delivery_sql(
+                        "SELECT * FROM role_artifact_deliveries WHERE task=?AND kind=?"
+                    ),
                     (task, kind),
                 ).fetchone()
+                if kind == "cancel_ack" and row is None:
+                    legacy = c.execute(
+                        "SELECT * FROM role_artifact_deliveries WHERE task=?AND kind=?",
+                        (task, kind),
+                    ).fetchone()
+                    if (
+                        legacy
+                        and legacy["envelope_sha"] == digest
+                        and legacy["state"] != "rejected"
+                    ):
+                        c.execute(
+                            "INSERT INTO role_cancel_ack_deliveries(task,kind,envelope_sha,attempts,state,response,error_code) SELECT task,kind,envelope_sha,attempts,state,response,error_code FROM role_artifact_deliveries WHERE task=?AND kind=?",
+                            (task, kind),
+                        )
+                        row = c.execute(
+                            delivery_sql(
+                                "SELECT * FROM role_artifact_deliveries WHERE task=?AND kind=?"
+                            ),
+                            (task, kind),
+                        ).fetchone()
                 if row and row["envelope_sha"] != digest:
                     raise InvalidRoleDelivery("immutable_role_delivery_changed")
                 if row and row["state"] == "artifact_ready":
@@ -127,13 +173,17 @@ class RoleReceiver:
                     raise InvalidRoleDelivery("role_delivery_rejected")
                 used = row["attempts"] if row else 0
                 c.execute(
-                    "INSERT OR IGNORE INTO role_artifact_deliveries(task,kind,envelope_sha,state)VALUES(?,?,?,'retrying')",
+                    delivery_sql(
+                        "INSERT OR IGNORE INTO role_artifact_deliveries(task,kind,envelope_sha,state)VALUES(?,?,?,'retrying')"
+                    ),
                     (task, kind, digest),
                 )
             for attempt in range(used, artifact_attempts):
                 with self.agent.state.connect() as c:
                     c.execute(
-                        "UPDATE role_artifact_deliveries SET attempts=attempts+1,state='retrying'WHERE task=?AND kind=?",
+                        delivery_sql(
+                            "UPDATE role_artifact_deliveries SET attempts=attempts+1,state='retrying'WHERE task=?AND kind=?"
+                        ),
                         (task, kind),
                     )
                 try:
@@ -145,14 +195,18 @@ class RoleReceiver:
                 except ObjectIntegrityError:
                     with self.agent.state.connect() as c:
                         c.execute(
-                            "UPDATE role_artifact_deliveries SET state='rejected',error_code='artifact_integrity'WHERE task=?AND kind=?",
+                            delivery_sql(
+                                "UPDATE role_artifact_deliveries SET state='rejected',error_code='artifact_integrity'WHERE task=?AND kind=?"
+                            ),
                             (task, kind),
                         )
                     raise InvalidRoleDelivery("artifact_integrity") from None
                 except (ObjectStoreError, OSError) as error:
                     with self.agent.state.connect() as c:
                         c.execute(
-                            "UPDATE role_artifact_deliveries SET state=?,error_code=?WHERE task=?AND kind=?",
+                            delivery_sql(
+                                "UPDATE role_artifact_deliveries SET state=?,error_code=?WHERE task=?AND kind=?"
+                            ),
                             (
                                 "held"
                                 if attempt + 1 == artifact_attempts
@@ -167,27 +221,35 @@ class RoleReceiver:
                 except InvalidRoleDelivery:
                     with self.agent.state.connect() as c:
                         c.execute(
-                            "UPDATE role_artifact_deliveries SET state='rejected',error_code='invalid_role_input'WHERE task=?AND kind=?",
+                            delivery_sql(
+                                "UPDATE role_artifact_deliveries SET state='rejected',error_code='invalid_role_input'WHERE task=?AND kind=?"
+                            ),
                             (task, kind),
                         )
                     raise
                 except Exception as error:
                     with self.agent.state.connect() as c:
                         c.execute(
-                            "UPDATE role_artifact_deliveries SET state='held',error_code=?WHERE task=?AND kind=?",
+                            delivery_sql(
+                                "UPDATE role_artifact_deliveries SET state='held',error_code=?WHERE task=?AND kind=?"
+                            ),
                             (type(error).__name__, task, kind),
                         )
                     raise DeliveryHeld("role_operation_held") from None
                 else:
                     with self.agent.state.connect() as c:
                         c.execute(
-                            "UPDATE role_artifact_deliveries SET state='artifact_ready',response=?,error_code=NULL WHERE task=?AND kind=?",
+                            delivery_sql(
+                                "UPDATE role_artifact_deliveries SET state='artifact_ready',response=?,error_code=NULL WHERE task=?AND kind=?"
+                            ),
                             (canonical(result).decode(), task, kind),
                         )
                     return result
             with self.agent.state.connect() as c:
                 c.execute(
-                    "UPDATE role_artifact_deliveries SET state='held',error_code='artifact_transport_exhausted'WHERE task=?AND kind=?",
+                    delivery_sql(
+                        "UPDATE role_artifact_deliveries SET state='held',error_code='artifact_transport_exhausted'WHERE task=?AND kind=?"
+                    ),
                     (task, kind),
                 )
             raise DeliveryHeld("artifact_transport_exhausted")

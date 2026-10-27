@@ -82,45 +82,50 @@ class RoleState:
     def cancel(self, task, *, envelope_sha=None):
         with self.connect() as c:
             c.execute("BEGIN IMMEDIATE")
-            row = c.execute("SELECT * FROM tasks WHERE id=?", (task,)).fetchone()
-            if envelope_sha is not None:
-                envelope = c.execute(
-                    "SELECT envelope_sha FROM role_envelopes WHERE task=?", (task,)
-                ).fetchone()
-                prior = c.execute(
-                    "SELECT envelope_sha FROM role_cancellations WHERE task=?", (task,)
-                ).fetchone()
-                if (
-                    (envelope and envelope["envelope_sha"] != envelope_sha)
-                    or (prior and prior["envelope_sha"] != envelope_sha)
-                    or (row and not envelope)
-                ):
-                    raise ValueError("cancel_role_scope_mismatch")
-                c.execute(
-                    "INSERT OR IGNORE INTO role_cancellations(task,envelope_sha)VALUES(?,?)",
-                    (task, envelope_sha),
-                )
-            if row is None:
-                if envelope_sha is None:
-                    raise ValueError("unknown_role_task")
-                result = {
-                    "version": 1,
-                    "task_id": task,
-                    "role": "transcription",
-                    "status": "cancelled",
-                    "completed_chunks": 0,
-                    "model_calls": 0,
-                }
-            elif row["status"] == "completed":
-                return json.loads(row["result"])
-            else:
-                result = self._cancelled_payload(c, task, row)
-                c.execute(
-                    "UPDATE tasks SET cancelled=1,status='cancelled',result=?WHERE id=?",
-                    (json.dumps(result), task),
-                )
+            result = self.cancel_in(c, task, envelope_sha=envelope_sha)
         with self.lock(task, "call-fence"):
             pass
+        return result
+
+    def cancel_in(self, c, task, *, envelope_sha=None):
+        row = c.execute("SELECT * FROM tasks WHERE id=?", (task,)).fetchone()
+        if envelope_sha is not None:
+            envelope = c.execute(
+                "SELECT envelope_sha FROM role_envelopes WHERE task=?", (task,)
+            ).fetchone()
+            prior = c.execute(
+                "SELECT envelope_sha FROM role_cancellations WHERE task=?", (task,)
+            ).fetchone()
+            if (
+                envelope
+                and envelope["envelope_sha"] != envelope_sha
+                or (prior and prior["envelope_sha"] != envelope_sha)
+                or (row and (not envelope))
+            ):
+                raise ValueError("cancel_role_scope_mismatch")
+            c.execute(
+                "INSERT OR IGNORE INTO role_cancellations(task,envelope_sha)VALUES(?,?)",
+                (task, envelope_sha),
+            )
+        if row is None:
+            if envelope_sha is None:
+                raise ValueError("unknown_role_task")
+            result = {
+                "version": 1,
+                "task_id": task,
+                "role": "transcription",
+                "status": "cancelled",
+                "completed_chunks": 0,
+                "model_calls": 0,
+            }
+        elif row["status"] == "completed":
+            return json.loads(row["result"])
+        else:
+            result = self._cancelled_payload(c, task, row)
+            c.execute(
+                "UPDATE tasks SET cancelled=1,status='cancelled',result=?WHERE id=?",
+                (json.dumps(result), task),
+            )
         return result
 
     def _cancelled_payload(self, connection, task, row):

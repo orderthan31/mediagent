@@ -68,3 +68,10 @@ consumer does not reset the budget or recall a completed model. Held-release/ado
 integration remains an orchestrator follow-up, not an automatic old/DLQ task replay.
 Publisher confirm failure still prevents ACK. The new recovery/poison regression proof
 uses real LangGraph/SQLite with local mock MQ/store faults, not native fault injection.
+
+Cancel delivery journal admission follows scope authorization in the same role-local
+SQLite transaction as cancellation/tombstone adoption. Rejected scopes never reserve
+the accepted control identity or its retry budget. Accepted cancel deliveries use a
+separate scoped journal: old rejected rows remain immutable audit history and cannot
+poison a later valid control. Matching prior accepted/held journal state is carried
+forward without resetting its budget. No original journal or unknown record is deleted.
