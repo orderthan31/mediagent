@@ -795,3 +795,13 @@
 .workflow-state-legend [data-state='failed']:before {
   background: #dc2626;
 }
+
+.registration-body main > header {
+  position: static !important;
+  inset: auto !important;
+  z-index: auto !important;
+}
+.registration-overlay {
+  background: var(--g-surface, #fff);
+  color: var(--g-ink, #0f172a);
+}

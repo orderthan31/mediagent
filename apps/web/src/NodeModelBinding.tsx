@@ -26,6 +26,7 @@ export const NodeModelBinding = ({
   fallbacks?: ModelReference[];
   fallbackChanged?: (value: ModelReference[]) => void;
 }) => {
+  const [selectionNotice, setSelectionNotice] = useState('');
   const [search, setSearch] = useState('');
   const [registering, setRegistering] = useState(false);
   const [models, setModels] = useState<RegisteredModel[]>([]);
@@ -152,7 +153,13 @@ export const NodeModelBinding = ({
       </button>
       {registering &&
         createPortal(
-          <div className="registration-backdrop">
+          <div
+            className="registration-backdrop"
+            data-hangyeol=""
+            data-theme={
+              document.querySelector('[data-hangyeol]')?.getAttribute('data-theme') || 'light'
+            }
+          >
             <section
               className="registration-overlay"
               role="dialog"
@@ -198,6 +205,7 @@ export const NodeModelBinding = ({
           </div>,
           document.body,
         )}
+      {selectionNotice && <p role="status">{selectionNotice}</p>}
       {error && <p role="alert">{error} 현재 참조는 유지합니다.</p>}
       <label>
         호환 등록 모델

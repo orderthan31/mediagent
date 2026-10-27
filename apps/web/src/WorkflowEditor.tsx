@@ -256,6 +256,7 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
                       {(
                         {
                           max_model_calls: '최대 모델 호출 수',
+                          target_language: '번역 언어',
                           audio_filter: '음성 처리',
                           vad_mode: '음성 구간 처리',
                           subtitle_mode: '자막 표시',
