@@ -29,6 +29,10 @@ class ObjectStoreError(ValueError):
     pass
 
 
+class ObjectIntegrityError(ObjectStoreError):
+    """Verified remote bytes/descriptor disagree with the admitted reference."""
+
+
 class AttemptUnknown(ObjectStoreError):
     pass
 
@@ -108,12 +112,12 @@ class S3ContentStore(ContentStore):
             response = self.client.get_object(Bucket=self.bucket, Key=key)
             body = response["Body"]
             if not 0 < response["ContentLength"] <= limit:
-                raise ObjectStoreError("Remote size exceeded")
+                raise ObjectIntegrityError("Remote size exceeded")
             digest, size = hashlib.sha256(), 0
             while block := body.read(1024 * 1024):
                 size += len(block)
                 if size > limit:
-                    raise ObjectStoreError("Remote size exceeded")
+                    raise ObjectIntegrityError("Remote size exceeded")
                 digest.update(block)
                 destination.write(block)
             if size != response["ContentLength"]:
@@ -141,7 +145,7 @@ class S3ContentStore(ContentStore):
             head.get("ContentLength") != reference["bytes"]
             or head.get("Metadata", {}).get("sha256") != reference["sha256"]
         ):
-            raise ObjectStoreError("Original object descriptor mismatch")
+            raise ObjectIntegrityError("Original object descriptor mismatch")
         return reference
 
     def path(self, owner, reference):
@@ -154,7 +158,7 @@ class S3ContentStore(ContentStore):
         with tempfile.TemporaryFile(dir=self.owner_root(owner)) as stream:
             sha, size = self._download(key, reference["bytes"], stream)
             if sha != reference["sha256"] or size != reference["bytes"]:
-                raise ObjectStoreError("Remote content integrity mismatch")
+                raise ObjectIntegrityError("Remote content integrity mismatch")
             stream.seek(0)
             stored = ContentStore.put(
                 self,
@@ -165,7 +169,7 @@ class S3ContentStore(ContentStore):
             )
         # ContentStore.put validates its local path without calling this override.
         if any(stored[k] != reference[k] for k in ("sha256", "bytes", "type")):
-            raise ObjectStoreError("Remote content reference mismatch")
+            raise ObjectIntegrityError("Remote content reference mismatch")
         return ContentStore.path(self, owner, stored)
 
     def bind_ticket(self, owner, key, reference):

@@ -54,3 +54,17 @@ No public listener or Docker socket is needed by the role or the product API.
 Pending: orchestrator task mapping/adoption and live credential/tool grants; translation
 and vocal roles; review-OFF editing/save/reopen; same-site subtitle/video/auth-download
 E2E; actual provider quality only after separate approval. Preserve old/unknown records.
+
+## Artifact delivery failure boundary
+
+Pure command/cancel decoding and nested-field validation raise InvalidRoleDelivery;
+only that delivery is rejected. Storage/network exceptions are not invalid-envelope
+errors. Verified descriptor/digest disagreement has a distinct integrity error.
+`artifact_delivery_attempts` is a private transport retry budget (default 3), not a
+model-call budget. Retries reuse the immutable completed role result and deterministic
+CAS object. A role-local journal freezes the emitted result reference and attempt count.
+Exhaustion stays held with the original broker delivery unacknowledged; recreating the
+consumer does not reset the budget or recall a completed model. Held-release/adoption
+integration remains an orchestrator follow-up, not an automatic old/DLQ task replay.
+Publisher confirm failure still prevents ACK. The new recovery/poison regression proof
+uses real LangGraph/SQLite with local mock MQ/store faults, not native fault injection.
