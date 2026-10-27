@@ -22,7 +22,7 @@ from video_service.postgres.translation import TranslationRuntime
 db, admin, movie = _db_fixture, _admin_fixture, _movie_fixture
 
 
-def formal(db, admin, movie, tmp_path, store=None):
+def formal(db, admin, movie, tmp_path, store=None, prepare=True):
     credentials = CredentialStore(db, os.urandom(32))
     owner = admin[0]["id"]
     refs = []
@@ -92,6 +92,8 @@ def formal(db, admin, movie, tmp_path, store=None):
         request_id=uuid4().hex,
         options={"source_language": "en", "target_language": "ko"},
     )
+    if not prepare:
+        return runtime, owner, job
     admit(runtime, owner, job["id"])
     for _ in range(2):
         command = runtime.claim_next(owner, job["id"])

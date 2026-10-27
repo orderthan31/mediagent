@@ -89,6 +89,18 @@ def runtime_components(
             )
             runtime.policy_sha256 = policy.sha256
             setattr(factory, role + "_runtime", runtime)
+    role_keys = {"model_role_broker_config_file", "model_role_result_config_file"}
+    if role_keys & set(config):
+        if not enable_registered or not role_keys <= set(config):
+            raise ValueError("independent_role_requires_bound_registered_transports")
+        from video_service.transport_files import model_role_broker_factory
+
+        factory.model_role_factory = model_role_broker_factory(
+            config["model_role_broker_config_file"]
+        )
+        factory.model_role_result_store = object_store(
+            config["model_role_result_config_file"]
+        )
     return store, credentials, factory
 
 
@@ -104,15 +116,43 @@ def main(argv=None):
             "declare-registered-topology",
             "consume-registered-models",
             "initialize-objects",
+            "consume-model-role-results",
+            "enroll-model-role",
+            "model-role-status",
         ),
     )
     parser.add_argument("--bootstrap-file", required=True)
+    parser.add_argument("--owner")
+    parser.add_argument("--job")
+    parser.add_argument("--revision", type=int)
+    parser.add_argument("--request-id")
     parser.add_argument("--enable-broker", action="store_true")
     parser.add_argument("--enable-registered-models", action="store_true")
     parser.add_argument("--allow-controlled-models", action="store_true")
     parser.add_argument("--apply-migrations", action="store_true")
     parser.add_argument("--initialize-empty-bucket", action="store_true")
     args = parser.parse_args(argv)
+    role_modes = {
+        "consume-model-role-results",
+        "enroll-model-role",
+        "model-role-status",
+    }
+    if args.mode in role_modes and (
+        not args.enable_broker or not args.enable_registered_models
+    ):
+        parser.error(
+            "Independent roles require the explicitly bound broker and registered model configuration"
+        )
+    if args.mode in {"enroll-model-role", "model-role-status"} and (
+        not args.owner or not args.job
+    ):
+        parser.error(
+            "Exact --owner and --job are required; historical scanning is not supported"
+        )
+    if args.mode == "enroll-model-role" and (
+        args.revision is None or not args.request_id
+    ):
+        parser.error("Exact --revision and --request-id are required")
     if args.mode == "migrate" and not args.apply_migrations:
         parser.error("Migrations require --apply-migrations and a verified backup")
     if (
@@ -166,6 +206,35 @@ def main(argv=None):
             store.client.create_bucket(Bucket=store.bucket)
             store.client.head_bucket(Bucket=store.bucket)
             print('{"status":"ok","bucket_initialized":true}')
+            return 0
+        if args.mode in role_modes:
+            from video_service.model_role_coordinator import ModelRoleCoordinator
+            from video_service.postgres.execution import Execution
+
+            role_runtime = Execution(
+                database,
+                store,
+                transcription_runtime=factory.transcription_runtime,
+                translation_runtime=factory.translation_runtime,
+                vocalization_runtime=factory.vocalization_runtime,
+            )
+            coordinator = ModelRoleCoordinator(role_runtime, factory)
+            if args.mode == "enroll-model-role":
+                print(
+                    json.dumps(
+                        coordinator.enroll_job(
+                            args.owner, args.job, args.revision, args.request_id
+                        )
+                    )
+                )
+            elif args.mode == "model-role-status":
+                print(json.dumps(coordinator.inspect(args.owner, args.job)))
+            else:
+                stop = threading.Event()
+                for sig in (signal.SIGINT, signal.SIGTERM):
+                    signal.signal(sig, lambda *_: stop.set())
+                with factory.model_role_factory() as client:
+                    client.serve("result", coordinator.receive, stop)
             return 0
         engine_factory = getattr(factory, "engine_factory", None)
         selected_factory = factory

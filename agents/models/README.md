@@ -94,9 +94,11 @@ scoped service credential, never the provider key or global database access.
 Results are verified against the mapping and actual TLS object bytes, including
 reprojection of the frozen timeline; only the application calls accept/claim_next.
 This first mapping supports one pinned candidate and explicitly rejects a configured
-fallback chain (never truncates it). Operator/API auto-enrollment, multiple-candidate
-role transitions, user-facing held recovery, normal-site activation and whole E2E
-remain separate unfinished connections. Native test and installed-byte evidence
+fallback chain (never truncates it). Fresh-job API/operator enrollment, scoped
+cancel publication/ACK and application result-delivery recovery are now connected
+in development source; no existing job is automatically opted in. Multiple-candidate
+role transitions, worker-side artifact-exhaustion recovery without a received result,
+normal-site activation and whole E2E remain unfinished connections. Native test and installed-byte evidence
 must be reported separately from these source-level contracts.
 
 
@@ -118,3 +120,36 @@ updates only a still-sending projection, never downgrades already accepted resul
 Failed/ambiguous sends retain sending/unknown history and cannot automatically
 republish. This ordering is a source-level disposable-PG/local-delivery contract
 until separately installed and exercised; it is not native MQ race proof.
+
+
+### Explicit user/operator connection (development source, not installed)
+- Apply migrations027/028 only through an explicit approved deployment; startup
+  does not migrate, scan jobs, replay DLQ or activate roles.
+- A configured application factory needs both `model_role_broker_config_file` and
+  `model_role_result_config_file`, alongside the already-bound registered setup.
+  The first uses the application command/cancel-write/result-read principal; the
+  second resolves the role-output store. Never use these as worker credentials.
+- The authenticated owner may POST `.../jobs/{id}/model-role/enrollment` with its
+  current draft revision and request ID. Only a fresh draft with no attempts is
+  eligible. The snapshot/model/input/budget stays immutable; execution still needs
+  its own plan/confirmation/admission. BrokerController routes only these explicitly
+  enrolled transcription attempts. The result operator owns accept/next dispatch.
+- Official operator modes are `enroll-model-role` (exact owner/job/revision/request),
+  `model-role-status` (exact owner/job), and `consume-model-role-results`. These are
+  separate from the old registered-model execution worker and have no queue scan.
+- Product cancel and its scoped role-control intent commit atomically. Control send
+  intents are durable; sent/unknown cannot automatically resend. ACK is bound to
+  the exact role envelope. In-flight native/deferred attempts prevent claiming that
+  the whole job drained. Lock timeout returns retryable409/cancel_applied=false and
+  leaves the job generation/revision and control journal unchanged.
+- The user status view shows real reservations, reported role call counts, held
+  causes and controller delivery state separately. Publication is not proof of an
+  executing role. Model outcome_unknown provides no rerun action.
+- A scoped result receipt which the application has already received may be held
+  on artifact GET/adoption failure. Only explicit `result-delivery` recovery retries
+  that same immutable receipt; it never starts a worker/model, resets attempts or
+  changes prior uncertainty. Recovery is request-ID/CAS-bound and transport-budgeted.
+  Worker artifact PUT exhaustion with no received result is not repaired by this path.
+- The optional job panel shows this state and its artifact-only action. The panel's
+  PC/mobile contract fixture is separate from actual PG/authenticated API/TLS S3
+  tests. Neither proves operating-site deployment or native MQ races.

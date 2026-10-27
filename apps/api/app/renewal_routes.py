@@ -76,6 +76,15 @@ class Revision(Body):
     revision: StrictInt = Field(ge=1)
 
 
+class RoleResultRecovery(Revision):
+    task_id: str = Field(pattern="^[a-f0-9]{32}$")
+    request_id: str = Field(min_length=1, max_length=100)
+
+
+class RoleEnrollment(Revision):
+    request_id: str = Field(min_length=1, max_length=100)
+
+
 class Review(Revision):
     draft: dict
 
@@ -295,7 +304,14 @@ def mount_runtime(
 
     @app.get("/api/work-entry/catalog")
     def job_catalog(owned=owner_dependency):
-        return runtime.catalog()
+        return {
+            **runtime.catalog(),
+            "independent_model_roles": bool(
+                local_execution
+                and broker_factory is not None
+                and getattr(broker_factory, "model_role_factory", None) is not None
+            ),
+        }
 
     @app.get("/api/work-entry/workflows/{identity}")
     def job_graph(identity: str, revision: int = Query(ge=1), owned=owner_dependency):
@@ -457,6 +473,33 @@ def mount_runtime(
     def execution(identity: str, owned=owner_dependency):
         return runtime.shared_get(owned, identity)
 
+    def model_roles():
+        if (
+            not local_execution
+            or broker_factory is None
+            or getattr(broker_factory, "model_role_factory", None) is None
+        ):
+            raise HTTPException(503, "independent_role_transport_unavailable")
+        from video_service.model_role_coordinator import ModelRoleCoordinator
+
+        return ModelRoleCoordinator(runtime, broker_factory)
+
+    @app.post("/api/renewal/jobs/{identity}/model-role/enrollment")
+    def enroll_model_role(identity: str, body: RoleEnrollment, owned=owner_dependency):
+        return model_roles().enroll_job(owned, identity, body.revision, body.request_id)
+
+    @app.post("/api/renewal/jobs/{identity}/model-role/result-delivery")
+    def recover_role_result(
+        identity: str, body: RoleResultRecovery, owned=owner_dependency
+    ):
+        return model_roles().recover_result(
+            owned, identity, body.task_id, body.revision, body.request_id
+        )
+
+    @app.get("/api/renewal/jobs/{identity}/model-role")
+    def inspect_model_role(identity: str, owned=owner_dependency):
+        return model_roles().inspect_shared(owned, identity)
+
     @app.get("/api/renewal/jobs/{identity}/plan")
     def plan(identity: str, owned=owner_dependency):
         return runtime.plan(owned, identity)
@@ -494,7 +537,29 @@ def mount_runtime(
 
     @app.post("/api/renewal/jobs/{identity}/cancel")
     def cancel(identity: str, body: Revision, owned=owner_dependency):
-        return runtime.cancel(owned, identity, body.revision)
+        import psycopg
+
+        try:
+            state = runtime.cancel(owned, identity, body.revision)
+        except (psycopg.errors.LockNotAvailable, psycopg.errors.QueryCanceled):
+            return JSONResponse(
+                {
+                    "code": "cancel_admission_busy",
+                    "detail": "현재 모델 호출과 취소 순서를 확정하지 못했습니다. 취소는 반영되지 않았습니다. 상태를 확인한 뒤 다시 요청하세요.",
+                    "retryable": True,
+                    "cancel_applied": False,
+                },
+                status_code=409,
+            )
+        if (
+            broker_factory is not None
+            and getattr(broker_factory, "model_role_factory", None) is not None
+        ):
+            state = {
+                **state,
+                "cancellation": model_roles().publish_cancels(owned, identity),
+            }
+        return state
 
     @app.post("/api/renewal/jobs/{identity}/recover", status_code=201)
     def recover(identity: str, body: Recovery, owned=owner_dependency):

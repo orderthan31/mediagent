@@ -6,6 +6,7 @@ import { dispatchLabel } from './dispatch-status';
 import { processingLabel, type ProcessingProjection } from './processing-review-state';
 import { JobProcessingReview } from './JobProcessingReview';
 import { ProjectionRecoveryPanel } from './ProjectionRecoveryPanel';
+import { ModelRolePanel } from './ModelRolePanel';
 import { SubtitleTrackReview, SubtitleOutputs } from './SubtitleTracksPanel';
 import { PageTitle } from './PageTitle';
 import { LoadingSkeleton } from './LoadingSkeleton';
@@ -20,8 +21,9 @@ import './renewal-runtime.css';
 
 type Reference = { storage_key: string; sha256: string; bytes: number; type: string };
 type TranslationTrace = {
+  model?: { model_id: string; revision: number };
   selected?: { remote_model: string } | null;
-  attempts: {
+  attempts?: {
     index: number;
     remote_model: string;
     protocol: string;
@@ -133,6 +135,7 @@ const labels: Record<string, string> = {
 export const RenewalJobDetail = ({ id }: { id: string }) => {
   const [job, setJob] = useState<State | null>(null);
   const [catalog, setCatalog] = useState<CanvasSpec[]>([]);
+  const [modelRolesEnabled, setModelRolesEnabled] = useState(false);
   const [selected, setSelected] = useState('');
   const [plan, setPlan] = useState<Plan | null>(null);
   const [consent, setConsent] = useState<string | null>(null);
@@ -203,11 +206,15 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
       try {
         const [next, specs] = await Promise.all([
           request<State>(base, { signal: controller.signal }),
-          request<{ nodes: CanvasSpec[] }>('/work-entry/catalog', { signal: controller.signal }),
+          request<{ nodes: CanvasSpec[]; independent_model_roles?: boolean }>(
+            '/work-entry/catalog',
+            { signal: controller.signal },
+          ),
         ]);
         if (!controller.signal.aborted) {
           setJob(next);
           setCatalog(specs.nodes);
+          setModelRolesEnabled(specs.independent_model_roles === true);
         }
       } catch (reason) {
         if (!controller.signal.aborted) {
@@ -287,6 +294,21 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
               원 작업 <a href={'#/jobs/' + job.parent_id}>복구 출처 열기</a> · 원 기록은 변경하지
               않습니다.
             </p>
+          )}
+          {modelRolesEnabled && (
+            <ModelRolePanel
+              key={id}
+              jobId={id}
+              revision={job.revision}
+              status={job.status}
+              canManage={canManage}
+              hasRuns={job.runs.length > 0}
+              onChanged={async () => {
+                setPlan(null);
+                setConsent(null);
+                await reload();
+              }}
+            />
           )}
           {job.processing_review && (
             <JobProcessingReview jobId={id} onChanged={() => void reload()} />
@@ -390,11 +412,16 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
                     {translation && (
                       <section aria-label={`${traceLabel} 실행 기록`}>
                         <h4>{traceLabel} 실행 기록</h4>
-                        <p>사용 모델: {translation.selected?.remote_model || '없음'}</p>
+                        <p>
+                          사용 모델:{' '}
+                          {translation.selected?.remote_model ||
+                            translation.model?.model_id ||
+                            '확인 기록 없음'}
+                        </p>
                         <details>
                           <summary>모델 호출 상세</summary>
                           <ol>
-                            {translation.attempts.map((attempt) => (
+                            {(translation.attempts || []).map((attempt) => (
                               <li key={attempt.index}>
                                 {attempt.remote_model} · {attempt.protocol} · 모델 개정{' '}
                                 {attempt.revision} / 연결 개정 {attempt.connection_revision} ·{' '}
@@ -684,6 +711,7 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
                   onClick={() =>
                     void (async () => {
                       setCancelBusy(true);
+                      setError('');
                       try {
                         const current = await reload();
                         if (

@@ -16,24 +16,33 @@ class BrokerController:
         self.runtime = runtime
         # This rollout enrolls only new attempts for the registered encode group.
         # Existing attempts and unregistered/other-role transports stay unchanged.
-        self.runtime.defer_broker_agents = frozenset({'encode'})
+        self.runtime.defer_broker_agents = frozenset({"encode"})
         self.client_factory = client_factory
         self.engine_client_factory = getattr(client_factory, "engine_factory", None)
-        self.registered_client_factory = getattr(client_factory, 'registered_factory', None)
+        self.registered_client_factory = getattr(
+            client_factory, "registered_factory", None
+        )
         if self.registered_client_factory is not None:
-            for role in ('translation', 'transcription'):
-                configured = getattr(runtime, role + '_runtime')
-                if (configured is None or configured is not getattr(client_factory, role + '_runtime', None)
-                        or configured.credentials.database is not runtime.database
-                        or not getattr(configured, 'policy_sha256', None)
-                        or configured.policy_sha256 != getattr(client_factory, 'registered_policy_sha256', None)):
-                    raise ValueError('registered_broker_runtime_binding_mismatch')
+            for role in ("translation", "transcription"):
+                configured = getattr(runtime, role + "_runtime")
+                if (
+                    configured is None
+                    or configured
+                    is not getattr(client_factory, role + "_runtime", None)
+                    or configured.credentials.database is not runtime.database
+                    or not getattr(configured, "policy_sha256", None)
+                    or configured.policy_sha256
+                    != getattr(client_factory, "registered_policy_sha256", None)
+                ):
+                    raise ValueError("registered_broker_runtime_binding_mismatch")
         self.transport = DurableTransport(runtime)
 
     def publish_exact(self, owner, job_id, attempt_id):
         def send(message_id, message_type, body):
             from .engine_protocol import (
                 COMMAND as ENGINE_COMMAND,
+            )
+            from .engine_protocol import (
                 envelope as engine_envelope,
             )
 
@@ -41,10 +50,11 @@ class BrokerController:
                 if self.engine_client_factory is None:
                     raise BrokerError("engine_transport_not_configured")
                 factory, encode = self.engine_client_factory, engine_envelope
-            elif message_type == 'registered.command.v1':
+            elif message_type == "registered.command.v1":
                 from .registered_broker import reference
+
                 if self.registered_client_factory is None:
-                    raise BrokerError('registered_transport_not_configured')
+                    raise BrokerError("registered_transport_not_configured")
                 factory, encode = self.registered_client_factory, reference
             elif message_type == "agent.command.v1":
                 factory, encode = self.client_factory, envelope
@@ -58,6 +68,18 @@ class BrokerController:
             with factory() as client:
                 return client.publish(encode(owner, command))
 
+        from .model_role_coordinator import ModelRoleCoordinator
+
+        if ModelRoleCoordinator.enrolled(self.runtime, owner, job_id):
+            with self.runtime.database.connection() as db:
+                run = db.execute(
+                    "SELECT request FROM node_runs WHERE owner_id=%s AND job_id=%s AND id=%s",
+                    (owner, job_id, attempt_id),
+                ).fetchone()
+            if run and run["request"].get("transcription"):
+                return ModelRoleCoordinator(self.runtime, self.client_factory).publish(
+                    owner, run["request"]
+                )
         return self.transport.publish_exact(owner, job_id, attempt_id, send)
 
     def dispatch(self, owner, job_id):
@@ -66,12 +88,15 @@ class BrokerController:
         self.runtime.claim_next(owner, job_id)
         state = self.runtime.get(owner, job_id)
         for run in state["runs"]:
-            if run["status"] == "running" or (run["status"] == "waiting" and run.get("dispatch")):
+            if run["status"] == "running" or (
+                run["status"] == "waiting" and run.get("dispatch")
+            ):
                 self.publish_exact(owner, job_id, run["id"])
         return self.runtime.get(owner, job_id)
 
     def receive(self, delivery):
-        from .engine_protocol import RESULT as ENGINE_RESULT, decode as engine_decode
+        from .engine_protocol import RESULT as ENGINE_RESULT
+        from .engine_protocol import decode as engine_decode
 
         decoder = engine_decode if delivery.message_type == ENGINE_RESULT else decode
         value = decoder(delivery, result=True)

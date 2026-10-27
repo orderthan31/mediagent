@@ -18,6 +18,8 @@ FIELDS = {
     "secure_cookies",
 }
 OPTIONAL_FIELDS = {
+    "model_role_broker_config_file",
+    "model_role_result_config_file",
     "registered_model_config_file",
     "registered_broker_config_file",
     "credential_key_file",

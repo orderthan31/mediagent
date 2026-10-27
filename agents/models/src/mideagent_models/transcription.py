@@ -343,6 +343,17 @@ class TranscriptionAgent:
             ),
             "model_calls": self.state.task(s["task"]["task_id"])["calls"],
         }
+        if status == "held":
+            if any(c and c["status"] == "unknown" for c in chunks):
+                result["held_reason"] = "model_reply_unknown"
+            elif len(chunks) > s["task"]["max_calls"]:
+                result["held_reason"] = "call_budget_below_required_chunks"
+            elif any(
+                c and c.get("error") == "invalid_timed_transcription" for c in chunks
+            ):
+                result["held_reason"] = "invalid_timed_transcription"
+            else:
+                result["held_reason"] = "role_checkpoint_held"
         if segments is not None:
             result["segments"] = segments
         if projection_trace is not None:
