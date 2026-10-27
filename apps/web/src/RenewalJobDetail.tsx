@@ -247,7 +247,8 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
               새로고침
             </Button>
           </div>
-          <section className="shared-job-custody" aria-label="자료와 실행 기록">
+          <details className="shared-job-custody" aria-label="자료와 실행 기록">
+            <summary>자료·실행 기록</summary>
             {!canManage && <strong>공용 읽기 전용</strong>}
             <dl>
               <div>
@@ -259,7 +260,7 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
                 <dd>{job.executed_by || '기록 없음'}</dd>
               </div>
             </dl>
-          </section>
+          </details>
           {job.artifact_manifest && (
             <section className="shared-job-custody" aria-label="티켓별 산출물">
               <strong>작업 파일 {job.artifact_manifest.entry_count}개</strong>
@@ -343,7 +344,13 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
                     </p>
                     {Object.entries(run?.inputs || {}).map(([port, ref]) => (
                       <section className="execution-artifact" key={port}>
-                        <h4>고정 입력 · {port}</h4>
+                        <h4>
+                          {ref.type === 'video'
+                            ? '입력 영상'
+                            : ref.type === 'audio'
+                              ? '입력 음성'
+                              : '입력 자료'}
+                        </h4>
                         {ref.type === 'video' && (
                           <video
                             controls
@@ -416,7 +423,11 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
                     {Object.entries(outputs).map(([port, ref]) => (
                       <section className="execution-artifact" key={port}>
                         <h4>
-                          {port} · {ref.type}
+                          {ref.type === 'video'
+                            ? '결과 영상'
+                            : ref.type === 'audio'
+                              ? '결과 음성'
+                              : '결과 파일'}
                         </h4>
                         {ref.type === 'video' &&
                           run?.result?.previews?.[port]?.status === 'ready' && (
@@ -461,9 +472,12 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
                             </a>
                           </>
                         )}
-                        <p>
-                          {ref.bytes.toLocaleString()} bytes · SHA-256 {ref.sha256}
-                        </p>
+                        <details>
+                          <summary>파일 상세</summary>
+                          <p>
+                            {ref.bytes.toLocaleString()} bytes · SHA-256 {ref.sha256}
+                          </p>
+                        </details>
                       </section>
                     ))}
                     {review?.contract.kind === 'subtitle_tracks_v1' && (

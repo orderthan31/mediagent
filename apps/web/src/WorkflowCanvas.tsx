@@ -722,11 +722,13 @@ export const WorkflowCanvas = ({
     if (!panelOpen) {
       return;
     }
-    const mobile = matchMedia('(max-width: 55.999rem)').matches;
+    const media = matchMedia('(max-width: 55.999rem)');
     const oldOverflow = document.body.style.overflow;
-    if (mobile) {
-      document.body.style.overflow = 'hidden';
-    }
+    const lockBody = () => {
+      document.body.style.overflow = media.matches ? 'hidden' : oldOverflow;
+    };
+    lockBody();
+    media.addEventListener('change', lockBody);
     if (!panelHistory.current) {
       window.history.pushState(
         { ...window.history.state, workflowPanel: marker },
@@ -759,6 +761,7 @@ export const WorkflowCanvas = ({
     visualViewport?.addEventListener('resize', keyboard);
     visualViewport?.addEventListener('scroll', keyboard);
     return () => {
+      media.removeEventListener('change', lockBody);
       document.body.style.overflow = oldOverflow;
       window.removeEventListener('popstate', back);
       visualViewport?.removeEventListener('resize', keyboard);

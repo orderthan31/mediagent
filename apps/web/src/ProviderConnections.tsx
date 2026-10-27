@@ -97,7 +97,9 @@ export const ProviderConnections = ({
       if (onSaved) {
         const list = await request<{ connections: ServingConnection[] }>(connectionsEndpoint);
         const current = list.connections.find((item) => item.id === id);
-        if (!current) {throw new Error('저장한 공급자를 다시 읽지 못했습니다.');}
+        if (!current) {
+          throw new Error('저장한 공급자를 다시 읽지 못했습니다.');
+        }
         await onSaved(current);
       } else {
         location.hash = '/serving/connections/' + id;
@@ -261,7 +263,9 @@ export const ProviderConnections = ({
                 onChange={(event) => setSecret(event.target.value)}
                 placeholder={
                   renewalBackend
-                    ? '변경할 때만 입력 · DB 암호화 저장, 다시 표시하지 않음'
+                    ? identity
+                      ? '변경할 때만 새 API 키 입력'
+                      : '공급자에서 발급받은 API 키 입력'
                     : '목업 · 입력 불가'
                 }
                 autoComplete="off"
