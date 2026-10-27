@@ -36,12 +36,14 @@ export const ModelRegistryPage = ({
   query = '',
   onRegistered,
   onCancel,
+  preferredRole,
 }: {
   form?: boolean;
   identity?: string;
   query?: string;
   onRegistered?: (model: RegisteredModel) => void;
   onCancel?: () => void;
+  preferredRole?: string;
 }) => {
   const [addingConnection, setAddingConnection] = useState(false);
   const [models, setModels] = useState<RegisteredModel[]>([]);
@@ -204,7 +206,7 @@ export const ModelRegistryPage = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           revision: editing?.revision || 0,
-          name,
+          name: name.trim() || model,
           provider,
           model,
           ...(catalogToken && frontier ? { discovery_token: catalogToken } : {}),
@@ -394,15 +396,18 @@ export const ModelRegistryPage = ({
           <section className="ticket-panel page-form">
             <fieldset disabled={busy || loading || (!!identity && !editing) || !!listError}>
               <div className="serving-grid">
-                <label>
-                  등록 이름
-                  <Input
-                    aria-label="등록 이름"
-                    value={name}
-                    maxLength={80}
-                    onChange={(e) => setName(e.target.value)}
-                  />
-                </label>
+                <details>
+                  <summary>표시 이름 (선택)</summary>
+                  <label>
+                    등록 이름
+                    <Input
+                      aria-label="등록 이름"
+                      value={name}
+                      maxLength={80}
+                      onChange={(e) => setName(e.target.value)}
+                    />
+                  </label>
+                </details>
                 <label>
                   {frontendOnly || renewalBackend ? '공급자 연결' : '공급자'}
                   {frontendOnly || renewalBackend ? (
@@ -492,6 +497,11 @@ export const ModelRegistryPage = ({
                   connection={selectedConnection}
                   revision={connectionRevision}
                   model={model}
+                  initialPurpose={
+                    preferredRole === 'translation' || preferredRole === 'transcription'
+                      ? preferredRole
+                      : 'all'
+                  }
                   onPick={pickCatalog}
                   onQueryStart={(binding) => {
                     if (sameBinding(binding)) {
@@ -585,7 +595,6 @@ export const ModelRegistryPage = ({
                   !!listError ||
                   !catalogAllowsSave ||
                   (!!identity && !editing) ||
-                  !name.trim() ||
                   !model.trim() ||
                   (typedRegistry
                     ? !profile.model_types.length ||

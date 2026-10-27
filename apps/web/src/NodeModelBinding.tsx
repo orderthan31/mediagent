@@ -193,7 +193,7 @@ export const NodeModelBinding = ({
                       changed({ model_id: row.id, revision: row.current_revision });
                       closeRegistration();
                     } else {
-                      setError(
+                      setSelectionNotice(
                         '등록한 모델은 이 노드의 용도를 지원하지 않습니다. 모델 선택은 그대로 유지했습니다.',
                       );
                       closeRegistration();

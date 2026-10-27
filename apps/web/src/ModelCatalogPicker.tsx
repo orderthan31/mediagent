@@ -37,7 +37,9 @@ export const ModelCatalogPicker = ({
   model,
   onPick,
   onQueryStart,
+  initialPurpose = 'all',
 }: {
+  initialPurpose?: string;
   connection: ServingConnection;
   revision: number;
   model: string;
@@ -45,7 +47,8 @@ export const ModelCatalogPicker = ({
   onQueryStart: (binding: CatalogBinding) => void;
 }) => {
   const [catalog, setCatalog] = useState<Catalog | null>(null);
-  const [purpose, setPurpose] = useState('all');
+  const [purpose, setPurpose] = useState(initialPurpose);
+  const [search, setSearch] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const sequence = useRef(0);
@@ -98,7 +101,12 @@ export const ModelCatalogPicker = ({
   const candidates =
     catalog?.models
       .map((item) => selectCatalogPurpose(item, purpose))
-      .filter((item) => matches(item, purpose)) || [];
+      .filter((item) => matches(item, purpose))
+      .filter(
+        (item) =>
+          item.id === model ||
+          `${item.id} ${item.label}`.toLocaleLowerCase().includes(search.toLocaleLowerCase()),
+      ) || [];
   const noKey = connection.credential !== 'reference_set';
   const legacy = connection.address_mode === 'legacy_preserved';
   useEffect(() => {
@@ -111,9 +119,7 @@ export const ModelCatalogPicker = ({
   }, []);
   return (
     <section className="serving-help model-catalog-picker" aria-label="공식 모델 조회">
-      <p>
-        저장된 연결의 키로 서버에서 공식 모델 목록만 조회합니다. 생성·전사·번역은 실행하지 않습니다.
-      </p>
+      <p>모델 목록만 조회합니다. 생성·전사·번역은 실행하지 않습니다.</p>
       {noKey && (
         <p role="status">저장된 API 키가 없습니다. 공급자 설정에서 키를 먼저 등록하세요.</p>
       )}
@@ -130,11 +136,7 @@ export const ModelCatalogPicker = ({
         {busy ? '공식 목록 조회 중' : '공식 모델 목록 조회'}
       </Button>
       {error && <p role="alert">목록 조회 실패 · {error}</p>}
-      {catalog && (
-        <p role="status">
-          공식 목록 {catalog.models.length}개 조회됨 · 실제 모델 실행·품질은 미검증
-        </p>
-      )}
+      {catalog && <p role="status">모델 {catalog.models.length}개를 불러왔습니다.</p>}
       <label>
         모델 용도
         <select
@@ -153,6 +155,16 @@ export const ModelCatalogPicker = ({
           <option value="transcription">전사 · 시간정보 어댑터 후보</option>
           <option value="registration">분류 확인 · 등록용 메타데이터</option>
         </select>
+      </label>
+      <label>
+        모델 검색
+        <input
+          type="search"
+          aria-label="공식 모델 검색"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="이름 또는 모델 ID"
+        />
       </label>
       <label>
         공식 모델
@@ -179,7 +191,12 @@ export const ModelCatalogPicker = ({
       {catalog && !candidates.length && (
         <p>이 용도에 확인된 모델이 없습니다. 목록 조회 성공을 실행 지원으로 간주하지 않습니다.</p>
       )}
-      {selected && <p>{selected.reason}</p>}
+      {selected && (
+        <details>
+          <summary>모델 확인 정보</summary>
+          <p>{selected.reason}</p>
+        </details>
+      )}
     </section>
   );
 };
