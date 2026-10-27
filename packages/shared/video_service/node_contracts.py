@@ -315,6 +315,10 @@ NODES.extend(
     ]
 )
 
+for _subtitle_stage in NODES:
+    if _subtitle_stage["id"] in {"subtitle_outputs", "subtitle_track"}:
+        _subtitle_stage["options"]["review_policy"] = ["require_confirmed", "off"]
+
 for _registered_stage in NODES:
     if _registered_stage["id"] in {"transcribe", "translate"}:
         _registered_stage["options"]["model_source"] = ["registered_api"]

@@ -14,7 +14,14 @@ def runtime_components(
     enable_broker=False,
     enable_registered=False,
     allow_controlled_models=False,
+    enable_nonpaid=False,
 ):
+    if enable_nonpaid and (
+        not enable_registered or "nonpaid_model_config_file" not in config
+    ):
+        raise ValueError("nonpaid_requires_explicit_policy_and_registered_runtime")
+    if "nonpaid_model_config_file" in config and not enable_nonpaid:
+        raise ValueError("nonpaid_enablement_required")
     if allow_controlled_models and not enable_registered:
         raise ValueError("controlled_models_require_registered_enablement")
     if enable_registered:
@@ -72,6 +79,10 @@ def runtime_components(
             config["registered_model_config_file"],
             allow_controlled=allow_controlled_models,
         )
+        if enable_nonpaid:
+            from video_service.registered_transport import WithNonpaidPolicy
+
+            policy = WithNonpaidPolicy(policy, config["nonpaid_model_config_file"])
         factory.registered_factory = registered_broker_factory(
             config["registered_broker_config_file"]
         )
@@ -87,6 +98,8 @@ def runtime_components(
                 approved_origins=policy.approved_origins,
                 mode=policy.mode,
             )
+            if enable_nonpaid:
+                runtime.nonpaid_origins = policy.nonpaid.approved_origins
             runtime.policy_sha256 = policy.sha256
             setattr(factory, role + "_runtime", runtime)
     role_keys = {"model_role_broker_config_file", "model_role_result_config_file"}
@@ -129,6 +142,7 @@ def main(argv=None):
     parser.add_argument("--enable-broker", action="store_true")
     parser.add_argument("--enable-registered-models", action="store_true")
     parser.add_argument("--allow-controlled-models", action="store_true")
+    parser.add_argument("--enable-nonpaid-models", action="store_true")
     parser.add_argument("--apply-migrations", action="store_true")
     parser.add_argument("--initialize-empty-bucket", action="store_true")
     args = parser.parse_args(argv)
@@ -198,6 +212,7 @@ def main(argv=None):
             enable_broker=args.enable_broker,
             enable_registered=args.enable_registered_models,
             allow_controlled_models=args.allow_controlled_models,
+            enable_nonpaid=args.enable_nonpaid_models,
         )
         if args.mode == "initialize-objects":
             if getattr(store, "storage_kind", None) != "s3":

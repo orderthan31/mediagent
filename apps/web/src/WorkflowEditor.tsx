@@ -17,7 +17,11 @@ import {
   controlFieldLabels,
   controlValueLabels,
 } from './workflow-controls';
-import { createLegacyWorkflow, createSubtitleReviewWorkflow } from './workflow-templates';
+import {
+  createLegacyWorkflow,
+  createSubtitleReviewWorkflow,
+  withoutHumanReview,
+} from './workflow-templates';
 import './workflow-editor.css';
 
 type Definition = CanvasDefinition & { catalog_version: number };
@@ -426,6 +430,27 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
           >
             기존 전체 작업 만들기
           </Button>
+        )}
+        <Button
+          variant="secondary"
+          disabled={!!busy || !doc.nodes.some((node) => node.type === 'review')}
+          onClick={() => {
+            try {
+              change(withoutHumanReview(doc));
+              setSelected('');
+              setError('');
+              setTemplateNotice(
+                '검수 OFF · 검수 대기 없이 이어집니다. 모델·언어별 산출물은 유지됩니다. 저장 후 새 작업부터 적용합니다.',
+              );
+            } catch (reason) {
+              setError(reason instanceof Error ? reason.message : '검수 연결을 확인하세요.');
+            }
+          }}
+        >
+          사람 검수 끄기
+        </Button>
+        {!doc.nodes.some((node) => node.type === 'review') && doc.nodes.length > 0 && (
+          <span role="status">검수 OFF</span>
         )}
         {doc.revision > 0 && (
           <Button variant="quiet" onClick={() => setHistory((previous) => !previous)}>

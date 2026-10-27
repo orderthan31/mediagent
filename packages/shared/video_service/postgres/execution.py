@@ -847,19 +847,17 @@ class Execution(Intake):
                 r["node_id"] == n["id"] and r["status"] == "completed" for r in runs
             )
         ]
-        external_roles = (
-            ["translation"]
-            if pending
-            and self.translation_runtime
-            and self.translation_runtime.mode == "external"
-            else []
-        ) + (
-            ["transcription"]
-            if pending_asr
-            and self.transcription_runtime
-            and self.transcription_runtime.mode == "external"
-            else []
-        )
+        external_roles = []
+        for role, nodes, executor in [
+            ("translation", pending, self.translation_runtime),
+            ("transcription", pending_asr, self.transcription_runtime),
+        ]:
+            if executor and any(
+                executor.requires_paid([pin, *pin.get("fallbacks", [])])
+                for node in nodes
+                for pin in [job["snapshot"]["model_bindings"][node["id"]]]
+            ):
+                external_roles.append(role)
         pending_vocal = [
             n
             for n in definition["nodes"]
@@ -872,7 +870,13 @@ class Execution(Intake):
         if (
             pending_vocal
             and self.vocalization_runtime
-            and self.vocalization_runtime.mode == "external"
+            and any(
+                self.vocalization_runtime.requires_paid(
+                    [pin, *pin.get("fallbacks", [])]
+                )
+                for node in pending_vocal
+                for pin in [job["snapshot"]["model_bindings"][node["id"]]]
+            )
         ):
             external_roles.append("vocalization")
         external = bool(external_roles)

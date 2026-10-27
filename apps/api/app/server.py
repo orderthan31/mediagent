@@ -18,6 +18,7 @@ FIELDS = {
     "secure_cookies",
 }
 OPTIONAL_FIELDS = {
+    "nonpaid_model_config_file",
     "model_role_broker_config_file",
     "model_role_result_config_file",
     "registered_model_config_file",
@@ -105,6 +106,7 @@ def main():
         help="Connect the fixed-host mailbox/recovery API only; never enroll or start targets",
     )
     parser.add_argument("--enable-full-previews", action="store_true")
+    parser.add_argument("--enable-nonpaid-models", action="store_true")
     args = parser.parse_args()
     if args.enable_registered_models and not args.enable_broker:
         parser.error("Registered models require --enable-broker")
@@ -147,6 +149,7 @@ def main():
                 enable_broker=args.enable_broker,
                 enable_registered=args.enable_registered_models,
                 allow_controlled_models=args.allow_controlled_models,
+                enable_nonpaid=args.enable_nonpaid_models,
             )
         except Exception:  # noqa: BLE001 -- private bootstrap values must never reach diagnostics
             parser.error(

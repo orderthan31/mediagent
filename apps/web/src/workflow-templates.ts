@@ -246,3 +246,32 @@ export const createSubtitleReviewWorkflow = ({
   }
   return doc;
 };
+
+/** Explicit edit only: bypass human gates, retain all agents, pins and outputs. */
+export const withoutHumanReview = (document: EditableWorkflow): EditableWorkflow => {
+  let nodes = document.nodes.map((node) => ({ ...node, options: { ...node.options } }));
+  let edges = document.edges.map((edge) => ({
+    ...edge,
+    source: { ...edge.source },
+    target: { ...edge.target },
+  }));
+  for (const review of nodes.filter((node) => node.type === 'review')) {
+    const incoming = edges.filter((edge) => edge.target.node === review.id);
+    if (incoming.length !== 1 || incoming[0].target.port !== 'value') {
+      throw new Error('검수 입력 연결을 먼저 확인하세요.');
+    }
+    edges = edges
+      .filter((edge) => edge.target.node !== review.id)
+      .map((edge) =>
+        edge.source.node === review.id ? { ...edge, source: { ...incoming[0].source } } : edge,
+      );
+  }
+  nodes = nodes
+    .filter((node) => node.type !== 'review')
+    .map((node) =>
+      ['subtitle_outputs', 'subtitle_track'].includes(node.type)
+        ? { ...node, options: { ...node.options, review_policy: 'off' } }
+        : node,
+    );
+  return { ...document, nodes, edges };
+};

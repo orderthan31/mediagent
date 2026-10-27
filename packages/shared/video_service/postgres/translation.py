@@ -84,6 +84,13 @@ class TranslationRuntime:
         self.approved_origins = frozenset(approved_origins)
         self.mode = mode
 
+    def requires_paid(self, pins):
+        return self.mode == "external" and any(
+            f"{urlsplit(pin['endpoint']).scheme}://{urlsplit(pin['endpoint']).netloc}"
+            not in getattr(self, "nonpaid_origins", frozenset())
+            for pin in pins
+        )
+
     def available(self, pin):
         try:
             row = self.credentials.model(
@@ -193,7 +200,7 @@ class TranslationRuntime:
     ):
         if not 1 <= len(pins) <= 4 or len({p["model_id"] for p in pins}) != len(pins):
             raise ValueError("invalid_translation_candidates")
-        if self.mode == "external" and not paid_authorized:
+        if self.requires_paid(pins) and not paid_authorized:
             raise ValueError("paid_authorization_required")
         attempts = []
 

@@ -106,7 +106,7 @@ class RoleToolBridge:
             adapter = None
             try:
                 if (
-                    executor.mode == "external"
+                    executor.requires_paid([pin])
                     and not command["transcription"]["paid_authorized"]
                 ):
                     raise Conflict("paid_authorization_required")

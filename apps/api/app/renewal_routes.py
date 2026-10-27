@@ -395,15 +395,25 @@ def mount_runtime(
             ),
             "paid_roles": [
                 role
-                for node_type, role in (
+                for stage, role in [
                     ("translate", "translation"),
                     ("transcribe", "transcription"),
-                )
-                if getattr(runtime, role + "_runtime")
-                and getattr(runtime, role + "_runtime").mode == "external"
+                ]
+                if (executor := getattr(runtime, role + "_runtime"))
                 and any(
-                    n["type"] == node_type and n.get("model_ref")
-                    for n in definition["nodes"]
+                    executor.requires_paid(
+                        [
+                            executor.credentials.model(
+                                owned, ref["model_id"], ref["revision"]
+                            )
+                            for ref in [
+                                node["model_ref"],
+                                *node.get("fallback_refs", []),
+                            ]
+                        ]
+                    )
+                    for node in definition["nodes"]
+                    if node["type"] == stage and node.get("model_ref")
                 )
             ],
             **({"cpu_input_policy": cpu_policy} if cpu_policy else {}),

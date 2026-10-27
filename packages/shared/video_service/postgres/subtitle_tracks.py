@@ -170,7 +170,10 @@ class SubtitleTracks:
         doc = self.bundle(owner, reference, job["snapshot"])
         files = {}
         outputs = {}
-        if not doc.get("review"):
+        if (
+            not doc.get("review")
+            and node.get("options", {}).get("review_policy") != "off"
+        ):
             raise ValueError("subtitle_export_requires_confirmed_review")
         for name, track in doc["tracks"].items():
             rows = self.read(owner, track["transcript"], "transcript", TRACK_BYTES)
@@ -206,7 +209,8 @@ class SubtitleTracks:
                 "kind": "subtitle_outputs_v1",
                 "source_bundle": reference,
                 "source_video_sha256": doc["source_video_sha256"],
-                "review": doc["review"],
+                "review": doc.get("review"),
+                **({"review_policy": "off"} if not doc.get("review") else {}),
                 "tracks": files,
             },
             "artifact_manifest",
@@ -225,7 +229,13 @@ class SubtitleTracks:
         ):
             raise ValueError("subtitle_video_manifest_source_mismatch")
         bundle = self.bundle(owner, manifest["source_bundle"], job["snapshot"])
-        if not bundle.get("review") or manifest.get("review") != bundle["review"]:
+        if manifest.get("review") != bundle.get("review") or (
+            not bundle.get("review")
+            and not (
+                node.get("options", {}).get("review_policy") == "off"
+                and manifest.get("review_policy") == "off"
+            )
+        ):
             raise ValueError("subtitle_video_requires_same_confirmed_review")
         name = node["options"]["track"]
         track = manifest.get("tracks", {}).get(name)
