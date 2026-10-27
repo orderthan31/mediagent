@@ -247,16 +247,39 @@ class ModelRoles:
             raise Conflict("invalid_role_result_budget_or_identity")
         if result["status"] != "completed":
             with self.runtime.database.connection() as c:
+                job = self.runtime._job(c, owner, row["job_id"], lock=True)
+                current = c.execute(
+                    "SELECT phase,result_sha256 FROM model_role_tasks WHERE task_id=%s FOR UPDATE",
+                    (row["task_id"],),
+                ).fetchone()
+                if current["result_sha256"] and current["result_sha256"] != digest(
+                    message
+                ):
+                    raise Conflict("immutable_role_result_changed")
+                phase = (
+                    current["phase"]
+                    if current["phase"] in {"accepted", "cancelled"}
+                    else (
+                        "cancelled"
+                        if result["status"] == "cancelled" and job["cancel_requested"]
+                        else "held"
+                    )
+                )
                 c.execute(
-                    "UPDATE model_role_tasks SET phase='held',held_reason=%s,used_calls=%s,result_message=%s,result_sha256=%s WHERE task_id=%s",
+                    "UPDATE model_role_tasks SET phase=%s,held_reason=%s,used_calls=%s,result_message=%s,result_sha256=%s WHERE task_id=%s",
                     (
-                        result.get("held_reason", result["status"]),
+                        phase,
+                        None
+                        if phase == "cancelled"
+                        else result.get("held_reason", result["status"]),
                         calls,
                         Jsonb(message),
                         digest(message),
                         row["task_id"],
                     ),
                 )
+                if phase == "cancelled":
+                    self.cancelled_in(c, owner, row["job_id"], row["attempt_id"])
             return self.runtime.get(owner, row["job_id"])
         if row["adoption_result"] is None:
             trace = result["projection_trace"]
@@ -319,7 +342,7 @@ class ModelRoles:
                     adoption = existing["adoption_result"]
                 else:
                     c.execute(
-                        "UPDATE model_role_tasks SET phase='adopting',used_calls=%s,result_message=%s,result_sha256=%s,adoption_result=%s WHERE task_id=%s",
+                        "UPDATE model_role_tasks SET phase=CASE WHEN phase='cancelled' THEN phase ELSE 'adopting' END,used_calls=%s,result_message=%s,result_sha256=%s,adoption_result=%s WHERE task_id=%s",
                         (
                             calls,
                             Jsonb(message),
@@ -337,10 +360,32 @@ class ModelRoles:
         )
         with self.runtime.database.connection() as c:
             c.execute(
-                "UPDATE model_role_tasks SET phase=%s WHERE task_id=%s",
+                "UPDATE model_role_tasks SET phase=CASE WHEN phase IN ('cancelled','accepted') THEN phase ELSE %s END WHERE task_id=%s",
                 ("accepted" if accepted else "held", row["task_id"]),
             )
         return state
+
+    @staticmethod
+    def cancelled_in(c, owner, job_id, attempt_id):
+        # Caller holds the product job lock. Cancellation is terminal independent
+        # of the result/cancel-ACK arrival order; other native work must still drain.
+        c.execute(
+            "UPDATE model_role_tasks SET phase='cancelled',held_reason=NULL WHERE owner_id=%s AND job_id=%s AND attempt_id=%s AND phase!='accepted'",
+            (owner, job_id, attempt_id),
+        )
+        c.execute(
+            "UPDATE node_runs SET status='cancelled',completed_at=now(),lease_owner=NULL,lease_expires_at=NULL WHERE owner_id=%s AND job_id=%s AND id=%s AND status='running'",
+            (owner, job_id, attempt_id),
+        )
+        running = c.execute(
+            "SELECT count(*) n FROM node_runs r WHERE owner_id=%s AND job_id=%s AND (status='running' OR EXISTS (SELECT 1 FROM broker_dispatch_queue q WHERE q.node_run_id=r.id AND q.phase IN ('sending','sent','received','unknown')))",
+            (owner, job_id),
+        ).fetchone()["n"]
+        if not running:
+            c.execute(
+                "UPDATE jobs SET status='cancelled',active_claim_id=NULL,updated_at=now()WHERE owner_id=%s AND id=%s AND cancel_requested=true",
+                (owner, job_id),
+            )
 
     def dispatch_next(self, owner, job_id):
         # Only the application orchestrator chooses and reserves the next node.

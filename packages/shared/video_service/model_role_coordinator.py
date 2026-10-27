@@ -147,10 +147,17 @@ class ModelRoleCoordinator:
                 ),
             )
 
-    def publish_cancels(self, owner, job_id):
+    def publish_cancels(self, owner, job_id, *, outcome=None):
         # Exact newly admitted controls only. Never reset sending/unknown or scan DLQ.
         with self.runtime.database.connection() as c:
-            self.runtime._job(c, owner, job_id)
+            job = self.runtime._job(c, owner, job_id)
+            if not job["cancel_requested"]:
+                return {
+                    "cancel_applied": False,
+                    "status": "terminal_noop",
+                    "role_delivery_complete": None,
+                    "role_controls": [],
+                }
             controls = c.execute(
                 "SELECT * FROM model_role_controls WHERE owner_id=%s AND job_id=%s AND kind='cancel'AND phase='ready'ORDER BY created_at",
                 (owner, job_id),
@@ -186,6 +193,7 @@ class ModelRoleCoordinator:
             ).fetchall()
         return {
             "cancel_applied": True,
+            "status": outcome or "already_requested",
             "role_delivery_complete": all(v["phase"] == "acknowledged" for v in states),
             "role_controls": states,
         }
@@ -229,23 +237,9 @@ class ModelRoleCoordinator:
                     ),
                 )
             if packet["status"] == "cancelled" and task["phase"] != "accepted":
-                c.execute(
-                    "UPDATE model_role_tasks SET phase='cancelled'WHERE task_id=%s AND phase!='accepted'",
-                    (task["task_id"],),
+                ModelRoles.cancelled_in(
+                    c, task["owner_id"], task["job_id"], task["attempt_id"]
                 )
-                c.execute(
-                    "UPDATE node_runs SET status='cancelled',completed_at=now(),lease_owner=NULL,lease_expires_at=NULL WHERE owner_id=%s AND job_id=%s AND id=%s AND status='running'",
-                    (task["owner_id"], task["job_id"], task["attempt_id"]),
-                )
-                running = c.execute(
-                    "SELECT count(*) n FROM node_runs r WHERE owner_id=%s AND job_id=%s AND (status='running' OR EXISTS (SELECT 1 FROM broker_dispatch_queue q WHERE q.node_run_id=r.id AND q.phase IN ('sending','sent','received','unknown')))",
-                    (task["owner_id"], task["job_id"]),
-                ).fetchone()["n"]
-                if not running:
-                    c.execute(
-                        "UPDATE jobs SET status='cancelled',active_claim_id=NULL,updated_at=now()WHERE owner_id=%s AND id=%s AND cancel_requested=true",
-                        (task["owner_id"], task["job_id"]),
-                    )
         return None
 
     def receive(self, delivery):
@@ -319,7 +313,7 @@ class ModelRoleCoordinator:
             limit = RoleResultDeliveries(self).limit
             for task in tasks:
                 delivery = c.execute(
-                    "SELECT state,attempts,revision,error_code FROM model_role_result_deliveries WHERE task_id=%s",
+                    "SELECT * FROM model_role_result_deliveries WHERE task_id=%s",
                     (task["task_id"],),
                 ).fetchone()
                 cancel = c.execute(
@@ -330,25 +324,67 @@ class ModelRoleCoordinator:
                     "SELECT chunk_index,status,error_code FROM model_role_tool_calls WHERE task_id=%s AND status IN ('unknown','failed')ORDER BY chunk_index",
                     (task["task_id"],),
                 ).fetchall()
+                delivery_service = RoleResultDeliveries(self)
+                active = (
+                    delivery_service.owner_active(task["task_id"])
+                    if delivery
+                    else False
+                )
+                pending = c.execute(
+                    "SELECT r.request_id,v.admitted_revision FROM model_role_result_recoveries r LEFT JOIN model_role_recovery_reservations v ON v.owner_id=r.owner_id AND v.request_id=r.request_id WHERE r.task_id=%s AND r.response IS NULL ORDER BY r.created_at LIMIT 1",
+                    (task["task_id"],),
+                ).fetchone()
                 held = delivery and delivery["state"] in {
                     "held",
                     "receiving",
                     "rejected",
                 }
+                decision = (
+                    delivery_service.durable_decision(c, delivery["packet"])
+                    if delivery and delivery["state"] in {"held", "receiving"}
+                    else None
+                )
                 choices = (
                     ["retry_result_delivery"]
                     if delivery
-                    and delivery["state"] == "held"
-                    and delivery["attempts"] < limit
+                    and not active
+                    and delivery["state"] in {"held", "receiving"}
+                    and (delivery["attempts"] < limit or decision is not None)
                     else []
+                )
+                interrupted = (
+                    delivery and delivery["state"] == "receiving" and not active
+                )
+                display_state = (
+                    task["phase"]
+                    if task["phase"] in {"cancelled", "accepted"}
+                    else (
+                        "receiving"
+                        if active and held
+                        else ("held" if held else task["phase"])
+                    )
+                )
+                reason = (
+                    (
+                        delivery["error_code"]
+                        or ("result_delivery_interrupted" if interrupted else None)
+                    )
+                    if held
+                    else task["held_reason"]
                 )
                 result.append(
                     {
                         "task_id": task["task_id"],
-                        "state": "held" if held else task["phase"],
-                        "reason": delivery["error_code"]
-                        if held
-                        else task["held_reason"],
+                        "state": display_state,
+                        "reason": reason,
+                        "delivery_state": delivery["state"] if delivery else None,
+                        "delivery_owner_active": active,
+                        "pending_recovery": {
+                            "request_id": pending["request_id"],
+                            "revision": pending["admitted_revision"],
+                        }
+                        if pending and pending["admitted_revision"] is not None
+                        else None,
                         "reserved_calls": task["reserved_calls"],
                         "reported_model_calls": task["used_calls"],
                         "max_calls": task["envelope"]["task"]["max_calls"],

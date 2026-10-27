@@ -14,3 +14,11 @@ test('role recovery UI is explicit artifact-only and does not dereference absent
   assert.match(detail, /<ModelRolePanel/);
   assert.match(detail, /\(translation.attempts \|\| \[\]\).map/);
 });
+
+test('orphan recovery keeps the originally admitted nonce and revision', async () => {
+  const source = await readFile(new URL('../src/ModelRolePanel.tsx', import.meta.url), 'utf8');
+  assert.match(source, /pending_recovery/);
+  assert.match(source, /task.pending_recovery\?\.request_id/);
+  assert.match(source, /task.pending_recovery\?\.revision/);
+  assert.match(source, /result_delivery_interrupted/);
+});

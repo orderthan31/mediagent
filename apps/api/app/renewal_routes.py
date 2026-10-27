@@ -492,9 +492,21 @@ def mount_runtime(
     def recover_role_result(
         identity: str, body: RoleResultRecovery, owned=owner_dependency
     ):
-        return model_roles().recover_result(
-            owned, identity, body.task_id, body.revision, body.request_id
-        )
+        from video_service.model_role_delivery import RoleResultHeld
+
+        try:
+            return model_roles().recover_result(
+                owned, identity, body.task_id, body.revision, body.request_id
+            )
+        except RoleResultHeld:
+            return JSONResponse(
+                {
+                    "code": "result_delivery_busy",
+                    "detail": "같은 결과를 확인하는 처리가 진행 중입니다. 상태를 확인한 뒤 다시 명시적으로 요청하세요.",
+                    "retryable": True,
+                },
+                status_code=409,
+            )
 
     @app.get("/api/renewal/jobs/{identity}/model-role")
     def inspect_model_role(identity: str, owned=owner_dependency):
@@ -557,7 +569,9 @@ def mount_runtime(
         ):
             state = {
                 **state,
-                "cancellation": model_roles().publish_cancels(owned, identity),
+                "cancellation": model_roles().publish_cancels(
+                    owned, identity, outcome=state.get("cancel_outcome")
+                ),
             }
         return state
 

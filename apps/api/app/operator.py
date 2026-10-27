@@ -214,6 +214,8 @@ def main(argv=None):
             role_runtime = Execution(
                 database,
                 store,
+                engine_runtime_enabled=getattr(factory, "engine_factory", None)
+                is not None,
                 transcription_runtime=factory.transcription_runtime,
                 translation_runtime=factory.translation_runtime,
                 vocalization_runtime=factory.vocalization_runtime,

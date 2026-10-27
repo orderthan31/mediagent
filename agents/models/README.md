@@ -153,3 +153,35 @@ until separately installed and exercised; it is not native MQ race proof.
 - The optional job panel shows this state and its artifact-only action. The panel's
   PC/mobile contract fixture is separate from actual PG/authenticated API/TLS S3
   tests. Neither proves operating-site deployment or native MQ races.
+
+
+### Result-recovery process loss and cancel terminal ordering
+Source migration029 adds append-only recovery reservation facts: original receipt
+SHA, admitted revision and consumed-attempt baseline. A pending response is not a
+permanent dead end. After acquiring the same now-unowned session guard, an explicit
+retry of the same request compares those facts and the immutable receipt. A receiving
+orphan may consume only remaining delivery budget; attempts are never reset.
+
+If the existing adoption receipt matches the result inbox digest and original node
+request, explicit reconciliation settles that already-processed result without
+artifact refetch or another delivery attempt. Next dispatch remains application-owned;
+settlement follows dispatch. A request whose response was lost is finalized from its
+existing durable outcome. Live owners are not taken over, ordinary MQ redelivery does
+not recover orphans, and a different nonce cannot preempt a pending request. Legacy
+pending admissions acquire missing reservation facts only when their exact original
+revision/receipt is still unchanged; other ambiguity stays blocked.
+
+The user projection exposes owner-active versus interrupted receiving and the original
+pending nonce/revision. The UI uses those original values for an explicit retry instead
+of minting a replacement identity after the delivery revision changed.
+
+Cancel results and cancel ACKs serialize with the job terminal decision. Late results
+and duplicate ACKs preserve cancelled/accepted terminal projections and old records.
+Product cancel reports newly_requested, already_requested or terminal_noop from the
+actual persisted cancel flag; a terminal no-op has cancel_applied=false and no claim of
+role delivery completion. The role result operator preserves configured engine binding
+capability, without starting an engine to establish that flag.
+
+These recovery checks use real disposable PostgreSQL/TLS S3, actual child process exit
+and product LangGraph with local delivery/controlled adapters. They are not native MQ
+crash/race, installed-image, operating-site or paid model/GPU proof.

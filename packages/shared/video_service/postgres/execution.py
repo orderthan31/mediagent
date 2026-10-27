@@ -2244,11 +2244,10 @@ class Execution(Intake):
                 raise Conflict(
                     "확인 중인 원 기록은 초기화하거나 취소로 덮어쓰지 않습니다."
                 )
-            if (
-                job["status"] in ("completed", "failed", "cancelled")
-                or job["cancel_requested"]
-            ):
-                return self._view(db, job)
+            if job["cancel_requested"]:
+                return {**self._view(db, job), "cancel_outcome": "already_requested"}
+            if job["status"] in ("completed", "failed", "cancelled"):
+                return {**self._view(db, job), "cancel_outcome": "terminal_noop"}
             if job["revision"] != revision:
                 raise Conflict("작업 상태가 변경됐습니다.")
             running = db.execute(
@@ -2262,7 +2261,7 @@ class Execution(Intake):
             from ..model_role_coordinator import ModelRoleCoordinator
 
             ModelRoleCoordinator.enqueue_cancel_in(db, job)
-            return self._view(db, job)
+            return {**self._view(db, job), "cancel_outcome": "newly_requested"}
 
     def _review(self, db, owner, identity, lock=False):
         row = db.execute(

@@ -16,9 +16,11 @@ type RoleTask = {
   delivery_attempts: number | null;
   delivery_attempt_limit: number;
   recovery_choices: string[];
+  pending_recovery?: { request_id: string; revision: number } | null;
 };
 type Observation = { enrolled: boolean; tasks: RoleTask[] };
 const states: Record<string, string> = {
+  receiving: '결과 전달 확인 중',
   ready: '전달 준비',
   sending: '전달 확인 중',
   sent: '명령 전달 확인 · 결과 도착 대기',
@@ -29,6 +31,12 @@ const states: Record<string, string> = {
   cancelled: '취소 확인',
 };
 const reasons: Record<string, string> = {
+  result_delivery_interrupted:
+    '결과 전달 처리가 중단되어 반영 여부를 확인해야 합니다. 같은 결과만 명시적으로 확인합니다.',
+  result_delivery_budget_exhausted:
+    '결과 전달 재시도 예산이 소진됐습니다. 기존 기록과 모델 호출 예산을 초기화하지 않습니다.',
+  result_dispatch_reconcile_held:
+    '기존 채택은 확인했지만 다음 배정이 보류됐습니다. 모델을 다시 호출하지 않습니다.',
   model_reply_unknown: '모델 응답이 불명확해 중단했습니다. 자동으로 다시 호출하지 않습니다.',
   result_transport_unavailable:
     '완료 결과를 가져오지 못했습니다. 모델을 다시 실행하지 않고 결과 전달만 확인할 수 있습니다.',
@@ -195,8 +203,9 @@ export const ModelRolePanel = ({
                         }
                         return jsonPost(base + '/result-delivery', {
                           task_id: task.task_id,
-                          revision: task.delivery_revision,
-                          request_id: recovery.current.get(key),
+                          revision: task.pending_recovery?.revision ?? task.delivery_revision,
+                          request_id:
+                            task.pending_recovery?.request_id ?? recovery.current.get(key),
                         });
                       })
                     }
