@@ -324,7 +324,7 @@ export const SubtitleTrackReview = ({
 
 type Output = {
   run_id: string;
-  review: { id: string; revision: number; confirmed_sha256: string };
+  review: { id: string; revision: number; confirmed_sha256: string } | null;
   tracks: Record<
     string,
     {
@@ -361,14 +361,21 @@ export const SubtitleOutputs = ({ jobId, revision }: { jobId: string; revision: 
       <h3>언어별 자막 산출물</h3>
       {error && <p role="alert">{error}</p>}
       {!data.length && (
-        <p>검수 확정과 새 실행 승인 뒤에 생성됩니다. 아직 언어별 완료 파일이 없습니다.</p>
+        <p>
+          실행 뒤 언어별 파일을 받을 수 있습니다. 검수 OFF는 별도 확정 없이 진행합니다. 아직 완료
+          파일이 없습니다.
+        </p>
       )}
       {data.map((output) => (
         <div key={output.run_id}>
-          <p className="subtitle-sha">
-            확정 검수 {output.review.id} / 개정 {output.review.revision} · SHA{' '}
-            {output.review.confirmed_sha256}
-          </p>
+          {output.review ? (
+            <p className="subtitle-sha">
+              확정 검수 {output.review.id} / 개정 {output.review.revision} · SHA{' '}
+              {output.review.confirmed_sha256}
+            </p>
+          ) : (
+            <p>검수 OFF · 자동 생성 · 사람 검수 확정 아님</p>
+          )}
           {Object.entries(output.tracks).map(([name, track]) => (
             <section key={name}>
               <h4>{title(name, track.language)}</h4>

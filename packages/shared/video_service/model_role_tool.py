@@ -60,9 +60,13 @@ class RoleToolBridge:
         ):
             raise Conflict("tool_model_or_language_outside_grant")
         # Verify exact admitted source bytes, not only the caller-declared chunk hash.
-        source = runtime.store.read(
-            owner, command["inputs"]["audio"], limit=1024 * 1024 * 1024
-        )
+        reference = command["inputs"]["audio"]
+        if (
+            type(reference["bytes"]) is not int
+            or not 0 < reference["bytes"] <= 1024 * 1024 * 1024
+        ):
+            raise Conflict("tool_source_audio_budget_exceeded")
+        source = runtime.store.read(owner, reference, limit=reference["bytes"])
         chunk = next(
             (
                 v
