@@ -19,7 +19,7 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, START, StateGraph
 from video_service.audio_contract import timed_segments
 from video_service.cpu_agents import canonical
-from video_service.packed_projection import project
+from video_service.packed_projection import project, validate_projection_clock
 
 from .state import RoleState
 
@@ -94,7 +94,7 @@ class TranscriptionAgent:
         return self.graph.get_state({"configurable": {"thread_id": task}}).values
 
     def cancel(self, task):
-        self.state.cancel(task)
+        return self.state.cancel(task)
 
     def prepare_task(self, task, audio):
         keys = {
@@ -141,9 +141,11 @@ class TranscriptionAgent:
             count = f.getnframes()
             if count <= 0:
                 raise ValueError("empty_audio_file")
-            self.state.ensure(
-                task["task_id"], hashlib.sha256(canonical(task)).hexdigest(), task
+            duration = validate_projection_clock(
+                task["timeline"], policy="packed_projection_v5"
             )
+            if round(duration * 16000) != count:
+                raise ValueError("audio_clock_frame_count_mismatch")
             folder = self.root / task["task_id"]
             folder.mkdir(exist_ok=True)
             chunks = []
@@ -177,6 +179,9 @@ class TranscriptionAgent:
                         "sha256": hashlib.sha256(out.read_bytes()).hexdigest(),
                     }
                 )
+        self.state.ensure(
+            task["task_id"], hashlib.sha256(canonical(task)).hexdigest(), task
+        )
         return chunks
 
     def run(self, task, audio):
@@ -268,7 +273,7 @@ class TranscriptionAgent:
     def _advance(self, s):
         return {"index": s["index"] + 1, "status": "ready"}
 
-    def _terminal(self, s, status, segments=None):
+    def _terminal(self, s, status, segments=None, projection_trace=None):
         chunks = [
             self.state.chunk(s["task"]["task_id"], i) for i in range(len(s["chunks"]))
         ]
@@ -284,8 +289,10 @@ class TranscriptionAgent:
         }
         if segments is not None:
             result["segments"] = segments
-        self.state.finish(s["task"]["task_id"], result)
-        return {"status": status, "result": result}
+        if projection_trace is not None:
+            result["projection_trace"] = projection_trace
+        result = self.state.finish(s["task"]["task_id"], result)
+        return {"status": result["status"], "result": result}
 
     def _finish(self, s):
         if self.state.cancelled(s["task"]["task_id"]):
@@ -296,10 +303,7 @@ class TranscriptionAgent:
         projected, trace = project(
             rows, s["task"]["timeline"], policy="packed_projection_v5"
         )
-        result = self._terminal(s, "completed", projected)
-        result["result"]["projection_trace"] = trace
-        self.state.finish(s["task"]["task_id"], result["result"])
-        return result
+        return self._terminal(s, "completed", projected, projection_trace=trace)
 
     def _hold(self, s):
         return self._terminal(s, "held")

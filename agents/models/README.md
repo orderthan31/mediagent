@@ -21,3 +21,11 @@ Remaining: role-scoped credential/tool admission integration; role-specific MQ/T
 references and orchestrator adoption; configurable chunk concurrency; translation/vocal roles;
 review-OFF editing and same-site final subtitle/video/download proof. No operating cutover,
 real paid call, GPU work, existing key duplication or existing task replay is authorized by it.
+
+Terminal ordering: cancellation and completion are serialized by a role-local SQLite
+BEGIN IMMEDIATE transaction. The first committed completed/cancelled outcome wins;
+a late cancellation acknowledges the already committed completion without changing it.
+A cancelled task's later completion proposal is retained in terminal_quarantine, never
+returned as the adopted completion. Transcript and projection trace are committed as
+one final payload; callers return the actual committed outcome. PCM/timeline frame
+agreement is validated before admitting a role task or making any model call.

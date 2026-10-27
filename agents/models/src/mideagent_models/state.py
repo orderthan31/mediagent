@@ -1,6 +1,7 @@
 """Role-local durable state. No workflow, outbox, credential or PostgreSQL access."""
 
 import contextlib
+import hashlib
 import json
 import sqlite3
 from pathlib import Path
@@ -14,6 +15,7 @@ class RoleState:
         with self.connect() as c:
             c.executescript("""PRAGMA journal_mode=WAL;
             CREATE TABLE IF NOT EXISTS tasks(id TEXT PRIMARY KEY,request_sha TEXT NOT NULL,request TEXT NOT NULL,status TEXT NOT NULL,cancelled INTEGER NOT NULL DEFAULT 0,calls INTEGER NOT NULL DEFAULT 0,result TEXT);
+            CREATE TABLE IF NOT EXISTS terminal_quarantine(task TEXT NOT NULL,result_sha TEXT NOT NULL,payload TEXT NOT NULL,PRIMARY KEY(task,result_sha));
             CREATE TABLE IF NOT EXISTS chunks(task TEXT NOT NULL,idx INTEGER NOT NULL,status TEXT NOT NULL,reply TEXT,result TEXT,error TEXT,PRIMARY KEY(task,idx));
             """)
 
@@ -58,12 +60,21 @@ class RoleState:
 
     def cancel(self, task):
         with self.connect() as c:
+            c.execute("BEGIN IMMEDIATE")
+            row = c.execute("SELECT * FROM tasks WHERE id=?", (task,)).fetchone()
+            if row is None:
+                raise ValueError("unknown_role_task")
+            if row["status"] == "completed":
+                return json.loads(row["result"])
+            result = self._cancelled_payload(c, task, row)
             c.execute(
-                "UPDATE tasks SET cancelled=1,status='cancelled'WHERE id=?", (task,)
+                "UPDATE tasks SET cancelled=1,status='cancelled',result=? WHERE id=?",
+                (json.dumps(result), task),
             )
-        # Cancellation ACK follows the task-local call fence, not an in-flight kill.
+        # ACK means all calls already inside the task's shared call fence have settled.
         with self.lock(task, "call-fence"):
             pass
+        return result
 
     def chunk(self, task, index):
         with self.connect() as c:
@@ -116,7 +127,45 @@ class RoleState:
 
     def finish(self, task, result):
         with self.connect() as c:
+            c.execute("BEGIN IMMEDIATE")
+            row = c.execute("SELECT * FROM tasks WHERE id=?", (task,)).fetchone()
+            if row is None:
+                raise ValueError("unknown_role_task")
+            if row["status"] == "completed":
+                return json.loads(row["result"])
+            if row["cancelled"]:
+                if result["status"] == "completed":
+                    encoded = json.dumps(
+                        result,
+                        sort_keys=True,
+                        separators=(",", ":"),
+                        ensure_ascii=False,
+                    )
+                    sha = hashlib.sha256(encoded.encode()).hexdigest()
+                    c.execute(
+                        "INSERT OR IGNORE INTO terminal_quarantine(task,result_sha,payload)VALUES(?,?,?)",
+                        (task, sha, encoded),
+                    )
+                result = self._cancelled_payload(c, task, row)
+            encoded = json.dumps(result, ensure_ascii=False)
             c.execute(
                 "UPDATE tasks SET status=?,result=?WHERE id=?",
-                (result["status"], json.dumps(result), task),
+                (result["status"], encoded, task),
             )
+            return json.loads(encoded)
+
+    def _cancelled_payload(self, connection, task, row):
+        previous = json.loads(row["result"]) if row["result"] else None
+        if previous and previous["status"] == "cancelled":
+            return previous
+        completed = connection.execute(
+            "SELECT count(*)FROM chunks WHERE task=?AND status='completed'", (task,)
+        ).fetchone()[0]
+        return {
+            "version": 1,
+            "task_id": task,
+            "role": json.loads(row["request"])["role"],
+            "status": "cancelled",
+            "completed_chunks": completed,
+            "model_calls": row["calls"],
+        }

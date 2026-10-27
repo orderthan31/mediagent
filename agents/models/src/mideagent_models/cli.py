@@ -81,13 +81,13 @@ def main():
 
             if not re.fullmatch("[a-f0-9]{32}", args.cancel_task):
                 raise ValueError("invalid_task_identity")
-            RoleState(config["state_root"]).cancel(args.cancel_task)
+            actual = RoleState(config["state_root"]).cancel(args.cancel_task)
             print(
                 json.dumps(
                     {
                         "task_id": args.cancel_task,
                         "role": "transcription",
-                        "status": "cancelled",
+                        "status": actual["status"],
                     }
                 )
             )
