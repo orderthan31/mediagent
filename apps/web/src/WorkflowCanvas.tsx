@@ -28,6 +28,7 @@ import { NodeSymbol, nodeKind, nodeKindLabel } from './NodeSymbol';
 import { resolvePorts, type PortSpec } from './workflow-spec';
 import type { NodeFormContract } from './form-contract';
 import './workflow-canvas.css';
+import { pinchView, type Point, type View } from './workflow-gestures';
 type Endpoint = { node: string; port: string };
 export type CanvasDefinition = {
   id: string;
@@ -128,6 +129,86 @@ export const WorkflowCanvas = ({
   } | null>(null);
   const wireDrag = useRef<{ pointerId: number; px: number; py: number } | null>(null);
   const suppressPortClick = useRef(false);
+  const touches = useRef(new Map<number, Point>());
+  const gesture = useRef<{ view: View; anchor: Point; distance: number } | null>(null);
+  const viewRef = useRef(view);
+  viewRef.current = view;
+  const suppressTap = useRef(false);
+  const previousSelection = useRef('');
+  const panelHistory = useRef(false);
+  const captureTouch = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType !== 'touch') {
+      suppressTap.current = false;
+      return;
+    }
+    if (
+      (event.target as Element).closest(
+        '[role=toolbar],.workflow-agent-picker,.workflow-edge-action',
+      )
+    ) {
+      return;
+    }
+    if (touches.current.size === 0) {
+      suppressTap.current = false;
+    }
+    touches.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (touches.current.size < 2) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    suppressTap.current = true;
+    suppressPortClick.current = true;
+    const drag = nodeDrag.current;
+    if (drag && onChange) {
+      onChange({
+        ...definition,
+        nodes: definition.nodes.map((n) =>
+          n.id === drag.id ? { ...n, position: { x: drag.x, y: drag.y } } : n,
+        ),
+      });
+    }
+    pan.current = null;
+    nodeDrag.current = null;
+    wireDrag.current = null;
+    setSource(null);
+    setCursor(null);
+    setRewiring(null);
+    const [a, b] = [...touches.current.values()];
+    const rect = event.currentTarget.getBoundingClientRect();
+    gesture.current = {
+      view: { ...viewRef.current },
+      anchor: { x: (a.x + b.x) / 2 - rect.left, y: (a.y + b.y) / 2 - rect.top },
+      distance: Math.hypot(a.x - b.x, a.y - b.y),
+    };
+    for (const id of touches.current.keys()) {
+      event.currentTarget.setPointerCapture(id);
+    }
+  };
+  const moveTouch = (event: PointerEvent<HTMLDivElement>) => {
+    if (!touches.current.has(event.pointerId)) {
+      return;
+    }
+    touches.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    const start = gesture.current;
+    if (!start || touches.current.size < 2) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    const [a, b] = [...touches.current.values()];
+    const rect = event.currentTarget.getBoundingClientRect();
+    const next = pinchView(
+      start.view,
+      start.anchor,
+      { x: (a.x + b.x) / 2 - rect.left, y: (a.y + b.y) / 2 - rect.top },
+      start.distance,
+      Math.hypot(a.x - b.x, a.y - b.y),
+    );
+    viewRef.current = next;
+    setView(next);
+  };
+
   const boxes = useMemo<Box[]>(
     () => [
       {
@@ -507,6 +588,25 @@ export const WorkflowCanvas = ({
   };
   const endPointer = (event: PointerEvent<HTMLElement>) => {
     const id = event.pointerId;
+    if (event.type === 'lostpointercapture' && viewport.current?.hasPointerCapture(id)) {
+      return;
+    }
+    if (event.currentTarget === viewport.current) {
+      touches.current.delete(id);
+      if (gesture.current) {
+        gesture.current = null;
+        const remaining = [...touches.current.entries()][0];
+        pan.current = remaining
+          ? {
+              pointerId: remaining[0],
+              px: remaining[1].x,
+              py: remaining[1].y,
+              x: viewRef.current.x,
+              y: viewRef.current.y,
+            }
+          : null;
+      }
+    }
     if (pan.current?.pointerId === id) {
       pan.current = null;
     }
@@ -558,6 +658,15 @@ export const WorkflowCanvas = ({
       : [];
   const selectedBox = boxes.find((box) => box.id === selected);
   const previewFrom = source ? point(source, true) : null;
+  const closeDetails = () => {
+    select('');
+    if (window.history.state?.workflowPanel === marker) {
+      window.history.back();
+    }
+  };
+  const panelOpen = Boolean(selectedBox);
+  const selectRef = useRef(select);
+  selectRef.current = select;
   useEffect(() => {
     let disposed = false;
     const refresh = () => {
@@ -601,14 +710,64 @@ export const WorkflowCanvas = ({
     setView(fitted());
   }, [size.width, size.height, definition.id]);
   useEffect(() => {
-    if (selected) {
-      const panel = detailsPanel.current;
-      if (panel) {
-        panel.scrollTop = 0;
-        panel.scrollIntoView({ block: 'nearest' });
-      }
+    if (!selected) {
+      return;
     }
+    previousSelection.current = selected;
+    detailsPanel.current
+      ?.querySelector<HTMLButtonElement>('button')
+      ?.focus({ preventScroll: true });
   }, [selected]);
+  useEffect(() => {
+    if (!panelOpen) {
+      return;
+    }
+    const mobile = matchMedia('(max-width: 55.999rem)').matches;
+    const oldOverflow = document.body.style.overflow;
+    if (mobile) {
+      document.body.style.overflow = 'hidden';
+    }
+    if (!panelHistory.current) {
+      window.history.pushState(
+        { ...window.history.state, workflowPanel: marker },
+        '',
+        location.href,
+      );
+      panelHistory.current = true;
+    }
+    const back = () => {
+      panelHistory.current = false;
+      selectRef.current('');
+    };
+    const keyboard = () => {
+      const vv = window.visualViewport;
+      const panel = detailsPanel.current;
+      if (!vv || !panel) {
+        return;
+      }
+      panel.style.setProperty(
+        '--sheet-bottom',
+        `${Math.max(0, innerHeight - vv.height - vv.offsetTop)}px`,
+      );
+      panel.style.setProperty('--sheet-visible-height', `${vv.height * 0.65}px`);
+    };
+    keyboard();
+    window.addEventListener('popstate', back);
+    visualViewport?.addEventListener('resize', keyboard);
+    visualViewport?.addEventListener('scroll', keyboard);
+    return () => {
+      document.body.style.overflow = oldOverflow;
+      window.removeEventListener('popstate', back);
+      visualViewport?.removeEventListener('resize', keyboard);
+      visualViewport?.removeEventListener('scroll', keyboard);
+      panelHistory.current = false;
+      viewport.current
+        ?.querySelector<HTMLButtonElement>(
+          `[data-node-id="${CSS.escape(previousSelection.current)}"] .workflow-node-heading`,
+        )
+        ?.focus({ preventScroll: true });
+    };
+  }, [panelOpen, marker]);
   return (
     <section className="workflow-graph" aria-label="워크플로우">
       <p className="workflow-layout-notice" aria-live="polite">
@@ -628,6 +787,14 @@ export const WorkflowCanvas = ({
         ref={viewport}
         tabIndex={0}
         aria-label="워크플로우 캔버스"
+        onPointerDownCapture={captureTouch}
+        onPointerMoveCapture={moveTouch}
+        onClickCapture={(event) => {
+          if (suppressTap.current && event.detail !== 0) {
+            event.preventDefault();
+            event.stopPropagation();
+          }
+        }}
         onPointerDown={panStart}
         onPointerMove={movePointer}
         onPointerUp={endPointer}
@@ -778,7 +945,11 @@ export const WorkflowCanvas = ({
                 type="button"
                 className="workflow-node-heading"
                 aria-pressed={selected === box.id}
-                onClick={() => select(box.id)}
+                onClick={() => {
+                  if (!suppressTap.current) {
+                    select(box.id);
+                  }
+                }}
                 onPointerDown={(event) => {
                   if (
                     !onChange ||
@@ -786,6 +957,9 @@ export const WorkflowCanvas = ({
                     box.id === '$input' ||
                     event.button !== 0 ||
                     event.isPrimary === false ||
+                    (event.pointerType === 'touch' &&
+                      !(event.target as Element).closest('.workflow-node-move-handle')) ||
+                    gesture.current ||
                     pan.current ||
                     nodeDrag.current ||
                     wireDrag.current
@@ -804,7 +978,17 @@ export const WorkflowCanvas = ({
                 }}
                 onPointerMove={(event) => {
                   const start = nodeDrag.current;
-                  if (start && start.pointerId === event.pointerId && onChange && !disabled) {
+                  if (
+                    start &&
+                    start.pointerId === event.pointerId &&
+                    onChange &&
+                    !disabled &&
+                    !gesture.current
+                  ) {
+                    if (Math.hypot(event.clientX - start.px, event.clientY - start.py) < 6) {
+                      return;
+                    }
+                    suppressTap.current = true;
                     onChange({
                       ...definition,
                       nodes: definition.nodes.map((node) =>
@@ -828,6 +1012,15 @@ export const WorkflowCanvas = ({
                 onPointerUp={endPointer}
                 onPointerCancel={endPointer}
               >
+                {onChange && box.id !== '$input' && (
+                  <span
+                    className="workflow-node-move-handle"
+                    title="노드 이동 핸들"
+                    aria-label="노드 이동 핸들"
+                  >
+                    ⠿
+                  </span>
+                )}
                 <span className="workflow-node-symbol">
                   {box.id === '$input' && inputThumbnail ? (
                     <img src={inputThumbnail} alt="" />
@@ -1155,7 +1348,15 @@ export const WorkflowCanvas = ({
           className="workflow-node-settings"
           aria-label={detailsLabel}
           ref={detailsPanel}
-          tabIndex={0}
+          tabIndex={-1}
+          role="dialog"
+          aria-modal="false"
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') {
+              event.stopPropagation();
+              closeDetails();
+            }
+          }}
         >
           <div>
             <strong>{selectedBox.label}</strong>
@@ -1163,7 +1364,7 @@ export const WorkflowCanvas = ({
               type="button"
               className="ui02-icon"
               aria-label={`${detailsLabel} 닫기`}
-              onClick={() => select('')}
+              onClick={closeDetails}
             >
               <X size={16} />
             </button>

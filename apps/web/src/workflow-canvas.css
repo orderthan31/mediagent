@@ -619,3 +619,83 @@
     display: none;
   }
 }
+
+/* Selection is independent of execution state, on both workflow consumers. */
+.workflow-graph-node.is-selected {
+  border-color: var(--g-line);
+  box-shadow: none;
+  outline: 3px solid #7c3aed;
+  outline-offset: 4px;
+}
+.workflow-graph-node[data-state='completed'] {
+  border-color: #16834b;
+  background: #effaf3;
+}
+.workflow-graph-node[data-state='running'] {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+.workflow-graph-node:is([data-state='review_required'], [data-state='waiting_review']) {
+  border-color: #d97706;
+  background: #fff7ed;
+}
+.workflow-graph-node[data-state='failed'] {
+  border-color: #dc2626;
+  background: #fff1f2;
+}
+.workflow-node-move-handle {
+  display: none;
+}
+.workflow-graph .workflow-node-settings {
+  position: fixed;
+  inset: calc(var(--m-header-height, 64px) + 12px) 16px 16px auto;
+  width: min(380px, 42vw);
+  max-height: none;
+  margin: 0;
+  z-index: 50;
+  box-sizing: border-box;
+  overscroll-behavior: contain;
+  box-shadow: 0 8px 40px #14204030;
+}
+.workflow-graph .workflow-node-settings > div:first-child {
+  top: -1px;
+  padding: 12px 0;
+  min-height: 44px;
+  gap: 12px;
+}
+.workflow-node-settings > div:first-child strong {
+  overflow-wrap: anywhere;
+}
+.workflow-node-settings > div:first-child button {
+  min-width: 44px;
+  min-height: 44px;
+  flex-shrink: 0;
+}
+@media (max-width: 55.999rem) {
+  .workflow-graph .workflow-node-settings {
+    inset: auto 0 var(--sheet-bottom, 0px);
+    width: 100%;
+    max-height: min(65dvh, var(--sheet-visible-height, 65dvh));
+    padding: 0 16px max(16px, env(safe-area-inset-bottom));
+    border-radius: 18px 18px 0 0;
+    scroll-padding: 64px 0 24px;
+  }
+  .workflow-node-move-handle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    align-self: stretch;
+    touch-action: none;
+    order: 3;
+    margin-left: auto;
+    font-size: 24px;
+  }
+  .workflow-node-heading {
+    min-height: 48px;
+  }
+  .workflow-graph .workflow-node-settings :is(input, select, textarea) {
+    font-size: 16px;
+    min-height: 44px;
+  }
+}

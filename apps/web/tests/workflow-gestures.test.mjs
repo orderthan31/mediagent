@@ -1,0 +1,3 @@
+import test from 'node:test';import assert from 'node:assert/strict';import{pinchView}from '../src/workflow-gestures.ts';
+test('pinch keeps its original graph point under the moving midpoint',()=>{const start={x:30,y:10,scale:1};const next=pinchView(start,{x:100,y:100},{x:140,y:120},100,200,0.02,3);assert.deepEqual(next,{x:0,y:-60,scale:2});assert.equal((140-next.x)/next.scale,70)});
+test('pinch clamp keeps midpoint anchor and ignores zero distance',()=>{const v={x:10,y:20,scale:1};assert.deepEqual(pinchView(v,{x:20,y:30},{x:20,y:30},0,100),v);const n=pinchView(v,{x:20,y:30},{x:25,y:35},10,100,0.02,1.8);assert.equal(n.scale,1.8);assert.equal((25-n.x)/n.scale,10)});
