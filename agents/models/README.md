@@ -1,31 +1,56 @@
-# Independent model roles — staged speech checkpoint
+# Independent model roles — transcription boundary checkpoint
 
-Current operating `registered` application consumer is NOT replaced by this checkpoint.
+Operating services remain unchanged: the old registered-model application consumer is
+still central. This staged implementation is not a claim that all model roles or the
+product E2E are complete.
 
-`mideagent_models.transcription.TranscriptionAgent` executes actual LangGraph nodes:
-prepare → acquire → invoke → validate → advance → next chunk / finish / hold / cancelled.
-It owns `role-state.sqlite`, `graph-checkpoints.sqlite`, immutable PCM chunk bindings,
-pre-HTTP call intents, completed chunk reuse, unknown holds and a task-local cancellation fence.
-It neither imports `postgres.Execution` nor reads jobs/outbox/workflow definitions nor adopts
-results or dispatches the next workflow node. The orchestrator retains those responsibilities.
+## Current role boundary
 
-`python -m mideagent_models.cli --config /run/role.json --audio /cache/verified.wav`
-reads one task JSON from stdin. A role-only HTTP tool receives only the approved model
-reference, source language and bounded PCM chunk, not a global job or workflow. Its bearer
-capability is read from a private environment leaf and is not stored in graph checkpoints.
-`--cancel-task TASK_ID` persists cancellation and acknowledges after active call fences settle.
-There is no automatic retry of a started/unknown model call after a process restart.
+`mideagent_models.broker` consumes only the role's own command/cancel queues and emits
+its own result/cancel-ACK. A command contains a task, frozen model reference, immutable
+input artifact and output custody reference, not jobs/outbox/workflow/next-node data.
+The role cannot publish another command or read the controller's result inbox.
+The orchestrator must still own workflow scheduling, result adoption and next dispatch.
 
-This first checkpoint is controlled-provider/development evidence, not actual provider quality.
-Remaining: role-scoped credential/tool admission integration; role-specific MQ/TLS S3 result
-references and orchestrator adoption; configurable chunk concurrency; translation/vocal roles;
-review-OFF editing and same-site final subtitle/video/download proof. No operating cutover,
-real paid call, GPU work, existing key duplication or existing task replay is authorized by it.
+Transcription executes a real LangGraph: prepare, per-chunk acquire/invoke/validate,
+parallel fanout, then finish/hold/cancelled. It owns its SQLite checkpoints, immutable
+envelope binding, PCM chunks and call-intent ledger. Unknown started calls are held,
+never automatically recalled. Completed chunk results and complete final payloads
+are reused after the physical role process restarts.
 
-Terminal ordering: cancellation and completion are serialized by a role-local SQLite
-BEGIN IMMEDIATE transaction. The first committed completed/cancelled outcome wins;
-a late cancellation acknowledges the already committed completion without changing it.
-A cancelled task's later completion proposal is retained in terminal_quarantine, never
-returned as the adopted completion. Transcript and projection trace are committed as
-one final payload; callers return the actual committed outcome. PCM/timeline frame
-agreement is validated before admitting a role task or making any model call.
+The private host-managed role config sets `chunk_concurrency` and `task_slots`; these
+are not user graph parameters or a claim of an integrated product administrator UI.
+A semaphore bounds total model calls across concurrent tasks in one role instance;
+`max_calls` remains a separate immutable per-task budget. There is no hard 2/8/16 cap.
+Horizontal replicas and multi-machine outage/recovery are not yet proved.
+
+MQ cancellation is bound to the immutable envelope SHA. A durable tombstone can arrive
+before task input; admission transfers it atomically to the task. Model execution and
+control run on separate pools so a busy task cannot prevent its own cancellation.
+The ACK follows existing in-flight call fences; no new model call starts after it.
+Cancellation and completion use SQLite BEGIN IMMEDIATE: first committed terminal wins.
+Late cancellation returns an already committed completion. A later completion proposal
+is quarantined if cancellation won. Transcript and projection trace commit together.
+Clock structure, exact PCM frames and total WAV length are checked before task admission.
+
+## Storage and tool credentials
+
+Only private environment leaves supply TLS MQ, temporary scoped S3 session credentials
+and a scoped model-tool capability. No existing provider key, master key or application
+PostgreSQL credential is copied into the role. Artifact stores and model-tool endpoint
+are configured separately from deployment placement. Paths resolve only inside the role.
+Fixture proof uses a controlled TLS provider; it proves wiring/state, not recognition
+quality or real-provider authentication. The production registry/credential grant bridge
+is pending and must not be replaced by copying real keys.
+
+## Entry points and remaining work
+
+`python -m mideagent_models.broker --config /run/role.json` runs the role service;
+`--once` handles one task while retaining its control consumer until it settles.
+The existing local `mideagent_models.cli` remains a standalone diagnostic entrypoint.
+Build `agents/models/Dockerfile` with an explicitly pinned dependency base and revision.
+No public listener or Docker socket is needed by the role or the product API.
+
+Pending: orchestrator task mapping/adoption and live credential/tool grants; translation
+and vocal roles; review-OFF editing/save/reopen; same-site subtitle/video/auth-download
+E2E; actual provider quality only after separate approval. Preserve old/unknown records.

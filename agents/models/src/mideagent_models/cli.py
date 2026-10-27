@@ -95,7 +95,11 @@ def main():
         if not args.audio:
             raise ValueError("verified_audio_path_required")
         task = json.load(sys.stdin)
-        agent = TranscriptionAgent(config["state_root"], ScopedSpeechTool(config))
+        agent = TranscriptionAgent(
+            config["state_root"],
+            ScopedSpeechTool(config),
+            chunk_concurrency=config.get("chunk_concurrency", 1),
+        )
         result = agent.run(task, args.audio)
         print(json.dumps({**result, "agent_pid": os.getpid()}, ensure_ascii=False))
     except (ValueError, KeyError, OSError):

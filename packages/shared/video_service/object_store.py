@@ -317,7 +317,7 @@ def from_config(config, *, environ=None):
     if (
         not isinstance(config, dict)
         or not fields <= set(config)
-        or set(config) - fields - {"ca_file"}
+        or set(config) - fields - {"ca_file", "session_token_env"}
         or not all(isinstance(v, str) and v for v in config.values())
     ):
         raise ObjectStoreError("Invalid object store config")
@@ -339,6 +339,13 @@ def from_config(config, *, environ=None):
     keys = [environ.get(config[k]) for k in ("access_key_env", "secret_key_env")]
     if not all(keys):
         raise ObjectStoreError("Explicit credential environment missing")
+    session_token = (
+        environ.get(config["session_token_env"])
+        if "session_token_env" in config
+        else None
+    )
+    if "session_token_env" in config and not session_token:
+        raise ObjectStoreError("Explicit session credential environment missing")
     client = boto3.client(
         "s3",
         endpoint_url=config["endpoint"],
@@ -346,6 +353,7 @@ def from_config(config, *, environ=None):
         region_name=config["region"],
         aws_access_key_id=keys[0],
         aws_secret_access_key=keys[1],
+        aws_session_token=session_token,
         config=Config(
             signature_version="s3v4",
             retries={"total_max_attempts": 1},

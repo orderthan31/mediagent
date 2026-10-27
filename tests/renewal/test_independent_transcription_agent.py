@@ -1,6 +1,4 @@
 import importlib.util
-import io
-import json
 import wave
 
 import pytest
@@ -134,3 +132,87 @@ def test_cached_audio_cannot_replace_verified_source_pcm(tmp_path):
     with pytest.raises(ValueError, match="chunk_cache_mismatch"):
         a.run(request(movie), movie)
     assert calls == []
+
+
+def test_chunk_parallelism_is_configured_independently_of_total_call_budget(tmp_path):
+    import threading
+
+    Agent = implementation()
+    movie = audio(tmp_path / "a.wav")
+    barrier = threading.Barrier(2)
+
+    def tool(*_):
+        barrier.wait(timeout=3)
+        return []
+
+    agent = Agent(tmp_path / "state", tool, chunk_concurrency=2)
+    result = agent.run(request(movie, max_calls=2), movie)
+    assert result["status"] == "completed" and result["model_calls"] == 2
+
+
+def test_invalid_task_identity_never_opens_a_lock_outside_role_state(tmp_path):
+    Agent = implementation()
+    movie = audio(tmp_path / "a.wav")
+    task = request(movie)
+    task["task_id"] = "../escape"
+    agent = Agent(tmp_path / "state", lambda *_: [])
+    with pytest.raises(ValueError):
+        agent.run(task, movie)
+    assert not (tmp_path / "escape.execution.lock").exists()
+
+
+def test_one_role_instance_shares_call_concurrency_across_simultaneous_tasks(tmp_path):
+    import threading
+    from concurrent.futures import ThreadPoolExecutor
+
+    Agent = implementation()
+    wav = audio(tmp_path / "a.wav", seconds=1)
+    ready = threading.Barrier(2)
+    second = threading.Event()
+    guard = threading.Lock()
+    stats = {"active": 0, "peak": 0, "calls": 0}
+
+    class SynchronizedAgent(Agent):
+        def _acquire(self, state):
+            value = super()._acquire(state)
+            if value["status"] == "ready":
+                ready.wait(timeout=3)
+            return value
+
+    def tool(*args):
+        with guard:
+            stats["calls"] += 1
+            ordinal = stats["calls"]
+            stats["active"] += 1
+            stats["peak"] = max(stats["peak"], stats["active"])
+        if ordinal == 1:
+            second.wait(timeout=1)
+        else:
+            second.set()
+        with guard:
+            stats["active"] -= 1
+        return []
+
+    agent = SynchronizedAgent(tmp_path / "state", tool, chunk_concurrency=1)
+    packets = []
+    for identity in ["a" * 32, "c" * 32]:
+        packet = request(wav, task=identity, max_calls=1)
+        packet["timeline"] = [
+            {"packed_start": 0, "packed_end": 1, "source_start": 10, "source_end": 11}
+        ]
+        packets.append(packet)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(lambda packet: agent.run(packet, wav), packets))
+    assert all(result["status"] == "completed" for result in results)
+    assert stats == {"active": 0, "peak": 1, "calls": 2}
+
+
+def test_total_call_budget_is_not_raised_by_larger_admin_concurrency(tmp_path):
+    Agent = implementation()
+    wav = audio(tmp_path / "a.wav")
+    calls = []
+    agent = Agent(
+        tmp_path / "state", lambda *_: calls.append(1) or [], chunk_concurrency=7
+    )
+    result = agent.run(request(wav, max_calls=1), wav)
+    assert result["status"] == "held" and result["model_calls"] == 0 and calls == []

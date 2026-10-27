@@ -7,16 +7,18 @@ Transport/storage adapters supply a verified audio path and a scoped model tool.
 import hashlib
 import io
 import json
-import math
+import operator
 import re
 import sqlite3
+import threading
 import wave
 from pathlib import Path
-from typing import TypedDict
+from typing import Annotated, TypedDict
 
 from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, START, StateGraph
+from langgraph.types import Send
 from video_service.audio_contract import timed_segments
 from video_service.cpu_agents import canonical
 from video_service.packed_projection import project, validate_projection_clock
@@ -31,10 +33,15 @@ class SpeechState(TypedDict, total=False):
     status: str
     reply: list
     result: dict
+    progress: Annotated[dict, operator.or_]
 
 
 class TranscriptionAgent:
-    def __init__(self, root, model_tool):
+    def __init__(self, root, model_tool, *, chunk_concurrency=1):
+        if type(chunk_concurrency) is not int or chunk_concurrency < 1:
+            raise ValueError("positive_chunk_concurrency_required")
+        self.chunk_concurrency = chunk_concurrency
+        self.call_slots = threading.BoundedSemaphore(chunk_concurrency)
         self.root = Path(root).resolve()
         self.state = RoleState(self.root)
         self.model_tool = model_tool
@@ -44,51 +51,74 @@ class TranscriptionAgent:
         self.saver = SqliteSaver(
             self.connection, serde=JsonPlusSerializer(allowed_msgpack_modules=[])
         )
-        graph = StateGraph(SpeechState)
-        for name in [
-            "prepare",
-            "acquire",
-            "invoke",
-            "validate",
-            "advance",
-            "finish",
-            "hold",
-            "cancelled",
-        ]:
-            graph.add_node(name, getattr(self, "_" + name))
-        graph.add_edge(START, "prepare")
-        graph.add_conditional_edges(
-            "prepare",
-            lambda s: s["status"],
-            {"ready": "acquire", "cancelled": "cancelled", "held": "hold"},
-        )
-        graph.add_conditional_edges(
+        chunk = StateGraph(SpeechState)
+        for name in ["acquire", "invoke", "validate"]:
+            chunk.add_node(name, getattr(self, "_" + name))
+        chunk.add_edge(START, "acquire")
+        chunk.add_conditional_edges(
             "acquire",
             lambda s: s["status"],
             {
                 "ready": "invoke",
                 "received": "validate",
-                "cached": "advance",
-                "completed": "finish",
-                "held": "hold",
-                "cancelled": "cancelled",
+                "cached": END,
+                "completed": END,
+                "held": END,
+                "cancelled": END,
             },
         )
-        graph.add_conditional_edges(
+        chunk.add_conditional_edges(
             "invoke",
             lambda s: s["status"],
-            {"received": "validate", "held": "hold", "cancelled": "cancelled"},
+            {"received": "validate", "held": END, "cancelled": END},
         )
+        chunk.add_edge("validate", END)
+        self.chunk_graph = chunk.compile(checkpointer=self.saver)
+        graph = StateGraph(SpeechState)
+        for name in ["prepare", "advance", "finish", "hold", "cancelled"]:
+            graph.add_node(name, getattr(self, "_" + name))
+        graph.add_node("chunk", self._process_chunk)
+        graph.add_edge(START, "prepare")
+        graph.add_conditional_edges("prepare", self._fanout)
+        graph.add_edge("chunk", "advance")
         graph.add_conditional_edges(
-            "validate", lambda s: s["status"], {"cached": "advance", "held": "hold"}
+            "advance",
+            lambda s: s["status"],
+            {"completed": "finish", "held": "hold", "cancelled": "cancelled"},
         )
-        graph.add_edge("advance", "acquire")
-        for node in ["finish", "hold", "cancelled"]:
-            graph.add_edge(node, END)
+        for name in ["finish", "hold", "cancelled"]:
+            graph.add_edge(name, END)
         self.graph = graph.compile(checkpointer=self.saver)
 
+    def _fanout(self, s):
+        if s["status"] != "ready":
+            return "cancelled" if s["status"] == "cancelled" else "hold"
+        return [
+            Send(
+                "chunk",
+                {"task": s["task"], "chunks": [chunk], "index": 0, "status": "new"},
+            )
+            for chunk in s["chunks"]
+        ]
+
+    def _process_chunk(self, s):
+        index = s["chunks"][0]["index"]
+        value = self.chunk_graph.invoke(
+            s,
+            config={
+                "configurable": {
+                    "thread_id": s["task"]["task_id"] + ":chunk:" + str(index)
+                },
+                "recursion_limit": 8,
+                "max_concurrency": 1,
+            },
+        )
+        return {"progress": {str(index): value["status"]}}
+
     def graph_nodes(self):
-        return self.graph.get_graph().nodes
+        return set(self.graph.get_graph().nodes) | set(
+            self.chunk_graph.get_graph().nodes
+        )
 
     def checkpoint(self, task):
         return self.graph.get_state({"configurable": {"thread_id": task}}).values
@@ -195,6 +225,7 @@ class TranscriptionAgent:
                 config={
                     "configurable": {"thread_id": task["task_id"]},
                     "recursion_limit": len(chunks) * 5 + 12,
+                    "max_concurrency": self.chunk_concurrency,
                 },
             )
             return value["result"]
@@ -212,23 +243,30 @@ class TranscriptionAgent:
             return {"status": "cancelled"}
         if s["index"] >= len(s["chunks"]):
             return {"status": "completed"}
-        chunk = self.state.chunk(task, s["index"])
+        chunk = self.state.chunk(task, s["chunks"][s["index"]]["index"])
         if chunk:
             if chunk["status"] == "completed":
                 return {"status": "cached"}
             if chunk["status"] == "received":
                 return {"status": "received", "reply": json.loads(chunk["reply"])}
             if chunk["status"] == "started":
-                self.state.fail(task, s["index"], "interrupted_model_intent", True)
+                self.state.fail(
+                    task,
+                    s["chunks"][s["index"]]["index"],
+                    "interrupted_model_intent",
+                    True,
+                )
             return {"status": "held"}
-        return {"status": "ready"}
+        return {
+            "status": "held" if self.state.task(task)["status"] == "held" else "ready"
+        }
 
     def _invoke(self, s):
         task = s["task"]
         identifier = task["task_id"]
         chunk = s["chunks"][s["index"]]
-        with self.state.lock(identifier, "call-fence", shared=True):
-            status = self.state.reserve(identifier, s["index"])
+        with self.call_slots, self.state.lock(identifier, "call-fence", shared=True):
+            status = self.state.reserve(identifier, chunk["index"])
             if status == "cancelled":
                 return {"status": "cancelled"}
             if status != "reserved":
@@ -239,14 +277,14 @@ class TranscriptionAgent:
                     raise ValueError("chunk_sha_mismatch")
                 if self.state.cancelled(identifier):
                     self.state.fail(
-                        identifier, s["index"], "cancelled_before_http", False
+                        identifier, chunk["index"], "cancelled_before_http", False
                     )
                     return {"status": "cancelled"}
                 reply = self.model_tool(task["model"], raw, task["source_language"])
-                self.state.reply(identifier, s["index"], reply)
+                self.state.reply(identifier, chunk["index"], reply)
                 return {"status": "received", "reply": reply}
             except Exception as error:
-                self.state.fail(identifier, s["index"], type(error).__name__, True)
+                self.state.fail(identifier, chunk["index"], type(error).__name__, True)
                 return {"status": "held"}
 
     def _validate(self, s):
@@ -258,20 +296,33 @@ class TranscriptionAgent:
                     **row,
                     "start": row["start"] + chunk["start"] / 16000,
                     "end": row["end"] + chunk["start"] / 16000,
-                    "id": f"{s['task']['task_id']}:{s['index']}:{i}",
+                    "id": f"{s['task']['task_id']}:{chunk['index']}:{i}",
                 }
                 for i, row in enumerate(rows)
             ]
-            self.state.complete(s["task"]["task_id"], s["index"], rows)
+            self.state.complete(
+                s["task"]["task_id"], s["chunks"][s["index"]]["index"], rows
+            )
             return {"status": "cached"}
         except (ValueError, TypeError, KeyError):
             self.state.fail(
-                s["task"]["task_id"], s["index"], "invalid_timed_transcription", False
+                s["task"]["task_id"],
+                s["chunks"][s["index"]]["index"],
+                "invalid_timed_transcription",
+                False,
             )
             return {"status": "held"}
 
     def _advance(self, s):
-        return {"index": s["index"] + 1, "status": "ready"}
+        task = s["task"]["task_id"]
+        if self.state.cancelled(task):
+            return {"status": "cancelled"}
+        chunks = [self.state.chunk(task, i) for i in range(len(s["chunks"]))]
+        return {
+            "status": "completed"
+            if all(c and c["status"] == "completed" for c in chunks)
+            else "held"
+        }
 
     def _terminal(self, s, status, segments=None, projection_trace=None):
         chunks = [
