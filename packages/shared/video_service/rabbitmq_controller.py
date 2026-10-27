@@ -85,14 +85,26 @@ class BrokerController:
     def dispatch(self, owner, job_id):
         # One explicitly authorized job only, including its previously reserved
         # unpublished attempt after a transport failure. Never scan pending jobs.
-        self.runtime.claim_next(owner, job_id)
         state = self.runtime.get(owner, job_id)
-        for run in state["runs"]:
-            if run["status"] == "running" or (
-                run["status"] == "waiting" and run.get("dispatch")
+        limit = len(state["snapshot"]["definition"]["nodes"]) + 1
+        for _ in range(limit):
+            before = {(run["id"], run["status"]) for run in state["runs"]}
+            self.runtime.claim_next(owner, job_id)
+            state = self.runtime.get(owner, job_id)
+            for run in state["runs"]:
+                if run["status"] == "running" or (
+                    run["status"] == "waiting" and run.get("dispatch")
+                ):
+                    self.publish_exact(owner, job_id, run["id"])
+            state = self.runtime.get(owner, job_id)
+            after = {(run["id"], run["status"]) for run in state["runs"]}
+            if (
+                state["status"] not in {"waiting", "running"}
+                or any(run["status"] in {"running", "waiting"} for run in state["runs"])
+                or before == after
             ):
-                self.publish_exact(owner, job_id, run["id"])
-        return self.runtime.get(owner, job_id)
+                break
+        return state
 
     def receive(self, delivery):
         from .engine_protocol import RESULT as ENGINE_RESULT
