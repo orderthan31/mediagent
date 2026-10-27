@@ -4,7 +4,7 @@ import { LoadingSkeleton } from './LoadingSkeleton';
 import { Pagination, usePagination } from './Pagination';
 import { request } from './api';
 import { frontendOnly, renewalBackend } from './preview';
-import { ServingTabs } from './ProviderConnections';
+import { ServingTabs, ProviderConnections } from './ProviderConnections';
 import {
   connectionsEndpoint,
   isFrontierProvider,
@@ -34,11 +34,16 @@ export const ModelRegistryPage = ({
   form = false,
   identity,
   query = '',
+  onRegistered,
+  onCancel,
 }: {
   form?: boolean;
   identity?: string;
   query?: string;
+  onRegistered?: (model: RegisteredModel) => void;
+  onCancel?: () => void;
 }) => {
+  const [addingConnection, setAddingConnection] = useState(false);
   const [models, setModels] = useState<RegisteredModel[]>([]);
   const [connections, setConnections] = useState<ServingConnection[]>([]);
   const [connectionId, setConnectionId] = useState('');
@@ -80,6 +85,9 @@ export const ModelRegistryPage = ({
       return;
     }
     setModel(item?.id || '');
+    if (item && !name.trim()) {
+      setName(item.label || item.id);
+    }
     setProfile(item?.profile || emptyModelProfile());
     setCatalogToken(item?.registration_token || '');
     setUses([]);
@@ -208,7 +216,9 @@ export const ModelRegistryPage = ({
       setEditing(row);
       setStatus('저장됨');
       await load();
-      if (typedRegistry) {
+      if (onRegistered) {
+        onRegistered(row);
+      } else if (typedRegistry) {
         location.hash = '/serving/' + row.id;
       }
     } catch (e) {
@@ -254,6 +264,29 @@ export const ModelRegistryPage = ({
   );
   const page = usePagination(shown, query);
   useEffect(() => {
+    if (!addingConnection) {
+      return;
+    }
+    const prior = document.activeElement as HTMLElement | null;
+    const focus = requestAnimationFrame(() => {
+      const panels = document.querySelectorAll<HTMLElement>('.registration-overlay');
+      panels[panels.length - 1]
+        ?.querySelector<HTMLButtonElement>('button')
+        ?.focus({ preventScroll: true });
+    });
+    const back = () => {
+      if (!window.history.state?.providerRegistration) {
+        setAddingConnection(false);
+      }
+    };
+    window.addEventListener('popstate', back);
+    return () => {
+      cancelAnimationFrame(focus);
+      window.removeEventListener('popstate', back);
+      prior?.focus({ preventScroll: true });
+    };
+  }, [addingConnection]);
+  useEffect(() => {
     void load();
   }, []);
   useEffect(() => {
@@ -297,6 +330,65 @@ export const ModelRegistryPage = ({
         </p>
       )}
       {status && <p role="status">{status}</p>}
+      {addingConnection && (
+        <section
+          className="registration-overlay"
+          role="dialog"
+          aria-label="공급자 추가"
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') {
+              event.stopPropagation();
+              setAddingConnection(false);
+              if (window.history.state?.providerRegistration) {
+                window.history.back();
+              }
+            }
+          }}
+        >
+          <div className="registration-top">
+            <strong>공급자 추가</strong>
+            <button
+              type="button"
+              onClick={() => {
+                setAddingConnection(false);
+                if (window.history.state?.providerRegistration) {
+                  window.history.back();
+                }
+              }}
+            >
+              모델 등록으로 돌아가기
+            </button>
+          </div>
+          <div className="registration-body">
+            <ProviderConnections
+              route="#/serving/connections/new"
+              query=""
+              onSaved={async (connection) => {
+                const data = await request<{ connections: ServingConnection[] }>(
+                  connectionsEndpoint,
+                );
+                setConnections(data.connections);
+                setConnectionId(connection.id);
+                setConnectionRevision(connection.current_revision || connection.revision);
+                setProvider(connection.provider);
+                catalogContext.current = {
+                  connection_id: connection.id,
+                  connection_revision: connection.current_revision || connection.revision,
+                };
+                setCatalogToken('');
+                setModel('');
+                setProfile(emptyModelProfile());
+                setUses([]);
+                setCompatible([]);
+                setAddingConnection(false);
+                if (window.history.state?.providerRegistration) {
+                  window.history.back();
+                }
+              }}
+            />
+          </div>
+        </section>
+      )}
       {form && (
         <>
           <section className="ticket-panel page-form">
@@ -363,6 +455,21 @@ export const ModelRegistryPage = ({
                     </select>
                   )}
                 </label>
+                {(frontendOnly || renewalBackend) && (
+                  <Button
+                    variant="quiet"
+                    onClick={() => {
+                      window.history.pushState(
+                        { ...window.history.state, providerRegistration: true },
+                        '',
+                        location.href,
+                      );
+                      setAddingConnection(true);
+                    }}
+                  >
+                    공급자 추가
+                  </Button>
+                )}
                 {!frontier && (
                   <label>
                     모델 ID
@@ -427,15 +534,18 @@ export const ModelRegistryPage = ({
                   </div>
                 )}
               {typedRegistry ? (
-                <fieldset disabled={frontier}>
-                  {frontier && (
-                    <p>
-                      공식 목록의 확인된 분류입니다. 실행 가능한 용도는 위 후보 목록과 별개로
-                      표시합니다.
-                    </p>
-                  )}
-                  <ModelProfileFields value={profile} changed={setProfile} />
-                </fieldset>
+                <details>
+                  <summary>{frontier ? '확인된 모델 능력' : '모델 능력 설정 (고급)'}</summary>
+                  <fieldset disabled={frontier}>
+                    {frontier && (
+                      <p>
+                        공식 목록의 확인된 분류입니다. 실행 가능한 용도는 위 후보 목록과 별개로
+                        표시합니다.
+                      </p>
+                    )}
+                    <ModelProfileFields value={profile} changed={setProfile} />
+                  </fieldset>
+                </details>
               ) : (
                 <>
                   <Button
@@ -492,7 +602,11 @@ export const ModelRegistryPage = ({
               <Button
                 variant="quiet"
                 onClick={() => {
-                  location.hash = identity ? `/serving/${identity}` : '/serving';
+                  if (onCancel) {
+                    onCancel();
+                  } else {
+                    location.hash = identity ? `/serving/${identity}` : '/serving';
+                  }
                 }}
               >
                 취소

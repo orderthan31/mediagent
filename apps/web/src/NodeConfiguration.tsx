@@ -88,29 +88,75 @@ export const NodeConfiguration = ({
   }
   return (
     <div className="node-configuration">
-      {schema && (
-        <section className="node-settings-block">
-          <h4>처리 설정</h4>
-          <DataForm
-            schema={schema}
-            value={optionsData(schema, options)}
-            onChange={(value) => {
-              if (!value || typeof value !== 'object' || Array.isArray(value)) {
-                return;
-              }
-              changed({
-                ...options,
-                ...Object.fromEntries(
-                  Object.entries(value).map(([key, field]) => [
-                    key,
-                    typeof field === 'object' ? JSON.stringify(field) : String(field ?? ''),
-                  ]),
-                ),
-              });
-            }}
-          />
-        </section>
-      )}
+      {schema &&
+        (() => {
+          const labels: Record<string, string> = {
+            max_model_calls: '최대 모델 호출 수',
+            audio_filter: '음성 처리',
+            vad_mode: '음성 구간 처리',
+            subtitle_mode: '자막 표시',
+            video_codec: '영상 형식',
+            quality_profile: '화질',
+            resolution: '해상도',
+            target_language: '번역 언어',
+            format: '자막 형식',
+            track: '출력 언어',
+          };
+          const internal = new Set([
+            'batch_policy',
+            'clock_policy',
+            'media_budget',
+            'processing_profile',
+            'translation_profile',
+            'model_source',
+            'video_budget',
+          ]);
+          const render = (advanced: boolean) => {
+            const properties = Object.fromEntries(
+              Object.entries(schema.properties || {})
+                .filter(([key]) => internal.has(key) === advanced)
+                .map(([key, value]) => [key, { ...value, title: labels[key] || value.title }]),
+            );
+            if (!Object.keys(properties).length) {
+              return null;
+            }
+            const partial = {
+              ...schema,
+              properties,
+              required: schema.required?.filter((key) => key in properties),
+            };
+            return (
+              <DataForm
+                schema={partial}
+                value={optionsData(partial, options)}
+                onChange={(value) => {
+                  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+                    return;
+                  }
+                  changed({
+                    ...options,
+                    ...Object.fromEntries(
+                      Object.entries(value).map(([key, field]) => [
+                        key,
+                        typeof field === 'object' ? JSON.stringify(field) : String(field ?? ''),
+                      ]),
+                    ),
+                  });
+                }}
+              />
+            );
+          };
+          return (
+            <section className="node-settings-block">
+              <h4>처리 설정</h4>
+              {render(false)}
+              <details>
+                <summary>고급 처리 설정</summary>
+                {render(true)}
+              </details>
+            </section>
+          );
+        })()}
       {reviews.length > 0 && (
         <section className="node-settings-block">
           <h4>검토</h4>

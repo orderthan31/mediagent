@@ -736,6 +736,9 @@ export const WorkflowCanvas = ({
       panelHistory.current = true;
     }
     const back = () => {
+      if (window.history.state?.workflowPanel === marker) {
+        return;
+      }
       panelHistory.current = false;
       selectRef.current('');
     };
@@ -777,6 +780,15 @@ export const WorkflowCanvas = ({
             (onChange ? '배치 변경은 저장 후 반영됩니다.' : '읽기 전용 · 화면 배치만 변경')}
         {!onChange && layoutNotice && <span>읽기 전용 · 화면 배치만 변경</span>}
       </p>
+      {Object.keys(nodeStates).length > 0 && (
+        <div className="workflow-state-legend" aria-label="진행 상태">
+          <span data-state="pending">대기</span>
+          <span data-state="running">실행</span>
+          <span data-state="completed">완료</span>
+          <span data-state="review_required">검수</span>
+          <span data-state="failed">실패</span>
+        </div>
+      )}
       {catalogError && (
         <p role="alert" className="workflow-catalog-error">
           {catalogError}
@@ -945,8 +957,8 @@ export const WorkflowCanvas = ({
                 type="button"
                 className="workflow-node-heading"
                 aria-pressed={selected === box.id}
-                onClick={() => {
-                  if (!suppressTap.current) {
+                onClick={(event) => {
+                  if (!suppressTap.current || event.detail === 0) {
                     select(box.id);
                   }
                 }}

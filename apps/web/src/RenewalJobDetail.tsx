@@ -322,14 +322,17 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
                         : '원본 입력'}
                     </h3>
                     {node && (
-                      <dl>
-                        {Object.entries(node.options).map(([key, value]) => (
-                          <div key={key}>
-                            <dt>{key}</dt>
-                            <dd>{value}</dd>
-                          </div>
-                        ))}
-                      </dl>
+                      <details>
+                        <summary>처리 설정 상세</summary>
+                        <dl>
+                          {Object.entries(node.options).map(([key, value]) => (
+                            <div key={key}>
+                              <dt>{key}</dt>
+                              <dd>{value}</dd>
+                            </div>
+                          ))}
+                        </dl>
+                      </details>
                     )}
                     <p>
                       {run
@@ -380,22 +383,25 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
                     {translation && (
                       <section aria-label={`${traceLabel} 실행 기록`}>
                         <h4>{traceLabel} 실행 기록</h4>
-                        <p>최종 채택: {translation.selected?.remote_model || '없음'}</p>
-                        <ol>
-                          {translation.attempts.map((attempt) => (
-                            <li key={attempt.index}>
-                              {attempt.remote_model} · {attempt.protocol} · 모델 개정{' '}
-                              {attempt.revision} / 연결 개정 {attempt.connection_revision} ·{' '}
-                              {translationLabels[attempt.status] || attempt.status}
-                              {attempt.error
-                                ? ` · ${translationLabels[attempt.error] || attempt.error}`
-                                : ''}
-                              {attempt.transition
-                                ? ` · ${translationLabels[attempt.transition] || attempt.transition}`
-                                : ''}
-                            </li>
-                          ))}
-                        </ol>
+                        <p>사용 모델: {translation.selected?.remote_model || '없음'}</p>
+                        <details>
+                          <summary>모델 호출 상세</summary>
+                          <ol>
+                            {translation.attempts.map((attempt) => (
+                              <li key={attempt.index}>
+                                {attempt.remote_model} · {attempt.protocol} · 모델 개정{' '}
+                                {attempt.revision} / 연결 개정 {attempt.connection_revision} ·{' '}
+                                {translationLabels[attempt.status] || attempt.status}
+                                {attempt.error
+                                  ? ` · ${translationLabels[attempt.error] || attempt.error}`
+                                  : ''}
+                                {attempt.transition
+                                  ? ` · ${translationLabels[attempt.transition] || attempt.transition}`
+                                  : ''}
+                              </li>
+                            ))}
+                          </ol>
+                        </details>
                       </section>
                     )}
                     {run?.error_code && (

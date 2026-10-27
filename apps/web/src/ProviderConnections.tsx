@@ -24,11 +24,19 @@ export const ServingTabs = ({ connections = false }: { connections?: boolean }) 
     </a>
   </nav>
 );
-export const ProviderConnections = ({ route, query }: { route: string; query: string }) => {
+export const ProviderConnections = ({
+  route,
+  query,
+  onSaved,
+}: {
+  route: string;
+  query: string;
+  onSaved?: (connection: ServingConnection) => void;
+}) => {
   const [rows, setRows] = useState<ServingConnection[]>([]);
   const [providers, setProviders] = useState<Record<string, string>>({});
   const [name, setName] = useState('');
-  const [provider, setProvider] = useState(renewalBackend ? 'openai_compatible' : 'openai');
+  const [provider, setProvider] = useState('openai');
   const [protocol, setProtocol] = useState('openai_compatible');
   const [endpoint, setEndpoint] = useState('');
   const [revision, setRevision] = useState(0);
@@ -47,7 +55,7 @@ export const ProviderConnections = ({ route, query }: { route: string; query: st
   );
   const page = usePagination(shown, query);
   const save = async () => {
-    if (!name.trim() || busy) {
+    if (!provider || busy) {
       return;
     }
     setBusy('save');
@@ -58,7 +66,7 @@ export const ProviderConnections = ({ route, query }: { route: string; query: st
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: name.trim(),
+          name: name.trim() || providers[provider] || provider,
           provider,
           ...(!renewalBackend || !isFrontierProvider(provider)
             ? { endpoint: endpoint.trim() }
@@ -86,7 +94,14 @@ export const ProviderConnections = ({ route, query }: { route: string; query: st
         }
       }
       setSecret('');
-      location.hash = '/serving/connections/' + id;
+      if (onSaved) {
+        const list = await request<{ connections: ServingConnection[] }>(connectionsEndpoint);
+        const current = list.connections.find((item) => item.id === id);
+        if (!current) {throw new Error('저장한 공급자를 다시 읽지 못했습니다.');}
+        await onSaved(current);
+      } else {
+        location.hash = '/serving/connections/' + id;
+      }
     } catch (value) {
       setError(value instanceof Error ? value.message : '저장하지 못했습니다.');
     } finally {
@@ -102,7 +117,7 @@ export const ProviderConnections = ({ route, query }: { route: string; query: st
       setName('');
       setEndpoint('');
       setRevision(0);
-      setProvider(renewalBackend ? 'openai_compatible' : 'openai');
+      setProvider('openai');
       setProtocol('openai_compatible');
     }
     const controller = new AbortController();
@@ -167,15 +182,17 @@ export const ProviderConnections = ({ route, query }: { route: string; query: st
           }}
         >
           <fieldset disabled={!!busy || (!!identity && revision === 0)}>
-            <label>
-              이름
-              <Input
-                value={name}
-                maxLength={80}
-                onChange={(event) => setName(event.target.value)}
-                required
-              />
-            </label>
+            <details>
+              <summary>표시 이름 (선택)</summary>
+              <label>
+                이름
+                <Input
+                  value={name}
+                  maxLength={80}
+                  onChange={(event) => setName(event.target.value)}
+                />
+              </label>
+            </details>
             <label>
               공급자
               <select
@@ -268,7 +285,7 @@ export const ProviderConnections = ({ route, query }: { route: string; query: st
           <div className="page-actions">
             <Button
               type="submit"
-              disabled={!name.trim() || !!busy || (!!identity && revision === 0)}
+              disabled={!provider || !!busy || (!!identity && revision === 0)}
               loading={busy === 'save'}
             >
               저장

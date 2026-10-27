@@ -227,55 +227,121 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
           />
         )}
         {!spec.settings_schema &&
-          Object.entries(spec.options).map(([key, values]) => {
-            const update = (value: string) =>
-              change({
-                ...doc,
-                nodes: doc.nodes.map((item) =>
-                  item.id === node.id
-                    ? { ...item, options: { ...item.options, [key]: value } }
-                    : item,
-                ),
-              });
-            const free = isControlNode(node.type) && values.length === 1;
+          (() => {
+            const internal = new Set([
+              'batch_policy',
+              'clock_policy',
+              'media_budget',
+              'processing_profile',
+              'translation_profile',
+              'model_source',
+              'video_budget',
+            ]);
+            const render = (advanced: boolean) =>
+              Object.entries(spec.options)
+                .filter(([key]) => internal.has(key) === advanced)
+                .map(([key, values]) => {
+                  const update = (value: string) =>
+                    change({
+                      ...doc,
+                      nodes: doc.nodes.map((item) =>
+                        item.id === node.id
+                          ? { ...item, options: { ...item.options, [key]: value } }
+                          : item,
+                      ),
+                    });
+                  const free = isControlNode(node.type) && values.length === 1;
+                  return (
+                    <label key={key}>
+                      {(
+                        {
+                          max_model_calls: '최대 모델 호출 수',
+                          audio_filter: '음성 처리',
+                          vad_mode: '음성 구간 처리',
+                          subtitle_mode: '자막 표시',
+                          video_codec: '영상 형식',
+                          quality_profile: '화질',
+                          resolution: '해상도',
+                          format: '자막 형식',
+                        } as Record<string, string>
+                      )[key] ||
+                        controlFieldLabels[key] ||
+                        key}
+                      {key === 'cases' ? (
+                        <textarea
+                          aria-label="분기값"
+                          value={node.options[key] ?? values[0]}
+                          rows={4}
+                          onChange={(event) => update(event.target.value)}
+                        />
+                      ) : free ? (
+                        <Input
+                          aria-label={
+                            (
+                              {
+                                max_model_calls: '최대 모델 호출 수',
+                                audio_filter: '음성 처리',
+                                vad_mode: '음성 구간 처리',
+                                subtitle_mode: '자막 표시',
+                                video_codec: '영상 형식',
+                                quality_profile: '화질',
+                                resolution: '해상도',
+                                format: '자막 형식',
+                              } as Record<string, string>
+                            )[key] ||
+                            controlFieldLabels[key] ||
+                            key
+                          }
+                          type={
+                            ['repeat_count', 'max_iterations', 'max_attempts'].includes(key)
+                              ? 'number'
+                              : 'text'
+                          }
+                          min={1}
+                          value={node.options[key] ?? values[0]}
+                          onChange={(event) => update(event.target.value)}
+                        />
+                      ) : (
+                        <select
+                          aria-label={
+                            (
+                              {
+                                max_model_calls: '최대 모델 호출 수',
+                                audio_filter: '음성 처리',
+                                vad_mode: '음성 구간 처리',
+                                subtitle_mode: '자막 표시',
+                                video_codec: '영상 형식',
+                                quality_profile: '화질',
+                                resolution: '해상도',
+                                format: '자막 형식',
+                              } as Record<string, string>
+                            )[key] ||
+                            controlFieldLabels[key] ||
+                            key
+                          }
+                          value={node.options[key] || values[0]}
+                          onChange={(event) => update(event.target.value)}
+                        >
+                          {values.map((value) => (
+                            <option value={value} key={value}>
+                              {controlValueLabels[value] || value}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </label>
+                  );
+                });
             return (
-              <label key={key}>
-                {controlFieldLabels[key] || key}
-                {key === 'cases' ? (
-                  <textarea
-                    aria-label="분기값"
-                    value={node.options[key] ?? values[0]}
-                    rows={4}
-                    onChange={(event) => update(event.target.value)}
-                  />
-                ) : free ? (
-                  <Input
-                    aria-label={controlFieldLabels[key] || key}
-                    type={
-                      ['repeat_count', 'max_iterations', 'max_attempts'].includes(key)
-                        ? 'number'
-                        : 'text'
-                    }
-                    min={1}
-                    value={node.options[key] ?? values[0]}
-                    onChange={(event) => update(event.target.value)}
-                  />
-                ) : (
-                  <select
-                    aria-label={controlFieldLabels[key] || key}
-                    value={node.options[key] || values[0]}
-                    onChange={(event) => update(event.target.value)}
-                  >
-                    {values.map((value) => (
-                      <option value={value} key={value}>
-                        {controlValueLabels[value] || value}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </label>
+              <>
+                {render(false)}
+                <details>
+                  <summary>고급 처리 설정</summary>
+                  {render(true)}
+                </details>
+              </>
             );
-          })}
+          })()}
         {frontendOnly && (spec.settings_schema || spec.review_contracts) && (
           <NodeConfiguration
             key={node.id}
