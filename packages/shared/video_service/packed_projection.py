@@ -56,12 +56,11 @@ def project(segments, spans, *, policy="packed_projection_v2"):
         "timeline_spans_sha256": hashlib.sha256(canonical(spans)).hexdigest(),
         "rows": [],
     }
-    output, seen, previous, size = [], set(), 0, 0
+    output, seen, size = [], set(), 0
     ends = [span["packed_end"] for span in spans]
     for index, row in enumerate(segments):
-        if row["start"] < previous or row["end"] > duration + 1e-8:
+        if row["end"] > duration + 1e-8:
             raise ValueError("projection_transcript_outside_clock_or_overlapping")
-        previous = row["end"]
         pieces = []
         for span_index in range(bisect_right(ends, row["start"]), len(spans)):
             span = spans[span_index]

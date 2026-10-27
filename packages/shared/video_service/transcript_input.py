@@ -11,8 +11,8 @@ def parse_segments(raw):
         values = json.loads(raw)
     except (ValueError, UnicodeError):
         raise ValueError("Transcript must be UTF-8 JSON") from None
-    if not isinstance(values, list) or not 1 <= len(values) <= 10000:
-        raise ValueError("Transcript must contain 1 to 10000 segments")
+    if not isinstance(values, list) or not 0 <= len(values) <= 10000:
+        raise ValueError("Transcript must contain 0 to 10000 segments")
     result = []
     for value in values:
         if (

@@ -68,7 +68,9 @@ flowchart LR
   FixedSlots -. 개별 ID·boot 제한 보고 .-> Mailbox
 ```
 
-- 에이전트는 DB·전체 workflow·다음 노드·웹 세션을 모른다. 애플리케이션이 승인·의존성·검수·취소 generation과 결과 채택을 소유한다.
+- 목표 경계: 독립 role agent는 자기 task 입력·LangGraph 상태/체크포인트·모델/도구 호출·결과 검증·취소/실패/보류를 소유하며 전체 workflow/jobs/outbox·웹 세션·다음 agent를 읽거나 갱신하지 않는다. Orchestrator가 전체 순서·승인·검수·작업 취소·결과 채택·다음 agent 배정을 소유한다. 공용 라이브러리 재사용은 이 소유권/배포 경계의 증거가 아니다.
+- 현재 운영 상태(전환 전): CPU 역할은 별도 프로세스/컨테이너지만 등록 모델 전사·번역·보컬은 `registered` 큐와 application consumer의 `Execution.execute_command/accept/dispatch`에 묶여 있다. 위 목표가 모델 경로까지 완료되었다고 해석하면 안 된다.
+- 전환 첫 조각: `agents/models/src/mideagent_models/`의 전사 role은 실제 LangGraph prepare→acquire→invoke→validate→advance/finish/hold/cancelled 전이, 자체 SQLite checkpoint와 call-intent ledger, 역할 전용 CLI 및 HTTP tool을 갖는다. 이는 아직 개발/격리 검증 중이며 운영 큐/결과 채택/자격 증명 브리지 전환을 완료한 상태가 아니다. 번역·보컬 분리, 분할 동시성 설정, 역할 전용 MQ/TLS S3 및 같은 사이트 E2E는 후속 구현/검증 항목이다. 기존 운영 consumer와 옛/불명 시도는 자동 재실행하지 않는다.
 - S3 경로의 앱과 에이전트는 서로 다른 private cache를 쓴다. 현재 배포의 입력/출력은 owner-scoped digest 참조로 이동하며 ETag를 SHA로 취급하지 않는다. 사용자 확정 목표는 인증 사용자 공용 자료함과 티켓별 object/manifest다. 기존 owner-CAS는 읽기 호환을 보존하고 업로더/실행자는 감사 기록으로 남긴다. credential 저장소를 공용 미디어와 함께 열지 않는다.
 - 명령 ID의 DB delivery reservation과 S3 attempt marker가 중복 실행을 막는다. 완료 receipt 없는 예약은 결과 불명이며 자동 재실행하지 않는다.
 - 원본·처리 결과와 WebM 파생본의 SHA/출처를 따로 저장한다. GET 재생/다운로드에서 변환하지 않는다. WebM 실패는 원본을 덮어쓰거나 삭제하지 않는다.
