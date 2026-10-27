@@ -180,6 +180,7 @@ export const NodeModelBinding = ({
               </div>
               <div className="registration-body">
                 <ModelRegistryPage
+                  preferredRole={role}
                   form
                   onCancel={closeRegistration}
                   onRegistered={(row) => {

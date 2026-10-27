@@ -250,7 +250,8 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
                           : item,
                       ),
                     });
-                  const free = isControlNode(node.type) && values.length === 1;
+                  const free =
+                    values.length === 1 && (isControlNode(node.type) || values[0] === '');
                   return (
                     <label key={key}>
                       {(
