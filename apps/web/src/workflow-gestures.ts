@@ -1,6 +1,6 @@
 export type View = { x: number; y: number; scale: number };
 export type Point = { x: number; y: number };
-export function pinchView(
+export const pinchView = (
   view: View,
   anchor: Point,
   midpoint: Point,
@@ -8,7 +8,7 @@ export function pinchView(
   distance: number,
   min = 0.02,
   max = 1.8,
-): View {
+): View => {
   if (startDistance <= 0) {
     return view;
   }
@@ -18,4 +18,4 @@ export function pinchView(
     x: midpoint.x - ((anchor.x - view.x) * scale) / view.scale,
     y: midpoint.y - ((anchor.y - view.y) * scale) / view.scale,
   };
-}
+};
