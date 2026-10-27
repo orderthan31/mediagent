@@ -41,7 +41,12 @@ class RoleToolBridge:
             row = c.execute(
                 "SELECT * FROM model_role_tasks WHERE task_id=%s", (packet["task_id"],)
             ).fetchone()
-            if not row or row["phase"] not in {"sent", "adopting", "accepted"}:
+            if not row or row["phase"] not in {
+                "sending",
+                "sent",
+                "adopting",
+                "accepted",
+            }:
                 raise Conflict("tool_grant_not_active")
             task = row["envelope"]["task"]
             owner = row["owner_id"]
@@ -115,15 +120,19 @@ class RoleToolBridge:
                     else None
                 )
                 adapter = executor.make_adapter(pin, key)
-                # Cancellation/generation/claim is re-read after the durable HTTP intent.
-                with runtime.database.connection() as c:
-                    self.roles._current(c, owner, command)
-                response = timed_segments(
-                    adapter.transcribe(
-                        pin["remote_model"], raw, task["source_language"]
-                    ),
-                    chunk.end - chunk.start,
-                )
+                from .postgres.model_call_fence import model_call_fence
+
+                # The shared session fence survives the final row-lock transaction
+                # and actual adapter entry. Product cancel takes its exclusive side.
+                with model_call_fence(runtime.database, owner, command["run_id"]):
+                    with runtime.database.connection() as c:
+                        self.roles._current(c, owner, command)
+                    response = timed_segments(
+                        adapter.transcribe(
+                            pin["remote_model"], raw, task["source_language"]
+                        ),
+                        chunk.end - chunk.start,
+                    )
             except Exception as error:
                 code = (
                     error.code

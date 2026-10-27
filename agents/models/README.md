@@ -98,3 +98,23 @@ fallback chain (never truncates it). Operator/API auto-enrollment, multiple-cand
 role transitions, user-facing held recovery, normal-site activation and whole E2E
 remain separate unfinished connections. Native test and installed-byte evidence
 must be reported separately from these source-level contracts.
+
+
+### Bridge admission ordering
+The application credential bridge holds a shared PostgreSQL session advisory
+call fence from its final current-attempt check through actual adapter I/O.
+Product cancellation acquires the same job fence exclusively before its job row
+lock. Concurrent call admissions can share this fence; a cancellation that wins
+first blocks subsequent model calls. An in-flight call winner must drain before
+cancellation commits. Existing bounded database lock errors are not cancellation
+success/ACK and must not be presented as such. No job/run row lock is held across
+provider I/O.
+
+The committed `sending` record authorizes the exact received role command before
+publisher confirmation returns. The publisher drops validation row locks before
+network I/O, so a fast consumer can perform its own checks instead of becoming
+permanently held solely because confirmation is still pending. Later confirmation
+updates only a still-sending projection, never downgrades already accepted results.
+Failed/ambiguous sends retain sending/unknown history and cannot automatically
+republish. This ordering is a source-level disposable-PG/local-delivery contract
+until separately installed and exercised; it is not native MQ race proof.

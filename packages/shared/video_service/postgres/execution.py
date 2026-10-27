@@ -2233,7 +2233,10 @@ class Execution(Intake):
             return self._view(db, child_row)
 
     def cancel(self, owner, identity, revision):
+        from .model_call_fence import lock_product_cancel
+
         with self.database.connection() as db:
+            lock_product_cancel(db, owner, identity)
             job = self._job(db, owner, identity, lock=True)
             from .job_processing_review import JobProcessingReview
 

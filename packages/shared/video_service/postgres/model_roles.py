@@ -159,11 +159,15 @@ class ModelRoles:
                     (row["task_id"],),
                 )
                 c.commit()
+                # A received command may execute from the already durable sending
+                # grant before confirm returns. Release row locks before network I/O;
+                # the bridge independently fences each call against product cancel.
                 self._current(c, owner, run["request"])
+                c.commit()
                 if send_confirm(deepcopy(row["envelope"])) is not True:
                     raise Conflict("model_role_publish_unconfirmed")
                 c.execute(
-                    "UPDATE model_role_tasks SET phase='sent'WHERE task_id=%s",
+                    "UPDATE model_role_tasks SET phase='sent'WHERE task_id=%s AND phase='sending'",
                     (row["task_id"],),
                 )
                 c.execute(
