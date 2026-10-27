@@ -23,6 +23,9 @@ class ScopedSpeechTool:
     """One configured HTTP tool capability, not an Execution/accept proxy."""
 
     def __init__(self, config):
+        self.contract = config.get("tool_contract", "controlled_v1")
+        if self.contract not in {"controlled_v1", "registry_scoped_v1"}:
+            raise ValueError("unsupported_scoped_tool_contract")
         self.url = config["tool_url"]
         url = urllib.parse.urlsplit(self.url)
         controlled = (
@@ -44,8 +47,24 @@ class ScopedSpeechTool:
             _NoRedirect(), urllib.request.HTTPSHandler(context=context)
         )
 
+    def for_chunk(self, task, chunk):
+        if self.contract != "registry_scoped_v1":
+            return self
+        return lambda model, audio, language: self._request(
+            model,
+            audio,
+            language,
+            {"task_id": task["task_id"], "chunk_index": chunk["index"]},
+        )
+
     def __call__(self, model, audio, language):
+        if self.contract == "registry_scoped_v1":
+            raise ValueError("scoped_task_chunk_required")
+        return self._request(model, audio, language, {})
+
+    def _request(self, model, audio, language, context):
         payload = {
+            **context,
             "model": model,
             "source_language": language,
             "audio_base64": base64.b64encode(audio).decode("ascii"),

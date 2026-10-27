@@ -280,7 +280,12 @@ class TranscriptionAgent:
                         identifier, chunk["index"], "cancelled_before_http", False
                     )
                     return {"status": "cancelled"}
-                reply = self.model_tool(task["model"], raw, task["source_language"])
+                tool = (
+                    self.model_tool.for_chunk(task, chunk)
+                    if hasattr(self.model_tool, "for_chunk")
+                    else self.model_tool
+                )
+                reply = tool(task["model"], raw, task["source_language"])
                 self.state.reply(identifier, chunk["index"], reply)
                 return {"status": "received", "reply": reply}
             except Exception as error:

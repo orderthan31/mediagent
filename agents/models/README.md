@@ -75,3 +75,26 @@ the accepted control identity or its retry budget. Accepted cancel deliveries us
 separate scoped journal: old rejected rows remain immutable audit history and cannot
 poison a later valid control. Matching prior accepted/held journal state is carried
 forward without resetting its budget. No original journal or unknown record is deleted.
+
+
+### Application-side task mapping (development)
+`video_service.postgres.model_roles.ModelRoles` enrolls an explicitly selected,
+not-yet-published transcription attempt. Migration026 maps its original request,
+attempt and generation to the immutable role envelope. Publication journals a
+separate committed sending intent under a session advisory guard; an ambiguous
+send never automatically republishes. The original execution entrypoint rejects
+an enrolled attempt, rather than running it centrally.
+
+`RoleToolBridge` verifies a task's exact admitted WAV chunk and frozen registry
+revision before resolving the pinned credential transiently. Its distinct SQL
+HTTP-intent ledger commits before provider bytes, reuses a received reply, and
+holds unknown/settled calls without automatic recall. The role receives only its
+scoped service credential, never the provider key or global database access.
+
+Results are verified against the mapping and actual TLS object bytes, including
+reprojection of the frozen timeline; only the application calls accept/claim_next.
+This first mapping supports one pinned candidate and explicitly rejects a configured
+fallback chain (never truncates it). Operator/API auto-enrollment, multiple-candidate
+role transitions, user-facing held recovery, normal-site activation and whole E2E
+remain separate unfinished connections. Native test and installed-byte evidence
+must be reported separately from these source-level contracts.

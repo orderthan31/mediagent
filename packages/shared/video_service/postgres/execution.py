@@ -1616,6 +1616,18 @@ class Execution(Intake):
             ).fetchone()
             if not run or run["request_sha256"] != digest(command):
                 raise Conflict("실행 요청 무결성 오류")
+            if (
+                command.get("transcription")
+                and db.execute(
+                    "SELECT to_regclass('model_role_tasks') AS relation"
+                ).fetchone()["relation"]
+            ):
+                independent = db.execute(
+                    "SELECT 1 FROM model_role_tasks WHERE owner_id=%s AND job_id=%s AND attempt_id=%s",
+                    (owner, command["run_id"], command["attempt_id"]),
+                ).fetchone()
+                if independent:
+                    raise Conflict("independent_role_owns_attempt")
             previous = db.execute(
                 "SELECT * FROM agent_deliveries WHERE owner_id=%s AND job_id=%s AND node_run_id=%s",
                 (owner, command["run_id"], command["attempt_id"]),
@@ -1818,7 +1830,10 @@ class Execution(Intake):
             raise ValueError("long_audio_result_role_budget_exceeded")
         if not isinstance(values, dict) or set(values) != set(expected):
             raise ValueError("Agent output ports differ")
-        if result.get("transport") == "registered_http" and (
+        if result.get("transport") in {
+            "registered_http",
+            "independent_model_role",
+        } and (
             command.get("translation")
             or command.get("transcription")
             or command.get("vocalization")
