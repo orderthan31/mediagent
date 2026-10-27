@@ -185,3 +185,23 @@ capability, without starting an engine to establish that flag.
 These recovery checks use real disposable PostgreSQL/TLS S3, actual child process exit
 and product LangGraph with local delivery/controlled adapters. They are not native MQ
 crash/race, installed-image, operating-site or paid model/GPU proof.
+
+### Adopted receipt settlement versus next dispatch and pending responses
+An already-adopted receipt may settle after an actual job cancellation/generation/
+claim fence blocks its next publication. The application rechecks the persisted
+fence when publication raises Conflict; unrelated dispatch errors still hold.
+This never relaxes publication checks, completes the whole cancelled job, changes
+its reserved next attempt/outbox or clears unknown delivery history.
+
+GET exposes `settle_recovery_response` separately from `retry_result_delivery`
+when the original pending reservation and durable settled/failed outcome match.
+The explicit result-delivery POST supplies the same original request ID/revision
+and `operation=settle_recovery_response`. Under the same owner guard it records
+only that pending response: no artifact fetch, adoption/next dispatch, delivery
+attempt/revision change or model invocation. This remains available after settled,
+exhausted or rejected outcomes and cannot finalize an unstarted admitted recovery.
+
+A legacy pending request whose original revision cannot be reconstructed exposes
+`legacy_pending_recovery_identity_unavailable`, its original ID and null revision,
+with no action to generate a replacement nonce. Known original requests retain
+exact-identity validation; missing facts are never guessed from the current row.

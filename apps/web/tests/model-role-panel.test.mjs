@@ -22,3 +22,12 @@ test('orphan recovery keeps the originally admitted nonce and revision', async (
   assert.match(source, /task.pending_recovery\?\.revision/);
   assert.match(source, /result_delivery_interrupted/);
 });
+
+test('pending response settlement is distinct from artifact retry and legacy identity is explained', async () => {
+  const source = await readFile(new URL('../src/ModelRolePanel.tsx', import.meta.url), 'utf8');
+  assert.match(source, /settle_recovery_response/);
+  assert.match(source, /기존 복구 응답 정산/);
+  assert.match(source, /legacy_pending_recovery_identity_unavailable/);
+  assert.match(source, /recovery_block_reason/);
+  assert.match(source, /operation:/);
+});

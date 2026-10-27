@@ -16,7 +16,8 @@ type RoleTask = {
   delivery_attempts: number | null;
   delivery_attempt_limit: number;
   recovery_choices: string[];
-  pending_recovery?: { request_id: string; revision: number } | null;
+  pending_recovery?: { request_id: string; revision: number | null } | null;
+  recovery_block_reason?: string | null;
 };
 type Observation = { enrolled: boolean; tasks: RoleTask[] };
 const states: Record<string, string> = {
@@ -31,6 +32,10 @@ const states: Record<string, string> = {
   cancelled: '취소 확인',
 };
 const reasons: Record<string, string> = {
+  legacy_pending_recovery_identity_unavailable:
+    '이전 복구 요청의 원래 revision을 확인할 수 없습니다. 기록을 보존하며 새 요청 ID로 우회하지 않습니다. 원 요청 신원 확인이 필요합니다.',
+  result_artifact_integrity:
+    '결과 파일 무결성 검증이 실패했습니다. 파일이나 모델을 자동으로 다시 실행하지 않습니다.',
   result_delivery_interrupted:
     '결과 전달 처리가 중단되어 반영 여부를 확인해야 합니다. 같은 결과만 명시적으로 확인합니다.',
   result_delivery_budget_exhausted:
@@ -190,30 +195,58 @@ export const ModelRolePanel = ({
                   </ul>
                 </details>
               )}
-              {canManage && task.recovery_choices.includes('retry_result_delivery') && (
-                <>
-                  <p>저장된 동일 결과만 다시 확인합니다. 모델은 다시 호출하지 않습니다.</p>
-                  <Button
-                    disabled={busy || !current || task.delivery_revision === null}
-                    onClick={() =>
-                      void act(() => {
-                        const key = task.task_id + ':' + task.delivery_revision;
-                        if (!recovery.current.has(key)) {
-                          recovery.current.set(key, crypto.randomUUID());
-                        }
-                        return jsonPost(base + '/result-delivery', {
-                          task_id: task.task_id,
-                          revision: task.pending_recovery?.revision ?? task.delivery_revision,
-                          request_id:
-                            task.pending_recovery?.request_id ?? recovery.current.get(key),
-                        });
-                      })
-                    }
-                  >
-                    결과 전달만 다시 확인
-                  </Button>
-                </>
+              {task.recovery_block_reason && (
+                <p role="alert">
+                  {reasons[task.recovery_block_reason] || task.recovery_block_reason}
+                </p>
               )}
+              {canManage &&
+                task.recovery_choices.some((choice) =>
+                  ['retry_result_delivery', 'settle_recovery_response'].includes(choice),
+                ) && (
+                  <>
+                    <p>
+                      {task.recovery_choices.includes('settle_recovery_response')
+                        ? '기존 복구 요청의 응답 기록만 정산합니다. 모델·파일 조회·다음 배정을 실행하지 않습니다.'
+                        : '저장된 동일 결과만 다시 확인합니다. 모델은 다시 호출하지 않습니다.'}
+                    </p>
+                    <Button
+                      disabled={busy || !current || task.delivery_revision === null}
+                      onClick={() =>
+                        void act(() => {
+                          const operation = task.recovery_choices.includes(
+                            'settle_recovery_response',
+                          )
+                            ? 'settle_recovery_response'
+                            : 'retry_result_delivery';
+                          if (
+                            operation === 'settle_recovery_response' &&
+                            (!task.pending_recovery || task.pending_recovery.revision === null)
+                          ) {
+                            throw new Error(
+                              '기존 복구 요청의 원 신원 확인이 필요합니다. 새 요청으로 대체하지 않습니다.',
+                            );
+                          }
+                          const key = task.task_id + ':' + task.delivery_revision;
+                          if (!task.pending_recovery && !recovery.current.has(key)) {
+                            recovery.current.set(key, crypto.randomUUID());
+                          }
+                          return jsonPost(base + '/result-delivery', {
+                            task_id: task.task_id,
+                            operation: operation,
+                            revision: task.pending_recovery?.revision ?? task.delivery_revision,
+                            request_id:
+                              task.pending_recovery?.request_id ?? recovery.current.get(key),
+                          });
+                        })
+                      }
+                    >
+                      {task.recovery_choices.includes('settle_recovery_response')
+                        ? '기존 복구 응답 정산'
+                        : '결과 전달만 다시 확인'}
+                    </Button>
+                  </>
+                )}
             </div>
           ))}
         </>

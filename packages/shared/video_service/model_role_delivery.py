@@ -214,7 +214,35 @@ class RoleResultDeliveries:
                 )
         return True
 
-    def recover(self, owner, job_id, task, revision, request_id):
+    @staticmethod
+    def response_ready(row, reservation):
+        if (
+            not row
+            or not reservation
+            or reservation.get("admitted_revision") is None
+            or reservation.get("attempt_before") is None
+            or reservation.get("task_id") != row["task_id"]
+            or reservation.get("packet_sha256") != row["packet_sha256"]
+            or row["attempts"] < reservation["attempt_before"]
+        ):
+            return False
+        return row["state"] == "settled" or (
+            row["state"] in {"held", "rejected"}
+            and row["attempts"] > reservation["attempt_before"]
+        )
+
+    def recover(
+        self,
+        owner,
+        job_id,
+        task,
+        revision,
+        request_id,
+        *,
+        operation="retry_result_delivery",
+    ):
+        if operation not in {"retry_result_delivery", "settle_recovery_response"}:
+            raise Conflict("invalid_result_recovery_operation")
         payload = {
             "job_id": job_id,
             "task_id": task,
@@ -252,6 +280,12 @@ class RoleResultDeliveries:
                     if old
                     else None
                 )
+                if operation == "settle_recovery_response" and (
+                    not old or not self.response_ready(row, reservation)
+                ):
+                    raise Conflict(
+                        "pending_recovery_response_not_ready_or_identity_unavailable"
+                    )
                 if old and reservation:
                     if (
                         reservation["task_id"] != task
@@ -302,7 +336,11 @@ class RoleResultDeliveries:
                 and row["state"] in {"held", "rejected"}
                 and row["attempts"] > reservation["attempt_before"]
             )
-            if row["state"] != "settled" and not already_attempted:
+            if (
+                operation != "settle_recovery_response"
+                and row["state"] != "settled"
+                and not already_attempted
+            ):
                 if not self.reconcile_adoption(row["packet"]):
                     if row["attempts"] >= self.limit:
                         self.hold(task, "result_delivery_budget_exhausted")

@@ -1,5 +1,7 @@
 """Opt-in renewal routes. Mount only with an explicit content store."""
 
+from typing import Literal
+
 from fastapi import Depends, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import Field, StrictBool, StrictInt
@@ -77,6 +79,9 @@ class Revision(Body):
 
 
 class RoleResultRecovery(Revision):
+    operation: Literal["retry_result_delivery", "settle_recovery_response"] = (
+        "retry_result_delivery"
+    )
     task_id: str = Field(pattern="^[a-f0-9]{32}$")
     request_id: str = Field(min_length=1, max_length=100)
 
@@ -496,7 +501,12 @@ def mount_runtime(
 
         try:
             return model_roles().recover_result(
-                owned, identity, body.task_id, body.revision, body.request_id
+                owned,
+                identity,
+                body.task_id,
+                body.revision,
+                body.request_id,
+                operation=body.operation,
             )
         except RoleResultHeld:
             return JSONResponse(

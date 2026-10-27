@@ -275,22 +275,57 @@ class ModelRoleCoordinator:
         return RoleResultDeliveries(self).receive(packet)
 
     def _dispatch_after_result(self, packet):
-        with self.runtime.database.connection() as c:
-            row = c.execute(
-                "SELECT owner_id,job_id,phase FROM model_role_tasks WHERE task_id=%s",
-                (packet["task_id"],),
-            ).fetchone()
-        if row and row["phase"] == "accepted":
+        def allowed():
+            with self.runtime.database.connection() as c:
+                row = c.execute(
+                    "SELECT owner_id,job_id,phase,generation,attempt_id,request_sha256 FROM model_role_tasks WHERE task_id=%s",
+                    (packet["task_id"],),
+                ).fetchone()
+                if not row or row["phase"] != "accepted":
+                    return None
+                job = self.runtime._job(c, row["owner_id"], row["job_id"])
+                source = c.execute(
+                    "SELECT claim_id,request_sha256 FROM node_runs WHERE owner_id=%s AND job_id=%s AND id=%s",
+                    (row["owner_id"], row["job_id"], row["attempt_id"]),
+                ).fetchone()
+                if not source or source["request_sha256"] != row["request_sha256"]:
+                    raise Conflict("role_dispatch_source_changed")
+                if (
+                    job["cancel_requested"]
+                    or job["generation"] != row["generation"]
+                    or job["active_claim_id"] != source["claim_id"]
+                    or job["status"] not in {"waiting", "running"}
+                ):
+                    return None
+                return row
+
+        row = allowed()
+        if row:
             from .rabbitmq_controller import BrokerController
 
-            BrokerController(self.runtime, self.factory).dispatch(
-                row["owner_id"], row["job_id"]
-            )
+            try:
+                BrokerController(self.runtime, self.factory).dispatch(
+                    row["owner_id"], row["job_id"]
+                )
+            except Conflict:
+                # Cancellation can win after the first read but before publication.
+                # Re-read its real fence; do not swallow unrelated dispatch errors.
+                if allowed() is not None:
+                    raise
         return None
 
-    def recover_result(self, owner, job_id, task, revision, request_id):
+    def recover_result(
+        self,
+        owner,
+        job_id,
+        task,
+        revision,
+        request_id,
+        *,
+        operation="retry_result_delivery",
+    ):
         return RoleResultDeliveries(self).recover(
-            owner, job_id, task, revision, request_id
+            owner, job_id, task, revision, request_id, operation=operation
         )
 
     def inspect_shared(self, actor, job_id):
@@ -331,7 +366,7 @@ class ModelRoleCoordinator:
                     else False
                 )
                 pending = c.execute(
-                    "SELECT r.request_id,v.admitted_revision FROM model_role_result_recoveries r LEFT JOIN model_role_recovery_reservations v ON v.owner_id=r.owner_id AND v.request_id=r.request_id WHERE r.task_id=%s AND r.response IS NULL ORDER BY r.created_at LIMIT 1",
+                    "SELECT r.request_id,v.admitted_revision,v.attempt_before,v.packet_sha256,v.task_id FROM model_role_result_recoveries r LEFT JOIN model_role_recovery_reservations v ON v.owner_id=r.owner_id AND v.request_id=r.request_id WHERE r.task_id=%s AND r.response IS NULL ORDER BY r.created_at LIMIT 1",
                     (task["task_id"],),
                 ).fetchone()
                 held = delivery and delivery["state"] in {
@@ -344,14 +379,21 @@ class ModelRoleCoordinator:
                     if delivery and delivery["state"] in {"held", "receiving"}
                     else None
                 )
-                choices = (
-                    ["retry_result_delivery"]
-                    if delivery
-                    and not active
-                    and delivery["state"] in {"held", "receiving"}
-                    and (delivery["attempts"] < limit or decision is not None)
-                    else []
-                )
+                blocked = None
+                if pending and pending["admitted_revision"] is None:
+                    choices = []
+                    blocked = "legacy_pending_recovery_identity_unavailable"
+                elif not active and delivery_service.response_ready(delivery, pending):
+                    choices = ["settle_recovery_response"]
+                else:
+                    choices = (
+                        ["retry_result_delivery"]
+                        if delivery
+                        and not active
+                        and delivery["state"] in {"held", "receiving"}
+                        and (delivery["attempts"] < limit or decision is not None)
+                        else []
+                    )
                 interrupted = (
                     delivery and delivery["state"] == "receiving" and not active
                 )
@@ -383,8 +425,9 @@ class ModelRoleCoordinator:
                             "request_id": pending["request_id"],
                             "revision": pending["admitted_revision"],
                         }
-                        if pending and pending["admitted_revision"] is not None
+                        if pending
                         else None,
+                        "recovery_block_reason": blocked,
                         "reserved_calls": task["reserved_calls"],
                         "reported_model_calls": task["used_calls"],
                         "max_calls": task["envelope"]["task"]["max_calls"],
