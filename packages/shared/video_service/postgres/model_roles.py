@@ -543,12 +543,18 @@ class ModelRoles:
         if (
             command["agent"]["id"] != "vocalize"
             or config["purpose"] != "vocalization_regions_v1"
-            or config["batch_policy"] != "bounded_vocalization_v1"
+            or config["batch_policy"]
+            not in {"bounded_vocalization_v1", "streamed_vocalization_v2"}
             or not 1 <= len(pins) <= 4
         ):
             raise Conflict("invalid_vocal_role_binding")
         task = {
-            "version": 1,
+            "version": 2 if config["batch_policy"] == "streamed_vocalization_v2" else 1,
+            **(
+                {"batch_policy": "streamed_vocalization_v2"}
+                if config["batch_policy"] == "streamed_vocalization_v2"
+                else {}
+            ),
             "task_id": command["attempt_id"],
             "role": "vocalization",
             "audio": {k: audio[k] for k in ["sha256", "bytes"]},
@@ -571,10 +577,19 @@ class ModelRoles:
         from ..vocal_role_plan import vocal_plan
 
         reference = command["inputs"]["audio"]
-        if not 0 < reference["bytes"] <= 300 * 32000 + 65536:
-            raise Conflict("vocal_existing_audio_budget_exceeded")
-        raw = self.runtime.store.read(owner, reference, limit=reference["bytes"])
         task = row["envelope"]["task"]
+        streamed = task.get("batch_policy") == "streamed_vocalization_v2"
+        if (
+            not 0
+            < reference["bytes"]
+            <= (1024 * 1024 * 1024 if streamed else 300 * 32000 + 65536)
+        ):
+            raise Conflict("vocal_existing_audio_budget_exceeded")
+        raw = (
+            self.runtime.store.path(owner, reference)
+            if streamed
+            else self.runtime.store.read(owner, reference, limit=reference["bytes"])
+        )
         width = len(task["models"])
         with self.runtime.database.connection() as c:
             calls = c.execute(

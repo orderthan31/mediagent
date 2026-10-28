@@ -120,7 +120,10 @@ def lease_seconds(command):
         expected_policy = {
             "transcription": "bounded_60s_v1",
             "translation": "bounded_100x16k_v1",
-            "vocalization": "bounded_vocalization_v1",
+            "vocalization": config["batch_policy"]
+            if config["batch_policy"]
+            in {"bounded_vocalization_v1", "streamed_vocalization_v2"}
+            else "bounded_vocalization_v1",
         }[kind]
         expected = model_runtime_seconds(config.get("max_model_calls"))
         if (

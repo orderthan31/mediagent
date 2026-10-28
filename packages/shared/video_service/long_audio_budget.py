@@ -109,9 +109,17 @@ def definition_policy(definition):
             continue
         if (
             role == "vocalize"
-            and options.get("batch_policy") == "bounded_vocalization_v1"
+            and options.get("batch_policy")
+            in {"bounded_vocalization_v1", "streamed_vocalization_v2"}
             and options.get("max_model_calls")
-            in {str(x) for x in [1, 2, 3, 4, 8, 16, 32, 64, 128]}
+            in {
+                str(x)
+                for x in [1, 2, 3, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096]
+            }
+            and (
+                options["batch_policy"] == "streamed_vocalization_v2"
+                or int(options["max_model_calls"]) <= 128
+            )
         ):
             # This is the existing bounded legacy vocal purpose, not a v5 role.
             continue
@@ -294,15 +302,40 @@ def bounded_vocalization_policy(asset, definition):
         return None
     import math
 
+    streamed = any(
+        n["type"] == "vocalize"
+        and n["options"].get("batch_policy") == "streamed_vocalization_v2"
+        for n in definition["nodes"]
+    )
+
     metadata = asset.get("metadata", {})
     duration = (metadata.get("media") or {}).get("duration")
     if (
         metadata.get("registration_state") != "verified"
         or type(duration) not in (int, float)
         or not math.isfinite(duration)
-        or not 0 < duration <= 300
+        or not 0 < duration <= (SECONDS if streamed else 300)
     ):
         raise ValueError("bounded_vocalization_requires_verified_source_le_300s")
+    if streamed:
+        import math
+
+        nodes = [n for n in definition["nodes"] if n["type"] == "vocalize"]
+        if any(
+            n["options"].get("batch_policy") != "streamed_vocalization_v2"
+            or int(n["options"]["max_model_calls"]) < math.ceil(duration / 30)
+            for n in nodes
+        ):
+            raise ValueError("long_vocal_call_cap_below_detection_minimum")
+        return {
+            "id": "streamed_vocalization_v2",
+            "max_source_seconds": SECONDS,
+            "max_audio_bytes": PCM_BYTES,
+            "request_max_seconds": 60,
+            "request_max_audio_bytes": 2 * 1024 * 1024,
+            "max_regions_bytes": REGION_BYTES,
+            "max_calls": 4096,
+        }
     return {
         "id": "bounded_vocalization_v1",
         "max_source_seconds": 300,

@@ -17,15 +17,29 @@ def vocal_plan(raw, task, completed, cancelled=lambda: False):
         raise _NeedCall(context, clips, schema)
 
     try:
-        value = analyze(
-            raw,
-            language=task["source_language"],
-            strength=task["strength"],
-            binding_sha256=task["binding_sha256"],
-            max_calls=task["max_calls"],
-            invoke=invoke,
-            cancelled=cancelled,
-        )
+        if task.get("batch_policy") == "streamed_vocalization_v2":
+            from .vocalization_proposals import analyze_stream
+
+            value = analyze_stream(
+                raw,
+                source_sha256=task["audio"]["sha256"],
+                language=task["source_language"],
+                strength=task["strength"],
+                binding_sha256=task["binding_sha256"],
+                max_calls=task["max_calls"],
+                invoke=invoke,
+                cancelled=cancelled,
+            )
+        else:
+            value = analyze(
+                raw,
+                language=task["source_language"],
+                strength=task["strength"],
+                binding_sha256=task["binding_sha256"],
+                max_calls=task["max_calls"],
+                invoke=invoke,
+                cancelled=cancelled,
+            )
     except _NeedCall as call:
         return {
             "pending": {

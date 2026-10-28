@@ -664,7 +664,13 @@ class Execution(Intake):
                 **({"cpu_input_policy": cpu_policy} if cpu_policy else {}),
                 **({"audio_pipeline_policy": audio_policy} if audio_policy else {}),
                 **(
-                    {"bounded_vocalization_policy": vocal_policy}
+                    {
+                        (
+                            "long_vocalization_policy"
+                            if vocal_policy["id"] == "streamed_vocalization_v2"
+                            else "bounded_vocalization_policy"
+                        ): vocal_policy
+                    }
                     if vocal_policy
                     else {}
                 ),
@@ -806,6 +812,17 @@ class Execution(Intake):
         ).fetchall()
         definition = job["snapshot"]["definition"]
         reasons = []
+        if any(
+            n["type"] == "vocalize"
+            and n["options"].get("batch_policy") == "streamed_vocalization_v2"
+            for n in definition["nodes"]
+        ):
+            from ..model_role_coordinator import ModelRoleCoordinator
+
+            if not ModelRoleCoordinator.enrolled(
+                self, job["owner_id"], job["id"], role="vocalization"
+            ):
+                reasons.append("장문 보컬은 독립 보컬 실행을 먼저 선택해야 합니다.")
         if not job["recovery_ready"]:
             reasons.append("복구 receipt 검증이 끝나지 않았습니다.")
         if definition["inputs"] not in (
@@ -1208,7 +1225,10 @@ class Execution(Intake):
                 expected = {
                     "transcription": "bounded_60s_v1",
                     "translation": "bounded_100x16k_v1",
-                    "vocalization": "bounded_vocalization_v1",
+                    "vocalization": batch_policy
+                    if batch_policy
+                    in {"bounded_vocalization_v1", "streamed_vocalization_v2"}
+                    else "bounded_vocalization_v1",
                 }[kind]
                 if batch_policy != expected:
                     raise Conflict("지원하지 않는 분할 실행 정책입니다.")

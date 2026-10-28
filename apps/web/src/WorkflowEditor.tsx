@@ -260,6 +260,7 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
                     <label key={key}>
                       {(
                         {
+                          batch_policy: '분할 처리 방식',
                           max_model_calls: '최대 모델 호출 수',
                           target_language: '번역 언어',
                           audio_filter: '음성 처리',
@@ -285,6 +286,7 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
                           aria-label={
                             (
                               {
+                                batch_policy: '분할 처리 방식',
                                 max_model_calls: '최대 모델 호출 수',
                                 audio_filter: '음성 처리',
                                 vad_mode: '음성 구간 처리',
@@ -312,6 +314,7 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
                           aria-label={
                             (
                               {
+                                batch_policy: '분할 처리 방식',
                                 max_model_calls: '최대 모델 호출 수',
                                 audio_filter: '음성 처리',
                                 vad_mode: '음성 구간 처리',
@@ -330,7 +333,14 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
                         >
                           {values.map((value) => (
                             <option value={value} key={value}>
-                              {controlValueLabels[value] || value}
+                              {(
+                                {
+                                  streamed_vocalization_v2: '장문 분할 판정 (원본 최대 6시간)',
+                                  bounded_vocalization_v1: '기존 단기 판정 (원본 최대 300초)',
+                                } as Record<string, string>
+                              )[value] ||
+                                controlValueLabels[value] ||
+                                value}
                             </option>
                           ))}
                         </select>
@@ -360,6 +370,14 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
               })
             }
           />
+        )}
+        {node.type === 'vocalize' && (
+          <p className="workflow-template-notice">
+            장문 분할 판정은 원본 최대 6시간을 작은 구간으로 나눠 처리합니다. 요청 한 번의 오디오는
+            최대 60초·2MiB이며 원본 길이 제한과 다릅니다. 탐지와 후보 재확인이 최대 모델 호출 수를
+            함께 사용합니다. 긴 원본은 고급 처리 설정에서 장문 분할 판정과 충분한 호출 상한을
+            선택하고, 새 작업에서 독립 보컬 실행을 선택하세요. 유료 호출 승인은 별도입니다.
+          </p>
         )}
         <Button variant="quiet" onClick={removeNode}>
           노드 삭제

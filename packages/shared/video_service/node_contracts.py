@@ -55,8 +55,8 @@ NODES = [
         role="vocalization",
         choices={
             "strength": ["conservative", "strong", "silence3"],
-            "batch_policy": ["bounded_vocalization_v1"],
-            "max_model_calls": [str(x) for x in (1, 2, 3, 4, 8, 16, 32, 64, 128)],
+            "batch_policy": ["bounded_vocalization_v1", "streamed_vocalization_v2"],
+            "max_model_calls": MODEL_CALL_LIMITS,
         },
     ),
     node("analyze", "영상 분석", {"video": "video"}, {"metadata": "media_metadata"}),
@@ -443,7 +443,10 @@ def validate_node(payload):
         names(options, inputs)
     if selected["id"] == "vocalize" and (
         set(options) != {"strength", "batch_policy", "max_model_calls"}
-        or options.get("batch_policy") != "bounded_vocalization_v1"
+        or options.get("batch_policy")
+        not in {"bounded_vocalization_v1", "streamed_vocalization_v2"}
+        or options.get("batch_policy") == "bounded_vocalization_v1"
+        and int(options.get("max_model_calls", "0")) > 128
     ):
         raise ValueError("explicit_bounded_vocalization_policy_required")
     if (

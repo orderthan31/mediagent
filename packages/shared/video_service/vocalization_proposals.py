@@ -76,6 +76,32 @@ def analyze(raw, *, language, strength, binding_sha256, max_calls, invoke, cance
         pcm = audio.readframes(total)
         if len(pcm) != total * 2:
             raise ValueError("incomplete_vocalization_pcm")
+    return _analyze_pcm(
+        total,
+        source_sha,
+        lambda first, last: pcm[first * 2 : last * 2],
+        language=language,
+        strength=strength,
+        binding_sha256=binding_sha256,
+        max_calls=max_calls,
+        invoke=invoke,
+        cancelled=cancelled,
+    )
+
+
+def _analyze_pcm(
+    total,
+    source_sha,
+    read_pcm,
+    *,
+    language,
+    strength,
+    binding_sha256,
+    max_calls,
+    invoke,
+    cancelled,
+    long_source=False,
+):
     contexts = []
 
     def request(phase, spans, schema, instruction):
@@ -88,7 +114,7 @@ def analyze(raw, *, language, strength, binding_sha256, max_calls, invoke, cance
             buffer = io.BytesIO()
             with wave.open(buffer, "wb") as clip:
                 clip.setparams((1, 2, 16000, 0, "NONE", "not compressed"))
-                clip.writeframes(pcm[first * 2 : last * 2])
+                clip.writeframes(read_pcm(first, last))
             clip_bytes = buffer.getvalue()
             clips.append(clip_bytes)
             identities.append(
@@ -110,6 +136,8 @@ def analyze(raw, *, language, strength, binding_sha256, max_calls, invoke, cance
             "clips": identities,
             "instruction": POLICY + instruction,
         }
+        if long_source:
+            context["source_contract"] = "streamed_vocalization_v2"
         contexts.append(deepcopy(context))
         result = invoke(deepcopy(context), clips, deepcopy(schema))
         if cancelled():
@@ -245,3 +273,69 @@ def analyze(raw, *, language, strength, binding_sha256, max_calls, invoke, cance
         "request_contexts": contexts,
         "scope": "domain_protocol_only_not_registered_paid_execution",
     }
+
+
+def analyze_stream(
+    path,
+    *,
+    source_sha256,
+    language,
+    strength,
+    binding_sha256,
+    max_calls,
+    invoke,
+    cancelled,
+):
+    from pathlib import Path
+
+    from .cpu_agents import canonical
+    from .long_audio_budget import FRAMES, PCM_BYTES, REGION_BYTES
+
+    if (
+        type(max_calls) is not int
+        or not 1 <= max_calls <= 4096
+        or strength not in {"off", "conservative", "strong", "silence3"}
+        or not re.fullmatch("auto|[a-z]{2,3}", language)
+        or not re.fullmatch("[a-f0-9]{64}", source_sha256)
+        or not re.fullmatch("[a-f0-9]{64}", binding_sha256)
+    ):
+        raise ValueError("invalid_streamed_vocal_context")
+    source = Path(path)
+    if not 0 < source.stat().st_size <= PCM_BYTES:
+        raise ValueError("long_vocal_pcm_byte_budget_exceeded")
+    with wave.open(str(source), "rb") as audio:
+        total = audio.getnframes()
+        if (
+            audio.getnchannels(),
+            audio.getsampwidth(),
+            audio.getframerate(),
+            audio.getcomptype(),
+        ) != (1, 2, 16000, "NONE") or not 0 < total <= FRAMES:
+            raise ValueError("long_vocal_normalized_pcm_required")
+        if strength != "off" and (total + 30 * 16000 - 1) // (30 * 16000) > max_calls:
+            raise ValueError("vocalization_call_budget_below_detection_minimum")
+
+        def read_pcm(first, last):
+            if cancelled():
+                raise ValueError("vocalization_cancelled")
+            audio.setpos(first)
+            raw = audio.readframes(last - first)
+            if len(raw) != (last - first) * 2:
+                raise ValueError("incomplete_vocalization_pcm")
+            return raw
+
+        value = _analyze_pcm(
+            total,
+            source_sha256,
+            read_pcm,
+            language=language,
+            strength=strength,
+            binding_sha256=binding_sha256,
+            max_calls=max_calls,
+            invoke=invoke,
+            cancelled=cancelled,
+            long_source=True,
+        )
+    if len(canonical(value["document"])) > REGION_BYTES:
+        raise ValueError("long_vocal_regions_budget_exceeded")
+    return value

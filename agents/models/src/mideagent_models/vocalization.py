@@ -17,13 +17,19 @@ class VocalizationAgent(TranslationAgent):
         from .protocol import validate_vocal_task
 
         validate_vocal_task(task)
-        raw = Path(path).read_bytes()
+        streamed = task.get("batch_policy") == "streamed_vocalization_v2"
+        with Path(path).open("rb") as f:
+            sha = hashlib.file_digest(f, "sha256").hexdigest()
         if (
-            len(raw) != task["audio"]["bytes"]
-            or hashlib.sha256(raw).hexdigest() != task["audio"]["sha256"]
+            Path(path).stat().st_size != task["audio"]["bytes"]
+            or sha != task["audio"]["sha256"]
         ):
             raise ValueError("audio_input_mismatch")
-        vocal_plan(raw, task, lambda _: (False, None))
+        vocal_plan(
+            Path(path) if streamed else Path(path).read_bytes(),
+            task,
+            lambda _: (False, None),
+        )
         self.state.ensure(
             task["task_id"], hashlib.sha256(canonical(task)).hexdigest(), task
         )
@@ -66,7 +72,9 @@ class VocalizationAgent(TranslationAgent):
             return False, None
 
         return vocal_plan(
-            Path(s["audio_path"]).read_bytes(),
+            Path(s["audio_path"])
+            if task.get("batch_policy") == "streamed_vocalization_v2"
+            else Path(s["audio_path"]).read_bytes(),
             task,
             completed,
             lambda: self.state.cancelled(task["task_id"]),

@@ -17,6 +17,7 @@ class GeminiVocalizationAdapter(GeminiTextAdapter):
         from .audio_contract import audio_info
         from .vocalization_proposals import CONFIRM_SCHEMA, EVENT_SCHEMA, POLICY
 
+        streamed = context.get("source_contract") == "streamed_vocalization_v2"
         phase = context.get("phase")
         expected = EVENT_SCHEMA if phase == "detect" else CONFIRM_SCHEMA
         if (
@@ -29,9 +30,11 @@ class GeminiVocalizationAdapter(GeminiTextAdapter):
             or not re.fullmatch(r"[a-f0-9]{64}", context.get("binding_sha256", ""))
             or not re.fullmatch(r"[a-f0-9]{64}", context.get("source_sha256", ""))
             or type(context.get("source_frames")) is not int
-            or not 0 < context["source_frames"] <= 300 * 16000
+            or not 0
+            < context["source_frames"]
+            <= ((6 * 60 * 60) * 16000 if streamed else 300 * 16000)
             or type(context.get("max_calls")) is not int
-            or not 1 <= context["max_calls"] <= 128
+            or not 1 <= context["max_calls"] <= (4096 if streamed else 128)
             or type(context.get("call_index")) is not int
             or not 0 <= context["call_index"] < context["max_calls"]
             or not isinstance(context.get("instruction"), str)

@@ -352,9 +352,18 @@ class RoleToolBridge:
         ):
             raise Conflict("tool_model_outside_grant")
         reference = command["inputs"]["audio"]
-        if not 0 < reference["bytes"] <= 300 * 32000 + 65536:
+        streamed = task.get("batch_policy") == "streamed_vocalization_v2"
+        if (
+            not 0
+            < reference["bytes"]
+            <= (1024 * 1024 * 1024 if streamed else 300 * 32000 + 65536)
+        ):
             raise Conflict("vocal_existing_audio_budget_exceeded")
-        raw = runtime.store.read(owner, reference, limit=reference["bytes"])
+        raw = (
+            runtime.store.path(owner, reference)
+            if streamed
+            else runtime.store.read(owner, reference, limit=reference["bytes"])
+        )
         width = len(task["models"])
         with runtime.database.connection() as c:
             history = c.execute(

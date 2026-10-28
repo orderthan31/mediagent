@@ -91,7 +91,12 @@ def source_policy(asset, definition):
     validate_media(asset["metadata"].get("media") or {})
     nodes = definition.get("nodes", [])
     if not nodes or any(
-        n.get("type") not in CPU_ROLES | ROLES | CONTROLS for n in nodes
+        n.get("type") not in CPU_ROLES | ROLES | CONTROLS
+        and not (
+            n.get("type") == "vocalize"
+            and n.get("options", {}).get("batch_policy") == "streamed_vocalization_v2"
+        )
+        for n in nodes
     ):
         raise ValueError(
             "Selected workflow has an unsupported original-video execution role"

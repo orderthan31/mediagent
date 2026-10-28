@@ -224,6 +224,7 @@ def validate_translation_task(task):
 
 
 def validate_vocal_task(task):
+    streamed = task.get("batch_policy") == "streamed_vocalization_v2"
     fields(
         task,
         {
@@ -237,12 +238,13 @@ def validate_vocal_task(task):
             "strength",
             "binding_sha256",
             "max_calls",
-        },
+        }
+        | ({"batch_policy"} if streamed else set()),
         "invalid_vocal_task",
     )
     require(
         type(task["version"]) is int
-        and task["version"] == 1
+        and task["version"] == (2 if streamed else 1)
         and task["role"] == "vocalization"
         and hex_id(task["task_id"], 32),
         "invalid_vocal_identity",
@@ -251,7 +253,9 @@ def validate_vocal_task(task):
     require(
         hex_id(task["audio"]["sha256"], 64)
         and type(task["audio"]["bytes"]) is int
-        and 0 < task["audio"]["bytes"] <= 300 * 32000 + 65536,
+        and 0
+        < task["audio"]["bytes"]
+        <= (1024 * 1024 * 1024 if streamed else 300 * 32000 + 65536),
         "invalid_vocal_audio",
     )
     require(
@@ -277,7 +281,7 @@ def validate_vocal_task(task):
         and type(task["source_language"]) is str
         and re.fullmatch("auto|[a-z]{2,3}", task["source_language"])
         and type(task["max_calls"]) is int
-        and 1 <= task["max_calls"] <= 128,
+        and 1 <= task["max_calls"] <= (4096 if streamed else 128),
         "invalid_vocal_policy",
     )
     return task
