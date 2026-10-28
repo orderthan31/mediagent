@@ -251,10 +251,36 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
             <strong role="status">
               {processingLabel(job.processing_review) || labels[job.status] || job.status}
             </strong>
-            <Button variant="quiet" disabled={busy} onClick={() => void action(reload)}>
-              새로고침
-            </Button>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              {canManage && job.status === 'draft' && (
+                <Button
+                  disabled={busy}
+                  onClick={() =>
+                    void action(() => startSavedJob(request, jsonPost, id, crypto.randomUUID()))
+                  }
+                >
+                  작업 시작
+                </Button>
+              )}
+              <Button variant="quiet" disabled={busy} onClick={() => void action(reload)}>
+                새로고침
+              </Button>
+            </div>
           </div>
+          {canManage && job.status === 'draft' && (
+            <p className="job-start-scope">
+              {job.snapshot.definition.nodes
+                .filter(
+                  (n) => n.model_ref && ['transcribe', 'translate', 'vocalize'].includes(n.type),
+                )
+                .map(
+                  (n) =>
+                    `${n.type === 'transcribe' ? '전사' : n.type === 'translate' ? '번역' : '보컬'} 최대 ${n.options.max_model_calls || '설정된 한도'}회`,
+                )
+                .join(' · ')}
+              {' · 외부 모델 API 비용은 선택한 공급자 요금이 적용됩니다.'}
+            </p>
+          )}
           <details className="shared-job-custody" aria-label="자료와 실행 기록">
             <summary>자료·실행 기록</summary>
             {!canManage && <strong>공용 읽기 전용</strong>}
@@ -637,22 +663,6 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
               aria-label="실행 승인"
               hidden={job.status === 'completed' || !!job.processing_review}
             >
-              {job.status === 'draft' && (
-                <>
-                  <p>
-                    선택한 모델과 설정으로 시작합니다. 외부 모델 사용 시 API 비용이 발생할 수
-                    있습니다.
-                  </p>
-                  <Button
-                    disabled={busy}
-                    onClick={() =>
-                      void action(() => startSavedJob(request, jsonPost, id, crypto.randomUUID()))
-                    }
-                  >
-                    작업 시작
-                  </Button>
-                </>
-              )}
               {['draft', 'waiting', 'running', 'review_required'].includes(job.status) && (
                 <Button
                   variant="secondary"

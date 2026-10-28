@@ -136,9 +136,12 @@ export const WorkflowStart = () => {
         setDefinition(graph);
         const speech = graph.nodes.find((n) => n.type === 'transcribe');
         const translated = graph.nodes.find((n) => n.type === 'translate');
-        if (speech?.options.source_language) {setSourceLanguage(speech.options.source_language);}
-        if (translated?.options.target_language)
-          {setTargetLanguage(translated.options.target_language);}
+        if (speech?.options.source_language) {
+          setSourceLanguage(speech.options.source_language);
+        }
+        if (translated?.options.target_language) {
+          setTargetLanguage(translated.options.target_language);
+        }
         setChoices(
           Object.fromEntries(
             result.summary
@@ -427,12 +430,27 @@ export const WorkflowStart = () => {
                       ) : null}
                       {selectedNode.model_error && <p role="alert">{selectedNode.model_error}</p>}
                       <dl>
-                        {Object.entries(selectedNode.options).map(([key, value]) => (
-                          <div key={key}>
-                            <dt>{key}</dt>
-                            <dd>{value}</dd>
-                          </div>
-                        ))}
+                        {Object.entries(selectedNode.options)
+                          .filter(
+                            ([k]) =>
+                              ![
+                                'batch_policy',
+                                'clock_policy',
+                                'media_budget',
+                                'processing_profile',
+                                'translation_profile',
+                                'model_source',
+                                'video_budget',
+                                'max_model_calls',
+                                'review_policy',
+                              ].includes(k),
+                          )
+                          .map(([key, value]) => (
+                            <div key={key}>
+                              <dt>{key}</dt>
+                              <dd>{value}</dd>
+                            </div>
+                          ))}
                       </dl>
                       {selectedNode.type === 'select' && (
                         <label>

@@ -215,7 +215,7 @@ export const NodeModelBinding = ({
       {selectionNotice && <p role="status">{selectionNotice}</p>}
       {error && <p role="alert">{error} 현재 참조는 유지합니다.</p>}
       <label>
-        호환 등록 모델
+        {simple ? '모델' : '호환 등록 모델'}
         <select
           aria-label="호환 등록 모델"
           disabled={loading || !!error}
@@ -225,7 +225,7 @@ export const NodeModelBinding = ({
             changed(model_id ? { model_id, revision: Number(revision) } : undefined);
           }}
         >
-          <option value="">등록 모델 선택 (필수)</option>
+          <option value="">모델 선택</option>
           {models.map((row) => {
             const current = row.versions[String(row.current_revision)];
             if (
