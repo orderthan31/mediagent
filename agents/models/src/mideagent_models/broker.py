@@ -13,12 +13,20 @@ class DeliveryHeld(RuntimeError):
     """Keep this broker delivery unacknowledged; model work is not retried."""
 
 
-def preserve_held_delivery(channel, active, item, held, *, slots):
-    # Keep the original delivery unacknowledged and its local budget untouched.
-    # A retained failed artifact is NOT another executing/model slot.
+def preserve_held_delivery(channel, active, item, held, *, slots, consumer):
+    # Delivered manual-ACK messages survive consumer cancellation, not channel close.
+    # Rebind with the original execution credit; changing QoS alone leaves the old
+    # RabbitMQ consumer's exhausted credit in place. No held ACK/NACK/replay occurs.
     held.add(item[0])
     active.remove(item)
-    channel.basic_qos(prefetch_count=slots + min(len(held), slots))
+    tag, queue, callback = consumer
+    channel.basic_cancel(tag)
+    if len(held) > slots:
+        return None  # bounded retained receipts; controls stay available
+    channel.basic_qos(prefetch_count=slots)
+    return channel.basic_consume(
+        queue=queue, on_message_callback=callback, auto_ack=False
+    )
 
 
 class RoleReceiver:
@@ -423,7 +431,8 @@ def consume(config, *, once=False):
         while not stop.is_set() or active:
             connection.process_data_events(time_limit=0.05)
             if stop.is_set() and not command_cancelled:
-                channel.basic_cancel(tag)
+                if tag is not None:
+                    channel.basic_cancel(tag)
                 command_cancelled = True
             for item in list(active):
                 delivery_tag, future, kind = item
@@ -434,7 +443,14 @@ def consume(config, *, once=False):
                 except DeliveryHeld:
                     if once:
                         raise
-                    preserve_held_delivery(channel, active, item, held, slots=slots)
+                    tag = preserve_held_delivery(
+                        channel,
+                        active,
+                        item,
+                        held,
+                        slots=slots,
+                        consumer=(tag, queue, received),
+                    )
                     continue
                 except InvalidRoleDelivery:
                     channel.basic_nack(delivery_tag=delivery_tag, requeue=False)

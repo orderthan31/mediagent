@@ -130,11 +130,35 @@ def test_held_delivery_is_not_recalled_or_dropped_and_does_not_consume_an_execut
     from mideagent_models.broker import preserve_held_delivery
 
     class Channel:
+        def __init__(self):
+            self.events = []
+
         def basic_qos(self, **kw):
-            self.qos = kw
+            self.events.append(("qos", kw))
+
+        def basic_cancel(self, tag):
+            self.events.append(("cancel", tag))
+
+        def basic_consume(self, **kw):
+            self.events.append(("consume", kw))
+            return "new-consumer"
 
     channel = Channel()
     active = [(42, None, "result")]
     held = set()
-    preserve_held_delivery(channel, active, active[0], held, slots=1)
-    assert active == [] and held == {42} and channel.qos == {"prefetch_count": 2}
+    callback = lambda *_: None
+    tag = preserve_held_delivery(
+        channel,
+        active,
+        active[0],
+        held,
+        slots=1,
+        consumer=("old-consumer", "scoped-queue", callback),
+    )
+    assert active == [] and held == {42} and tag == "new-consumer"
+    assert channel.events[0] == ("cancel", "old-consumer")
+    assert channel.events[1] == ("qos", {"prefetch_count": 1})
+    assert channel.events[2] == (
+        "consume",
+        {"queue": "scoped-queue", "on_message_callback": callback, "auto_ack": False},
+    )
