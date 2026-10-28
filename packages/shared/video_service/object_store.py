@@ -367,6 +367,23 @@ def from_config(config, *, environ=None):
             s3={"addressing_style": "path"},
         ),
     )
-    return S3ContentStore(
+    store = S3ContentStore(
         client, config["bucket"], config["cache_root"], prefix=config["prefix"]
     )
+    store.sts_client_factory = lambda: boto3.client(
+        "sts",
+        endpoint_url=config["endpoint"],
+        verify=config.get("ca_file", True),
+        region_name=config["region"],
+        aws_access_key_id=keys[0],
+        aws_secret_access_key=keys[1],
+        aws_session_token=session_token,
+        config=Config(
+            signature_version="s3v4",
+            retries={"total_max_attempts": 1},
+            connect_timeout=5,
+            read_timeout=15,
+            proxies={},
+        ),
+    )
+    return store

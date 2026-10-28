@@ -13,6 +13,14 @@ class DeliveryHeld(RuntimeError):
     """Keep this broker delivery unacknowledged; model work is not retried."""
 
 
+def preserve_held_delivery(channel, active, item, held, *, slots):
+    # Keep the original delivery unacknowledged and its local budget untouched.
+    # A retained failed artifact is NOT another executing/model slot.
+    held.add(item[0])
+    active.remove(item)
+    channel.basic_qos(prefetch_count=slots + min(len(held), slots))
+
+
 class RoleReceiver:
     def __init__(self, agent, inputs, outputs, *, tool_mode="unverified_tool"):
         self.agent, self.inputs, self.outputs, self.tool_mode = (
@@ -117,6 +125,9 @@ class RoleReceiver:
         )
         task = packet["task_id"] if kind == "cancel_ack" else packet["task"]["task_id"]
         digest = hashlib.sha256(canonical(packet)).hexdigest()
+        for store in [self.inputs, self.outputs]:
+            if hasattr(store, "bind_delivery"):
+                store.bind_delivery(packet, kind)
 
         def delivery_sql(statement):
             return (
@@ -324,12 +335,16 @@ def consume(config, *, once=False):
         tool_type(config),
         chunk_concurrency=config["chunk_concurrency"],
     )
-    receiver = RoleReceiver(
-        agent,
-        from_config(config["input_store"]),
-        from_config(config["output_store"]),
-        tool_mode=config["tool_mode"],
-    )
+    if config.get("storage_lease_enabled") is True:
+        from .storage import TaskLeasedStore
+
+        storage_tool = tool_type(config)
+        inputs = TaskLeasedStore(config["input_store"], storage_tool)
+        outputs = TaskLeasedStore(config["output_store"], storage_tool)
+    else:
+        inputs = from_config(config["input_store"])
+        outputs = from_config(config["output_store"])
+    receiver = RoleReceiver(agent, inputs, outputs, tool_mode=config["tool_mode"])
     connection = pika.BlockingConnection(
         broker.parameters(environ=os.environ, sdk=pika)
     )
@@ -342,6 +357,7 @@ def consume(config, *, once=False):
     channel.basic_qos(prefetch_count=1 if once else slots)
     stop = threading.Event()
     active = []
+    held = set()
     pool = ThreadPoolExecutor(max_workers=slots, thread_name_prefix="role-command")
     controls = ThreadPoolExecutor(max_workers=slots, thread_name_prefix="role-control")
     for sig in [signal.SIGTERM, signal.SIGINT]:
@@ -415,6 +431,11 @@ def consume(config, *, once=False):
                     continue
                 try:
                     result = future.result()
+                except DeliveryHeld:
+                    if once:
+                        raise
+                    preserve_held_delivery(channel, active, item, held, slots=slots)
+                    continue
                 except InvalidRoleDelivery:
                     channel.basic_nack(delivery_tag=delivery_tag, requeue=False)
                     active.remove(item)

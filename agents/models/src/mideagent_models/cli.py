@@ -76,9 +76,12 @@ class ScopedSpeechTool:
         }
         return self._post(payload)
 
-    def _post(self, payload):
+    def storage_lease(self, payload):
+        return self._post(payload, suffix="/storage-lease")
+
+    def _post(self, payload, *, suffix=""):
         request = urllib.request.Request(
-            self.url,
+            self.url + suffix,
             data=json.dumps(payload).encode(),
             headers={
                 "Content-Type": "application/json",

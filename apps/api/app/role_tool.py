@@ -41,7 +41,10 @@ class ToolServer(ThreadingHTTPServer):
                 pass
 
             def do_POST(self):
-                if self.path != route or not hmac.compare_digest(
+                if self.path not in {
+                    route,
+                    route + "/storage-lease",
+                } or not hmac.compare_digest(
                     self.headers.get("Authorization", ""), "Bearer " + token
                 ):
                     self.send_error(403)
@@ -50,7 +53,13 @@ class ToolServer(ThreadingHTTPServer):
                     size = int(self.headers.get("Content-Length", "0"))
                     if not 0 < size <= 3 * 1024 * 1024:
                         raise ValueError()
-                    reply = invoke(json.loads(self.rfile.read(size)))
+                    payload = json.loads(self.rfile.read(size))
+                    if self.path == route + "/storage-lease":
+                        from video_service.role_storage_leases import RoleStorageLeases
+
+                        reply = RoleStorageLeases(bridge.roles, role).grant(payload)
+                    else:
+                        reply = invoke(payload)
                 except Exception:
                     body = b'{"error":"scoped_call_held"}'
                     status = 409
@@ -82,7 +91,7 @@ def main(argv=None):
     try:
         config, dsn = load_bootstrap(args.bootstrap_file)
         database = Database(dsn)
-        store, credentials, factory = runtime_components(
+        store, _credentials, factory = runtime_components(
             database,
             config,
             enable_broker=True,
@@ -97,7 +106,9 @@ def main(argv=None):
             vocalization_runtime=factory.vocalization_runtime,
         )
         bridge = RoleToolBridge(
-            ModelRoles(runtime, result_store=factory.model_role_result_store),
+            ModelRoles(
+                runtime, result_store=factory.model_role_result_stores[args.role]
+            ),
             chunk_concurrency=args.chunk_concurrency,
         )
         server = ToolServer(
