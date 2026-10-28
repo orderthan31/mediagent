@@ -325,3 +325,43 @@ def test_long_vocal_product_adopts_whole_source_regions_into_long_preprocessor(
     assert done["status"] == "completed", done
     runtime.accept(owner, downstream, done)
     assert phases.count("detect") == 11 and phases.count("confirm") == 11
+
+
+def test_preview_exposes_vocal_call_budget_and_cost_consent_before_job_creation(
+    db, admin, movie, tmp_path
+):
+    from app.renewal import create_app
+    from fastapi.testclient import TestClient
+    from test_foundation import login
+    from test_vocalization_execution import formal_vocal_attempt
+
+    runtime, _owner, job = formal_vocal_attempt(
+        db, admin, movie, tmp_path, max_calls=4, claim=False
+    )
+    runtime.vocalization_runtime.requires_paid = lambda _: True
+    app = create_app(
+        db,
+        allowed_origins=["http://testserver"],
+        secure_cookies=False,
+        content_store=runtime.store,
+        local_execution=True,
+        credential_store=runtime.vocalization_runtime.credentials,
+        vocalization_runtime=runtime.vocalization_runtime,
+    )
+    client = TestClient(app)
+    client.headers["Origin"] = "http://testserver"
+    login(client, admin)
+    response = client.post(
+        "/api/work-entry/preview",
+        json={
+            "asset_id": job["asset_id"],
+            "definition_id": job["workflow_id"],
+            "definition_revision": job["workflow_revision"],
+            "options": {"source_language": "en", "target_language": "ko"},
+        },
+    )
+    assert response.status_code == 200, response.text
+    plan = response.json()
+    assert "vocalization" in plan["paid_roles"]
+    vocal = next(r for r in plan["model_call_budgets"] if r["role"] == "vocalize")
+    assert vocal["max_calls"] == 4 and vocal["minimum_audio_calls"] == 1

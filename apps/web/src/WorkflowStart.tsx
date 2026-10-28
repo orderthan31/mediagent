@@ -36,6 +36,12 @@ type StartPlan = {
     max_calls: number;
     minimum_audio_calls: number | null;
   }[];
+  vocal_source_policy?: {
+    id: string;
+    max_source_seconds: number;
+    request_max_seconds?: number;
+    request_max_audio_bytes?: number;
+  };
   notice: string;
 };
 export const WorkflowStart = () => {
@@ -433,14 +439,24 @@ export const WorkflowStart = () => {
                 <ul>
                   {plan.model_call_budgets.map((item) => (
                     <li key={item.node_id}>
-                      {item.role === 'transcribe' ? '전사' : '번역'} · {item.node_id}: 최대{' '}
-                      {item.max_calls}회
+                      {item.role === 'vocalize'
+                        ? '보컬'
+                        : item.role === 'transcribe'
+                          ? '전사'
+                          : '번역'}{' '}
+                      · {item.node_id}: 최대 {item.max_calls}회
                       {item.minimum_audio_calls !== null
-                        ? ` · 원본 길이 기준 ${item.minimum_audio_calls}개 오디오 구간 예상`
+                        ? ` · 원본 길이 기준 ${item.minimum_audio_calls}개 ${item.role === 'vocalize' ? '탐지 구간 예상 · 후보 재확인도 같은 상한 사용' : '오디오 구간 예상'}`
                         : ''}
                     </li>
                   ))}
                 </ul>
+                {plan.vocal_source_policy?.id === 'streamed_vocalization_v2' && (
+                  <p>
+                    장문 보컬: 원본 최대 6시간 / 요청 한 번 최대 60초·2MiB. 탐지와 후보 재확인의
+                    합계가 호출 상한입니다.
+                  </p>
+                )}
                 <p>
                   실제 구간 수는 전처리 결과에 따라 달라집니다. 이 화면의 확인만으로 API를 호출하지
                   않습니다.
