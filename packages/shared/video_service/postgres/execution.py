@@ -1193,7 +1193,9 @@ class Execution(Intake):
             }[node["type"]]
             command[kind] = {
                 "candidates": [pin, *pin.get("fallbacks", [])],
-                "source_language": job["snapshot"]["options"]["source_language"],
+                "source_language": node["options"].get(
+                    "source_language", job["snapshot"]["options"]["source_language"]
+                ),
                 **(
                     {
                         "target_language": node["options"]["target_language"]

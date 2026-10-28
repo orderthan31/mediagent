@@ -17,11 +17,7 @@ import {
   controlFieldLabels,
   controlValueLabels,
 } from './workflow-controls';
-import {
-  createLegacyWorkflow,
-  createSubtitleReviewWorkflow,
-  withoutHumanReview,
-} from './workflow-templates';
+import { createLegacyWorkflow, withoutHumanReview } from './workflow-templates';
 import './workflow-editor.css';
 
 type Definition = CanvasDefinition & { catalog_version: number };
@@ -54,11 +50,6 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
   const [validation, setValidation] = useState<Validation | null>(null);
   const [busy, setBusy] = useState('load');
   const [error, setError] = useState('');
-  const [subtitleSource, setSubtitleSource] = useState('en');
-  const [subtitleTarget, setSubtitleTarget] = useState('ko');
-  const [subtitleExtras, setSubtitleExtras] = useState('ja');
-  const [subtitleVideos, setSubtitleVideos] = useState(false);
-  const [subtitleLong, setSubtitleLong] = useState(false);
   const [status, setStatus] = useState('');
   const [dirty, setDirty] = useState(false);
   const [history, setHistory] = useState(false);
@@ -199,6 +190,7 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
       <fieldset disabled={!!busy}>
         {!isControlNode(node.type) && (
           <NodeModelBinding
+            simple
             key={node.id}
             type={node.type}
             modelRole={spec.model_role}
@@ -240,10 +232,17 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
               'translation_profile',
               'model_source',
               'video_budget',
+              'max_model_calls',
+              'review_policy',
             ]);
-            const render = (advanced: boolean) =>
+            const render = () =>
               Object.entries(spec.options)
-                .filter(([key]) => internal.has(key) === advanced)
+                .filter(
+                  ([key]) =>
+                    !internal.has(key) &&
+                    (node.type !== 'transcribe' || key === 'source_language') &&
+                    (node.type !== 'translate' || key === 'target_language'),
+                )
                 .map(([key, values]) => {
                   const update = (value: string) =>
                     change({
@@ -262,7 +261,8 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
                         {
                           batch_policy: '분할 처리 방식',
                           max_model_calls: '최대 모델 호출 수',
-                          target_language: '번역 언어',
+                          source_language: '원문 언어',
+                          target_language: '대상 언어',
                           audio_filter: '음성 처리',
                           vad_mode: '음성 구간 처리',
                           subtitle_mode: '자막 표시',
@@ -348,15 +348,7 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
                     </label>
                   );
                 });
-            return (
-              <>
-                {render(false)}
-                <details>
-                  <summary>고급 처리 설정</summary>
-                  {render(true)}
-                </details>
-              </>
-            );
+            return <>{render()}</>;
           })()}
         {frontendOnly && (spec.settings_schema || spec.review_contracts) && (
           <NodeConfiguration
@@ -370,14 +362,6 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
               })
             }
           />
-        )}
-        {node.type === 'vocalize' && (
-          <p className="workflow-template-notice">
-            장문 분할 판정은 원본 최대 6시간을 작은 구간으로 나눠 처리합니다. 요청 한 번의 오디오는
-            최대 60초·2MiB이며 원본 길이 제한과 다릅니다. 탐지와 후보 재확인이 최대 모델 호출 수를
-            함께 사용합니다. 긴 원본은 고급 처리 설정에서 장문 분할 판정과 충분한 호출 상한을
-            선택하고, 새 작업에서 독립 보컬 실행을 선택하세요. 유료 호출 승인은 별도입니다.
-          </p>
         )}
         <Button variant="quiet" onClick={removeNode}>
           노드 삭제
@@ -438,37 +422,16 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
               ) {
                 return;
               }
-              change(createLegacyWorkflow());
+              change(withoutHumanReview(createLegacyWorkflow()));
               setSelected('');
               setError('');
               setTemplateNotice(
-                '얼굴합성 제외 초안입니다. 전사·번역 모델을 선택하고 저장하세요. 검수·전처리·인코딩은 노드에서 조정할 수 있습니다. 실행·유료 호출 승인은 별도입니다.',
+                '얼굴합성 제외 초안입니다. 전사·번역 모델을 선택하고 저장하세요. 모델과 언어를 선택하고 저장하세요.',
               );
             }}
           >
             기존 전체 작업 만들기
           </Button>
-        )}
-        <Button
-          variant="secondary"
-          disabled={!!busy || !doc.nodes.some((node) => node.type === 'review')}
-          onClick={() => {
-            try {
-              change(withoutHumanReview(doc));
-              setSelected('');
-              setError('');
-              setTemplateNotice(
-                '검수 OFF · 검수 대기 없이 이어집니다. 모델·언어별 산출물은 유지됩니다. 저장 후 새 작업부터 적용합니다.',
-              );
-            } catch (reason) {
-              setError(reason instanceof Error ? reason.message : '검수 연결을 확인하세요.');
-            }
-          }}
-        >
-          사람 검수 끄기
-        </Button>
-        {!doc.nodes.some((node) => node.type === 'review') && doc.nodes.length > 0 && (
-          <span role="status">검수 OFF</span>
         )}
         {doc.revision > 0 && (
           <Button variant="quiet" onClick={() => setHistory((previous) => !previous)}>
@@ -483,90 +446,6 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
           저장
         </Button>
       </div>
-      {!initialId && (
-        <details className="workflow-template-notice">
-          <summary>자막 검수·다국어 초안 만들기</summary>
-          <label className="workflow-template-toggle">
-            <input
-              type="checkbox"
-              checked={subtitleVideos}
-              onChange={(event) => setSubtitleVideos(event.target.checked)}
-            />
-            원문·각 번역 언어별 영상까지 출력
-          </label>
-          <label className="workflow-template-toggle">
-            <input
-              type="checkbox"
-              checked={subtitleLong}
-              onChange={(event) => setSubtitleLong(event.target.checked)}
-            />
-            긴 입력용 분할 처리 프로필 사용
-          </label>
-          <p>
-            검수 확정 후 언어별 자막을 원본 영상에 넣고 CPU로 각각 출력합니다. 입력·산출물 크기와
-            모델 호출 상한은 별도 제한이며, 모델 실행 승인은 따로 필요합니다.
-          </p>
-
-          <label>
-            원문 언어 코드
-            <Input
-              aria-label="초안 원문 언어"
-              value={subtitleSource}
-              onChange={(event) => setSubtitleSource(event.target.value)}
-            />
-          </label>
-          <label>
-            주 번역 언어 코드
-            <Input
-              aria-label="초안 주 번역 언어"
-              value={subtitleTarget}
-              onChange={(event) => setSubtitleTarget(event.target.value)}
-            />
-          </label>
-          <label>
-            추가 언어 코드 (쉼표 구분, 최대 4개)
-            <Input
-              aria-label="초안 추가 언어"
-              value={subtitleExtras}
-              onChange={(event) => setSubtitleExtras(event.target.value)}
-            />
-          </label>
-          <Button
-            disabled={!!busy || !catalog.some((item) => item.id === 'subtitle_tracks')}
-            onClick={() => {
-              if (
-                dirty &&
-                !window.confirm('현재 미저장 편집을 자막 검수·다국어 초안으로 바꿀까요?')
-              ) {
-                return;
-              }
-              try {
-                change(
-                  createSubtitleReviewWorkflow({
-                    sourceLanguage: subtitleSource,
-                    targetLanguage: subtitleTarget,
-                    videoTracks: subtitleVideos,
-                    longInput: subtitleLong,
-                    additionalLanguages: subtitleExtras
-                      .split(',')
-                      .map((value) => value.trim())
-                      .filter(Boolean),
-                  }),
-                );
-                setSelected('');
-                setError('');
-                setTemplateNotice(
-                  '새 명시 프로필 초안입니다. 각 전사·번역 노드의 모델을 고정하고 저장하세요. 작업의 원문·주 번역 언어는 이 초안과 같아야 합니다. 검수 저장·확정·새 실행 승인은 별도입니다. 언어별 영상 출력을 선택하면 언어마다 별도 영상을 생성합니다. 한 파일의 다중 자막 스트림과는 다릅니다.',
-                );
-              } catch (reason) {
-                setError(reason instanceof Error ? reason.message : '언어 설정 오류');
-              }
-            }}
-          >
-            자막 검수·다국어 초안 적용
-          </Button>
-        </details>
-      )}
       {templateNotice && (
         <p className="workflow-template-notice" role="status">
           {templateNotice}

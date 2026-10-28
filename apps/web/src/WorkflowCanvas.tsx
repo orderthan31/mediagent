@@ -535,10 +535,25 @@ export const WorkflowCanvas = ({
             y: Math.round(Math.max(0, (size.height * 0.4 - view.y) / view.scale)),
           },
           options: Object.fromEntries(
-            Object.entries(spec.options).map(([key, values]) => [
-              key,
-              key === 'subtitle_mode' && values.includes('none') ? 'none' : values[0],
-            ]),
+            Object.entries(spec.options)
+              .filter(
+                ([key]) =>
+                  ![
+                    'batch_policy',
+                    'clock_policy',
+                    'media_budget',
+                    'processing_profile',
+                    'translation_profile',
+                    'model_source',
+                    'video_budget',
+                    'max_model_calls',
+                    'review_policy',
+                  ].includes(key),
+              )
+              .map(([key, values]) => [
+                key,
+                key === 'subtitle_mode' && values.includes('none') ? 'none' : values[0],
+              ]),
           ),
         },
       ],

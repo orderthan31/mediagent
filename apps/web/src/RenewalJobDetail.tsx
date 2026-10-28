@@ -1,3 +1,4 @@
+import { startSavedJob } from './job-start.mjs';
 import { useEffect, useRef, useState } from 'react';
 import { request, mediaUrl } from './api';
 import { jsonPost } from './video-api';
@@ -137,8 +138,8 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
   const [catalog, setCatalog] = useState<CanvasSpec[]>([]);
   const [modelRolesEnabled, setModelRolesEnabled] = useState(false);
   const [selected, setSelected] = useState('');
-  const [plan, setPlan] = useState<Plan | null>(null);
-  const [consent, setConsent] = useState<string | null>(null);
+  const [, setPlan] = useState<Plan | null>(null);
+  const [, setConsent] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [cancelBusy, setCancelBusy] = useState(false);
   const [error, setError] = useState('');
@@ -297,6 +298,7 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
           )}
           {modelRolesEnabled && (
             <ModelRolePanel
+              observationOnly
               key={id}
               jobId={id}
               revision={job.revision}
@@ -635,74 +637,21 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
               aria-label="실행 승인"
               hidden={job.status === 'completed' || !!job.processing_review}
             >
-              {['draft', 'review_required'].includes(job.status) && (
+              {job.status === 'draft' && (
                 <>
+                  <p>
+                    선택한 모델과 설정으로 시작합니다. 외부 모델 사용 시 API 비용이 발생할 수
+                    있습니다.
+                  </p>
                   <Button
-                    variant="secondary"
                     disabled={busy}
                     onClick={() =>
-                      void action(async () => {
-                        const next = await request<Plan>(base + '/plan');
-                        setPlan(next);
-                        setConsent(null);
-                        nonces.current.confirm = crypto.randomUUID();
-                        nonces.current.admit = crypto.randomUUID();
-                      })
+                      void action(() => startSavedJob(request, jsonPost, id, crypto.randomUUID()))
                     }
                   >
-                    실행 계획 확인
+                    작업 시작
                   </Button>
-                  {plan && (
-                    <>
-                      <p>{plan.notice}</p>
-                      {plan.reasons.map((reason) => (
-                        <p key={reason} role="status">
-                          {reason}
-                        </p>
-                      ))}
-                      <Button
-                        disabled={busy || !plan.ready || !!consent}
-                        onClick={() =>
-                          void action(async () => {
-                            const response = await jsonPost<{ id: string }>(base + '/confirm', {
-                              token: plan.token,
-                              request_id: nonces.current.confirm,
-                            });
-                            setConsent(response.id);
-                          })
-                        }
-                      >
-                        계획 동의 저장
-                      </Button>
-                    </>
-                  )}
                 </>
-              )}
-              {consent && (
-                <Button
-                  disabled={busy}
-                  onClick={() =>
-                    void action(async () => {
-                      await jsonPost(base + '/admit', {
-                        consent_id: consent,
-                        request_id: nonces.current.admit,
-                      });
-                      setConsent(null);
-                      setPlan(null);
-                      await jsonPost(base + '/run', {});
-                    })
-                  }
-                >
-                  실행 요청
-                </Button>
-              )}
-              {['waiting', 'running'].includes(job.status) && (
-                <Button
-                  disabled={busy}
-                  onClick={() => void action(() => jsonPost(base + '/run', {}))}
-                >
-                  승인된 처리 진행
-                </Button>
               )}
               {['draft', 'waiting', 'running', 'review_required'].includes(job.status) && (
                 <Button

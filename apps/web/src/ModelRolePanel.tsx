@@ -68,6 +68,7 @@ const reasons: Record<string, string> = {
 };
 
 export const ModelRolePanel = ({
+  observationOnly = false,
   jobId,
   revision,
   status,
@@ -75,6 +76,7 @@ export const ModelRolePanel = ({
   hasRuns,
   onChanged,
 }: {
+  observationOnly?: boolean;
   jobId: string;
   revision: number;
   status: string;
@@ -139,7 +141,7 @@ export const ModelRolePanel = ({
   }, [load, revision]);
   return (
     <section className="shared-job-custody" aria-label="독립 전사·번역 상태">
-      <h3>독립 전사·번역·보컬</h3>
+      <h3>처리 상태</h3>
       {readError && (
         <p role="alert">
           {readError}
@@ -150,39 +152,45 @@ export const ModelRolePanel = ({
       {!observation && !readError && <p role="status">전사 상태 확인 중</p>}
       {observation && (
         <>
-          <p>
-            {observation.enrolled
-              ? `이 작업의 독립 처리: ${(observation.enrolled_roles || ['transcription']).map((role) => roleNames[role] || role).join(' · ')}`
-              : '이 작업의 독립 처리는 아직 선택되지 않았습니다.'}
-          </p>
-          {!observation.enrolled && canManage && status === 'draft' && !hasRuns && (
-            <>
-              <p>
-                새 작업에만 적용합니다. 원래 모델·입력·호출 상한은 바꾸지 않으며, 실행 승인은
-                별도입니다.
-              </p>
-              <Button
-                disabled={busy || !current}
-                onClick={() =>
-                  void act(() =>
-                    jsonPost(base + '/enrollment', {
-                      revision,
-                      request_id: enrollment.current,
-                      ...(observation.available_roles
-                        ? { roles: observation.available_roles }
-                        : {}),
-                    }),
-                  )
-                }
-              >
-                이 새 작업에 독립{' '}
-                {(observation.available_roles || ['transcription'])
-                  .map((role) => roleNames[role] || role)
-                  .join('·')}{' '}
-                사용
-              </Button>
-            </>
+          {!observationOnly && (
+            <p>
+              {observation.enrolled
+                ? `이 작업의 독립 처리: ${(observation.enrolled_roles || ['transcription']).map((role) => roleNames[role] || role).join(' · ')}`
+                : '이 작업의 독립 처리는 아직 선택되지 않았습니다.'}
+            </p>
           )}
+          {!observationOnly &&
+            !observation.enrolled &&
+            canManage &&
+            status === 'draft' &&
+            !hasRuns && (
+              <>
+                <p>
+                  새 작업에만 적용합니다. 원래 모델·입력·호출 상한은 바꾸지 않으며, 실행 승인은
+                  별도입니다.
+                </p>
+                <Button
+                  disabled={busy || !current}
+                  onClick={() =>
+                    void act(() =>
+                      jsonPost(base + '/enrollment', {
+                        revision,
+                        request_id: enrollment.current,
+                        ...(observation.available_roles
+                          ? { roles: observation.available_roles }
+                          : {}),
+                      }),
+                    )
+                  }
+                >
+                  이 새 작업에 독립{' '}
+                  {(observation.available_roles || ['transcription'])
+                    .map((role) => roleNames[role] || role)
+                    .join('·')}{' '}
+                  사용
+                </Button>
+              </>
+            )}
           {observation.tasks.map((task) => (
             <div key={task.task_id} data-role-task={task.task_id}>
               <h4>{roleNames[task.role || 'transcription'] || task.role}</h4>

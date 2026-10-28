@@ -439,7 +439,7 @@ def mount_runtime(
                 for n in definition["nodes"]
                 if n["type"] in {"transcribe", "translate", "vocalize"}
             ],
-            "notice": "작업 생성은 저장만 합니다. 작업 상세에서 계획 확인과 별도 실행이 필요합니다."
+            "notice": "선택한 모델과 언어로 작업을 시작합니다."
             + (
                 " 선택 원본에 맞춘 독립 역할별 영상·PCM·clock·모델 분할 예산이 적용됩니다."
                 if cpu_policy and cpu_policy.get("id") == "original_video_v6"
@@ -473,7 +473,7 @@ def mount_runtime(
             )
         if plan["token"] != body.token:
             raise Conflict("입력/정의가 변경됐습니다. 다시 확인하세요.")
-        return runtime.create(
+        job = runtime.create(
             owned,
             body.asset_id,
             body.definition_id,
@@ -482,6 +482,20 @@ def mount_runtime(
             options=body.options,
             paid_confirmed=body.paid_confirmed,
         )
+
+        if (
+            broker_factory is not None
+            and getattr(broker_factory, "model_role_factory", None) is not None
+        ):
+            from video_service.model_role_coordinator import ModelRoleCoordinator
+            from video_service.cpu_agents import digest
+
+            job = ModelRoleCoordinator(runtime, broker_factory).auto_enroll_new_job(
+                owned,
+                job["id"],
+                digest({"automatic_roles": body.request_id, "job": job["id"]}),
+            )
+        return job
 
     @app.get("/api/jobs")
     def jobs(owned=owner_dependency):
@@ -540,6 +554,15 @@ def mount_runtime(
     @app.get("/api/renewal/jobs/{identity}/model-role")
     def inspect_model_role(identity: str, owned=owner_dependency):
         return model_roles().inspect_shared(owned, identity)
+
+    @app.post("/api/renewal/jobs/{identity}/prepare-start")
+    def prepare_start(identity: str, body: RoleEnrollment, owned=owner_dependency):
+        job = runtime.get(owned, identity)
+        if job["status"] != "draft" or job["runs"]:
+            raise Conflict(
+                "이미 시작되었거나 취소된 작업입니다. 현재 상태를 확인해 주세요."
+            )
+        return model_roles().auto_enroll_new_job(owned, identity, body.request_id)
 
     @app.get("/api/renewal/jobs/{identity}/plan")
     def plan(identity: str, owned=owner_dependency):

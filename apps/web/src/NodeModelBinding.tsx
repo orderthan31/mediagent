@@ -12,6 +12,7 @@ import { createPortal } from 'react-dom';
 import { ModelRegistryPage } from './ModelRegistryPage';
 
 export const NodeModelBinding = ({
+  simple = false,
   type,
   modelRole,
   value,
@@ -19,6 +20,7 @@ export const NodeModelBinding = ({
   fallbacks = [],
   fallbackChanged,
 }: {
+  simple?: boolean;
   type: string;
   modelRole?: string;
   value?: ModelReference;
@@ -128,29 +130,33 @@ export const NodeModelBinding = ({
   return (
     <section className="node-model-binding">
       <h4>{roleLabel} 모델</h4>
-      <label>
-        모델 검색
-        <input
-          type="search"
-          aria-label="모델 검색"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="이름 또는 모델 ID"
-        />
-      </label>
-      <button
-        type="button"
-        onClick={() => {
-          window.history.pushState(
-            { ...window.history.state, modelRegistration: true },
-            '',
-            location.href,
-          );
-          setRegistering(true);
-        }}
-      >
-        모델·공급자 추가
-      </button>
+      {!simple && (
+        <label>
+          모델 검색
+          <input
+            type="search"
+            aria-label="모델 검색"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="이름 또는 모델 ID"
+          />
+        </label>
+      )}
+      {!simple && (
+        <button
+          type="button"
+          onClick={() => {
+            window.history.pushState(
+              { ...window.history.state, modelRegistration: true },
+              '',
+              location.href,
+            );
+            setRegistering(true);
+          }}
+        >
+          모델·공급자 추가
+        </button>
+      )}
       {registering &&
         createPortal(
           <div
@@ -256,7 +262,7 @@ export const NodeModelBinding = ({
           )}
         </select>
       </label>
-      {['translate', 'transcribe', 'vocalize'].includes(type) && fallbackChanged && (
+      {!simple && ['translate', 'transcribe', 'vocalize'].includes(type) && fallbackChanged && (
         <details>
           <summary>대체 모델 (선택)</summary>
           <section aria-label={`${roleLabel} 폴백`}>
@@ -404,7 +410,7 @@ export const NodeModelBinding = ({
           </section>
         </details>
       )}
-      {value && selected && selected.current_revision !== value.revision && (
+      {!simple && value && selected && selected.current_revision !== value.revision && (
         <p className="editor-help">
           등록 연결 설정이 변경됐습니다. 이 워크플로우의 기존 선택은 유지됩니다.
         </p>

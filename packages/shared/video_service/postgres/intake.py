@@ -631,6 +631,9 @@ class Intake:
 
     def save_definition(self, owner, identity, payload, *, provenance=None):
         resource_id(identity)
+        from ..editor_contracts import resolve_editor_contracts
+
+        payload = resolve_editor_contracts(payload)
         validation = validate(payload)
         if not validation["valid"]:
             raise ValueError("워크플로우 연결/필수 입력/옵션을 확인하세요.")

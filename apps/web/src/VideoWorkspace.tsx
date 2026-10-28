@@ -13,7 +13,7 @@ import { PublishingAuth } from './PublishingAuth';
 import { JobDetail } from './JobDetail';
 import { RenewalJobDetail } from './RenewalJobDetail';
 import { SettingsPage } from './SettingsPage';
-import { SystemResources } from './SystemResources';
+import { SystemSettings } from './SystemSettings';
 import { ModelRegistryPage } from './ModelRegistryPage';
 import { ProviderConnections } from './ProviderConnections';
 import { ServingPage } from './ServingPage';
@@ -656,7 +656,7 @@ export const VideoWorkspace = () => {
           )
         ) : settingsView ? (
           renewalBackend ? (
-            <SystemResources />
+            <SystemSettings />
           ) : (
             <SettingsPage />
           )

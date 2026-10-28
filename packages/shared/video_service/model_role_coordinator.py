@@ -28,6 +28,41 @@ class ModelRoleCoordinator:
             result_stores=getattr(factory, "model_role_result_stores", None),
         )
 
+    def auto_enroll_new_job(self, owner, job_id, request_id):
+        job = self.runtime.get(owner, job_id)
+        if job["status"] != "draft" or job["runs"]:
+            return job
+        with self.runtime.database.connection() as c:
+            exists = c.execute(
+                "SELECT 1 FROM model_role_enrollments WHERE owner_id=%s AND job_id=%s AND generation=%s",
+                (owner, job_id, job["generation"]),
+            ).fetchone()
+        if exists:
+            return job
+        roles = []
+        for role, kind in [
+            ("transcription", "transcribe"),
+            ("translation", "translate"),
+            ("vocalization", "vocalize"),
+        ]:
+            nodes = [
+                n for n in job["snapshot"]["definition"]["nodes"] if n["type"] == kind
+            ]
+            if role not in self.role_factories or not nodes:
+                continue
+            if role == "transcription" and any(
+                n.get("fallback_refs")
+                or n["options"].get("clock_policy") != "packed_projection_v5"
+                or n["options"].get("batch_policy") != "bounded_60s_v1"
+                for n in nodes
+            ):
+                continue
+            if all(n.get("model_ref") for n in nodes):
+                roles.append(role)
+        if roles:
+            self.enroll_job(owner, job_id, job["revision"], request_id, roles=roles)
+        return self.runtime.get(owner, job_id)
+
     def enroll_job(self, owner, job_id, revision, request_id, *, roles=None):
         payload = {"job_id": job_id, "revision": revision, "request_id": request_id}
         selected = ["transcription"] if roles is None else roles

@@ -86,6 +86,7 @@ NODES = [
         {"transcript": "transcript"},
         role="transcription",
         choices={
+            "source_language": ["auto", "ko", "en", "ja", "zh", "de", "fr", "es"],
             "batch_policy": ["single", "bounded_60s_v1"],
             "max_model_calls": MODEL_CALL_LIMITS,
             "clock_policy": [

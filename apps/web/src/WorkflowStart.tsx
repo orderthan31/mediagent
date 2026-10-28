@@ -1,3 +1,4 @@
+import { startSavedJob } from './job-start.mjs';
 import { useEffect, useRef, useState } from 'react';
 import { PageTitle } from './PageTitle';
 import { LoadingSkeleton } from './LoadingSkeleton';
@@ -60,7 +61,7 @@ export const WorkflowStart = () => {
   const [inspection, setInspection] = useState<Inspection | null>(null);
   const [choices, setChoices] = useState<Record<string, string>>({});
   const [plan, setPlan] = useState<StartPlan | null>(null);
-  const [paid, setPaid] = useState(false);
+
   const [sourceLanguage, setSourceLanguage] = useState('auto');
   const [targetLanguage, setTargetLanguage] = useState('ko');
   const [transcript, setTranscript] = useState('');
@@ -75,7 +76,6 @@ export const WorkflowStart = () => {
   const selectedNode = inspection?.summary.find((row) => row.id === selected);
   const invalidate = () => {
     setPlan(null);
-    setPaid(false);
     setRequestId(crypto.randomUUID());
   };
   const load = async () => {
@@ -134,6 +134,11 @@ export const WorkflowStart = () => {
       if (generation.current === current) {
         setInspection(result);
         setDefinition(graph);
+        const speech = graph.nodes.find((n) => n.type === 'transcribe');
+        const translated = graph.nodes.find((n) => n.type === 'translate');
+        if (speech?.options.source_language) {setSourceLanguage(speech.options.source_language);}
+        if (translated?.options.target_language)
+          {setTargetLanguage(translated.options.target_language);}
         setChoices(
           Object.fromEntries(
             result.summary
@@ -167,24 +172,17 @@ export const WorkflowStart = () => {
       branch_choices: choices,
     },
   });
-  const preview = async () => {
-    if (busy || !assetId || !inspection?.supported || !inspection.model_ready) {
-      return;
-    }
-    setBusy(true);
-    setError('');
-    setPlan(null);
-    setPaid(false);
-    try {
-      setPlan(await jsonPost<StartPlan>(entryPath + '/preview', selection()));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '입력과 모델 설정을 확인해 주세요.');
-    } finally {
-      setBusy(false);
-    }
-  };
+  const selectionKey = JSON.stringify({
+    assetId,
+    definitionId,
+    revision: inspection?.definition_revision,
+    sourceLanguage,
+    targetLanguage,
+    transcript,
+    choices,
+  });
   const create = async () => {
-    if (busy || !plan || (plan.paid_roles.length > 0 && !paid)) {
+    if (busy || !plan) {
       return;
     }
     setBusy(true);
@@ -194,9 +192,15 @@ export const WorkflowStart = () => {
         ...selection(),
         request_id: requestId,
         token: plan.token,
-        paid_confirmed: paid,
+        paid_confirmed: plan.paid_roles.length > 0,
       });
-      if (frontendOnly || renewalBackend) {
+      if (renewalBackend) {
+        try {
+          await startSavedJob(request, jsonPost, ticket.id, requestId);
+        } finally {
+          location.hash = `/jobs/${ticket.id}`;
+        }
+      } else if (frontendOnly) {
         location.hash = `/jobs/${ticket.id}`;
       } else {
         setTicketId(ticket.id);
@@ -207,6 +211,29 @@ export const WorkflowStart = () => {
       setBusy(false);
     }
   };
+  useEffect(() => {
+    if (!assetId || !inspection?.supported || !inspection.model_ready) {
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      void jsonPost<StartPlan>(entryPath + '/preview', selection())
+        .then((value) => {
+          if (!cancelled) {
+            setPlan(value);
+          }
+        })
+        .catch((reason) => {
+          if (!cancelled) {
+            setError(reason instanceof Error ? reason.message : '입력을 확인해 주세요.');
+          }
+        });
+    }, 150);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [selectionKey, inspection?.supported, inspection?.model_ready]);
   useEffect(() => {
     void load();
     return () => {
@@ -432,7 +459,6 @@ export const WorkflowStart = () => {
             </section>
           )}
           <div className="work-entry-actions page-actions">
-            {plan && <p>{plan.notice}</p>}
             {plan?.model_call_budgets?.length ? (
               <section aria-label="이번 작업 모델 호출 상한">
                 <h3>모델 호출 상한</h3>
@@ -451,50 +477,27 @@ export const WorkflowStart = () => {
                     </li>
                   ))}
                 </ul>
-                {plan.vocal_source_policy?.id === 'streamed_vocalization_v2' && (
-                  <p>
-                    장문 보컬: 원본 최대 6시간 / 요청 한 번 최대 60초·2MiB. 탐지와 후보 재확인의
-                    합계가 호출 상한입니다.
-                  </p>
-                )}
+
                 <p>
                   실제 구간 수는 전처리 결과에 따라 달라집니다. 이 화면의 확인만으로 API를 호출하지
                   않습니다.
                 </p>
               </section>
             ) : null}
-            {plan && plan.paid_roles.length > 0 && (
-              <label className="serving-check">
-                <input
-                  type="checkbox"
-                  checked={paid}
-                  disabled={busy}
-                  onChange={(event) => setPaid(event.target.checked)}
-                />
-                {plan.paid_roles.join(', ')} 호출에 따른 비용 발생 가능성을 확인했습니다.
-              </label>
-            )}
-            {plan ? (
-              <Button
-                disabled={busy || (plan.paid_roles.length > 0 && !paid)}
-                onClick={() => void create()}
-              >
-                작업 생성
-              </Button>
-            ) : (
-              <Button
-                disabled={
-                  busy ||
-                  !!listError ||
-                  !assetId ||
-                  !inspection?.supported ||
-                  !inspection.model_ready
-                }
-                onClick={() => void preview()}
-              >
-                실행 전 확인
-              </Button>
-            )}
+            {plan?.paid_roles.length ? (
+              <p>
+                선택한 모델의 API 비용이 발생할 수 있습니다. 금액은 미산정이며, 작업 시작을 누르면
+                표시된 모델·호출 범위로 실행합니다.
+              </p>
+            ) : null}
+            <Button
+              disabled={
+                busy || !plan || !!listError || !inspection?.supported || !inspection.model_ready
+              }
+              onClick={() => void create()}
+            >
+              {busy ? '시작 준비 중…' : '작업 시작'}
+            </Button>
           </div>
         </div>
       )}
