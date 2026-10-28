@@ -21,10 +21,18 @@ from .server import load_bootstrap
 
 class ToolServer(ThreadingHTTPServer):
     def __init__(self, address, bridge, token, *, role="transcription"):
-        if role not in {"transcription", "translation"}:
+        if role not in {"transcription", "translation", "vocalization"}:
             raise ValueError("unsupported_role_tool")
-        route = "/translate" if role == "translation" else "/speech"
-        invoke = bridge.invoke_translation if role == "translation" else bridge.invoke
+        route = {
+            "transcription": "/speech",
+            "translation": "/translate",
+            "vocalization": "/vocal",
+        }[role]
+        invoke = {
+            "transcription": bridge.invoke,
+            "translation": bridge.invoke_translation,
+            "vocalization": bridge.invoke_vocalization,
+        }[role]
         if not isinstance(token, str) or len(token) < 32:
             raise ValueError("scoped_tool_token_required")
 
@@ -63,7 +71,9 @@ def main(argv=None):
     for arg in ["bootstrap-file", "token-file", "cert-file", "key-file"]:
         parser.add_argument("--" + arg, required=True)
     parser.add_argument(
-        "--role", choices=["transcription", "translation"], default="transcription"
+        "--role",
+        choices=["transcription", "translation", "vocalization"],
+        default="transcription",
     )
     parser.add_argument("--port", type=int, default=8444)
     parser.add_argument("--chunk-concurrency", type=int, default=1)

@@ -54,7 +54,7 @@ class RoleResultDeliveries:
             or set(packet) != keys
             or type(packet["version"]) is not int
             or packet["version"] != 1
-            or packet["role"] not in {"transcription", "translation"}
+            or packet["role"] not in {"transcription", "translation", "vocalization"}
             or packet["status"] not in {"completed", "held", "cancelled"}
         ):
             raise InvalidMessage("invalid_role_result_envelope")

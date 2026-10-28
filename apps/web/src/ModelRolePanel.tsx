@@ -26,6 +26,11 @@ type Observation = {
   available_roles?: string[];
   enrolled_roles?: string[];
 };
+const roleNames: Record<string, string> = {
+  transcription: '전사',
+  translation: '번역',
+  vocalization: '보컬',
+};
 const states: Record<string, string> = {
   receiving: '결과 전달 확인 중',
   ready: '전달 준비',
@@ -134,7 +139,7 @@ export const ModelRolePanel = ({
   }, [load, revision]);
   return (
     <section className="shared-job-custody" aria-label="독립 전사·번역 상태">
-      <h3>독립 전사·번역</h3>
+      <h3>독립 전사·번역·보컬</h3>
       {readError && (
         <p role="alert">
           {readError}
@@ -147,8 +152,8 @@ export const ModelRolePanel = ({
         <>
           <p>
             {observation.enrolled
-              ? `이 작업의 독립 처리: ${(observation.enrolled_roles || ['transcription']).map((role) => (role === 'translation' ? '번역' : '전사')).join(' · ')}`
-              : '이 작업의 독립 전사 배정은 아직 등록되지 않았습니다.'}
+              ? `이 작업의 독립 처리: ${(observation.enrolled_roles || ['transcription']).map((role) => roleNames[role] || role).join(' · ')}`
+              : '이 작업의 독립 처리는 아직 선택되지 않았습니다.'}
           </p>
           {!observation.enrolled && canManage && status === 'draft' && !hasRuns && (
             <>
@@ -170,15 +175,17 @@ export const ModelRolePanel = ({
                   )
                 }
               >
-                {observation.available_roles?.includes('translation')
-                  ? '이 새 작업에 독립 전사·번역 사용'
-                  : '이 새 작업에 독립 전사 사용'}
+                이 새 작업에 독립{' '}
+                {(observation.available_roles || ['transcription'])
+                  .map((role) => roleNames[role] || role)
+                  .join('·')}{' '}
+                사용
               </Button>
             </>
           )}
           {observation.tasks.map((task) => (
             <div key={task.task_id} data-role-task={task.task_id}>
-              <h4>{task.role === 'translation' ? '번역' : '전사'}</h4>
+              <h4>{roleNames[task.role || 'transcription'] || task.role}</h4>
               <strong role="status">{states[task.state] || task.state}</strong>
               <p>
                 호출 예약 {task.reserved_calls} / 상한 {task.max_calls}

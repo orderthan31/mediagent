@@ -136,6 +136,18 @@ def runtime_components(
         factory.model_role_result_stores["translation"] = object_store(
             config["translation_role_result_config_file"]
         )
+    vocal_keys = {"vocal_role_broker_config_file", "vocal_role_result_config_file"}
+    if vocal_keys & set(config):
+        if not enable_registered or not vocal_keys <= set(config):
+            raise ValueError("vocal_role_requires_bound_transports")
+        from video_service.transport_files import model_role_broker_factory
+
+        factory.model_role_factories["vocalization"] = model_role_broker_factory(
+            config["vocal_role_broker_config_file"]
+        )
+        factory.model_role_result_stores["vocalization"] = object_store(
+            config["vocal_role_result_config_file"]
+        )
     return store, credentials, factory
 
 
@@ -159,7 +171,7 @@ def main(argv=None):
     parser.add_argument("--bootstrap-file", required=True)
     parser.add_argument(
         "--model-role",
-        choices=["transcription", "translation"],
+        choices=["transcription", "translation", "vocalization"],
         default="transcription",
     )
     parser.add_argument("--owner")

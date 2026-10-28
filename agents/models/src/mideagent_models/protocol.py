@@ -40,7 +40,7 @@ def validate(packet, kind, *, expected_role=None):
         require(
             type(packet["version"]) is int
             and packet["version"] == 1
-            and packet["role"] in {"transcription", "translation"},
+            and packet["role"] in {"transcription", "translation", "vocalization"},
             "invalid_role_cancel_scope",
         )
         require(
@@ -57,11 +57,13 @@ def validate(packet, kind, *, expected_role=None):
     require(
         type(packet["version"]) is int
         and packet["version"] == 1
-        and packet["role"] in {"transcription", "translation"},
+        and packet["role"] in {"transcription", "translation", "vocalization"},
         "invalid_role_envelope",
     )
     task = packet["task"]
-    if packet["role"] == "translation":
+    if packet["role"] == "vocalization":
+        validate_vocal_task(task)
+    elif packet["role"] == "translation":
         validate_translation_task(task)
     else:
         fields(
@@ -218,4 +220,64 @@ def validate_translation_task(task):
         languages(task["source_language"], task["target_language"])
     except (ValueError, TypeError):
         raise InvalidRoleDelivery("invalid_translation_languages") from None
+    return task
+
+
+def validate_vocal_task(task):
+    fields(
+        task,
+        {
+            "version",
+            "task_id",
+            "role",
+            "audio",
+            "models",
+            "source_language",
+            "purpose",
+            "strength",
+            "binding_sha256",
+            "max_calls",
+        },
+        "invalid_vocal_task",
+    )
+    require(
+        type(task["version"]) is int
+        and task["version"] == 1
+        and task["role"] == "vocalization"
+        and hex_id(task["task_id"], 32),
+        "invalid_vocal_identity",
+    )
+    fields(task["audio"], {"sha256", "bytes"}, "invalid_vocal_audio")
+    require(
+        hex_id(task["audio"]["sha256"], 64)
+        and type(task["audio"]["bytes"]) is int
+        and 0 < task["audio"]["bytes"] <= 300 * 32000 + 65536,
+        "invalid_vocal_audio",
+    )
+    require(
+        type(task["models"]) is list and 1 <= len(task["models"]) <= 4,
+        "invalid_vocal_models",
+    )
+    for model in task["models"]:
+        fields(model, {"model_id", "revision"}, "invalid_vocal_model")
+        require(
+            hex_id(model["model_id"], 32)
+            and type(model["revision"]) is int
+            and model["revision"] > 0,
+            "invalid_vocal_model",
+        )
+    require(
+        len({m["model_id"] for m in task["models"]}) == len(task["models"])
+        and hex_id(task["binding_sha256"], 64),
+        "invalid_vocal_binding",
+    )
+    require(
+        task["purpose"] == "vocalization_regions_v1"
+        and task["strength"] in {"off", "conservative", "strong", "silence3"}
+        and type(task["source_language"]) is str
+        and re.fullmatch("auto|[a-z]{2,3}", task["source_language"])
+        and type(task["max_calls"]) is int
+        and 1 <= task["max_calls"] <= 128,
+        "invalid_vocal_policy",
+    )
     return task

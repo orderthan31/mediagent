@@ -88,7 +88,7 @@ class RoleResultRecovery(Revision):
 
 class RoleEnrollment(Revision):
     request_id: str = Field(min_length=1, max_length=100)
-    roles: list[Literal["transcription", "translation"]] | None = None
+    roles: list[Literal["transcription", "translation", "vocalization"]] | None = None
 
 
 class Review(Revision):

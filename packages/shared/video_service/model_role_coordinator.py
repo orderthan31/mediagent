@@ -95,6 +95,15 @@ class ModelRoleCoordinator:
                 not translations or any(not n.get("model_ref") for n in translations)
             ):
                 raise Conflict("role_enrollment_requires_frozen_translation")
+            vocal = [
+                n
+                for n in job["snapshot"]["definition"]["nodes"]
+                if n["type"] == "vocalize"
+            ]
+            if "vocalization" in selected and (
+                not vocal or any(not n.get("model_ref") for n in vocal)
+            ):
+                raise Conflict("role_enrollment_requires_frozen_vocalization")
             response = {
                 "enrolled": True,
                 "job_id": job_id,
@@ -141,7 +150,13 @@ class ModelRoleCoordinator:
             )
 
     def publish(self, owner, command):
-        role = "translation" if command.get("translation") else "transcription"
+        role = (
+            "vocalization"
+            if command.get("vocalization")
+            else "translation"
+            if command.get("translation")
+            else "transcription"
+        )
         client_factory = self.role_factories.get(role)
         if client_factory is None:
             raise Conflict("independent_role_transport_unavailable")
@@ -242,7 +257,7 @@ class ModelRoleCoordinator:
             != {"version", "role", "task_id", "request_sha256", "status", "kind"}
             or type(packet["version"]) is not int
             or packet["version"] != 1
-            or packet["role"] not in {"transcription", "translation"}
+            or packet["role"] not in {"transcription", "translation", "vocalization"}
             or packet["kind"] != "cancel_ack"
             or packet["status"] not in {"cancelled", "completed"}
         ):
@@ -494,6 +509,7 @@ class ModelRoleCoordinator:
                     for role, kind in [
                         ("transcription", "transcribe"),
                         ("translation", "translate"),
+                        ("vocalization", "vocalize"),
                     ]
                     if role in self.role_factories
                     and any(

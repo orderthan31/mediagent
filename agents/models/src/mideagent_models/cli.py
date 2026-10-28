@@ -28,6 +28,7 @@ class ScopedSpeechTool:
             "controlled_v1",
             "registry_scoped_v1",
             "registry_translation_v1",
+            "registry_vocalization_v1",
         }:
             raise ValueError("unsupported_scoped_tool_contract")
         self.url = config["tool_url"]
@@ -107,6 +108,23 @@ class ScopedTranslationTool(ScopedSpeechTool):
         if self.contract != "registry_translation_v1":
             raise ValueError("scoped_translation_contract_required")
         return self._post(translation_packet(task, batch, candidate))
+
+
+def vocal_packet(task, request, candidate):
+    return {
+        "task_id": task["task_id"],
+        "call_index": request["context"]["call_index"],
+        "candidate_index": candidate,
+        "model": task["models"][candidate],
+        "input_sha256": request["input_sha256"],
+    }
+
+
+class ScopedVocalTool(ScopedSpeechTool):
+    def __call__(self, task, request, candidate):
+        if self.contract != "registry_vocalization_v1":
+            raise ValueError("scoped_vocal_contract_required")
+        return self._post(vocal_packet(task, request, candidate))
 
 
 def main():

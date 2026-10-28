@@ -76,7 +76,9 @@ class BrokerController:
                 (owner, job_id, attempt_id),
             ).fetchone()
         role = (
-            "transcription"
+            "vocalization"
+            if run and run["request"].get("vocalization")
+            else "transcription"
             if run and run["request"].get("transcription")
             else "translation"
             if run and run["request"].get("translation")

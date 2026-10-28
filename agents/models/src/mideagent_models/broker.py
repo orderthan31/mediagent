@@ -296,7 +296,7 @@ def consume(config, *, once=False):
     from .cli import ScopedSpeechTool
     from .transcription import TranscriptionAgent
 
-    if config["role"] not in {"transcription", "translation"}:
+    if config["role"] not in {"transcription", "translation", "vocalization"}:
         raise ValueError("wrong_role_entrypoint")
     slots = config["task_slots"]
     if type(slots) is not int or slots < 1:
@@ -305,15 +305,20 @@ def consume(config, *, once=False):
     prefix = broker.namespace + "." + config["role"]
     for key in ["input_store", "output_store"]:
         Path(config[key]["cache_root"]).mkdir(parents=True, exist_ok=True)
-    from .cli import ScopedTranslationTool
+    from .cli import ScopedTranslationTool, ScopedVocalTool
     from .translation import TranslationAgent
+    from .vocalization import VocalizationAgent
 
-    agent_type = (
-        TranslationAgent if config["role"] == "translation" else TranscriptionAgent
-    )
-    tool_type = (
-        ScopedTranslationTool if config["role"] == "translation" else ScopedSpeechTool
-    )
+    agent_type = {
+        "transcription": TranscriptionAgent,
+        "translation": TranslationAgent,
+        "vocalization": VocalizationAgent,
+    }[config["role"]]
+    tool_type = {
+        "transcription": ScopedSpeechTool,
+        "translation": ScopedTranslationTool,
+        "vocalization": ScopedVocalTool,
+    }[config["role"]]
     agent = agent_type(
         config["state_root"],
         tool_type(config),

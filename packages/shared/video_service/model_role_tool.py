@@ -313,3 +313,172 @@ class RoleToolBridge:
                     (Jsonb(reply), row["task_id"], index),
                 )
             return {"status": "received", "reply": reply}
+
+    def invoke_vocalization(self, packet):
+        from .postgres.model_call_fence import model_call_fence
+        from .vocal_role_plan import vocal_plan
+
+        if (
+            type(packet) is not dict
+            or set(packet)
+            != {"task_id", "call_index", "candidate_index", "model", "input_sha256"}
+            or any(
+                type(packet[k]) is not int or packet[k] < 0
+                for k in ["call_index", "candidate_index"]
+            )
+        ):
+            raise ValueError("invalid_scoped_translation_request")
+        runtime = self.roles.runtime
+        with runtime.database.connection() as c:
+            row = c.execute(
+                "SELECT * FROM model_role_tasks WHERE task_id=%s", (packet["task_id"],)
+            ).fetchone()
+            if (
+                not row
+                or row["envelope"]["role"] != "vocalization"
+                or row["phase"] not in {"sending", "sent", "adopting", "accepted"}
+            ):
+                raise Conflict("tool_vocal_grant_not_active")
+            task = row["envelope"]["task"]
+            owner = row["owner_id"]
+            command = c.execute(
+                "SELECT request FROM node_runs WHERE owner_id=%s AND job_id=%s AND id=%s",
+                (owner, row["job_id"], row["attempt_id"]),
+            ).fetchone()["request"]
+        candidate = packet["candidate_index"]
+        if (
+            not 0 <= candidate < len(task["models"])
+            or packet["model"] != task["models"][candidate]
+        ):
+            raise Conflict("tool_model_outside_grant")
+        reference = command["inputs"]["audio"]
+        if not 0 < reference["bytes"] <= 300 * 32000 + 65536:
+            raise Conflict("vocal_existing_audio_budget_exceeded")
+        raw = runtime.store.read(owner, reference, limit=reference["bytes"])
+        width = len(task["models"])
+        with runtime.database.connection() as c:
+            history = c.execute(
+                "SELECT * FROM model_role_tool_calls WHERE task_id=%s ORDER BY chunk_index",
+                (task["task_id"],),
+            ).fetchall()
+
+        def completed(call):
+            matches = [
+                r
+                for r in history
+                if r["chunk_index"] // width == call and r["status"] == "completed"
+            ]
+            return (True, matches[0]["response"]) if matches else (False, None)
+
+        plan = vocal_plan(raw, task, completed)
+        index = packet["call_index"] * width + candidate
+        pin = row["frozen_candidates"][candidate]
+        prior = next((r for r in history if r["chunk_index"] == index), None)
+        if prior:
+            if (
+                prior["input_sha256"] != packet["input_sha256"]
+                or prior["model"] != packet["model"]
+            ):
+                raise Conflict("immutable_tool_call_changed")
+            if prior["status"] == "completed":
+                return {"status": "received", "reply": prior["response"]}
+            if prior["status"] == "failed":
+                return {"status": "failed", "error": prior["error_code"]}
+            raise Conflict("tool_call_unknown_or_settled_no_recall")
+        if (
+            "pending" not in plan
+            or plan["pending"]["context"]["call_index"] != packet["call_index"]
+            or plan["pending"]["input_sha256"] != packet["input_sha256"]
+        ):
+            raise Conflict("vocal_tool_call_outside_grant")
+        request = plan["pending"]
+        sha = request["input_sha256"]
+        with self.slots:
+            with runtime.database.connection() as c:
+                c.execute(
+                    "SELECT pg_advisory_xact_lock(hashtextextended(%s,0))",
+                    ("role-tool:" + row["task_id"],),
+                )
+                prior = c.execute(
+                    "SELECT * FROM model_role_tool_calls WHERE task_id=%s AND chunk_index=%s",
+                    (row["task_id"], index),
+                ).fetchone()
+                if prior:
+                    if (
+                        prior["input_sha256"] != sha
+                        or prior["model"] != packet["model"]
+                    ):
+                        raise Conflict("immutable_tool_call_changed")
+                    if prior["status"] == "completed":
+                        return {"status": "received", "reply": prior["response"]}
+                    if prior["status"] == "failed":
+                        return {"status": "failed", "error": prior["error_code"]}
+                    raise Conflict("tool_call_unknown_or_settled_no_recall")
+                self.roles._current(c, owner, command)
+                used = c.execute(
+                    "SELECT count(*)n FROM model_role_tool_calls WHERE task_id=%s",
+                    (row["task_id"],),
+                ).fetchone()["n"]
+                if used >= task["max_calls"]:
+                    raise Conflict("tool_total_call_budget_exhausted")
+                c.execute(
+                    "INSERT INTO model_role_tool_calls(task_id,chunk_index,input_sha256,model,status)VALUES(%s,%s,%s,%s,'started')",
+                    (row["task_id"], index, sha, Jsonb(packet["model"])),
+                )
+            executor = runtime.vocalization_runtime
+            adapter = None
+            try:
+                if (
+                    executor.requires_paid([pin])
+                    and not command["vocalization"]["paid_authorized"]
+                ):
+                    raise Conflict("paid_authorization_required")
+                if not executor.available(pin):
+                    raise EndpointFailure(
+                        "frozen model unavailable", code="unavailable"
+                    )
+                key = (
+                    executor.credentials.resolve(
+                        pin["owner_id"], pin["connection_id"], pin["credential_ref"]
+                    )
+                    if pin["credential_ref"]
+                    else None
+                )
+                adapter = executor.make_adapter(pin, key)
+                adapter._client.timeout = 15.0
+                with model_call_fence(runtime.database, owner, command["run_id"]):
+                    with runtime.database.connection() as c:
+                        self.roles._current(c, owner, command)
+                    reply = adapter.classify(
+                        pin["remote_model"],
+                        request["context"],
+                        plan["clips"],
+                        request["schema"],
+                    )
+            except Exception as error:
+                code = (
+                    error.code
+                    if isinstance(error, EndpointFailure)
+                    else str(error)
+                    if isinstance(error, Conflict)
+                    else type(error).__name__
+                )
+                known = (
+                    isinstance(error, (EndpointFailure, Conflict))
+                    and code != "outcome_unknown"
+                )
+                with runtime.database.connection() as c:
+                    c.execute(
+                        "UPDATE model_role_tool_calls SET status=%s,error_code=%s WHERE task_id=%s AND chunk_index=%s",
+                        ("failed" if known else "unknown", code, row["task_id"], index),
+                    )
+                return {"status": "failed" if known else "unknown", "error": code}
+            finally:
+                if adapter is not None:
+                    adapter.close()
+            with runtime.database.connection() as c:
+                c.execute(
+                    "UPDATE model_role_tool_calls SET status='completed',response=%s WHERE task_id=%s AND chunk_index=%s AND status='started'",
+                    (Jsonb(reply), row["task_id"], index),
+                )
+            return {"status": "received", "reply": reply}

@@ -47,7 +47,9 @@ class ModelRoles:
     def enroll(self, owner, command):
         command = deepcopy(command)
         runtime = self.runtime
-        if command.get("translation"):
+        if command.get("vocalization"):
+            envelope, pins = self._vocal_envelope(owner, command)
+        elif command.get("translation"):
             envelope, pins = self._translation_envelope(owner, command)
         else:
             config = command.get("transcription", {})
@@ -209,7 +211,7 @@ class ModelRoles:
             }
             or type(message["version"]) is not int
             or message["version"] != 1
-            or message["role"] not in {"transcription", "translation"}
+            or message["role"] not in {"transcription", "translation", "vocalization"}
         ):
             raise Conflict("invalid_role_result_envelope")
         with self.runtime.database.connection() as c:
@@ -291,7 +293,11 @@ class ModelRoles:
                     self.cancelled_in(c, owner, row["job_id"], row["attempt_id"])
             return self.runtime.get(owner, row["job_id"])
         if row["adoption_result"] is None:
-            if envelope["role"] == "translation":
+            if envelope["role"] == "vocalization":
+                adoption = self._vocal_adoption(
+                    owner, command, row, message, packet, result
+                )
+            elif envelope["role"] == "translation":
                 adoption = self._translation_adoption(
                     owner, command, row, message, packet, result
                 )
@@ -528,4 +534,115 @@ class ModelRoles:
             "outputs": {"transcript": output},
             "transport": "independent_model_role",
             "translation": metadata,
+        }
+
+    def _vocal_envelope(self, owner, command):
+        config = command["vocalization"]
+        pins = config["candidates"]
+        audio = command["inputs"]["audio"]
+        if (
+            command["agent"]["id"] != "vocalize"
+            or config["purpose"] != "vocalization_regions_v1"
+            or config["batch_policy"] != "bounded_vocalization_v1"
+            or not 1 <= len(pins) <= 4
+        ):
+            raise Conflict("invalid_vocal_role_binding")
+        task = {
+            "version": 1,
+            "task_id": command["attempt_id"],
+            "role": "vocalization",
+            "audio": {k: audio[k] for k in ["sha256", "bytes"]},
+            "models": [{k: p[k] for k in ["model_id", "revision"]} for p in pins],
+            "source_language": config["source_language"],
+            "purpose": config["purpose"],
+            "strength": config["strength"],
+            "binding_sha256": digest(config),
+            "max_calls": config["max_model_calls"],
+        }
+        return {
+            "version": 1,
+            "role": "vocalization",
+            "task": task,
+            "source": {"owner": owner, "reference": audio},
+            "output_owner": owner,
+        }, pins
+
+    def _vocal_adoption(self, owner, command, row, message, packet, result):
+        from ..vocal_role_plan import vocal_plan
+
+        reference = command["inputs"]["audio"]
+        if not 0 < reference["bytes"] <= 300 * 32000 + 65536:
+            raise Conflict("vocal_existing_audio_budget_exceeded")
+        raw = self.runtime.store.read(owner, reference, limit=reference["bytes"])
+        task = row["envelope"]["task"]
+        width = len(task["models"])
+        with self.runtime.database.connection() as c:
+            calls = c.execute(
+                "SELECT * FROM model_role_tool_calls WHERE task_id=%s ORDER BY chunk_index",
+                (task["task_id"],),
+            ).fetchall()
+
+        def completed(index):
+            choices = [
+                r
+                for r in calls
+                if r["chunk_index"] // width == index and r["status"] == "completed"
+            ]
+            return (True, choices[0]["response"]) if choices else (False, None)
+
+        plan = vocal_plan(raw, task, completed)
+        if (
+            "document" not in plan
+            or result.get("document") != plan["document"]
+            or result.get("purpose") != task["purpose"]
+            or result["model_calls"] != len(calls)
+            or result["completed_chunks"] != len(plan["contexts"])
+        ):
+            raise Conflict("vocal_role_decision_changed")
+        expected = []
+        for context in plan["contexts"]:
+            call = next(
+                r
+                for r in calls
+                if r["chunk_index"] // width == context["call_index"]
+                and r["status"] == "completed"
+            )
+            candidate = call["chunk_index"] % width
+            expected.append(
+                {
+                    "call_index": context["call_index"],
+                    "phase": context["phase"],
+                    "candidate_index": candidate,
+                    "model": task["models"][candidate],
+                }
+            )
+        if result.get("chunks") != expected:
+            raise Conflict("vocal_role_call_bindings_changed")
+        output = self.runtime.store.put(
+            owner, [canonical(plan["document"])], "audio_regions"
+        )
+        return {
+            **{
+                k: command[k]
+                for k in [
+                    "protocol_version",
+                    "run_id",
+                    "attempt_id",
+                    "generation",
+                    "agent",
+                ]
+            },
+            "request_sha256": row["request_sha256"],
+            "status": "completed",
+            "outputs": {"regions": output},
+            "transport": "independent_model_role",
+            "vocalization": {
+                "role_task_id": task["task_id"],
+                "purpose": task["purpose"],
+                "strength": task["strength"],
+                "model_calls": result["model_calls"],
+                "chunks": expected,
+                "tool_mode": packet["tool_mode"],
+                "result_ref": message["result_ref"],
+            },
         }

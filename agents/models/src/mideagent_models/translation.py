@@ -35,6 +35,9 @@ class TranslationState(TypedDict, total=False):
     status: str
     reply: str
     result: dict
+    audio_path: str
+    pending: dict
+    document: dict
 
 
 class TranslationAgent:
@@ -250,7 +253,7 @@ class TranslationAgent:
             **extra,
         }
         if status == "held":
-            result["held_reason"] = "translation_checkpoint_held"
+            result["held_reason"] = self.role + "_checkpoint_held"
         result = self.state.finish(task["task_id"], result)
         return {"result": result, "status": result["status"]}
 

@@ -8,3 +8,9 @@ test('fresh job explicitly selects available independent translation and labels 
   assert.match(s, /task.role/);
   assert.match(s, /독립 전사·번역/);
 });
+
+test('available vocal roles are explicitly named rather than labelled translation', () => {
+  const s = readFileSync(new URL('../src/ModelRolePanel.tsx', import.meta.url), 'utf8');
+  assert.match(s, /vocalization: '보컬'/);
+  assert.match(s, /roleNames\[task.role/);
+});
