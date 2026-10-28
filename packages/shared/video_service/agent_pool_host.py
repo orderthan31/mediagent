@@ -1,7 +1,7 @@
 """Trusted template-bound ControlNet pool. Not imported by product API code."""
 import copy,hashlib,json,time,uuid
 from pathlib import Path
-from .agent_pool import decide
+from .agent_pool import decide,transient_observation
 from .control_runtime import PinnedEngine
 
 def digest(value):return hashlib.sha256(json.dumps(value,sort_keys=True,separators=(',',':')).encode()).hexdigest()
@@ -60,7 +60,7 @@ class PoolHost:
     with self.database.connection()as db:db.execute('UPDATE agent_pool_instances SET start_issued_at=now()WHERE id=%s AND start_issued_at IS NULL',(item['id'],));self.event(db,item,'start_issued')
     self.request('POST','/v1.45/containers/'+item['container_id']+'/start')
    return actual
-  if item['phase']in {'draining','stopping','held'}:return actual
+  if item['phase']in {'draining','stopping'}or item['phase']=='held'and item.get('stop_issued_at'):return actual
   reportPath=self.root/item['id']/'status.json'
   if not reportPath.exists():return actual
   report=json.loads(reportPath.read_text())
@@ -70,14 +70,16 @@ class PoolHost:
   if report['started_at']<started-1:return actual
   if report['phase']not in {'ready','busy'}:return actual
   with self.database.connection()as db:
-   db.execute("UPDATE agent_pool_instances SET phase=%s,boot_id=%s,observed_at=now(),ready_at=%s,last_completed_at=%s,unsettled=%s WHERE id=%s AND phase IN('starting','ready','busy')",(report['phase'],report['boot_id'],report['ready_at'],report['last_completed_at'],report['unsettled'],item['id']))
+   if item.get('error_code'):self.event(db,item,'observation_restored')
+   db.execute("UPDATE agent_pool_instances SET phase=%s,boot_id=%s,observed_at=now(),ready_at=%s,last_completed_at=%s,unsettled=%s,error_code=NULL WHERE id=%s AND phase IN('starting','ready','busy','held')AND stop_issued_at IS NULL",(report['phase'],report['boot_id'],report['ready_at'],report['last_completed_at'],report['unsettled'],item['id']))
   return actual
  def tick(self):
   with self.database.connection()as db:instances=db.execute("SELECT * FROM agent_pool_instances WHERE phase<>'removed'ORDER BY created_at").fetchall()
   for item in instances:
    try:self.observe(item)
-   except Exception:
-    with self.database.connection()as db:db.execute("UPDATE agent_pool_instances SET phase='held',error_code='pool_observation_unconfirmed'WHERE id=%s",(item['id'],))
+   except Exception as error:
+    if transient_observation(error):continue
+    with self.database.connection()as db:db.execute("UPDATE agent_pool_instances SET phase='held',error_code=%s WHERE id=%s",('pool_observation_'+type(error).__name__,item['id']))
   with self.database.connection()as db:
    instances=db.execute("SELECT * FROM agent_pool_instances WHERE phase<>'removed'ORDER BY created_at").fetchall()
    policies={p['role']:p for p in db.execute('SELECT * FROM agent_pool_roles WHERE enabled').fetchall()}
@@ -102,7 +104,7 @@ class PoolHost:
     free-=policy['memory_bytes'];own.append(item)
    for identity in plan['drain']:
     item=next(i for i in own if i['id']==identity)
-    if item['unsettled']:continue
+    if item['unsettled']or not item['observed_at']or time.time()-item['observed_at'].timestamp()>5:continue
     with self.database.connection()as db:
      # Serialize with application capacity reservation so no new task slips in.
      db.execute("SELECT pg_advisory_xact_lock(hashtextextended('agent-pool-capacity:'||%s,0))",(role,))

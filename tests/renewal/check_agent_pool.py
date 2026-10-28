@@ -29,4 +29,8 @@ class PoolLifecycle(unittest.TestCase):
     self.assertEqual(json.loads(target.read_text())['last_completed_at'],completed)
     pulse.emit('stopped');self.assertEqual(json.loads(target.read_text())['phase'],'stopped')
    finally:os.environ.clear();os.environ.update(old)
+ def test_transient_snapshot_read_is_not_permanent_execution_failure(self):
+  s=importlib.util.spec_from_file_location('agent_pool',p);m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
+  self.assertTrue(m.transient_observation(FileNotFoundError()))
+  self.assertFalse(m.transient_observation(ValueError('instance identity changed')))
 if __name__=='__main__':unittest.main()

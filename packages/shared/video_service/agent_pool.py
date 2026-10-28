@@ -15,3 +15,8 @@ def decide(policy, instances, *, queued, inflight, now, available_memory):
             if item['phase']=='ready' and since is not None and now-since>=policy['idle_seconds']:
                 drain.append(item['id'])
     return {'start':start,'drain':drain}
+
+
+def transient_observation(error):
+    import json
+    return isinstance(error,(OSError,json.JSONDecodeError))or str(error)=='native_engine_outcome_unknown'

@@ -26,7 +26,7 @@ CREATE TABLE agent_pool_events (
 );
 CREATE VIEW agent_pool_capacity AS
  SELECT d.role,count(*) FILTER(WHERE d.node_run_id IS NULL) AS queued,
- count(*) FILTER(WHERE d.node_run_id IS NOT NULL AND r.status IN('waiting','running')) AS inflight
+ count(*) FILTER(WHERE d.node_run_id IS NOT NULL AND r.status IN('waiting','running')AND(r.status='waiting'OR r.lease_expires_at>now())) AS inflight
  FROM agent_pool_demands d JOIN jobs j ON j.owner_id=d.owner_id AND j.id=d.job_id AND j.generation=d.generation
  LEFT JOIN node_runs r ON r.id=d.node_run_id
  WHERE j.status IN('waiting','running')AND NOT j.cancel_requested AND j.active_claim_id IS NOT NULL

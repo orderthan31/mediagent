@@ -251,6 +251,17 @@ class Execution(Intake):
                     row[kind] = delivery[kind]
         return rows
 
+    def _output_mode(self,job):
+        from urllib.parse import urlsplit
+        controlled=set()
+        for runtime in (self.transcription_runtime,self.translation_runtime,self.vocalization_runtime):
+            controlled.update(getattr(runtime,'nonpaid_origins',()))
+        for pin in job['snapshot'].get('model_bindings',{}).values():
+            endpoint=urlsplit(pin['endpoint'])
+            if f'{endpoint.scheme}://{endpoint.netloc}'in controlled:
+                return 'controlled'
+        return None
+
     def _view(self, db, job):
         owner, identity = job["owner_id"], job["id"]
         from .dispatch_queue import DispatchQueue
@@ -262,6 +273,7 @@ class Execution(Intake):
         return {
             **public(job),
             "processing_review": processing_review,
+            "output_mode": self._output_mode(job),
             "execution_state": 'preparing'if AgentPool.preparing_in(db,job)and not any(r['status']=='running'for r in runs)else None,
             "runs": [public(r) for r in runs],
             "artifact_manifest": self.ticket_artifacts.summary(job, runs),
@@ -310,6 +322,7 @@ class Execution(Intake):
             "parent_id",
             "created_at",
             "updated_at",
+            "output_mode",
             "processing_review",
             "artifact_manifest",
         }

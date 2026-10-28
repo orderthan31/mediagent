@@ -65,6 +65,12 @@ def main(argv=None):
             if args.object_config_file
             else ObjectAgentExecutor(args.object_config_env, environ=os.environ)
         )
+        if args.object_config_file:
+            import json,tempfile
+            from pathlib import Path
+            cache=Path(json.loads(Path(args.object_config_file).read_text())['cache_root'])
+            cache.mkdir(parents=True,exist_ok=True)
+            with tempfile.TemporaryFile(dir=cache)as checked:checked.write(b'cache-ready')
         handler = CpuHandler(args.agent, executor)
         stop = threading.Event()
         for sig in (signal.SIGINT, signal.SIGTERM):

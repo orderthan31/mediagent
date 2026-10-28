@@ -5,3 +5,5 @@ test('job screens omit internal development/report descriptions',()=>{
  const canvas=fs.readFileSync(new URL('../src/WorkflowCanvas.tsx',import.meta.url),'utf8');
  assert.ok(!canvas.includes('읽기 전용 · 화면 배치만 변경'));
 });
+
+test('controlled model outputs retain a concise truthful product label',()=>{const text=fs.readFileSync(new URL('../src/RenewalJobDetail.tsx',import.meta.url),'utf8');assert.ok(text.includes('통제 출력'));});

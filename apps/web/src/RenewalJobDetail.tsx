@@ -78,6 +78,7 @@ type Review = {
   };
 };
 type State = {
+  output_mode?: string|null;
   artifact_manifest?: {
     layout: string;
     entry_count: number;
@@ -285,6 +286,7 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
               {' · 외부 모델 API 비용은 선택한 공급자 요금이 적용됩니다.'}
             </p>
           )}
+          {job.output_mode === 'controlled' && <strong className="output-kind">통제 출력</strong>}
           <details className="shared-job-custody" aria-label="자료와 실행 기록">
             <summary>자료·실행 기록</summary>
             {!canManage && <strong>공용 읽기 전용</strong>}
