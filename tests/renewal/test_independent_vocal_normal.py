@@ -214,3 +214,41 @@ def test_vocal_only_fresh_draft_enrollment_is_explicit(db, admin, movie, tmp_pat
         "vocalization"
     ]
     assert coordinator.enrolled(runtime, owner, fresh["id"], role="vocalization")
+
+
+def test_short_verified_vocal_can_precede_v5_without_enabling_long_vocal_inputs():
+    import pytest
+    from video_service.long_audio_budget import (
+        bounded_vocalization_policy,
+        definition_policy,
+        policy,
+    )
+
+    definition = {
+        "nodes": [
+            {"type": "extract_audio", "options": {"media_budget": "audio_long_v5"}},
+            {
+                "type": "vocalize",
+                "options": {
+                    "batch_policy": "bounded_vocalization_v1",
+                    "strength": "strong",
+                    "max_model_calls": "4",
+                },
+            },
+        ]
+    }
+    assert definition_policy(definition) == policy()
+    source = {
+        "metadata": {"registration_state": "verified", "media": {"duration": 3.0}}
+    }
+    assert bounded_vocalization_policy(source, definition)["max_source_seconds"] == 300
+    with pytest.raises(ValueError):
+        bounded_vocalization_policy(
+            {
+                "metadata": {
+                    "registration_state": "verified",
+                    "media": {"duration": 301},
+                }
+            },
+            definition,
+        )

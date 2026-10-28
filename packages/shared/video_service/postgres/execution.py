@@ -611,6 +611,9 @@ class Execution(Intake):
                         "작업 원문·주 번역 언어는 명시 자막 묶기 설정과 같아야 합니다."
                     )
             audio_policy = definition_policy(definition)
+            from ..long_audio_budget import bounded_vocalization_policy
+
+            vocal_policy = bounded_vocalization_policy(asset, definition)
             cpu_policy = source_policy(asset, definition)
             if cpu_policy and getattr(self.store, "storage_kind", None) != "s3":
                 raise ValueError("Large CPU input requires independent S3 transport")
@@ -660,6 +663,11 @@ class Execution(Intake):
             snapshot = {
                 **({"cpu_input_policy": cpu_policy} if cpu_policy else {}),
                 **({"audio_pipeline_policy": audio_policy} if audio_policy else {}),
+                **(
+                    {"bounded_vocalization_policy": vocal_policy}
+                    if vocal_policy
+                    else {}
+                ),
                 **(
                     {"source_definition_sha256": original_definition_sha}
                     if digest(definition) != original_definition_sha

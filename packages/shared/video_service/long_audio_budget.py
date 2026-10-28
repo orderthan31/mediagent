@@ -107,6 +107,14 @@ def definition_policy(definition):
             continue
         if role in {"subtitle_tracks", "subtitle_outputs", "subtitle_track"}:
             continue
+        if (
+            role == "vocalize"
+            and options.get("batch_policy") == "bounded_vocalization_v1"
+            and options.get("max_model_calls")
+            in {str(x) for x in [1, 2, 3, 4, 8, 16, 32, 64, 128]}
+        ):
+            # This is the existing bounded legacy vocal purpose, not a v5 role.
+            continue
         if role not in ROLES:
             raise ValueError("long_audio_role_budget_not_implemented")
         if role == "review":
@@ -276,3 +284,27 @@ def read_clock(value, *, audio_sha256):
     if previous != value["packed_frames"]:
         raise ValueError("long_clock_packed_frames_mismatch")
     return spans
+
+
+def bounded_vocalization_policy(asset, definition):
+    if not any(n["type"] == "vocalize" for n in definition.get("nodes", [])) or not any(
+        n.get("options", {}).get("media_budget") == ID
+        for n in definition.get("nodes", [])
+    ):
+        return None
+    import math
+
+    metadata = asset.get("metadata", {})
+    duration = (metadata.get("media") or {}).get("duration")
+    if (
+        metadata.get("registration_state") != "verified"
+        or type(duration) not in (int, float)
+        or not math.isfinite(duration)
+        or not 0 < duration <= 300
+    ):
+        raise ValueError("bounded_vocalization_requires_verified_source_le_300s")
+    return {
+        "id": "bounded_vocalization_v1",
+        "max_source_seconds": 300,
+        "max_audio_bytes": 300 * 32000 + 65536,
+    }
