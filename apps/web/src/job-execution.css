@@ -6,6 +6,14 @@
   justify-content: space-between;
   gap: var(--m-space-12);
 }
+.job-detail-canvas .job-detail-toolbar {
+  flex-wrap: wrap;
+}
+.job-detail-toolbar > a {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
 .job-detail-toolbar > div {
   display: flex;
   gap: var(--m-space-8);
