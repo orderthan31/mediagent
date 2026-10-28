@@ -96,6 +96,9 @@ class BrokerController:
         # One explicitly authorized job only, including its previously reserved
         # unpublished attempt after a transport failure. Never scan pending jobs.
         state = self.runtime.get(owner, job_id)
+        from .postgres.agent_pool import AgentPool
+        if AgentPool(self.runtime).blocked(owner,job_id):
+            return state
         limit = len(state["snapshot"]["definition"]["nodes"]) + 1
         for _ in range(limit):
             before = {(run["id"], run["status"]) for run in state["runs"]}

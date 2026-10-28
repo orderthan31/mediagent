@@ -255,12 +255,14 @@ class Execution(Intake):
         owner, identity = job["owner_id"], job["id"]
         from .dispatch_queue import DispatchQueue
         from .job_processing_review import JobProcessingReview
+        from .agent_pool import AgentPool
 
         processing_review = JobProcessingReview(self).capture_in(db, job)
         runs = DispatchQueue.decorate_in(db, self._runs(db, owner, identity))
         return {
             **public(job),
             "processing_review": processing_review,
+            "execution_state": 'preparing'if AgentPool.preparing_in(db,job)and not any(r['status']=='running'for r in runs)else None,
             "runs": [public(r) for r in runs],
             "artifact_manifest": self.ticket_artifacts.summary(job, runs),
             "reviews": [
@@ -301,6 +303,7 @@ class Execution(Intake):
             "workflow_id",
             "workflow_revision",
             "status",
+            "execution_state",
             "revision",
             "generation",
             "snapshot_sha256",
@@ -1094,11 +1097,13 @@ class Execution(Intake):
 
     def _insert_run(self, db, job, node, inputs, status):
         from .dispatch_queue import DispatchQueue
+        from .agent_pool import AgentPool
 
         deferred = (
             status == "running"
             and node["type"] in getattr(self, "defer_broker_agents", ())
             and DispatchQueue.managed_in(db, node["type"])
+            and not AgentPool.enrolled_in(db,job)
         )
         if deferred:
             status = "waiting"
@@ -1430,6 +1435,9 @@ class Execution(Intake):
                     continue
                 for ref in inputs.values():
                     self._checked_input(owner, job, ref, verified)
+                from .agent_pool import AgentPool
+                if not AgentPool.ready_in(db,job,node):
+                    continue
                 instance = None
                 if (
                     self.fleet is not None
@@ -1446,6 +1454,7 @@ class Execution(Intake):
                     inputs,
                     "review_required" if node["type"] == "review" else "running",
                 )
+                AgentPool.assigned_in(db,job,node,row)
                 if instance is not None:
                     db.execute(
                         "UPDATE node_runs SET agent_instance_id=%s WHERE owner_id=%s AND job_id=%s AND id=%s",

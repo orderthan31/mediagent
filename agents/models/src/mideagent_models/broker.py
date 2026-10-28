@@ -425,11 +425,18 @@ def consume(config, *, once=False):
     control_tag = channel.basic_consume(
         queue=control_queue, on_message_callback=cancelled, auto_ack=False
     )
+    from video_service.worker_lifecycle import WorkerPulse
+    pulse=WorkerPulse()
+    pulse.emit('ready')
     command_cancelled = False
     handled = 0
     try:
         while not stop.is_set() or active:
             connection.process_data_events(time_limit=0.05)
+            if active:
+                if pulse.phase!='busy':pulse.emit('busy',unsettled=len(active)+len(held))
+            elif pulse.phase!='ready' and not stop.is_set():pulse.emit('ready',unsettled=len(held))
+            pulse.tick()
             if stop.is_set() and not command_cancelled:
                 if tag is not None:
                     channel.basic_cancel(tag)
@@ -470,6 +477,7 @@ def consume(config, *, once=False):
                 )
                 channel.basic_ack(delivery_tag=delivery_tag)
                 active.remove(item)
+                pulse.emit('busy'if active else 'ready',completed=kind=='result',unsettled=len(active)+len(held))
                 handled += 1
     finally:
         pool.shutdown(wait=True, cancel_futures=True)
@@ -478,6 +486,7 @@ def consume(config, *, once=False):
             if channel.is_open:
                 channel.basic_cancel(control_tag)
             connection.close()
+        pulse.emit('stopped',unsettled=len(held))
     print(
         json.dumps(
             {

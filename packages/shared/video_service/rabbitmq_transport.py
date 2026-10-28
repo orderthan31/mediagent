@@ -448,6 +448,8 @@ class RabbitClient:
     def serve(self, role, handler, stop, *, telemetry=None):
         """One unacked delivery, off-thread work, main-thread heartbeat/confirm/ack."""
         self._owner()
+        from .worker_lifecycle import WorkerPulse
+        pulse=WorkerPulse()
         c = self.channel
         c.queue_declare(queue=self.config.queue(role), passive=True)
         c.basic_qos(prefetch_count=1, global_qos=False)
@@ -455,6 +457,7 @@ class RabbitClient:
         pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="agent-delivery")
 
         def status(state, delivery=None):
+            pulse.emit(state,completed=state=='ready' and pulse.phase=='busy')
             if telemetry is None:
                 return
             try:
@@ -498,6 +501,7 @@ class RabbitClient:
                     c.basic_cancel(tag)
                     cancelled = True
                 self.connection.process_data_events(time_limit=0.05)
+                pulse.tick()
                 if telemetry is not None:
                     try:
                         telemetry.tick()

@@ -589,6 +589,8 @@ def mount_runtime(
             from video_service.rabbitmq_transport import BrokerError
 
             try:
+                from video_service.postgres.agent_pool import AgentPool
+                AgentPool(runtime).enroll(owned,identity)
                 return BrokerController(runtime, broker_factory).dispatch(
                     owned, identity
                 )

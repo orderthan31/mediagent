@@ -68,12 +68,9 @@ const reasons: Record<string, string> = {
 };
 
 export const ModelRolePanel = ({
-  observationOnly = false,
   jobId,
   revision,
-  status,
   canManage,
-  hasRuns,
   onChanged,
 }: {
   observationOnly?: boolean;
@@ -91,7 +88,6 @@ export const ModelRolePanel = ({
   const [current, setCurrent] = useState(false);
   const [busy, setBusy] = useState(false);
   const sequence = useRef(0);
-  const enrollment = useRef(crypto.randomUUID());
   const recovery = useRef(new Map<string, string>());
   const load = useCallback(
     async (signal?: AbortSignal) => {
@@ -140,7 +136,7 @@ export const ModelRolePanel = ({
     };
   }, [load, revision]);
   return (
-    <section className="shared-job-custody" aria-label="독립 전사·번역 상태">
+    <section className="shared-job-custody" aria-label="처리 상태">
       <h3>처리 상태</h3>
       {readError && (
         <p role="alert">
@@ -152,75 +148,16 @@ export const ModelRolePanel = ({
       {!observation && !readError && <p role="status">전사 상태 확인 중</p>}
       {observation && (
         <>
-          {!observationOnly && (
-            <p>
-              {observation.enrolled
-                ? `이 작업의 독립 처리: ${(observation.enrolled_roles || ['transcription']).map((role) => roleNames[role] || role).join(' · ')}`
-                : '이 작업의 독립 처리는 아직 선택되지 않았습니다.'}
-            </p>
-          )}
-          {!observationOnly &&
-            !observation.enrolled &&
-            canManage &&
-            status === 'draft' &&
-            !hasRuns && (
-              <>
-                <p>
-                  새 작업에만 적용합니다. 원래 모델·입력·호출 상한은 바꾸지 않으며, 실행 승인은
-                  별도입니다.
-                </p>
-                <Button
-                  disabled={busy || !current}
-                  onClick={() =>
-                    void act(() =>
-                      jsonPost(base + '/enrollment', {
-                        revision,
-                        request_id: enrollment.current,
-                        ...(observation.available_roles
-                          ? { roles: observation.available_roles }
-                          : {}),
-                      }),
-                    )
-                  }
-                >
-                  이 새 작업에 독립{' '}
-                  {(observation.available_roles || ['transcription'])
-                    .map((role) => roleNames[role] || role)
-                    .join('·')}{' '}
-                  사용
-                </Button>
-              </>
-            )}
           {observation.tasks.map((task) => (
             <div key={task.task_id} data-role-task={task.task_id}>
               <h4>{roleNames[task.role || 'transcription'] || task.role}</h4>
               <strong role="status">{states[task.state] || task.state}</strong>
-              <p>
-                호출 예약 {task.reserved_calls} / 상한 {task.max_calls}
-                {task.reported_model_calls !== null
-                  ? ` · 에이전트 보고 ${task.reported_model_calls}회`
-                  : ' · 에이전트 호출 보고 대기'}
-              </p>
               {task.reason && <p>{reasons[task.reason] || task.reason}</p>}
               {task.cancel_delivery && (
                 <p>
-                  역할 취소:{' '}
-                  {task.cancel_delivery === 'acknowledged' ? '응답 확인' : '전달·응답 확인 중'} ·
-                  제품의 취소 접수와 구분합니다.
+                  취소:{' '}
+                  {task.cancel_delivery === 'acknowledged' ? '응답 확인' : '전달·응답 확인 중'}
                 </p>
-              )}
-              {task.call_issues.length > 0 && (
-                <details>
-                  <summary>보류된 호출 기록</summary>
-                  <ul>
-                    {task.call_issues.map((issue) => (
-                      <li key={issue.chunk_index}>
-                        구간 {issue.chunk_index + 1} · {issue.status} ·{' '}
-                        {issue.error_code || '원인 확인 필요'}
-                      </li>
-                    ))}
-                  </ul>
-                </details>
               )}
               {task.recovery_block_reason && (
                 <p role="alert">
@@ -234,8 +171,8 @@ export const ModelRolePanel = ({
                   <>
                     <p>
                       {task.recovery_choices.includes('settle_recovery_response')
-                        ? '기존 복구 요청의 응답 기록만 정산합니다. 모델·파일 조회·다음 배정을 실행하지 않습니다.'
-                        : '저장된 동일 결과만 다시 확인합니다. 모델은 다시 호출하지 않습니다.'}
+                        ? '결과 상태를 다시 확인합니다.'
+                        : '결과를 다시 확인합니다. 추가 모델 호출은 하지 않습니다.'}
                     </p>
                     <Button
                       disabled={busy || !current || task.delivery_revision === null}

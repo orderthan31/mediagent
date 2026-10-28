@@ -16,6 +16,7 @@ def main():
     parser.add_argument('--agent', required=True, choices=['encode'])
     parser.add_argument('--enable-broker', action='store_true')
     parser.add_argument('--enable-dispatch', action='store_true')
+    parser.add_argument('--enable-agent-pool',action='store_true')
     args = parser.parse_args()
     if not args.enable_broker or not args.enable_dispatch:
         parser.error('Explicit broker and dispatch opt-ins are required')
@@ -29,8 +30,8 @@ def main():
         from video_service.rabbitmq_controller import BrokerController
         config, dsn = load_bootstrap(args.bootstrap_file)
         db = Database(dsn)
-        store, _, factory = runtime_components(db, config, enable_broker=True)
-        runtime = Execution(db, store)
+        store, _, factory = runtime_components(db,config,enable_broker=True,enable_registered=args.enable_agent_pool,enable_nonpaid=args.enable_agent_pool and 'nonpaid_model_config_file'in config)
+        runtime = Execution(db,store,translation_runtime=getattr(factory,'translation_runtime',None),transcription_runtime=getattr(factory,'transcription_runtime',None),vocalization_runtime=getattr(factory,'vocalization_runtime',None),engine_runtime_enabled=bool(getattr(factory,'engine_factory',None)))
         controller = BrokerController(runtime, factory)
         queue = DispatchQueue(runtime)
         stop = threading.Event()
@@ -38,6 +39,9 @@ def main():
             signal.signal(sig, lambda *_: stop.set())
         while not stop.is_set():
             queue.tick(controller, agent=args.agent)
+            if args.enable_agent_pool:
+                from video_service.postgres.agent_pool import AgentPool
+                AgentPool(runtime).tick(controller)
             stop.wait(.25)
     except Exception:
         print(json.dumps({'status': 'failed', 'code': 'encode_dispatch_stopped'}), flush=True)

@@ -25,16 +25,16 @@ class PinnedEngine:
             raise ControlError('unique_pinned_targets_required')
         self.transport = transport or self._request
 
-    def _request(self, method, path):
+    def _request(self, method, path, body=None):
         connection = http.client.HTTPConnection('localhost', timeout=30)
         try:
             connection.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             connection.sock.settimeout(30)
             connection.sock.connect(self.socket_path)
-            connection.request(method, path)
+            connection.request(method,path,body=None if body is None else json.dumps(body),headers={}if body is None else {'Content-Type':'application/json'})
             response = connection.getresponse()
             raw = response.read(8 * 1024 * 1024 + 1)
-            if response.status not in (200, 204) or len(raw) > 8 * 1024 * 1024:
+            if response.status not in (200, 201, 204) or len(raw) > 8 * 1024 * 1024:
                 raise ControlError('native_engine_outcome_unknown')
             return raw.decode()
         except (OSError, http.client.HTTPException, UnicodeError):
@@ -69,7 +69,7 @@ class PinnedEngine:
             raise ControlError('invalid_control_observation') from None
 
 
-def run(config, *, handover_bindings=None):
+def run(config, *, handover_bindings=None, pool_config=None):
     from .control_ack_receipts import AckReceipts
     from .durable_control import BrokerReports, DurableHost, SignalControl
     from .postgres import Database
@@ -116,15 +116,23 @@ def run(config, *, handover_bindings=None):
     receipts = AckReceipts(config['receipt_root'], Path(config['receipt_key_file']).read_bytes())
     host = DurableHost(store, adapter, slots, BrokerReports(database, profiles),
                        receipts=receipts, recovery=ControlRecovery(store))
+    pool_host=None
+    if pool_config is not None:
+        from .agent_pool_host import PoolHost
+        pool_host=PoolHost(database,pool_config)
     stopping = threading.Event()
     for sig in (signal.SIGINT, signal.SIGTERM):
         signal.signal(sig, lambda *_: stopping.set())
     try:
         while not stopping.is_set():
             host.step()
+            if pool_host is not None:
+                try:pool_host.tick()
+                except Exception:print('{"status":"unverified","code":"pool_tick_unconfirmed"}',flush=True)
             stopping.wait(.25)
     finally:
         host.close()
+        if pool_host is not None:pool_host.close()
 
 
 def main():
@@ -132,6 +140,7 @@ def main():
     parser.add_argument('--config-file', required=True)
     parser.add_argument('--enable-control', action='store_true')
     parser.add_argument('--handover-bindings-file')
+    parser.add_argument('--pool-config-file')
     args = parser.parse_args()
     if not args.enable_control:
         parser.error('Host enrollment and execution require --enable-control')
@@ -145,7 +154,8 @@ def main():
             if len(binding_raw) > 32768:
                 raise ControlError('invalid_handover_bindings')
             bindings = json.loads(binding_raw)
-        run(json.loads(raw), handover_bindings=bindings)
+        pool_config=json.loads(Path(args.pool_config_file).read_text())if args.pool_config_file else None
+        run(json.loads(raw),handover_bindings=bindings,pool_config=pool_config)
     except Exception:
         # Never expose DSNs, engine inspect environment or native diagnostics.
         print(json.dumps({'status': 'failed', 'code': 'fixed_host_control_stopped'}), flush=True)

@@ -794,9 +794,8 @@ export const WorkflowCanvas = ({
       <p className="workflow-layout-notice" aria-live="polite">
         {cleanupRequested && routing.error
           ? routing.error
-          : layoutNotice ||
-            (onChange ? '배치 변경은 저장 후 반영됩니다.' : '읽기 전용 · 화면 배치만 변경')}
-        {!onChange && layoutNotice && <span>읽기 전용 · 화면 배치만 변경</span>}
+          : layoutNotice || (onChange ? '배치 변경은 저장 후 반영됩니다.' : '')}
+        {!onChange && layoutNotice && <span></span>}
       </p>
       {Object.keys(nodeStates).length > 0 && (
         <div className="workflow-state-legend" aria-label="진행 상태">

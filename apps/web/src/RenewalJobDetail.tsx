@@ -91,6 +91,7 @@ type State = {
   ticket_number: number;
   revision: number;
   status: string;
+  execution_state?: string | null;
   parent_id: string | null;
   snapshot: {
     asset: { asset_id: string; original_filename: string; uploaded_by?: string };
@@ -249,7 +250,10 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
               {job.snapshot.asset.original_filename}
             </a>
             <strong role="status">
-              {processingLabel(job.processing_review) || labels[job.status] || job.status}
+              {processingLabel(job.processing_review) ||
+                (job.execution_state === 'preparing'
+                  ? '준비 중'
+                  : labels[job.status] || job.status)}
             </strong>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
               {canManage && job.status === 'draft' && (
@@ -313,7 +317,7 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
           {job.snapshot.options?.target_language && (
             <p>
               원문/대상 언어: {job.snapshot.options.source_language} →{' '}
-              {job.snapshot.options.target_language} · 티켓 고정 설정
+              {job.snapshot.options.target_language}
             </p>
           )}
           {job.parent_id && (
@@ -472,7 +476,7 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
                     {run?.result?.reused_from && (
                       <p>
                         이 결과는 <a href={'#/jobs/' + run.result.reused_from.job_id}>원 작업</a>의
-                        검증된 완료 결과입니다.
+                        완료
                       </p>
                     )}
                     {Object.entries(outputs).map(([port, ref]) => (
@@ -529,9 +533,7 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
                         )}
                         <details>
                           <summary>파일 상세</summary>
-                          <p>
-                            {ref.bytes.toLocaleString()} bytes · SHA-256 {ref.sha256}
-                          </p>
+                          <p>{ref.bytes.toLocaleString()} bytes</p>
                         </details>
                       </section>
                     ))}
