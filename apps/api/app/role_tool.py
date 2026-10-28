@@ -20,7 +20,11 @@ from .server import load_bootstrap
 
 
 class ToolServer(ThreadingHTTPServer):
-    def __init__(self, address, bridge, token):
+    def __init__(self, address, bridge, token, *, role="transcription"):
+        if role not in {"transcription", "translation"}:
+            raise ValueError("unsupported_role_tool")
+        route = "/translate" if role == "translation" else "/speech"
+        invoke = bridge.invoke_translation if role == "translation" else bridge.invoke
         if not isinstance(token, str) or len(token) < 32:
             raise ValueError("scoped_tool_token_required")
 
@@ -29,7 +33,7 @@ class ToolServer(ThreadingHTTPServer):
                 pass
 
             def do_POST(self):
-                if self.path != "/speech" or not hmac.compare_digest(
+                if self.path != route or not hmac.compare_digest(
                     self.headers.get("Authorization", ""), "Bearer " + token
                 ):
                     self.send_error(403)
@@ -38,7 +42,7 @@ class ToolServer(ThreadingHTTPServer):
                     size = int(self.headers.get("Content-Length", "0"))
                     if not 0 < size <= 3 * 1024 * 1024:
                         raise ValueError()
-                    reply = bridge.invoke(json.loads(self.rfile.read(size)))
+                    reply = invoke(json.loads(self.rfile.read(size)))
                 except Exception:
                     body = b'{"error":"scoped_call_held"}'
                     status = 409
@@ -58,6 +62,9 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     for arg in ["bootstrap-file", "token-file", "cert-file", "key-file"]:
         parser.add_argument("--" + arg, required=True)
+    parser.add_argument(
+        "--role", choices=["transcription", "translation"], default="transcription"
+    )
     parser.add_argument("--port", type=int, default=8444)
     parser.add_argument("--chunk-concurrency", type=int, default=1)
     parser.add_argument("--enable-nonpaid-models", action="store_true")
@@ -84,7 +91,10 @@ def main(argv=None):
             chunk_concurrency=args.chunk_concurrency,
         )
         server = ToolServer(
-            ("0.0.0.0", args.port), bridge, Path(args.token_file).read_text().strip()
+            ("0.0.0.0", args.port),
+            bridge,
+            Path(args.token_file).read_text().strip(),
+            role=args.role,
         )
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         context.load_cert_chain(args.cert_file, args.key_file)

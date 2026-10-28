@@ -15,9 +15,10 @@ from . import Conflict, Missing
 
 
 class ModelRoles:
-    def __init__(self, runtime, *, result_store=None):
+    def __init__(self, runtime, *, result_store=None, result_stores=None):
         self.runtime = runtime
         self.results = result_store or runtime.store
+        self.result_stores = result_stores or {}
 
     def _current(self, c, owner, command):
         runtime = self.runtime
@@ -46,46 +47,51 @@ class ModelRoles:
     def enroll(self, owner, command):
         command = deepcopy(command)
         runtime = self.runtime
-        config = command.get("transcription", {})
-        if (
-            command.get("agent", {}).get("id") != "transcribe"
-            or config.get("clock_policy") != "packed_projection_v5"
-            or config.get("batch_policy") != "bounded_60s_v1"
-        ):
-            raise Conflict("independent_role_requires_explicit_packed_batched_contract")
-        pins = config["candidates"]
-        # Never silently drop configured fallbacks while that contract is pending.
-        if len(pins) != 1:
-            raise Conflict("independent_role_candidate_chain_not_connected")
-        cap = config["max_model_calls"]
-        if type(cap) is not int or cap < 1:
-            raise Conflict("invalid_role_frozen_call_budget")
-        runtime._preflight_cpu_inputs(owner, command["run_id"], command)
-        from ..long_audio_budget import read_clock
+        if command.get("translation"):
+            envelope, pins = self._translation_envelope(owner, command)
+        else:
+            config = command.get("transcription", {})
+            if (
+                command.get("agent", {}).get("id") != "transcribe"
+                or config.get("clock_policy") != "packed_projection_v5"
+                or config.get("batch_policy") != "bounded_60s_v1"
+            ):
+                raise Conflict(
+                    "independent_role_requires_explicit_packed_batched_contract"
+                )
+            pins = config["candidates"]
+            # Never silently drop configured fallbacks while that contract is pending.
+            if len(pins) != 1:
+                raise Conflict("independent_role_candidate_chain_not_connected")
+            cap = config["max_model_calls"]
+            if type(cap) is not int or cap < 1:
+                raise Conflict("invalid_role_frozen_call_budget")
+            runtime._preflight_cpu_inputs(owner, command["run_id"], command)
+            from ..long_audio_budget import read_clock
 
-        clock = read_clock(
-            json.loads(runtime.store.read(owner, command["inputs"]["timeline"])),
-            audio_sha256=command["inputs"]["audio"]["sha256"],
-        )
-        validate_projection_clock(clock, policy="packed_projection_v5")
-        audio = command["inputs"]["audio"]
-        envelope = {
-            "version": 1,
-            "role": "transcription",
-            "task": {
+            clock = read_clock(
+                json.loads(runtime.store.read(owner, command["inputs"]["timeline"])),
+                audio_sha256=command["inputs"]["audio"]["sha256"],
+            )
+            validate_projection_clock(clock, policy="packed_projection_v5")
+            audio = command["inputs"]["audio"]
+            envelope = {
                 "version": 1,
-                "task_id": command["attempt_id"],
                 "role": "transcription",
-                "audio": {k: audio[k] for k in ["sha256", "bytes"]},
-                "model": {k: pins[0][k] for k in ["model_id", "revision"]},
-                "source_language": config["source_language"],
-                "chunk_frames": 960000,
-                "max_calls": cap,
-                "timeline": clock,
-            },
-            "source": {"owner": owner, "reference": audio},
-            "output_owner": owner,
-        }
+                "task": {
+                    "version": 1,
+                    "task_id": command["attempt_id"],
+                    "role": "transcription",
+                    "audio": {k: audio[k] for k in ["sha256", "bytes"]},
+                    "model": {k: pins[0][k] for k in ["model_id", "revision"]},
+                    "source_language": config["source_language"],
+                    "chunk_frames": 960000,
+                    "max_calls": cap,
+                    "timeline": clock,
+                },
+                "source": {"owner": owner, "reference": audio},
+                "output_owner": owner,
+            }
         with runtime.database.connection() as c:
             self._current(c, owner, command)
             previous = c.execute(
@@ -203,7 +209,7 @@ class ModelRoles:
             }
             or type(message["version"]) is not int
             or message["version"] != 1
-            or message["role"] != "transcription"
+            or message["role"] not in {"transcription", "translation"}
         ):
             raise Conflict("invalid_role_result_envelope")
         with self.runtime.database.connection() as c:
@@ -213,7 +219,8 @@ class ModelRoles:
             if not row:
                 raise Missing("role_result_mapping_missing")
             if (
-                message["request_sha256"] != row["envelope_sha256"]
+                message["role"] != row["envelope"]["role"]
+                or message["request_sha256"] != row["envelope_sha256"]
                 or message["output_owner"] != row["owner_id"]
             ):
                 raise Conflict("role_result_scope_changed")
@@ -225,21 +232,23 @@ class ModelRoles:
             ).fetchone()["request"]
         owner = row["owner_id"]
         packet = json.loads(
-            self.results.read(owner, message["result_ref"], limit=16 * 1024 * 1024)
+            self.result_stores.get(row["envelope"]["role"], self.results).read(
+                owner, message["result_ref"], limit=16 * 1024 * 1024
+            )
         )
         envelope = row["envelope"]
         if (
             packet.get("request_sha256") != row["envelope_sha256"]
             or packet.get("task") != envelope["task"]
             or packet.get("source") != envelope["source"]
-            or packet.get("role") != "transcription"
+            or packet.get("role") != envelope["role"]
         ):
             raise Conflict("role_result_artifact_changed")
         result = packet["result"]
         calls = result.get("model_calls")
         if (
             result.get("task_id") != row["task_id"]
-            or result.get("role") != "transcription"
+            or result.get("role") != envelope["role"]
             or result.get("status") != message["status"]
             or type(calls) is not int
             or not 0 <= calls <= envelope["task"]["max_calls"]
@@ -282,53 +291,58 @@ class ModelRoles:
                     self.cancelled_in(c, owner, row["job_id"], row["attempt_id"])
             return self.runtime.get(owner, row["job_id"])
         if row["adoption_result"] is None:
-            trace = result["projection_trace"]
-            packed = [r["packed_segment"] for r in trace["rows"]]
-            projected, expected = project(
-                packed, envelope["task"]["timeline"], policy="packed_projection_v5"
-            )
-            if expected != trace or projected != result["segments"]:
-                raise Conflict("role_projection_trace_changed")
-            outputs = {}
-            outputs["transcript"] = self.runtime.store.put(
-                owner, [canonical(projected)], "transcript"
-            )
-            packed_ref = self.runtime.store.put(
-                owner, [canonical(packed)], "transcript"
-            )
-            trace = {
-                **trace,
-                "packed_transcript": packed_ref,
-                "audio_sha256": command["inputs"]["audio"]["sha256"],
-                "timeline_sha256": command["inputs"]["timeline"]["sha256"],
-            }
-            outputs["trace"] = self.runtime.store.put(
-                owner, [canonical(trace)], "metadata"
-            )
-            adoption = {
-                **{
-                    k: command[k]
-                    for k in [
-                        "protocol_version",
-                        "run_id",
-                        "attempt_id",
-                        "generation",
-                        "agent",
-                    ]
-                },
-                "request_sha256": row["request_sha256"],
-                "status": "completed",
-                "outputs": outputs,
-                "transport": "independent_model_role",
-                "transcription": {
-                    "role_task_id": row["task_id"],
-                    "model_calls": calls,
-                    "completed_chunks": result["completed_chunks"],
-                    "model": envelope["task"]["model"],
-                    "tool_mode": packet["tool_mode"],
-                    "result_ref": message["result_ref"],
-                },
-            }
+            if envelope["role"] == "translation":
+                adoption = self._translation_adoption(
+                    owner, command, row, message, packet, result
+                )
+            else:
+                trace = result["projection_trace"]
+                packed = [r["packed_segment"] for r in trace["rows"]]
+                projected, expected = project(
+                    packed, envelope["task"]["timeline"], policy="packed_projection_v5"
+                )
+                if expected != trace or projected != result["segments"]:
+                    raise Conflict("role_projection_trace_changed")
+                outputs = {}
+                outputs["transcript"] = self.runtime.store.put(
+                    owner, [canonical(projected)], "transcript"
+                )
+                packed_ref = self.runtime.store.put(
+                    owner, [canonical(packed)], "transcript"
+                )
+                trace = {
+                    **trace,
+                    "packed_transcript": packed_ref,
+                    "audio_sha256": command["inputs"]["audio"]["sha256"],
+                    "timeline_sha256": command["inputs"]["timeline"]["sha256"],
+                }
+                outputs["trace"] = self.runtime.store.put(
+                    owner, [canonical(trace)], "metadata"
+                )
+                adoption = {
+                    **{
+                        k: command[k]
+                        for k in [
+                            "protocol_version",
+                            "run_id",
+                            "attempt_id",
+                            "generation",
+                            "agent",
+                        ]
+                    },
+                    "request_sha256": row["request_sha256"],
+                    "status": "completed",
+                    "outputs": outputs,
+                    "transport": "independent_model_role",
+                    "transcription": {
+                        "role_task_id": row["task_id"],
+                        "model_calls": calls,
+                        "completed_chunks": result["completed_chunks"],
+                        "model": envelope["task"]["model"],
+                        "tool_mode": packet["tool_mode"],
+                        "result_ref": message["result_ref"],
+                    },
+                }
             with self.runtime.database.connection() as c:
                 existing = c.execute(
                     "SELECT adoption_result,result_sha256 FROM model_role_tasks WHERE task_id=%s FOR UPDATE",
@@ -390,3 +404,128 @@ class ModelRoles:
     def dispatch_next(self, owner, job_id):
         # Only the application orchestrator chooses and reserves the next node.
         return self.runtime.claim_next(owner, job_id)
+
+    def _translation_envelope(self, owner, command):
+        from ..postgres.translation import languages, segments
+        from ..transcript_batches import validate_source
+
+        config = command["translation"]
+        pins = config["candidates"]
+        if command["agent"]["id"] != "translate" or not 1 <= len(pins) <= 4:
+            raise Conflict("invalid_translation_role_binding")
+        reference = command["inputs"]["transcript"]
+        raw = self.runtime.store.read(
+            owner, reference, limit=min(reference["bytes"], 16 * 1024 * 1024)
+        )
+        source = json.loads(raw)
+        validate_source(source)
+        languages(config["source_language"], config["target_language"])
+        batch_policy = config.get("batch_policy", "single_100x16k_v1")
+        if batch_policy != "bounded_100x16k_v1":
+            batch_policy = "single_100x16k_v1"
+            segments([{k: v for k, v in r.items() if k != "id"} for r in source])
+        cap = config.get("max_model_calls", len(pins))
+        if type(cap) is not int or cap < 1:
+            raise Conflict("invalid_role_frozen_call_budget")
+        return {
+            "version": 1,
+            "role": "translation",
+            "task": {
+                "version": 1,
+                "task_id": command["attempt_id"],
+                "role": "translation",
+                "transcript": {k: reference[k] for k in ["sha256", "bytes"]},
+                "models": [{k: p[k] for k in ["model_id", "revision"]} for p in pins],
+                "source_language": config["source_language"],
+                "target_language": config["target_language"],
+                "batch_policy": batch_policy,
+                "max_calls": cap,
+            },
+            "source": {"owner": owner, "reference": reference},
+            "output_owner": owner,
+        }, pins
+
+    def _translation_adoption(self, owner, command, row, message, packet, result):
+        from ..transcript_batches import split_transcript, validate_source
+
+        source = json.loads(
+            self.runtime.store.read(
+                owner,
+                command["inputs"]["transcript"],
+                limit=min(command["inputs"]["transcript"]["bytes"], 16 * 1024 * 1024),
+            )
+        )
+        translated = result["segments"]
+        validate_source(translated)
+        if len(source) != len(translated) or any(
+            {k: v for k, v in a.items() if k != "text"}
+            != {k: v for k, v in b.items() if k != "text"}
+            for a, b in zip(source, translated)
+        ):
+            raise Conflict("role_translation_source_structure_changed")
+        task = row["envelope"]["task"]
+        batches = list(split_transcript(source))
+        chunks = result["chunks"]
+        if len(chunks) != len(batches) or result["completed_chunks"] != len(batches):
+            raise Conflict("role_translation_batch_coverage_changed")
+        for chunk, batch in zip(chunks, batches):
+            candidate = chunk["candidate_index"]
+            if (
+                type(candidate) is not int
+                or not 0 <= candidate < len(task["models"])
+                or chunk
+                != {
+                    "index": batch.chunk_index,
+                    "start": batch.start,
+                    "end": batch.end,
+                    "input_sha256": batch.sha256,
+                    "model": task["models"][candidate],
+                    "candidate_index": candidate,
+                }
+            ):
+                raise Conflict("role_translation_batch_binding_changed")
+        if (
+            result["source_language"] != task["source_language"]
+            or result["target_language"] != task["target_language"]
+        ):
+            raise Conflict("role_translation_language_changed")
+        output = self.runtime.store.put(owner, [canonical(translated)], "transcript")
+        selected = row["frozen_candidates"][chunks[-1]["candidate_index"]]
+        metadata = {
+            "role_task_id": row["task_id"],
+            "model_calls": result["model_calls"],
+            "completed_chunks": len(chunks),
+            "chunks": chunks,
+            "source_language": task["source_language"],
+            "target_language": task["target_language"],
+            "tool_mode": packet["tool_mode"],
+            "selected": {
+                k: selected[k]
+                for k in [
+                    "model_id",
+                    "revision",
+                    "connection_id",
+                    "connection_revision",
+                    "remote_model",
+                    "protocol",
+                ]
+            },
+            "result_ref": message["result_ref"],
+        }
+        return {
+            **{
+                k: command[k]
+                for k in [
+                    "protocol_version",
+                    "run_id",
+                    "attempt_id",
+                    "generation",
+                    "agent",
+                ]
+            },
+            "request_sha256": row["request_sha256"],
+            "status": "completed",
+            "outputs": {"transcript": output},
+            "transport": "independent_model_role",
+            "translation": metadata,
+        }

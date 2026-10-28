@@ -88,6 +88,7 @@ class RoleResultRecovery(Revision):
 
 class RoleEnrollment(Revision):
     request_id: str = Field(min_length=1, max_length=100)
+    roles: list[Literal["transcription", "translation"]] | None = None
 
 
 class Review(Revision):
@@ -501,7 +502,9 @@ def mount_runtime(
 
     @app.post("/api/renewal/jobs/{identity}/model-role/enrollment")
     def enroll_model_role(identity: str, body: RoleEnrollment, owned=owner_dependency):
-        return model_roles().enroll_job(owned, identity, body.revision, body.request_id)
+        return model_roles().enroll_job(
+            owned, identity, body.revision, body.request_id, roles=body.roles
+        )
 
     @app.post("/api/renewal/jobs/{identity}/model-role/result-delivery")
     def recover_role_result(

@@ -199,6 +199,13 @@ class RoleState:
                 (task,),
             )
 
+    def candidate_failed(self, task, index, error):
+        with self.connect() as c:
+            c.execute(
+                "UPDATE chunks SET status='failed',error=? WHERE task=?AND idx=?",
+                (error, task, index),
+            )
+
     def finish(self, task, result):
         with self.connect() as c:
             c.execute("BEGIN IMMEDIATE")

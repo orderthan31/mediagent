@@ -24,7 +24,11 @@ class ScopedSpeechTool:
 
     def __init__(self, config):
         self.contract = config.get("tool_contract", "controlled_v1")
-        if self.contract not in {"controlled_v1", "registry_scoped_v1"}:
+        if self.contract not in {
+            "controlled_v1",
+            "registry_scoped_v1",
+            "registry_translation_v1",
+        }:
             raise ValueError("unsupported_scoped_tool_contract")
         self.url = config["tool_url"]
         url = urllib.parse.urlsplit(self.url)
@@ -69,6 +73,9 @@ class ScopedSpeechTool:
             "source_language": language,
             "audio_base64": base64.b64encode(audio).decode("ascii"),
         }
+        return self._post(payload)
+
+    def _post(self, payload):
         request = urllib.request.Request(
             self.url,
             data=json.dumps(payload).encode(),
@@ -83,6 +90,23 @@ class ScopedSpeechTool:
         if len(raw) > self.maximum:
             raise ValueError("tool_response_exceeds_declared_budget")
         return json.loads(raw)
+
+
+def translation_packet(task, batch, candidate):
+    return {
+        "task_id": task["task_id"],
+        "batch_index": batch.chunk_index,
+        "candidate_index": candidate,
+        "model": task["models"][candidate],
+        "input_sha256": batch.sha256,
+    }
+
+
+class ScopedTranslationTool(ScopedSpeechTool):
+    def __call__(self, task, batch, candidate):
+        if self.contract != "registry_translation_v1":
+            raise ValueError("scoped_translation_contract_required")
+        return self._post(translation_packet(task, batch, candidate))
 
 
 def main():

@@ -54,7 +54,7 @@ class RoleResultDeliveries:
             or set(packet) != keys
             or type(packet["version"]) is not int
             or packet["version"] != 1
-            or packet["role"] != "transcription"
+            or packet["role"] not in {"transcription", "translation"}
             or packet["status"] not in {"completed", "held", "cancelled"}
         ):
             raise InvalidMessage("invalid_role_result_envelope")
@@ -69,6 +69,7 @@ class RoleResultDeliveries:
             not row
             or row["envelope_sha256"] != packet["request_sha256"]
             or row["owner_id"] != packet["output_owner"]
+            or row["envelope"]["role"] != packet["role"]
         ):
             raise InvalidMessage("role_result_scope_changed")
         return row

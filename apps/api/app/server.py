@@ -18,6 +18,8 @@ FIELDS = {
     "secure_cookies",
 }
 OPTIONAL_FIELDS = {
+    "translation_role_broker_config_file",
+    "translation_role_result_config_file",
     "nonpaid_model_config_file",
     "model_role_broker_config_file",
     "model_role_result_config_file",

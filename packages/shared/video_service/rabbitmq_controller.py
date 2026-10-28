@@ -70,16 +70,24 @@ class BrokerController:
 
         from .model_role_coordinator import ModelRoleCoordinator
 
-        if ModelRoleCoordinator.enrolled(self.runtime, owner, job_id):
-            with self.runtime.database.connection() as db:
-                run = db.execute(
-                    "SELECT request FROM node_runs WHERE owner_id=%s AND job_id=%s AND id=%s",
-                    (owner, job_id, attempt_id),
-                ).fetchone()
-            if run and run["request"].get("transcription"):
-                return ModelRoleCoordinator(self.runtime, self.client_factory).publish(
-                    owner, run["request"]
-                )
+        with self.runtime.database.connection() as db:
+            run = db.execute(
+                "SELECT request FROM node_runs WHERE owner_id=%s AND job_id=%s AND id=%s",
+                (owner, job_id, attempt_id),
+            ).fetchone()
+        role = (
+            "transcription"
+            if run and run["request"].get("transcription")
+            else "translation"
+            if run and run["request"].get("translation")
+            else None
+        )
+        if role and ModelRoleCoordinator.enrolled(
+            self.runtime, owner, job_id, role=role
+        ):
+            return ModelRoleCoordinator(self.runtime, self.client_factory).publish(
+                owner, run["request"]
+            )
         return self.transport.publish_exact(owner, job_id, attempt_id, send)
 
     def dispatch(self, owner, job_id):

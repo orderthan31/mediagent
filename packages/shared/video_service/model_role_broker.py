@@ -4,24 +4,28 @@ The worker has separate credentials; this is the application principal only.
 """
 
 import re
+from dataclasses import dataclass
 
 from .cpu_agents import canonical
 from .rabbitmq_transport import BrokerConfig, BrokerError, RabbitClient
 
 
+@dataclass(frozen=True)
 class ModelRoleBrokerConfig(BrokerConfig):
+    role: str = "transcription"
+
     @property
     def commands(self):
-        return self.namespace + ".transcription.commands.v1"
+        return self.namespace + "." + self.role + ".commands.v1"
 
     @property
     def results(self):
-        return self.namespace + ".transcription.results.v1"
+        return self.namespace + "." + self.role + ".results.v1"
 
     def queue(self, role):
         if role != "result":
             raise BrokerError("model_role_result_queue_only")
-        return self.namespace + ".transcription.result_inbox.v1"
+        return self.namespace + "." + self.role + ".result_inbox.v1"
 
 
 class ModelRoleRabbitClient(RabbitClient):
@@ -37,7 +41,7 @@ class ModelRoleRabbitClient(RabbitClient):
         if (
             not isinstance(task, str)
             or not re.fullmatch("[a-f0-9]{32}", task)
-            or packet.get("role") != "transcription"
+            or packet.get("role") != self.config.role
         ):
             raise BrokerError("invalid_model_role_packet")
         body = canonical(packet)
@@ -62,7 +66,7 @@ class ModelRoleRabbitClient(RabbitClient):
         return True
 
     def publish_command(self, packet):
-        return self._publish_packet(packet, "command", "transcription")
+        return self._publish_packet(packet, "command", self.config.role)
 
     def publish_cancel(self, packet):
         return self._publish_packet(packet, "cancel", "cancel")

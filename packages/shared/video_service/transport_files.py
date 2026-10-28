@@ -56,7 +56,15 @@ def model_role_broker_factory(path):
 
 def _broker_factory(path, config_type, client_type):
     value = document(path)
-    if set(value) - {"namespace", "url_file", "ca_file", "allow_loopback"} or not {
+    role_options = (
+        {"role"} if config_type.__name__ == "ModelRoleBrokerConfig" else set()
+    )
+    if set(value) - {
+        "namespace",
+        "url_file",
+        "ca_file",
+        "allow_loopback",
+    } - role_options or not {
         "namespace",
         "url_file",
     } <= set(value):
@@ -66,6 +74,7 @@ def _broker_factory(path, config_type, client_type):
         url_env="PRIVATE_BROKER_URL",
         ca_file=value.get("ca_file"),
         allow_loopback=value.get("allow_loopback", False),
+        **({"role": value.get("role", "transcription")} if role_options else {}),
     )
 
     # Resolve on the calling IO thread, not in a shared Pika connection.

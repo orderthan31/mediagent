@@ -5,6 +5,7 @@ import { Button } from './hangyeol/primitives/button';
 
 type RoleTask = {
   task_id: string;
+  role?: string;
   state: string;
   reason: string | null;
   reserved_calls: number;
@@ -19,7 +20,12 @@ type RoleTask = {
   pending_recovery?: { request_id: string; revision: number | null } | null;
   recovery_block_reason?: string | null;
 };
-type Observation = { enrolled: boolean; tasks: RoleTask[] };
+type Observation = {
+  enrolled: boolean;
+  tasks: RoleTask[];
+  available_roles?: string[];
+  enrolled_roles?: string[];
+};
 const states: Record<string, string> = {
   receiving: '결과 전달 확인 중',
   ready: '전달 준비',
@@ -127,8 +133,8 @@ export const ModelRolePanel = ({
     };
   }, [load, revision]);
   return (
-    <section className="shared-job-custody" aria-label="독립 전사 상태">
-      <h3>독립 전사</h3>
+    <section className="shared-job-custody" aria-label="독립 전사·번역 상태">
+      <h3>독립 전사·번역</h3>
       {readError && (
         <p role="alert">
           {readError}
@@ -141,7 +147,7 @@ export const ModelRolePanel = ({
         <>
           <p>
             {observation.enrolled
-              ? '이 작업은 독립 전사로 배정됩니다.'
+              ? `이 작업의 독립 처리: ${(observation.enrolled_roles || ['transcription']).map((role) => (role === 'translation' ? '번역' : '전사')).join(' · ')}`
               : '이 작업의 독립 전사 배정은 아직 등록되지 않았습니다.'}
           </p>
           {!observation.enrolled && canManage && status === 'draft' && !hasRuns && (
@@ -157,21 +163,27 @@ export const ModelRolePanel = ({
                     jsonPost(base + '/enrollment', {
                       revision,
                       request_id: enrollment.current,
+                      ...(observation.available_roles
+                        ? { roles: observation.available_roles }
+                        : {}),
                     }),
                   )
                 }
               >
-                이 새 작업에 독립 전사 사용
+                {observation.available_roles?.includes('translation')
+                  ? '이 새 작업에 독립 전사·번역 사용'
+                  : '이 새 작업에 독립 전사 사용'}
               </Button>
             </>
           )}
           {observation.tasks.map((task) => (
             <div key={task.task_id} data-role-task={task.task_id}>
+              <h4>{task.role === 'translation' ? '번역' : '전사'}</h4>
               <strong role="status">{states[task.state] || task.state}</strong>
               <p>
                 호출 예약 {task.reserved_calls} / 상한 {task.max_calls}
                 {task.reported_model_calls !== null
-                  ? ` · 전사 에이전트 보고 ${task.reported_model_calls}회`
+                  ? ` · 에이전트 보고 ${task.reported_model_calls}회`
                   : ' · 에이전트 호출 보고 대기'}
               </p>
               {task.reason && <p>{reasons[task.reason] || task.reason}</p>}

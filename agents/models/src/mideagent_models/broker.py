@@ -33,7 +33,9 @@ class RoleReceiver:
             )
 
     def receive(self, packet):
-        packet = validate(packet, "result")
+        packet = validate(
+            packet, "result", expected_role=getattr(self.agent, "role", "transcription")
+        )
         task = packet["task"]
         source = packet["source"]
         owner = packet["output_owner"]
@@ -110,7 +112,9 @@ class RoleReceiver:
     def deliver(self, packet, *, kind="result", artifact_attempts=3):
         if type(artifact_attempts) is not int or artifact_attempts < 1:
             raise ValueError("positive_artifact_attempts_required")
-        packet = validate(packet, kind)
+        packet = validate(
+            packet, kind, expected_role=getattr(self.agent, "role", "transcription")
+        )
         task = packet["task_id"] if kind == "cancel_ack" else packet["task"]["task_id"]
         digest = hashlib.sha256(canonical(packet)).hexdigest()
 
@@ -255,7 +259,11 @@ class RoleReceiver:
             raise DeliveryHeld("artifact_transport_exhausted")
 
     def cancel(self, packet):
-        packet = validate(packet, "cancel_ack")
+        packet = validate(
+            packet,
+            "cancel_ack",
+            expected_role=getattr(self.agent, "role", "transcription"),
+        )
         try:
             actual = self.agent.state.cancel(
                 packet["task_id"], envelope_sha=packet["request_sha256"]
@@ -266,7 +274,7 @@ class RoleReceiver:
             raise
         return {
             "version": 1,
-            "role": "transcription",
+            "role": packet["role"],
             "task_id": packet["task_id"],
             "request_sha256": packet["request_sha256"],
             "status": actual["status"],
@@ -288,18 +296,27 @@ def consume(config, *, once=False):
     from .cli import ScopedSpeechTool
     from .transcription import TranscriptionAgent
 
-    if config["role"] != "transcription":
+    if config["role"] not in {"transcription", "translation"}:
         raise ValueError("wrong_role_entrypoint")
     slots = config["task_slots"]
     if type(slots) is not int or slots < 1:
         raise ValueError("positive_task_slots_required")
     broker = BrokerConfig(**config["broker"])
-    prefix = broker.namespace + ".transcription"
+    prefix = broker.namespace + "." + config["role"]
     for key in ["input_store", "output_store"]:
         Path(config[key]["cache_root"]).mkdir(parents=True, exist_ok=True)
-    agent = TranscriptionAgent(
+    from .cli import ScopedTranslationTool
+    from .translation import TranslationAgent
+
+    agent_type = (
+        TranslationAgent if config["role"] == "translation" else TranscriptionAgent
+    )
+    tool_type = (
+        ScopedTranslationTool if config["role"] == "translation" else ScopedSpeechTool
+    )
+    agent = agent_type(
         config["state_root"],
-        ScopedSpeechTool(config),
+        tool_type(config),
         chunk_concurrency=config["chunk_concurrency"],
     )
     receiver = RoleReceiver(
@@ -333,7 +350,7 @@ def consume(config, *, once=False):
             ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
             return
         try:
-            packet = decode(body, "result")
+            packet = decode(body, "result", expected_role=config["role"])
         except InvalidRoleDelivery:
             ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
             return
@@ -356,7 +373,7 @@ def consume(config, *, once=False):
             ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
             return
         try:
-            packet = decode(body, "cancel_ack")
+            packet = decode(body, "cancel_ack", expected_role=config["role"])
         except InvalidRoleDelivery:
             ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
             return
@@ -422,7 +439,7 @@ def consume(config, *, once=False):
     print(
         json.dumps(
             {
-                "role": "transcription",
+                "role": config["role"],
                 "handled_deliveries": handled,
                 "mode": config["tool_mode"],
             }

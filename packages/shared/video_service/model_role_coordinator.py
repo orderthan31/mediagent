@@ -17,14 +17,29 @@ class ModelRoleCoordinator:
         self.runtime = runtime
         self.factory = factory
         self.role_factory = getattr(factory, "model_role_factory", None)
-        if self.role_factory is None:
+        self.role_factories = getattr(factory, "model_role_factories", {})
+        if self.role_factory is not None:
+            self.role_factories.setdefault("transcription", self.role_factory)
+        if not self.role_factories:
             raise Conflict("independent_role_transport_unavailable")
         self.roles = ModelRoles(
-            runtime, result_store=getattr(factory, "model_role_result_store", None)
+            runtime,
+            result_store=getattr(factory, "model_role_result_store", None),
+            result_stores=getattr(factory, "model_role_result_stores", None),
         )
 
-    def enroll_job(self, owner, job_id, revision, request_id):
+    def enroll_job(self, owner, job_id, revision, request_id, *, roles=None):
         payload = {"job_id": job_id, "revision": revision, "request_id": request_id}
+        selected = ["transcription"] if roles is None else roles
+        if (
+            type(selected) is not list
+            or not selected
+            or len(set(selected)) != len(selected)
+            or any(r not in self.role_factories for r in selected)
+        ):
+            raise Conflict("unsupported_independent_roles")
+        if roles is not None:
+            payload["roles"] = selected
         with self.runtime.database.connection() as c:
             job = self.runtime._job(c, owner, job_id, lock=True)
             prior = c.execute(
@@ -58,22 +73,35 @@ class ModelRoleCoordinator:
                 for n in job["snapshot"]["definition"]["nodes"]
                 if n["type"] == "transcribe"
             ]
-            if not nodes or any(
-                not n.get("model_ref")
-                or n["options"].get("clock_policy") != "packed_projection_v5"
-                or n["options"].get("batch_policy") != "bounded_60s_v1"
-                or n.get("fallback_refs")
-                for n in nodes
+            if "transcription" in selected and (
+                not nodes
+                or any(
+                    not n.get("model_ref")
+                    or n["options"].get("clock_policy") != "packed_projection_v5"
+                    or n["options"].get("batch_policy") != "bounded_60s_v1"
+                    or n.get("fallback_refs")
+                    for n in nodes
+                )
             ):
                 raise Conflict(
                     "role_enrollment_requires_supported_frozen_transcription"
                 )
+            translations = [
+                n
+                for n in job["snapshot"]["definition"]["nodes"]
+                if n["type"] == "translate"
+            ]
+            if "translation" in selected and (
+                not translations or any(not n.get("model_ref") for n in translations)
+            ):
+                raise Conflict("role_enrollment_requires_frozen_translation")
             response = {
                 "enrolled": True,
                 "job_id": job_id,
                 "generation": job["generation"],
                 "revision": revision + 1,
-                "role": "transcription",
+                "role": selected[0],
+                **({"roles": selected} if roles is not None else {}),
             }
             c.execute(
                 "INSERT INTO model_role_enrollments(owner_id,job_id,generation,snapshot_sha256,request_id,request_sha256,response)VALUES(%s,%s,%s,%s,%s,%s,%s)",
@@ -94,24 +122,33 @@ class ModelRoleCoordinator:
             return response
 
     @staticmethod
-    def enrolled(runtime, owner, job_id):
+    def enrolled(runtime, owner, job_id, *, role="transcription"):
         with runtime.database.connection() as c:
             if not c.execute(
                 "SELECT to_regclass('model_role_enrollments') relation"
             ).fetchone()["relation"]:
                 return False
+            row = c.execute(
+                "SELECT e.response FROM model_role_enrollments e JOIN jobs j ON j.owner_id=e.owner_id AND j.id=e.job_id WHERE e.owner_id=%s AND e.job_id=%s AND e.generation=j.generation AND e.snapshot_sha256=j.snapshot_sha256",
+                (owner, job_id),
+            ).fetchone()
             return bool(
-                c.execute(
-                    "SELECT 1 FROM model_role_enrollments e JOIN jobs j ON j.owner_id=e.owner_id AND j.id=e.job_id WHERE e.owner_id=%s AND e.job_id=%s AND e.generation=j.generation AND e.snapshot_sha256=j.snapshot_sha256",
-                    (owner, job_id),
-                ).fetchone()
+                row
+                and role
+                in row["response"].get(
+                    "roles", [row["response"].get("role", "transcription")]
+                )
             )
 
     def publish(self, owner, command):
+        role = "translation" if command.get("translation") else "transcription"
+        client_factory = self.role_factories.get(role)
+        if client_factory is None:
+            raise Conflict("independent_role_transport_unavailable")
         self.roles.enroll(owner, command)
 
         def send(envelope):
-            with self.role_factory() as client:
+            with client_factory() as client:
                 return client.publish_command(envelope)
 
         return self.roles.publish_exact(
@@ -125,13 +162,13 @@ class ModelRoleCoordinator:
         ).fetchone()["relation"]:
             return
         tasks = c.execute(
-            "SELECT task_id,attempt_id,envelope_sha256 FROM model_role_tasks WHERE owner_id=%s AND job_id=%s AND phase NOT IN ('accepted','cancelled')",
+            "SELECT task_id,attempt_id,envelope_sha256,envelope FROM model_role_tasks WHERE owner_id=%s AND job_id=%s AND phase NOT IN ('accepted','cancelled')",
             (job["owner_id"], job["id"]),
         ).fetchall()
         for task in tasks:
             packet = {
                 "version": 1,
-                "role": "transcription",
+                "role": task["envelope"]["role"],
                 "task_id": task["task_id"],
                 "request_sha256": task["envelope_sha256"],
             }
@@ -171,7 +208,7 @@ class ModelRoleCoordinator:
             if not changed:
                 continue
             try:
-                with self.role_factory() as client:
+                with self.role_factories[changed["packet"]["role"]]() as client:
                     if client.publish_cancel(changed["packet"]) is not True:
                         raise Conflict("role_cancel_publish_unconfirmed")
             except Exception:
@@ -205,7 +242,7 @@ class ModelRoleCoordinator:
             != {"version", "role", "task_id", "request_sha256", "status", "kind"}
             or type(packet["version"]) is not int
             or packet["version"] != 1
-            or packet["role"] != "transcription"
+            or packet["role"] not in {"transcription", "translation"}
             or packet["kind"] != "cancel_ack"
             or packet["status"] not in {"cancelled", "completed"}
         ):
@@ -214,7 +251,11 @@ class ModelRoleCoordinator:
             task = c.execute(
                 "SELECT * FROM model_role_tasks WHERE task_id=%s", (packet["task_id"],)
             ).fetchone()
-            if not task or task["envelope_sha256"] != packet["request_sha256"]:
+            if (
+                not task
+                or task["envelope_sha256"] != packet["request_sha256"]
+                or task["envelope"]["role"] != packet["role"]
+            ):
                 raise InvalidMessage("role_cancel_ack_scope_changed")
             job = self.runtime._job(c, task["owner_id"], task["job_id"], lock=True)
             controls = c.execute(
@@ -335,9 +376,9 @@ class ModelRoleCoordinator:
 
     def inspect(self, owner, job_id):
         with self.runtime.database.connection() as c:
-            self.runtime._job(c, owner, job_id)
+            job = self.runtime._job(c, owner, job_id)
             enrolled = c.execute(
-                "SELECT generation FROM model_role_enrollments WHERE owner_id=%s AND job_id=%s",
+                "SELECT generation,response FROM model_role_enrollments WHERE owner_id=%s AND job_id=%s",
                 (owner, job_id),
             ).fetchall()
             tasks = c.execute(
@@ -417,6 +458,7 @@ class ModelRoleCoordinator:
                 result.append(
                     {
                         "task_id": task["task_id"],
+                        "role": task["envelope"]["role"],
                         "state": display_state,
                         "reason": reason,
                         "delivery_state": delivery["state"] if delivery else None,
@@ -439,4 +481,24 @@ class ModelRoleCoordinator:
                         "recovery_choices": choices,
                     }
                 )
-            return {"enrolled": bool(enrolled), "tasks": result}
+            return {
+                "enrolled": bool(enrolled),
+                "tasks": result,
+                "enrolled_roles": enrolled[-1]["response"].get(
+                    "roles", [enrolled[-1]["response"].get("role", "transcription")]
+                )
+                if enrolled
+                else [],
+                "available_roles": [
+                    role
+                    for role, kind in [
+                        ("transcription", "transcribe"),
+                        ("translation", "translate"),
+                    ]
+                    if role in self.role_factories
+                    and any(
+                        n["type"] == kind
+                        for n in job["snapshot"]["definition"]["nodes"]
+                    )
+                ],
+            }

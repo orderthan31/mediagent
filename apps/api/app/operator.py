@@ -114,6 +114,28 @@ def runtime_components(
         factory.model_role_result_store = object_store(
             config["model_role_result_config_file"]
         )
+    factory.model_role_factories = {}
+    factory.model_role_result_stores = {}
+    if getattr(factory, "model_role_factory", None):
+        factory.model_role_factories["transcription"] = factory.model_role_factory
+        factory.model_role_result_stores["transcription"] = (
+            factory.model_role_result_store
+        )
+    translation_keys = {
+        "translation_role_broker_config_file",
+        "translation_role_result_config_file",
+    }
+    if translation_keys & set(config):
+        if not enable_registered or not translation_keys <= set(config):
+            raise ValueError("translation_role_requires_bound_transports")
+        from video_service.transport_files import model_role_broker_factory
+
+        factory.model_role_factories["translation"] = model_role_broker_factory(
+            config["translation_role_broker_config_file"]
+        )
+        factory.model_role_result_stores["translation"] = object_store(
+            config["translation_role_result_config_file"]
+        )
     return store, credentials, factory
 
 
@@ -135,6 +157,11 @@ def main(argv=None):
         ),
     )
     parser.add_argument("--bootstrap-file", required=True)
+    parser.add_argument(
+        "--model-role",
+        choices=["transcription", "translation"],
+        default="transcription",
+    )
     parser.add_argument("--owner")
     parser.add_argument("--job")
     parser.add_argument("--revision", type=int)
@@ -250,7 +277,7 @@ def main(argv=None):
                 stop = threading.Event()
                 for sig in (signal.SIGINT, signal.SIGTERM):
                     signal.signal(sig, lambda *_: stop.set())
-                with factory.model_role_factory() as client:
+                with coordinator.role_factories[args.model_role]() as client:
                     client.serve("result", coordinator.receive, stop)
             return 0
         engine_factory = getattr(factory, "engine_factory", None)
