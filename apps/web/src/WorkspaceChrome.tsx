@@ -25,6 +25,7 @@ const sections = [
   { name: '원본', href: '#/', icon: Folder },
   { name: '워크플로우', href: '#/workflows', icon: GitBranch },
   { name: '에이전트', href: '#/agents', icon: Boxes },
+  ...(renewalBackend ? [{ name: '툴', href: '#/tools', icon: Boxes }] : []),
   { name: '서빙', href: '#/serving', icon: Layers },
   { name: '시스템', href: '#/settings', icon: Settings },
   ...(frontendOnly || renewalBackend
@@ -56,18 +57,21 @@ export const WorkspaceChrome = ({
     [uploads, setUploads] = useState(false);
   const dialog = useRef<HTMLDialogElement>(null),
     toggle = useRef<HTMLButtonElement>(null);
-  const group =
+  const sectionRoute =
     route.includes('workflow-editor') || route.startsWith('#/workflows')
-      ? 2
+      ? '#/workflows'
       : route.startsWith('#/agents')
-        ? 3
-        : route.startsWith('#/serving')
-          ? 4
-          : route.startsWith('#/settings')
-            ? 5
-            : route === '#/' || route.startsWith('#/videos/')
-              ? 1
-              : 0;
+        ? '#/agents'
+        : route.startsWith('#/tools')
+          ? '#/tools'
+          : route.startsWith('#/serving')
+            ? '#/serving'
+            : route.startsWith('#/settings')
+              ? '#/settings'
+              : route === '#/' || route.startsWith('#/videos/')
+                ? '#/'
+                : '#/jobs';
+  const group = sections.findIndex((section) => section.href === sectionRoute);
   const accountView = route.startsWith('#/account');
   const current = accountView ? { name: '계정 관리', href: '#/account' } : sections[group];
   const child =

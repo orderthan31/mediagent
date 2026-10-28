@@ -39,6 +39,7 @@ import { Theme } from './hangyeol/foundation/theme';
 import { WorkspaceChrome } from './WorkspaceChrome';
 import { WorkflowCatalog } from './WorkflowCatalog';
 import { AgentCatalog } from './AgentCatalog';
+import { ToolCatalog, AgentHubCatalog } from './ToolCatalog';
 import { useWorkspaceAuth } from './AuthGate';
 import { isOrdinaryRoute } from './workspace-access';
 import { Button } from './hangyeol/primitives/button';
@@ -630,6 +631,18 @@ export const VideoWorkspace = () => {
             graph={graphTicketsView || reviewTicketsView}
             review={reviewTicketsView}
           />
+        ) : renewalBackend && (route === '#/tools' || route.startsWith('#/tools/')) ? (
+          <ToolCatalog
+            key={route}
+            query={query}
+            identity={
+              route.startsWith('#/tools/')
+                ? decodeURIComponent(route.slice('#/tools/'.length))
+                : undefined
+            }
+          />
+        ) : renewalBackend && (route === '#/agents' || route.startsWith('#/agents/')) ? (
+          <AgentHubCatalog key={route} identity={agentIdentity} />
         ) : route === '#/agents' || route.startsWith('#/agents/') ? (
           <AgentCatalog
             key={route}

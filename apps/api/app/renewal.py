@@ -729,6 +729,9 @@ def create_app(
     from .system_resource_routes import mount_system_resources
 
     mount_system_resources(app, session)
+    from .tool_hub_routes import mount_tool_hub
+    mount_tool_hub(app,administrator,database)
+
 
     if content_store is not None:
         from video_service.postgres.execution import Execution

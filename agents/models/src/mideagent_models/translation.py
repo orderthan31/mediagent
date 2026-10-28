@@ -204,7 +204,17 @@ class TranslationAgent:
             if self.state.cancelled(identifier):
                 return {"status": "cancelled"}
             try:
-                reply = self.model_tool(task, s["batches"][s["batch"]], s["candidate"])
+                from video_service.standard_tools import standard_tools
+                from .standard_tool_audit import record
+                source={'storage_key':'blobs/'+task['transcript']['sha256'],'sha256':task['transcript']['sha256'],'bytes':task['transcript']['bytes'],'type':'transcript'}
+                def execute(source_reference):
+                    if source_reference!=source:raise ValueError('bound_tool_input_changed')
+                    return self.model_tool(task,s['batches'][s['batch']],s['candidate'])
+                def registered(source):return execute(source)
+                available=standard_tools('model:translation',{'text.translate':registered})
+                selected=next(value for value in available if value.metadata['tool_id']=='text.translate')
+                reply=selected.invoke({'source':source})
+                record(self.state,identifier,index,selected,source)
             except Exception as error:
                 self.state.fail(identifier, index, type(error).__name__, True)
                 return {"status": "held"}

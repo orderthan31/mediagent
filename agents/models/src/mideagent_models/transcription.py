@@ -285,7 +285,19 @@ class TranscriptionAgent:
                     if hasattr(self.model_tool, "for_chunk")
                     else self.model_tool
                 )
-                reply = tool(task["model"], raw, task["source_language"])
+                from video_service.standard_tools import standard_tools
+                from .standard_tool_audit import record
+                source={'storage_key':'blobs/'+task['audio']['sha256'],'sha256':task['audio']['sha256'],'bytes':task['audio']['bytes'],'type':'audio'}
+                def registered(source_reference):
+                    if source_reference!=source:raise ValueError('bound_tool_input_changed')
+                    return tool(task['model'],raw,task['source_language'])
+                # The already validated source is bound to the existing scoped wire;
+                # no arbitrary callback, model or new destination arrives in Tool args.
+                def execute(source):return registered(source)
+                available=standard_tools('model:transcription',{'speech.transcribe':execute})
+                selected=next(value for value in available if value.metadata['tool_id']=='speech.transcribe')
+                reply=selected.invoke({'source':source})
+                record(self.state,identifier,chunk['index'],selected,source)
                 self.state.reply(identifier, chunk["index"], reply)
                 return {"status": "received", "reply": reply}
             except Exception as error:
