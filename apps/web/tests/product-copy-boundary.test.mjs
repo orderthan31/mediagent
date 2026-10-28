@@ -7,3 +7,5 @@ test('job screens omit internal development/report descriptions',()=>{
 });
 
 test('controlled model outputs retain a concise truthful product label',()=>{const text=fs.readFileSync(new URL('../src/RenewalJobDetail.tsx',import.meta.url),'utf8');assert.ok(text.includes('통제 출력'));});
+
+test('result drawer does not expose raw internal node options',()=>{const text=fs.readFileSync(new URL('../src/RenewalJobDetail.tsx',import.meta.url),'utf8');assert.ok(!text.includes('Object.entries(node.options)'));});

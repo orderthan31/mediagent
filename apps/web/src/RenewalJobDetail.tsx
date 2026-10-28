@@ -78,7 +78,7 @@ type Review = {
   };
 };
 type State = {
-  output_mode?: string|null;
+  output_mode?: string | null;
   artifact_manifest?: {
     layout: string;
     entry_count: number;
@@ -304,11 +304,7 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
           {job.artifact_manifest && (
             <section className="shared-job-custody" aria-label="티켓별 산출물">
               <strong>작업 파일 {job.artifact_manifest.entry_count}개</strong>
-              <p>
-                {job.artifact_manifest.layout === 'ticket_v1'
-                  ? '중간 결과와 최종 파일을 확인하고 받을 수 있습니다.'
-                  : '기존 저장 자료 참조 · 자료를 이동하지 않고 조회합니다.'}
-              </p>
+              <p>중간 결과와 최종 파일을 확인하고 받을 수 있습니다.</p>
               {job.artifact_manifest.entry_count > 0 && (
                 <a href={mediaUrl(base + '/manifest?download=true')} download>
                   파일 목록 받기
@@ -378,19 +374,6 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
                         ? catalog.find((spec) => spec.id === node.type)?.label || node.type
                         : '원본 입력'}
                     </h3>
-                    {node && (
-                      <details>
-                        <summary>처리 설정 상세</summary>
-                        <dl>
-                          {Object.entries(node.options).map(([key, value]) => (
-                            <div key={key}>
-                              <dt>{key}</dt>
-                              <dd>{value}</dd>
-                            </div>
-                          ))}
-                        </dl>
-                      </details>
-                    )}
                     <p>
                       {run
                         ? dispatchLabel(run.status, run.dispatch?.phase) ||
