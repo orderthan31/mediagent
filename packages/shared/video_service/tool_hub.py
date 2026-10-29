@@ -17,17 +17,25 @@ _DATA=[
  ('media.generate_subtitle','generate_subtitle','자막 생성',{'transcript':'전사문','metadata':'영상 정보'},{'subtitle':'자막 파일'},['자막 언어','자막 형식']),
  ('media.encode','encode','영상 인코딩',{'video':'영상','subtitle':'선택 자막'},{'video':'인코딩 영상'},['영상 품질','해상도','자막 표시']),
  ('media.validate_video','validate_video','영상 확인',{'video':'출력 영상','metadata':'원본 영상 정보'},{'report':'재생 확인 결과'},[]),
- ('speech.transcribe','transcription','음성 전사',{'source':'PCM 오디오'},{'transcript':'시간 정보가 있는 전사문'},['음성 인식 모델','원문 언어']),
- ('text.translate','translation','자막 번역',{'source':'시간 정보가 있는 전사문'},{'transcript':'번역 전사문'},['번역 모델','대상 언어']),
+ ('speech.transcribe','transcription','전사 모델 호출',{'source':'검증된 오디오 구간'},{'transcript':'구간 전사 응답'},['음성 인식 모델','원문 언어']),
+ ('text.translate','translation','번역 모델 호출',{'source':'분할된 원문과 문맥'},{'transcript':'구간 번역 응답'},['번역 모델','대상 언어']),
  ('audio.vocal_regions','vocalization','음성 구간 분석',{'source':'PCM 오디오'},{'regions':'음성 보존 구간'},['분석 모델']),
+ ('speech.prepare_audio','transcription','전사 오디오 구간 준비',{'source':'검증된 PCM 오디오'},{'chunks':'재사용 가능한 음성 구간'},[]),
+ ('speech.validate_chunk','transcription','전사 구간 확인',{'source':'오디오와 전사 응답'},{'segments':'시간·구간이 확인된 전사문'},[]),
+ ('speech.merge_segments','transcription','전사 결과 합치기',{'source':'확인된 전사 구간과 원본 시각'},{'transcript':'원본 시각의 전사문'},[]),
+ ('text.prepare_batches','translation','번역 구간 나누기',{'source':'시간 정보가 있는 원문'},{'batches':'문맥을 포함한 번역 구간'},[]),
+ ('text.validate_batch','translation','번역 구간 확인',{'source':'원문과 번역 응답'},{'segments':'원문 구간·시각이 유지된 번역문'},[]),
+ ('text.merge_batches','translation','번역 결과 합치기',{'source':'확인된 번역 구간'},{'transcript':'대상 언어 번역문'},[]),
 ]
 DEFINITIONS={}
 for identity,role,name,inputs,outputs,settings in _DATA:
     optional={'regions','subtitle'}
     fields={key:((ArtifactReference|None if key in optional else ArtifactReference),Field(default=None if key in optional else ...,title=label,description=label))for key,label in inputs.items()}
     args=create_model(identity.replace('.','_')+'_input',__config__=ConfigDict(extra='forbid',strict=True),**fields)
-    DEFINITIONS[identity]={'id':identity,'executor':role,'name':name,'args_schema':args,'outputs':outputs,'settings':settings,'requires_model':role in {'transcription','translation','vocalization'}}
-CALLER_TOOLS={('model:'if d['requires_model']else'cpu:')+d['executor']:(identity,)for identity,d in DEFINITIONS.items()}
+    DEFINITIONS[identity]={'id':identity,'executor':role,'name':name,'args_schema':args,'outputs':outputs,'settings':settings,'requires_model':identity in {'speech.transcribe','text.translate','audio.vocal_regions'}}
+CALLER_TOOLS={('model:'if d['requires_model']else'cpu:')+d['executor']:(identity,)for identity,d in DEFINITIONS.items() if identity in {'media.analyze','media.extract_audio','media.preprocess_audio','media.generate_subtitle','media.encode','media.validate_video','speech.transcribe','text.translate','audio.vocal_regions'}}
+from .task_agents import AGENTS
+CALLER_TOOLS.update({'agent:'+identity:tuple(agent['allowed_tools'])for identity,agent in AGENTS.items()})
 
 def allowed_definitions(caller):
     if caller not in CALLER_TOOLS:raise ValueError('unknown_tool_caller')

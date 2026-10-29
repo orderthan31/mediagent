@@ -24,6 +24,8 @@ from video_service.postgres.translation import (
 from video_service.transcript_batches import split_transcript, validate_source
 
 from .state import RoleState
+from .task_tools import invoke as invoke_tool
+from video_service.task_agents import registration
 
 
 class TranslationState(TypedDict, total=False):
@@ -42,6 +44,7 @@ class TranslationState(TypedDict, total=False):
 
 class TranslationAgent:
     role = "translation"
+    registration = registration("translate")
 
     def __init__(self, root, model_tool, *, chunk_concurrency=1):
         if type(chunk_concurrency) is not int or chunk_concurrency < 1:
@@ -130,11 +133,10 @@ class TranslationAgent:
         languages(task["source_language"], task["target_language"])
         if task["batch_policy"] == "single_100x16k_v1":
             segments([{k: v for k, v in r.items() if k != "id"} for r in source])
-        batches = list(split_transcript(source))
         self.state.ensure(
             task["task_id"], hashlib.sha256(canonical(task)).hexdigest(), task
         )
-        return batches
+        return invoke_tool(self, task, "text.prepare_batches", lambda: list(split_transcript(source)))
 
     def run(self, task, path):
         with self.state.lock(task["task_id"], "execution"):
@@ -204,17 +206,11 @@ class TranslationAgent:
             if self.state.cancelled(identifier):
                 return {"status": "cancelled"}
             try:
-                from video_service.standard_tools import standard_tools
-                from .standard_tool_audit import record
-                source={'storage_key':'blobs/'+task['transcript']['sha256'],'sha256':task['transcript']['sha256'],'bytes':task['transcript']['bytes'],'type':'transcript'}
-                def execute(source_reference):
-                    if source_reference!=source:raise ValueError('bound_tool_input_changed')
-                    return self.model_tool(task,s['batches'][s['batch']],s['candidate'])
-                def registered(source):return execute(source)
-                available=standard_tools('model:translation',{'text.translate':registered})
-                selected=next(value for value in available if value.metadata['tool_id']=='text.translate')
-                reply=selected.invoke({'source':source})
-                record(self.state,identifier,index,selected,source)
+                reply = invoke_tool(
+                    self, task, "text.translate",
+                    lambda: self.model_tool(task, s["batches"][s["batch"]], s["candidate"]),
+                    index=index,
+                )
             except Exception as error:
                 self.state.fail(identifier, index, type(error).__name__, True)
                 return {"status": "held"}
@@ -233,13 +229,12 @@ class TranslationAgent:
         batch = s["batches"][s["batch"]]
         source = batch.segments
         try:
-            plain = [{k: v for k, v in row.items() if k != "id"} for row in source]
-            parsed = translated_segments(s["reply"], plain)
-            rows = [
-                {**before, "text": after["text"]}
-                for before, after in zip(source, parsed)
-            ]
-            validate_source(rows)
+            def validate():
+                plain = [{k: v for k, v in row.items() if k != "id"} for row in source]
+                parsed = translated_segments(s["reply"], plain)
+                rows = [{**before, "text": after["text"]} for before, after in zip(source, parsed)]
+                return validate_source(rows)
+            rows = invoke_tool(self, s["task"], "text.validate_batch", validate, index=s["call_index"])
         except (ValueError, EndpointFailure):
             self.state.candidate_failed(
                 s["task"]["task_id"], s["call_index"], "invalid_response"
@@ -268,6 +263,12 @@ class TranslationAgent:
         return {"result": result, "status": result["status"]}
 
     def _finish(self, s):
+        if self.state.cancelled(s["task"]["task_id"]):
+            return self._cancelled(s)
+        result = invoke_tool(self, s["task"], "text.merge_batches", lambda: self._assemble(s))
+        return self._terminal(s, "completed", **result)
+
+    def _assemble(self, s):
         task = s["task"]
         rows = []
         chunks = []
@@ -290,15 +291,15 @@ class TranslationAgent:
                     )
                     break
         validate_source(rows)
-        return self._terminal(
-            s,
-            "completed",
-            segments=rows,
-            chunks=chunks,
-            completed_chunks=len(chunks),
-            source_language=task["source_language"],
-            target_language=task["target_language"],
-        )
+        expected = [row for batch in s["batches"] for row in batch.segments]
+        if len(rows) != len(expected) or any(
+            {k:v for k,v in before.items() if k != "text"} !=
+            {k:v for k,v in after.items() if k != "text"}
+            for before,after in zip(expected,rows)
+        ):
+            raise ValueError("translation_source_identity_changed")
+        return dict(segments=rows, chunks=chunks, completed_chunks=len(chunks),
+                    source_language=task["source_language"], target_language=task["target_language"])
 
     def _hold(self, s):
         return self._terminal(s, "held")

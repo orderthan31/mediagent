@@ -24,6 +24,8 @@ from video_service.cpu_agents import canonical
 from video_service.packed_projection import project, validate_projection_clock
 
 from .state import RoleState
+from .task_tools import invoke as invoke_tool
+from video_service.task_agents import registration
 
 
 class SpeechState(TypedDict, total=False):
@@ -37,6 +39,9 @@ class SpeechState(TypedDict, total=False):
 
 
 class TranscriptionAgent:
+    role = "transcription"
+    registration = registration("transcribe")
+
     def __init__(self, root, model_tool, *, chunk_concurrency=1):
         if type(chunk_concurrency) is not int or chunk_concurrency < 1:
             raise ValueError("positive_chunk_concurrency_required")
@@ -176,43 +181,43 @@ class TranscriptionAgent:
             )
             if round(duration * 16000) != count:
                 raise ValueError("audio_clock_frame_count_mismatch")
-            folder = self.root / task["task_id"]
-            folder.mkdir(exist_ok=True)
-            chunks = []
-            for index, start in enumerate(range(0, count, task["chunk_frames"])):
-                length = min(task["chunk_frames"], count - start)
-                raw = f.readframes(length)
-                if len(raw) != length * 2:
-                    raise ValueError("truncated_pcm_input")
-                out = folder / f"{index:06d}.wav"
-                memory = io.BytesIO()
-                with wave.open(memory, "wb") as w:
-                    w.setnchannels(1)
-                    w.setsampwidth(2)
-                    w.setframerate(16000)
-                    w.writeframes(raw)
-                encoded = memory.getvalue()
-                if out.exists():
-                    if (
-                        hashlib.sha256(out.read_bytes()).digest()
-                        != hashlib.sha256(encoded).digest()
-                    ):
-                        raise ValueError("chunk_cache_mismatch")
-                else:
-                    out.write_bytes(encoded)
-                chunks.append(
-                    {
-                        "index": index,
-                        "start": start,
-                        "frames": length,
-                        "path": str(out),
-                        "sha256": hashlib.sha256(out.read_bytes()).hexdigest(),
-                    }
-                )
-        self.state.ensure(
-            task["task_id"], hashlib.sha256(canonical(task)).hexdigest(), task
-        )
-        return chunks
+            self.state.ensure(task["task_id"], hashlib.sha256(canonical(task)).hexdigest(), task)
+            def split():
+                folder = self.root / task["task_id"]
+                folder.mkdir(exist_ok=True)
+                chunks = []
+                for index, start in enumerate(range(0, count, task["chunk_frames"])):
+                    length = min(task["chunk_frames"], count - start)
+                    raw = f.readframes(length)
+                    if len(raw) != length * 2:
+                        raise ValueError("truncated_pcm_input")
+                    out = folder / f"{index:06d}.wav"
+                    memory = io.BytesIO()
+                    with wave.open(memory, "wb") as w:
+                        w.setnchannels(1)
+                        w.setsampwidth(2)
+                        w.setframerate(16000)
+                        w.writeframes(raw)
+                    encoded = memory.getvalue()
+                    if out.exists():
+                        if (
+                            hashlib.sha256(out.read_bytes()).digest()
+                            != hashlib.sha256(encoded).digest()
+                        ):
+                            raise ValueError("chunk_cache_mismatch")
+                    else:
+                        out.write_bytes(encoded)
+                    chunks.append(
+                        {
+                            "index": index,
+                            "start": start,
+                            "frames": length,
+                            "path": str(out),
+                            "sha256": hashlib.sha256(out.read_bytes()).hexdigest(),
+                        }
+                    )
+                return chunks
+            return invoke_tool(self, task, "speech.prepare_audio", split)
 
     def run(self, task, audio):
         with self.state.lock(task["task_id"], "execution"):
@@ -285,19 +290,11 @@ class TranscriptionAgent:
                     if hasattr(self.model_tool, "for_chunk")
                     else self.model_tool
                 )
-                from video_service.standard_tools import standard_tools
-                from .standard_tool_audit import record
-                source={'storage_key':'blobs/'+task['audio']['sha256'],'sha256':task['audio']['sha256'],'bytes':task['audio']['bytes'],'type':'audio'}
-                def registered(source_reference):
-                    if source_reference!=source:raise ValueError('bound_tool_input_changed')
-                    return tool(task['model'],raw,task['source_language'])
-                # The already validated source is bound to the existing scoped wire;
-                # no arbitrary callback, model or new destination arrives in Tool args.
-                def execute(source):return registered(source)
-                available=standard_tools('model:transcription',{'speech.transcribe':execute})
-                selected=next(value for value in available if value.metadata['tool_id']=='speech.transcribe')
-                reply=selected.invoke({'source':source})
-                record(self.state,identifier,chunk['index'],selected,source)
+                reply = invoke_tool(
+                    self, task, "speech.transcribe",
+                    lambda: tool(task["model"], raw, task["source_language"]),
+                    index=chunk["index"],
+                )
                 self.state.reply(identifier, chunk["index"], reply)
                 return {"status": "received", "reply": reply}
             except Exception as error:
@@ -307,16 +304,19 @@ class TranscriptionAgent:
     def _validate(self, s):
         try:
             chunk = s["chunks"][s["index"]]
-            rows = timed_segments(s["reply"], chunk["frames"] / 16000)
-            rows = [
-                {
-                    **row,
-                    "start": row["start"] + chunk["start"] / 16000,
-                    "end": row["end"] + chunk["start"] / 16000,
-                    "id": f"{s['task']['task_id']}:{chunk['index']}:{i}",
-                }
-                for i, row in enumerate(rows)
-            ]
+            def validate():
+                rows = timed_segments(s["reply"], chunk["frames"] / 16000)
+                rows = [
+                    {
+                        **row,
+                        "start": row["start"] + chunk["start"] / 16000,
+                        "end": row["end"] + chunk["start"] / 16000,
+                        "id": f"{s['task']['task_id']}:{chunk['index']}:{i}",
+                    }
+                    for i, row in enumerate(rows)
+                ]
+                return rows
+            rows = invoke_tool(self, s["task"], "speech.validate_chunk", validate, index=chunk["index"])
             self.state.complete(
                 s["task"]["task_id"], s["chunks"][s["index"]]["index"], rows
             )
@@ -376,12 +376,12 @@ class TranscriptionAgent:
     def _finish(self, s):
         if self.state.cancelled(s["task"]["task_id"]):
             return self._cancelled(s)
-        rows = []
-        for i in range(len(s["chunks"])):
-            rows.extend(json.loads(self.state.chunk(s["task"]["task_id"], i)["result"]))
-        projected, trace = project(
-            rows, s["task"]["timeline"], policy="packed_projection_v5"
-        )
+        def assemble():
+            rows = []
+            for i in range(len(s["chunks"])):
+                rows.extend(json.loads(self.state.chunk(s["task"]["task_id"], i)["result"]))
+            return project(rows, s["task"]["timeline"], policy="packed_projection_v5")
+        projected, trace = invoke_tool(self, s["task"], "speech.merge_segments", assemble)
         return self._terminal(s, "completed", projected, projection_trace=trace)
 
     def _hold(self, s):
