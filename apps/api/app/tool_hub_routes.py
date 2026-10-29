@@ -1,6 +1,6 @@
 """Product metadata for the shared tool boundary. No worker activation on GET."""
 from fastapi import Depends,HTTPException
-from video_service.tool_hub import catalog,allowed_definitions,describe,tool_for_executor
+from video_service.tool_hub import catalog,allowed_definitions,describe as describe_definition,tool_for_executor
 
 # No fixed processor is manufactured into an autonomous agent registration.
 AGENTS={}
@@ -26,7 +26,7 @@ def mount_tool_hub(app,administrator,database):
         if tool_id is None:raise HTTPException(404,'실행기를 찾을 수 없습니다.')
         item=next(t for t in catalog()if t['id']==tool_id)
         caller=('model:'if item['requires_model']else'cpu:')+role
-        return {'kind':'tool_executor','autonomous':False,'tools':[describe(d)for d in allowed_definitions(caller)]}
+        return {'kind':'tool_executor','autonomous':False,'tools':[describe_definition(d)for d in allowed_definitions(caller)]}
     @app.get('/api/agent-hub/agents')
     def agents(actor=Depends(administrator)):
         return {'agents':list(AGENTS.values())}

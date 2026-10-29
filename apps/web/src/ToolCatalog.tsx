@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { request } from './api';
+import { ApiError, request } from './api';
 import { PageTitle } from './PageTitle';
 import { LoadingSkeleton } from './LoadingSkeleton';
 
@@ -130,8 +130,10 @@ export const AgentHubCatalog = ({ identity }: { identity?: string }) => {
             if (!c.signal.aborted && legacy.tools[0]) {
               location.hash = '/tools/' + legacy.tools[0].id;
             }
-          } catch {
-            /* Missing legacy ID remains a normal not-found view. */
+          } catch (reason) {
+            if (!c.signal.aborted && !(reason instanceof ApiError && reason.status === 404)) {
+              setError('실행 정보를 불러오지 못했습니다. 새로고침해 주세요.');
+            }
           }
         }
       } catch {
