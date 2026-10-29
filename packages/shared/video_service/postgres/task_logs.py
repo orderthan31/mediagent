@@ -1,8 +1,9 @@
-"""Public task logs from durable facts; no container logs, secrets, model calls or writes."""
+"""Task-bound console archive and status reads; no Docker authority or model calls."""
 from . import Missing, Conflict
 from .registry import resource_id
 
 ERRORS = {
+    'connection_failed': '모델 서버 연결에 실패했습니다. 주소와 통신 경로를 확인하세요.',
     'outcome_unknown': '모델 응답 여부를 확인하지 못했습니다. 자동으로 다시 요청하지 않습니다.',
     'model_reply_unknown': '모델 응답 여부를 확인하지 못해 처리를 보류했습니다.',
     'authentication_failed': '모델 연결 인증이 거부됐습니다.',

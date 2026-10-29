@@ -60,4 +60,16 @@ class ConsoleTest(unittest.TestCase):
    self.assertIn('original native exception',read_console('3'*32,root=host.root/'console')['lines'][0]['text'])
    self.assertEqual(read_console('4'*32,root=host.root/'console')['lines'],[])
 
+
+ def test_connect_failure_is_definite_but_read_timeout_stays_unknown(self):
+  import httpx
+  from video_service.model_endpoints import OpenAITextAdapter,EndpointFailure
+  for error,expected in [(httpx.ConnectError('DNS unavailable'),'connection_failed'),(httpx.ReadTimeout('reply timeout'),'outcome_unknown')]:
+   def fail(request):raise error
+   client=OpenAITextAdapter('https://api.example.com/v1',transport=httpx.MockTransport(fail),approved_origins={'https://api.example.com'})
+   try:
+    with self.assertRaises(EndpointFailure)as caught:client._request('GET','/models')
+    self.assertEqual(caught.exception.code,expected)
+   finally:client.close()
+
 if __name__=='__main__':unittest.main()

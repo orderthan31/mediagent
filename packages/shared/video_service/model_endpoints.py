@@ -148,7 +148,8 @@ class OpenAITextAdapter:
             raise
         except httpx.HTTPError as error:
             from .task_console import redact
-            failure=EndpointFailure('모델 서버 통신 결과 불명 · 자동 재시도하지 않습니다.',code='outcome_unknown')
+            definite=isinstance(error,(httpx.ConnectError,httpx.ConnectTimeout,httpx.PoolTimeout))
+            failure=EndpointFailure('모델 서버 연결 실패 · 자동 재시도하지 않습니다.' if definite else '모델 서버 통신 결과 불명 · 자동 재시도하지 않습니다.',code='connection_failed' if definite else 'outcome_unknown')
             failure.upstream_detail=redact(type(error).__name__+': '+str(error),(self._key,))
             raise failure from None
         except (ValueError, TypeError, RecursionError, UnicodeError):
