@@ -1,0 +1,70 @@
+.task-result-tabs {
+  min-width: 0;
+}
+.task-result-tablist {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid #d4d4d8;
+  position: sticky;
+  top: 0;
+  background: var(--background, #fff);
+  z-index: 2;
+}
+.task-result-tablist [role='tab'] {
+  flex: 1;
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.task-result-tablist [aria-selected='true'] {
+  border-bottom-color: var(--color-primary, #4f46e5);
+  font-weight: 600;
+}
+.task-result-tablist [role='tab']:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: -3px;
+}
+.task-result-tab-panel {
+  padding: 12px 0;
+  max-height: 62vh;
+  overflow: auto;
+  overscroll-behavior: contain;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.task-result-tab-panel[hidden] {
+  display: none;
+}
+.task-log-list {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+.task-log-list li {
+  padding: 12px 0;
+  border-bottom: 1px solid #e4e4e7;
+}
+.task-log-list time,
+.task-log-time {
+  font-size: 0.8rem;
+  color: #71717a;
+}
+.task-log-list p {
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.task-log-list [data-level='warning'] p,
+.task-log-list [data-level='error'] p {
+  color: #b45309;
+}
+@media (max-width: 640px) {
+  .task-result-tab-panel {
+    max-height: 55dvh;
+  }
+}

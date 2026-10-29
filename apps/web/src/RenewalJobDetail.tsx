@@ -3,11 +3,11 @@ import { useEffect, useRef, useState } from 'react';
 import { request, mediaUrl } from './api';
 import { jsonPost } from './video-api';
 import { FullVideoPreview } from './FullVideoPreview';
-import { dispatchLabel } from './dispatch-status';
 import { processingLabel, type ProcessingProjection } from './processing-review-state';
 import { JobProcessingReview } from './JobProcessingReview';
 import { ProjectionRecoveryPanel } from './ProjectionRecoveryPanel';
 import { ModelRolePanel } from './ModelRolePanel';
+import { TaskResultTabs } from './TaskResultTabs';
 import { SubtitleTrackReview, SubtitleOutputs } from './SubtitleTracksPanel';
 import { PageTitle } from './PageTitle';
 import { LoadingSkeleton } from './LoadingSkeleton';
@@ -374,268 +374,269 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
                         ? catalog.find((spec) => spec.id === node.type)?.label || node.type
                         : '원본 입력'}
                     </h3>
-                    <p>
-                      {run
-                        ? dispatchLabel(run.status, run.dispatch?.phase) ||
-                          labels[run.status] ||
-                          run.status
-                        : '아직 실행하지 않았습니다.'}
-                    </p>
-                    {Object.entries(run?.inputs || {}).map(([port, ref]) => (
-                      <section className="execution-artifact" key={port}>
-                        <h4>
-                          {ref.type === 'video'
-                            ? '입력 영상'
-                            : ref.type === 'audio'
-                              ? '입력 음성'
-                              : '입력 자료'}
-                        </h4>
-                        {ref.type === 'video' && (
-                          <video
-                            controls
-                            preload="metadata"
-                            style={{ maxWidth: '100%' }}
-                            src={mediaUrl(
-                              `${base}/inputs/${run?.id}/${encodeURIComponent(port)}/preview`,
-                            )}
-                          />
-                        )}
-                        <a
-                          target="_blank"
-                          rel="noreferrer"
-                          href={mediaUrl(`${base}/inputs/${run?.id}/${encodeURIComponent(port)}`)}
-                        >
-                          입력 자료 열기
-                        </a>
-                      </section>
-                    ))}
-                    {vocalization && (
-                      <section aria-label="보컬 판정 실행 기록">
-                        <h4>보컬 판정 실행 기록</h4>
-                        <p>
-                          기록된 호출: {vocalization.call_count ?? '확인 중'} · 완료 결과 재사용:{' '}
-                          {vocalization.reused_chunks ?? '확인 중'}
-                        </p>
-                        {vocalization.held && (
-                          <p role="alert">
-                            응답 확인이 필요해 중단했습니다. 자동으로 다시 호출하지 않습니다.
-                          </p>
-                        )}
-                        {vocalization.error && (
-                          <p>{translationLabels[vocalization.error] || vocalization.error}</p>
-                        )}
-                      </section>
-                    )}
-                    {translation && (
-                      <section aria-label={`${traceLabel} 실행 기록`}>
-                        <h4>{traceLabel} 실행 기록</h4>
-                        <p>
-                          사용 모델:{' '}
-                          {translation.selected?.remote_model ||
-                            translation.model?.model_id ||
-                            '확인 기록 없음'}
-                        </p>
-                        <details>
-                          <summary>모델 호출 상세</summary>
-                          <ol>
-                            {(translation.attempts || []).map((attempt) => (
-                              <li key={attempt.index}>
-                                {attempt.remote_model} · {attempt.protocol} · 모델 개정{' '}
-                                {attempt.revision} / 연결 개정 {attempt.connection_revision} ·{' '}
-                                {translationLabels[attempt.status] || attempt.status}
-                                {attempt.error
-                                  ? ` · ${translationLabels[attempt.error] || attempt.error}`
-                                  : ''}
-                                {attempt.transition
-                                  ? ` · ${translationLabels[attempt.transition] || attempt.transition}`
-                                  : ''}
-                              </li>
-                            ))}
-                          </ol>
-                        </details>
-                      </section>
-                    )}
-                    {run?.error_code && (
-                      <p role="alert">{run.error_code} · 자동 재실행하지 않습니다.</p>
-                    )}
-                    {run?.result?.reused_from && (
-                      <p>
-                        이 결과는 <a href={'#/jobs/' + run.result.reused_from.job_id}>원 작업</a>의
-                        완료
-                      </p>
-                    )}
-                    {Object.entries(outputs).map(([port, ref]) => (
-                      <section className="execution-artifact" key={port}>
-                        <h4>
-                          {ref.type === 'video'
-                            ? '결과 영상'
-                            : ref.type === 'audio'
-                              ? '결과 음성'
-                              : '결과 파일'}
-                        </h4>
-                        {ref.type === 'video' &&
-                          run?.result?.previews?.[port]?.status === 'ready' && (
+                    <TaskResultTabs
+                      key={run?.id || selected}
+                      jobId={id}
+                      runId={run?.id}
+                      initialState={run?.status || 'waiting'}
+                    >
+                      {run && !Object.keys(outputs).length && <p>아직 출력 결과가 없습니다.</p>}
+                      {Object.entries(run?.inputs || {}).map(([port, ref]) => (
+                        <section className="execution-artifact" key={port}>
+                          <h4>
+                            {ref.type === 'video'
+                              ? '입력 영상'
+                              : ref.type === 'audio'
+                                ? '입력 음성'
+                                : '입력 자료'}
+                          </h4>
+                          {ref.type === 'video' && (
                             <video
-                              src={url(port) + '/preview'}
                               controls
                               preload="metadata"
                               style={{ maxWidth: '100%' }}
+                              src={mediaUrl(
+                                `${base}/inputs/${run?.id}/${encodeURIComponent(port)}/preview`,
+                              )}
                             />
                           )}
-                        {ref.type === 'video' && (
-                          <FullVideoPreview
-                            resource={`${base}/artifacts/${run?.id}/${encodeURIComponent(port)}/preview/full`}
-                          />
-                        )}
-                        {ref.type === 'audio' && (
-                          <audio src={url(port)} controls preload="metadata" />
-                        )}
-                        {ref.type === 'video' ? (
-                          <>
-                            <a href={url(port) + '?download=true'} download>
-                              작업 결과 원본 받기
-                            </a>
-                            {run?.result?.previews?.[port]?.status === 'ready' ? (
-                              <a href={url(port) + '/preview?download=true'} download>
-                                이전 30초 WebM 받기
-                              </a>
-                            ) : (
-                              <p role="status">
-                                웹 전용 WebM 생성에 실패했습니다. 작업 결과 원본은 보존되어
-                                있습니다.
-                              </p>
+                          <a
+                            target="_blank"
+                            rel="noreferrer"
+                            href={mediaUrl(`${base}/inputs/${run?.id}/${encodeURIComponent(port)}`)}
+                          >
+                            입력 자료 열기
+                          </a>
+                        </section>
+                      ))}
+                      {vocalization && (
+                        <section aria-label="보컬 판정 실행 기록">
+                          <h4>보컬 판정 실행 기록</h4>
+                          <p>
+                            기록된 호출: {vocalization.call_count ?? '확인 중'} · 완료 결과 재사용:{' '}
+                            {vocalization.reused_chunks ?? '확인 중'}
+                          </p>
+                          {vocalization.held && (
+                            <p role="alert">
+                              응답 확인이 필요해 중단했습니다. 자동으로 다시 호출하지 않습니다.
+                            </p>
+                          )}
+                          {vocalization.error && (
+                            <p>{translationLabels[vocalization.error] || vocalization.error}</p>
+                          )}
+                        </section>
+                      )}
+                      {translation && (
+                        <section aria-label={`${traceLabel} 실행 기록`}>
+                          <h4>{traceLabel} 실행 기록</h4>
+                          <p>
+                            사용 모델:{' '}
+                            {translation.selected?.remote_model ||
+                              translation.model?.model_id ||
+                              '확인 기록 없음'}
+                          </p>
+                          <details>
+                            <summary>모델 호출 상세</summary>
+                            <ol>
+                              {(translation.attempts || []).map((attempt) => (
+                                <li key={attempt.index}>
+                                  {attempt.remote_model} · {attempt.protocol} · 모델 개정{' '}
+                                  {attempt.revision} / 연결 개정 {attempt.connection_revision} ·{' '}
+                                  {translationLabels[attempt.status] || attempt.status}
+                                  {attempt.error
+                                    ? ` · ${translationLabels[attempt.error] || attempt.error}`
+                                    : ''}
+                                  {attempt.transition
+                                    ? ` · ${translationLabels[attempt.transition] || attempt.transition}`
+                                    : ''}
+                                </li>
+                              ))}
+                            </ol>
+                          </details>
+                        </section>
+                      )}
+                      {run?.error_code && (
+                        <p role="alert">{run.error_code} · 자동 재실행하지 않습니다.</p>
+                      )}
+                      {run?.result?.reused_from && (
+                        <p>
+                          이 결과는 <a href={'#/jobs/' + run.result.reused_from.job_id}>원 작업</a>
+                          의 완료
+                        </p>
+                      )}
+                      {Object.entries(outputs).map(([port, ref]) => (
+                        <section className="execution-artifact" key={port}>
+                          <h4>
+                            {ref.type === 'video'
+                              ? '결과 영상'
+                              : ref.type === 'audio'
+                                ? '결과 음성'
+                                : '결과 파일'}
+                          </h4>
+                          {ref.type === 'video' &&
+                            run?.result?.previews?.[port]?.status === 'ready' && (
+                              <video
+                                src={url(port) + '/preview'}
+                                controls
+                                preload="metadata"
+                                style={{ maxWidth: '100%' }}
+                              />
                             )}
-                          </>
-                        ) : (
-                          <>
-                            <a href={url(port)} target="_blank" rel="noreferrer">
-                              파일 보기
-                            </a>
-                            <a href={url(port) + '?download=true'} download>
-                              파일 받기
-                            </a>
-                          </>
-                        )}
-                        <details>
-                          <summary>파일 상세</summary>
-                          <p>{ref.bytes.toLocaleString()} bytes</p>
-                        </details>
-                      </section>
-                    ))}
-                    {review?.contract.kind === 'subtitle_tracks_v1' && (
-                      <SubtitleTrackReview
-                        review={review}
-                        canManage={canManage}
-                        assetId={job.snapshot.asset.asset_id}
-                        onChanged={() => {
-                          setPlan(null);
-                          setConsent(null);
-                          void reload();
-                        }}
-                      />
-                    )}
-                    {review && review.contract.kind !== 'subtitle_tracks_v1' && !canManage && (
-                      <section className="execution-review" aria-label="검수 내용 읽기 전용">
-                        <h4>검수 내용 · 읽기 전용</h4>
-                        <pre>{JSON.stringify(review.draft, null, 2)}</pre>
-                      </section>
-                    )}
-                    {review && review.contract.kind !== 'subtitle_tracks_v1' && canManage && (
-                      <section
-                        aria-label="공통 검수"
-                        className={
-                          ['audio_regions_v1', 'audio_regions_long_v5'].includes(
-                            review.contract.kind || '',
-                          )
-                            ? 'audio-region-review'
-                            : undefined
-                        }
-                      >
-                        <h4>
-                          {['audio_regions_v1', 'audio_regions_long_v5'].includes(
-                            review.contract.kind || '',
-                          )
-                            ? '음성 보호·제거 구간 검수'
-                            : '자료 확인'}
-                        </h4>
-                        {['audio_regions_v1', 'audio_regions_long_v5'].includes(
-                          review.contract.kind || '',
-                        ) && (
-                          <>
-                            <audio
-                              controls
-                              preload="none"
-                              src={mediaUrl('/renewal/reviews/' + review.id + '/source')}
+                          {ref.type === 'video' && (
+                            <FullVideoPreview
+                              resource={`${base}/artifacts/${run?.id}/${encodeURIComponent(port)}/preview/full`}
                             />
-                            <p>
-                              원본 오디오의 초 단위 구간입니다. 보호 구간은 적용 시 앞뒤 0.3초를 더
-                              보호하며, 겹친 제거 제안은 전체 취소합니다.
-                            </p>
-                            <p>
-                              후속 음성 필터가 off면 보호·제거 결정은 적용하지 않습니다. NVIDIA
-                              VAD를 선택하면 마지막에 VAD 유지 구간과 겹치는 부분만 남습니다.
-                            </p>
-                            <p>
-                              직접 지정한 결정입니다. 자동 보컬 탐지·확인 결과가 아닙니다.
-                              저장·확정만으로 실행하지 않습니다.
-                            </p>
-                            <p>
-                              원본 길이 {review.contract.audio?.duration_seconds.toFixed(3)}초 · 각
-                              목록 최대 1,024개
-                            </p>
-                          </>
-                        )}
-                        <DataForm
-                          schema={reviewFields!}
-                          value={drafts[review.id] ?? review.draft}
-                          disabled={busy || review.status === 'confirmed'}
-                          onChange={(value) => {
-                            if (value && typeof value === 'object' && !Array.isArray(value)) {
-                              setDrafts((previous) => ({ ...previous, [review.id]: value }));
-                            }
+                          )}
+                          {ref.type === 'audio' && (
+                            <audio src={url(port)} controls preload="metadata" />
+                          )}
+                          {ref.type === 'video' ? (
+                            <>
+                              <a href={url(port) + '?download=true'} download>
+                                작업 결과 원본 받기
+                              </a>
+                              {run?.result?.previews?.[port]?.status === 'ready' ? (
+                                <a href={url(port) + '/preview?download=true'} download>
+                                  이전 30초 WebM 받기
+                                </a>
+                              ) : (
+                                <p role="status">
+                                  웹 전용 WebM 생성에 실패했습니다. 작업 결과 원본은 보존되어
+                                  있습니다.
+                                </p>
+                              )}
+                            </>
+                          ) : (
+                            <>
+                              <a href={url(port)} target="_blank" rel="noreferrer">
+                                파일 보기
+                              </a>
+                              <a href={url(port) + '?download=true'} download>
+                                파일 받기
+                              </a>
+                            </>
+                          )}
+                          <details>
+                            <summary>파일 상세</summary>
+                            <p>{ref.bytes.toLocaleString()} bytes</p>
+                          </details>
+                        </section>
+                      ))}
+                      {review?.contract.kind === 'subtitle_tracks_v1' && (
+                        <SubtitleTrackReview
+                          review={review}
+                          canManage={canManage}
+                          assetId={job.snapshot.asset.asset_id}
+                          onChanged={() => {
+                            setPlan(null);
+                            setConsent(null);
+                            void reload();
                           }}
                         />
-                        <Button
-                          variant="secondary"
-                          disabled={busy || review.status === 'confirmed'}
-                          onClick={() =>
-                            void action(async () => {
-                              await jsonPost('/renewal/reviews/' + review.id + '/save', {
-                                revision: review.revision,
-                                draft: drafts[review.id] ?? review.draft,
-                              });
-                              setDrafts((previous) => {
-                                const next = { ...previous };
-                                delete next[review.id];
-                                return next;
-                              });
-                              setPlan(null);
-                              setConsent(null);
-                            })
+                      )}
+                      {review && review.contract.kind !== 'subtitle_tracks_v1' && !canManage && (
+                        <section className="execution-review" aria-label="검수 내용 읽기 전용">
+                          <h4>검수 내용 · 읽기 전용</h4>
+                          <pre>{JSON.stringify(review.draft, null, 2)}</pre>
+                        </section>
+                      )}
+                      {review && review.contract.kind !== 'subtitle_tracks_v1' && canManage && (
+                        <section
+                          aria-label="공통 검수"
+                          className={
+                            ['audio_regions_v1', 'audio_regions_long_v5'].includes(
+                              review.contract.kind || '',
+                            )
+                              ? 'audio-region-review'
+                              : undefined
                           }
                         >
-                          검수 저장
-                        </Button>
-                        <Button
-                          disabled={busy || review.status === 'confirmed' || review.id in drafts}
-                          onClick={() =>
-                            void action(async () => {
-                              await jsonPost('/renewal/reviews/' + review.id + '/confirm', {
-                                revision: review.revision,
-                              });
-                              setPlan(null);
-                              setConsent(null);
-                            })
-                          }
-                        >
-                          검수 확정
-                        </Button>
-                        <p>확정은 실행이 아닙니다. 새 계획 확인 뒤 별도로 이어 실행합니다.</p>
-                      </section>
-                    )}
+                          <h4>
+                            {['audio_regions_v1', 'audio_regions_long_v5'].includes(
+                              review.contract.kind || '',
+                            )
+                              ? '음성 보호·제거 구간 검수'
+                              : '자료 확인'}
+                          </h4>
+                          {['audio_regions_v1', 'audio_regions_long_v5'].includes(
+                            review.contract.kind || '',
+                          ) && (
+                            <>
+                              <audio
+                                controls
+                                preload="none"
+                                src={mediaUrl('/renewal/reviews/' + review.id + '/source')}
+                              />
+                              <p>
+                                원본 오디오의 초 단위 구간입니다. 보호 구간은 적용 시 앞뒤 0.3초를
+                                더 보호하며, 겹친 제거 제안은 전체 취소합니다.
+                              </p>
+                              <p>
+                                후속 음성 필터가 off면 보호·제거 결정은 적용하지 않습니다. NVIDIA
+                                VAD를 선택하면 마지막에 VAD 유지 구간과 겹치는 부분만 남습니다.
+                              </p>
+                              <p>
+                                직접 지정한 결정입니다. 자동 보컬 탐지·확인 결과가 아닙니다.
+                                저장·확정만으로 실행하지 않습니다.
+                              </p>
+                              <p>
+                                원본 길이 {review.contract.audio?.duration_seconds.toFixed(3)}초 ·
+                                각 목록 최대 1,024개
+                              </p>
+                            </>
+                          )}
+                          <DataForm
+                            schema={reviewFields!}
+                            value={drafts[review.id] ?? review.draft}
+                            disabled={busy || review.status === 'confirmed'}
+                            onChange={(value) => {
+                              if (value && typeof value === 'object' && !Array.isArray(value)) {
+                                setDrafts((previous) => ({ ...previous, [review.id]: value }));
+                              }
+                            }}
+                          />
+                          <Button
+                            variant="secondary"
+                            disabled={busy || review.status === 'confirmed'}
+                            onClick={() =>
+                              void action(async () => {
+                                await jsonPost('/renewal/reviews/' + review.id + '/save', {
+                                  revision: review.revision,
+                                  draft: drafts[review.id] ?? review.draft,
+                                });
+                                setDrafts((previous) => {
+                                  const next = { ...previous };
+                                  delete next[review.id];
+                                  return next;
+                                });
+                                setPlan(null);
+                                setConsent(null);
+                              })
+                            }
+                          >
+                            검수 저장
+                          </Button>
+                          <Button
+                            disabled={busy || review.status === 'confirmed' || review.id in drafts}
+                            onClick={() =>
+                              void action(async () => {
+                                await jsonPost('/renewal/reviews/' + review.id + '/confirm', {
+                                  revision: review.revision,
+                                });
+                                setPlan(null);
+                                setConsent(null);
+                              })
+                            }
+                          >
+                            검수 확정
+                          </Button>
+                          <p>확정은 실행이 아닙니다. 새 계획 확인 뒤 별도로 이어 실행합니다.</p>
+                        </section>
+                      )}
+                    </TaskResultTabs>
                   </section>
                 ) : (
-                  <p>노드를 선택하면 적용 설정과 실제 산출물을 확인할 수 있습니다.</p>
+                  <p>태스크를 선택하면 출력과 로그를 확인할 수 있습니다.</p>
                 )
               }
             />

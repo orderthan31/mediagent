@@ -116,7 +116,7 @@ class Intake:
 
     def _shared_asset(self, db, identity):
         rows = db.execute(
-            "SELECT * FROM assets WHERE id=%s LIMIT 2", (resource_id(identity),)
+            "SELECT * FROM assets WHERE id=%s AND library_removed_at IS NULL LIMIT 2", (resource_id(identity),)
         ).fetchall()
         if not rows:
             raise Missing("원본을 찾을 수 없습니다.")
@@ -145,7 +145,7 @@ class Intake:
     def assets(self, owner):
         with self.database.connection() as db:
             rows = db.execute(
-                "SELECT * FROM assets ORDER BY created_at DESC,id,owner_id"
+                "SELECT * FROM assets WHERE library_removed_at IS NULL ORDER BY created_at DESC,id,owner_id"
             ).fetchall()
             if len({r["id"] for r in rows}) != len(rows):
                 raise Conflict("원본 식별자가 중복되어 공용 조회할 수 없습니다.")
@@ -524,7 +524,7 @@ class Intake:
     def _definition(self, db, owner, identity, revision=None):
         identity = resource_id(identity)
         row = db.execute(
-            "SELECT wr.* FROM workflows w JOIN workflow_revisions wr ON wr.owner_id=w.owner_id AND wr.workflow_id=w.id AND wr.revision=COALESCE(%s,w.revision) WHERE w.owner_id=%s AND w.id=%s",
+            "SELECT wr.* FROM workflows w JOIN workflow_revisions wr ON wr.owner_id=w.owner_id AND wr.workflow_id=w.id AND wr.revision=COALESCE(%s,w.revision) WHERE w.owner_id=%s AND w.id=%s AND w.library_removed_at IS NULL",
             (revision, owner, identity),
         ).fetchone()
         if not row:
@@ -540,7 +540,7 @@ class Intake:
     def definitions(self, owner):
         with self.database.connection() as db:
             rows = db.execute(
-                "SELECT wr.* FROM workflows w JOIN workflow_revisions wr ON wr.owner_id=w.owner_id AND wr.workflow_id=w.id AND wr.revision=w.revision WHERE w.owner_id=%s ORDER BY wr.name,w.id",
+                "SELECT wr.* FROM workflows w JOIN workflow_revisions wr ON wr.owner_id=w.owner_id AND wr.workflow_id=w.id AND wr.revision=w.revision WHERE w.owner_id=%s AND w.library_removed_at IS NULL ORDER BY wr.name,w.id",
                 (owner,),
             ).fetchall()
             return [
@@ -556,7 +556,7 @@ class Intake:
     def _job_definition(self, db, owner, identity, revision=None):
         resource_id(identity)
         rows = db.execute(
-            "SELECT wr.* FROM workflows w JOIN workflow_revisions wr ON wr.owner_id=w.owner_id AND wr.workflow_id=w.id AND wr.revision=COALESCE(%s,w.revision) JOIN accounts a ON a.id=w.owner_id WHERE w.id=%s AND a.active AND (w.owner_id=%s OR a.role='admin') ORDER BY (w.owner_id=%s) DESC,w.owner_id",
+            "SELECT wr.* FROM workflows w JOIN workflow_revisions wr ON wr.owner_id=w.owner_id AND wr.workflow_id=w.id AND wr.revision=COALESCE(%s,w.revision) JOIN accounts a ON a.id=w.owner_id WHERE w.id=%s AND w.library_removed_at IS NULL AND a.active AND (w.owner_id=%s OR a.role='admin') ORDER BY (w.owner_id=%s) DESC,w.owner_id",
             (revision, identity, owner, owner),
         ).fetchall()
         if not rows:
@@ -577,7 +577,7 @@ class Intake:
             return [
                 {"id": r["id"], "name": r["name"], "revision": r["revision"]}
                 for r in db.execute(
-                    "SELECT w.id,wr.name,w.revision FROM workflows w JOIN workflow_revisions wr ON wr.owner_id=w.owner_id AND wr.workflow_id=w.id AND wr.revision=w.revision JOIN accounts a ON a.id=w.owner_id WHERE a.active AND (w.owner_id=%s OR a.role='admin') ORDER BY wr.name,w.id",
+                    "SELECT w.id,wr.name,w.revision FROM workflows w JOIN workflow_revisions wr ON wr.owner_id=w.owner_id AND wr.workflow_id=w.id AND wr.revision=w.revision JOIN accounts a ON a.id=w.owner_id WHERE w.library_removed_at IS NULL AND a.active AND (w.owner_id=%s OR a.role='admin') ORDER BY wr.name,w.id",
                     (owner,),
                 )
             ]
@@ -643,9 +643,11 @@ class Intake:
                 (owner, identity),
             )
             row = db.execute(
-                "SELECT revision FROM workflows WHERE owner_id=%s AND id=%s FOR UPDATE",
+                "SELECT revision,library_removed_at FROM workflows WHERE owner_id=%s AND id=%s FOR UPDATE",
                 (owner, identity),
             ).fetchone()
+            if row["library_removed_at"] is not None:
+                raise Missing("삭제된 워크플로우입니다.")
             if row["revision"] != payload["revision"]:
                 raise Conflict(
                     "워크플로우가 변경됐습니다. 편집을 보존하고 다시 확인하세요."

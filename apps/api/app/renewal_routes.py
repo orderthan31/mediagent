@@ -509,6 +509,11 @@ def mount_runtime(
     def execution(identity: str, owned=owner_dependency):
         return runtime.shared_get(owned, identity)
 
+    @app.get("/api/renewal/jobs/{identity}/runs/{run_id}/logs")
+    def task_logs(identity: str, run_id: str, owned=owner_dependency):
+        from video_service.postgres.task_logs import TaskLogs
+        return TaskLogs(runtime).get(owned, identity, run_id)
+
     def model_roles():
         if (
             not local_execution

@@ -49,7 +49,9 @@ class Sources:
             db.execute('INSERT INTO assets(owner_id,id,filename,storage_key,bytes,sha256,metadata) VALUES (%s,%s,%s,%s,%s,%s,%s) ON CONFLICT(owner_id,id) DO NOTHING',
                        (owner, identity, declaration['filename'], declaration['storage_key'], declaration['bytes'],
                         declaration['sha256'], Jsonb(declaration['metadata'])))
-            row = db.execute('SELECT * FROM assets WHERE owner_id=%s AND id=%s', (owner, identity)).fetchone()
+            row = db.execute('SELECT * FROM assets WHERE owner_id=%s AND id=%s AND library_removed_at IS NULL', (owner, identity)).fetchone()
+            if not row:
+                raise Missing('삭제된 원본입니다.')
             if any(row[key] != value for key, value in declaration.items()):
                 raise Conflict('같은 원본 ID에 다른 메타데이터를 저장할 수 없습니다.')
             result = public_source(row)
@@ -58,7 +60,7 @@ class Sources:
     def get(self, owner, identity):
         resource_id(identity)
         with self.database.connection() as db:
-            row = db.execute('SELECT * FROM assets WHERE owner_id=%s AND id=%s', (owner, identity)).fetchone()
+            row = db.execute('SELECT * FROM assets WHERE owner_id=%s AND id=%s AND library_removed_at IS NULL', (owner, identity)).fetchone()
             if not row:
                 raise Missing('원본 정보를 찾을 수 없습니다.')
             return public_source(row)
@@ -69,8 +71,8 @@ class Sources:
         with self.database.connection() as db:
             # Count and rows share one snapshot, even when new declarations arrive.
             db.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
-            total = db.execute('SELECT count(*) AS n FROM assets WHERE owner_id=%s', (owner,)).fetchone()['n']
-            rows = db.execute('SELECT * FROM assets WHERE owner_id=%s ORDER BY created_at DESC,id DESC LIMIT %s OFFSET %s',
+            total = db.execute('SELECT count(*) AS n FROM assets WHERE owner_id=%s AND library_removed_at IS NULL', (owner,)).fetchone()['n']
+            rows = db.execute('SELECT * FROM assets WHERE owner_id=%s AND library_removed_at IS NULL ORDER BY created_at DESC,id DESC LIMIT %s OFFSET %s',
                               (owner, page_size, (page - 1) * page_size)).fetchall()
             return {'sources': [public_source(row) for row in rows], 'total': total,
                     'page': page, 'page_size': page_size, 'content_verified': False}
