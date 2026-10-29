@@ -115,7 +115,15 @@ class OpenAITextAdapter:
                             'upstream_failure' if response.status_code >= 500 else
                             'authentication_failed' if response.status_code in (401, 403) else
                             'request_rejected')
-                    raise EndpointFailure('모델 서버 요청 실패 · 자동 재시도하지 않습니다.', code=code)
+                    from .task_console import redact
+                    raw=bytearray()
+                    for part in response.iter_bytes():
+                        raw.extend(part[:max(0,4096-len(raw))])
+                        if len(raw)>=4096:break
+                    failure=EndpointFailure('모델 서버 요청 실패 · 자동 재시도하지 않습니다.',code=code)
+                    failure.http_status=response.status_code
+                    failure.upstream_detail=redact(raw.decode('utf8',errors='replace'),(self._key,))
+                    raise failure
                 body = bytearray()
                 for chunk in response.iter_bytes():
                     body.extend(chunk)
@@ -138,8 +146,11 @@ class OpenAITextAdapter:
             return value
         except EndpointFailure:
             raise
-        except httpx.HTTPError:
-            raise EndpointFailure('모델 서버 통신 결과 불명 · 자동 재시도하지 않습니다.', code='outcome_unknown') from None
+        except httpx.HTTPError as error:
+            from .task_console import redact
+            failure=EndpointFailure('모델 서버 통신 결과 불명 · 자동 재시도하지 않습니다.',code='outcome_unknown')
+            failure.upstream_detail=redact(type(error).__name__+': '+str(error),(self._key,))
+            raise failure from None
         except (ValueError, TypeError, RecursionError, UnicodeError):
             raise EndpointFailure('모델 서버 통신 또는 응답 형식 오류 · 자동 재시도하지 않습니다.') from None
 

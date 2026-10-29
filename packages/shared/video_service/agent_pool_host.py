@@ -41,6 +41,18 @@ class PoolHost:
   mount={'Type':'bind','Source':self.config['engine_status_root'].rstrip('/')+'/'+item['id'],'Target':'/run/pool-status','ReadOnly':False}
   body['HostConfig'].setdefault('Mounts',[]).append(mount)
   return body
+ def archive_console(self,item):
+  from .task_console import read_console
+  folder=self.root/item['id']/'console';destination=self.root/'console'
+  if not folder.exists():return
+  destination.mkdir(exist_ok=True)
+  for path in folder.glob('*.jsonl'):
+   if path.is_symlink():continue
+   try:records=read_console(path.stem,root=folder)
+   except ValueError:continue
+   if not records['lines']:continue
+   raw=''.join(json.dumps({'task_id':path.stem,**line},ensure_ascii=False)+'\n'for line in records['lines'])
+   temp=destination/(path.stem+'.tmp');temp.write_text(raw);temp.replace(destination/(path.stem+'.jsonl'))
  def observe(self,item):
   try:actual=self.inspect(item)
   except Exception:
@@ -49,6 +61,7 @@ class PoolHost:
   if not item['container_id']:
    with self.database.connection()as db:db.execute("UPDATE agent_pool_instances SET container_id=%s,phase='starting'WHERE id=%s AND container_id IS NULL",(actual['Id'],item['id']))
    item={**item,'container_id':actual['Id'],'phase':'starting'}
+  self.archive_console(item)
   if not actual['State']['Running']:
    if item['phase']=='stopping':
     report=json.loads((self.root/item['id']/'status.json').read_text())

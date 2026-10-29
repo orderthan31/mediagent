@@ -24,4 +24,12 @@ class TaskLogTest(unittest.TestCase):
   run={'id':'c'*32,'node_id':'encode','node_type':'encode','status':'failed','started_at':None,'completed_at':None,'error_code':'Bearer DO-NOT-ECHO'}
   self.assertNotIn('DO-NOT-ECHO',str(project_logs(run,None,[])))
 
+
+ def test_definite_rejection_is_failed_without_changing_raw_run(self):
+  from video_service.postgres.task_logs import project_logs
+  run={'id':'d'*32,'node_id':'transcribe','node_type':'transcribe','status':'running','started_at':None,'completed_at':None,'error_code':None}
+  role={'phase':'held','held_reason':'model_reply_unknown'}
+  value=project_logs(run,role,[{'chunk_index':0,'status':'failed','error_code':'authentication_failed','created_at':None}])
+  self.assertEqual(value['state'],'failed');self.assertEqual(run['status'],'running')
+
 if __name__=='__main__':unittest.main()

@@ -41,7 +41,7 @@ def project_logs(run, role, calls):
                 label+': '+ERRORS.get(call.get('error_code'), '모델 처리 오류가 기록됐습니다.'))
     state = run['status']
     if role and role['phase'] in {'held', 'unknown'}:
-        state = 'held'
+        state = 'failed' if calls and any(c['status']=='failed' for c in calls) and not any(c['status']in {'unknown','started'} for c in calls) else 'held'
         add(role.get('received_at'), 'warning', ERRORS.get(role.get('held_reason'), '응답이나 처리 결과를 확인할 수 없어 보류했습니다.'))
     elif role and role['phase']=='cancelled':
         state='cancelled'
@@ -82,4 +82,25 @@ class TaskLogs:
                 if role:
                     total=db.execute('SELECT count(*) n FROM model_role_tool_calls WHERE task_id=%s',(role['task_id'],)).fetchone()['n']
                     calls=db.execute('SELECT chunk_index,status,error_code,created_at FROM model_role_tool_calls WHERE task_id=%s ORDER BY chunk_index DESC LIMIT 200',(role['task_id'],)).fetchall()[::-1]
-        return {**project_logs(run,role,calls),'shown_calls':len(calls),'total_calls':total,'has_more':total>len(calls)}
+        from ..task_console import read_console
+        return {**project_logs(run,role,calls),'console':read_console(run_id),'shown_calls':len(calls),'total_calls':total,'has_more':total>len(calls)}
+
+
+def decorate_status_in(db,job,runs):
+    result=[dict(r) for r in runs]
+    if db.execute("SELECT to_regclass('model_role_tasks') value").fetchone()['value']:
+        roles=db.execute('SELECT task_id,attempt_id,phase,held_reason FROM model_role_tasks WHERE owner_id=%s AND job_id=%s',(job['owner_id'],job['id'])).fetchall()
+        for role in roles:
+            run=next((r for r in result if r['id']==role['attempt_id']),None)
+            if run is None:continue
+            calls=db.execute('SELECT chunk_index,status,error_code,created_at FROM model_role_tool_calls WHERE task_id=%s ORDER BY chunk_index',(role['task_id'],)).fetchall()
+            projected=project_logs(run,role,calls)
+            if projected['state']!=run['status']:run['display_status']=projected['state']
+            reason=next((c['error_code']for c in calls if c.get('error_code')in ERRORS),role.get('held_reason'))
+            if projected['state']in {'held','failed'}:run['display_reason']=ERRORS.get(reason,'처리 오류로 멈췄습니다.')
+    active=[r for r in result if r.get('generation')==job['generation']]
+    state=job['status']
+    if state in {'running','waiting'}:
+        if any(r.get('display_status')=='held'for r in active):state='held'
+        elif any(r.get('display_status',r['status'])=='failed'for r in active):state='failed'
+    return result,state

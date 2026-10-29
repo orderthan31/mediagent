@@ -966,6 +966,15 @@ export const WorkflowCanvas = ({
               key={box.id}
               className={`workflow-graph-node ${selected === box.id ? 'is-selected' : ''}`}
               data-node-id={box.id}
+              onClick={(event) => {
+                if (
+                  !onChange &&
+                  !suppressTap.current &&
+                  !(event.target as Element).closest('button, a, input, select')
+                ) {
+                  select(box.id);
+                }
+              }}
               data-node-kind={box.id === '$input' ? 'input' : nodeKind(box.type)}
               data-state={nodeStates[box.id]?.state}
               style={{ left: box.x, top: box.y, width }}

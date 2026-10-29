@@ -104,6 +104,8 @@ def process(arguments, *, cwd=None, timeout=60, diagnostics=False):
             if k in ("PATH", "LANG", "HOME", "TMPDIR", "FONTCONFIG_PATH")
         },
     )
+    if result.stderr:
+        sys.stderr.write(result.stderr[:1024*1024].decode('utf8',errors='replace'))
     raw = result.stderr if diagnostics else result.stdout
     if result.returncode or len(raw) > 1024 * 1024:
         raise ValueError("CPU media processing failed")
@@ -137,13 +139,23 @@ def process_bounded(
         cwd=cwd,
         stdin=subprocess.DEVNULL,
         stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
         env={
             k: v
             for k, v in os.environ.items()
             if k in ("PATH", "LANG", "HOME", "TMPDIR", "FONTCONFIG_PATH")
         },
     )
+    import threading
+    diagnostic=[]
+    def drain():
+        used=0
+        while True:
+            value=child.stderr.read(8192)
+            if not value:break
+            if used<1024*1024:diagnostic.append(value[:1024*1024-used])
+            used+=len(value)
+    reader=threading.Thread(target=drain,daemon=True);reader.start()
     deadline = time.monotonic() + timeout
     try:
         while child.poll() is None:
@@ -166,6 +178,8 @@ def process_bounded(
             except subprocess.TimeoutExpired:
                 child.kill()
                 child.wait(timeout=10)
+        reader.join(timeout=2)
+        if diagnostic:sys.stderr.write(b''.join(diagnostic).decode('utf8',errors='replace'))
 
 
 def probe(path):

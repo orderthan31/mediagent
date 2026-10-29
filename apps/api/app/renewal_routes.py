@@ -102,6 +102,7 @@ class Recovery(Body):
 
 def ledger(job):
     statuses = {
+        "held": "HELD",
         "draft": "READY",
         "waiting": "QUEUED",
         "running": "ANALYZING",
@@ -115,7 +116,7 @@ def ledger(job):
     return {
         "job_id": job["id"],
         "ticket_number": str(job["ticket_number"]),
-        "status": "PROCESSING_REVIEW"
+        "status": statuses[job['display_status']] if job.get('display_status') in {'held','failed'} else "PROCESSING_REVIEW"
         if job.get("processing_review")
         else statuses[job["status"]],
         "original_filename": snapshot["asset"]["original_filename"],

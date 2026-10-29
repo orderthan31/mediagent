@@ -47,6 +47,8 @@ type Run = {
   id: string;
   node_id: string;
   node_type: string;
+  display_status?: string;
+  display_reason?: string;
   status: string;
   dispatch?: { phase: string };
   options: Record<string, string>;
@@ -93,6 +95,7 @@ type State = {
   revision: number;
   status: string;
   execution_state?: string | null;
+  display_status?: string;
   parent_id: string | null;
   snapshot: {
     asset: { asset_id: string; original_filename: string; uploaded_by?: string };
@@ -122,6 +125,7 @@ const translationLabels: Record<string, string> = {
   request_rejected: '요청 거부',
 };
 const labels: Record<string, string> = {
+  held: '보류 · 응답 확인 필요',
   draft: '실행 전',
   waiting: '실행 대기',
   running: '처리 중',
@@ -251,7 +255,10 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
               {job.snapshot.asset.original_filename}
             </a>
             <strong role="status">
-              {processingLabel(job.processing_review) ||
+              {(job.display_status && job.display_status !== job.status
+                ? labels[job.display_status]
+                : null) ||
+                processingLabel(job.processing_review) ||
                 (job.execution_state === 'preparing'
                   ? '준비 중'
                   : labels[job.status] || job.status)}
@@ -355,13 +362,13 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
                   item.node_id,
                   {
                     label:
-                      job.processing_review?.source_attempt_id === item.id
+                      !item.display_status && job.processing_review?.source_attempt_id === item.id
                         ? '원 실행 기록 보존'
-                        : labels[item.status] || item.status,
+                        : labels[item.display_status || item.status] || item.status,
                     state:
-                      job.processing_review?.source_attempt_id === item.id
+                      !item.display_status && job.processing_review?.source_attempt_id === item.id
                         ? 'review_required'
-                        : item.status,
+                        : item.display_status || item.status,
                   },
                 ]),
               )}
@@ -378,8 +385,9 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
                       key={run?.id || selected}
                       jobId={id}
                       runId={run?.id}
-                      initialState={run?.status || 'waiting'}
+                      initialState={run?.display_status || run?.status || 'waiting'}
                     >
+                      {run?.display_reason && <p role="alert">{run.display_reason}</p>}
                       {run && !Object.keys(outputs).length && <p>아직 출력 결과가 없습니다.</p>}
                       {Object.entries(run?.inputs || {}).map(([port, ref]) => (
                         <section className="execution-artifact" key={port}>

@@ -100,6 +100,18 @@ class ObjectAgentExecutor:
         }
 
     def __call__(self, owner, command):
+        from .task_console import capture_console
+        from pathlib import Path
+        import traceback
+        path=self.environ.get('MIDEAGENT_INSTANCE_STATUS_FILE')
+        root=Path(path).parent/'console' if path else None
+        with capture_console(command['run_id'],root=root):
+            try:return self._execute(owner,command)
+            except Exception:
+                traceback.print_exc()
+                raise
+
+    def _execute(self, owner, command):
         completed = subprocess.run(
             [
                 sys.executable,
@@ -118,6 +130,8 @@ class ObjectAgentExecutor:
             env=self.env,
             check=False,
         )
+        if completed.stderr:
+            sys.stderr.write(completed.stderr[:1024*1024].decode('utf8',errors='replace'))
         if len(completed.stdout) > 65536:
             raise ObjectStoreError("Agent response size exceeded")
         result = json.loads(completed.stdout)

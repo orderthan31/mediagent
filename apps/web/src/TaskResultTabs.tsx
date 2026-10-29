@@ -10,6 +10,11 @@ type TaskLog = {
   shown_calls: number;
   total_calls: number;
   entries: { at: string | null; level: string; message: string }[];
+  console: {
+    available: boolean;
+    truncated: boolean;
+    lines: { at: string; stream: string; text: string }[];
+  };
 };
 const states: Record<string, string> = {
   completed: '완료',
@@ -147,26 +152,17 @@ export const TaskResultTabs = ({
           <p>처리 기록을 불러오는 중입니다.</p>
         ) : (
           <>
-            {logs?.has_more && (
-              <p>
-                전체 {logs.total_calls}개 요청 중 최근 {logs.shown_calls}개 기록입니다.
-              </p>
-            )}
-            {logs?.entries.length ? (
-              <ol className="task-log-list">
-                {logs.entries.map((entry, index) => (
-                  <li key={index} data-level={entry.level}>
-                    {entry.at ? (
-                      <time dateTime={entry.at}>{new Date(entry.at).toLocaleString('ko-KR')}</time>
-                    ) : (
-                      <span className="task-log-time">시각 기록 없음</span>
-                    )}
-                    <p>{entry.message}</p>
-                  </li>
+            {logs?.console?.truncated && <p>콘솔 로그 표시 상한에 도달했습니다.</p>}
+            {logs?.console?.lines.length ? (
+              <pre className="task-console-text">
+                {logs.console.lines.map((line, index) => (
+                  <span className="task-console-line" data-stream={line.stream} key={index}>
+                    {`${new Date(line.at).toLocaleString('ko-KR')} [${line.stream}] ${line.text}\n`}
+                  </span>
                 ))}
-              </ol>
+              </pre>
             ) : (
-              !error && <p>아직 기록된 로그가 없습니다.</p>
+              !error && <p>보존된 콘솔 로그가 없습니다.</p>
             )}
           </>
         )}

@@ -68,3 +68,33 @@
     max-height: 55dvh;
   }
 }
+
+.task-console-text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font:
+    12px/1.6 ui-monospace,
+    SFMono-Regular,
+    Consolas,
+    monospace;
+}
+.task-console-line {
+  display: inline;
+}
+.task-console-line[data-stream='stderr'] {
+  color: #b45309;
+}
+
+.workflow-graph-node[data-state='held'] {
+  border-color: #d97706;
+  background: #fffbeb;
+}
+.workflow-graph-node[data-state='failed'] {
+  border-color: #dc2626;
+  background: #fef2f2;
+}
+.status.held {
+  color: #92400e;
+  background: #fef3c7;
+}

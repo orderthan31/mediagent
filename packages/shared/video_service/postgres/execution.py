@@ -270,7 +270,10 @@ class Execution(Intake):
 
         processing_review = JobProcessingReview(self).capture_in(db, job)
         runs = DispatchQueue.decorate_in(db, self._runs(db, owner, identity))
+        from .task_logs import decorate_status_in
+        runs,display_status=decorate_status_in(db,job,runs)
         return {
+            "display_status":display_status,
             **public(job),
             "processing_review": processing_review,
             "output_mode": self._output_mode(job),
@@ -316,6 +319,7 @@ class Execution(Intake):
             "workflow_revision",
             "status",
             "execution_state",
+            "display_status",
             "revision",
             "generation",
             "snapshot_sha256",
@@ -358,6 +362,8 @@ class Execution(Intake):
             "node_id",
             "node_type",
             "status",
+            "display_status",
+            "display_reason",
             "options",
             "inputs",
             "error_code",
@@ -410,7 +416,7 @@ class Execution(Intake):
     def shared_jobs(self, actor):
         with self.database.connection() as db:
             rows = db.execute(
-                "SELECT * FROM jobs ORDER BY created_at DESC,id,owner_id"
+                "SELECT * FROM jobs WHERE library_removed_at IS NULL ORDER BY created_at DESC,id,owner_id"
             ).fetchall()
             if len({r["id"] for r in rows}) != len(rows):
                 raise Conflict("작업 식별자가 중복되어 공용 조회할 수 없습니다.")
@@ -467,7 +473,7 @@ class Execution(Intake):
             ids = [
                 r["id"]
                 for r in db.execute(
-                    "SELECT id FROM jobs WHERE owner_id=%s ORDER BY created_at DESC,id",
+                    "SELECT id FROM jobs WHERE owner_id=%s AND library_removed_at IS NULL ORDER BY created_at DESC,id",
                     (owner,),
                 )
             ]

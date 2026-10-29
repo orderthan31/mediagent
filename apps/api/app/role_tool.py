@@ -6,6 +6,8 @@ import json
 import signal
 import ssl
 import threading
+import sys,traceback,re
+from video_service.task_console import capture_console
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -54,12 +56,23 @@ class ToolServer(ThreadingHTTPServer):
                     if not 0 < size <= 3 * 1024 * 1024:
                         raise ValueError()
                     payload = json.loads(self.rfile.read(size))
-                    if self.path == route + "/storage-lease":
-                        from video_service.role_storage_leases import RoleStorageLeases
-
-                        reply = RoleStorageLeases(bridge.roles, role).grant(payload)
-                    else:
-                        reply = invoke(payload)
+                    identity=payload.get('task_id')
+                    if not isinstance(identity,str) or not re.fullmatch('[a-f0-9]{32}',identity):
+                        raise ValueError('invalid_task_identity')
+                    with capture_console(identity,secrets=(token,)):
+                        try:
+                            if self.path == route + "/storage-lease":
+                                from video_service.role_storage_leases import RoleStorageLeases
+                                reply = RoleStorageLeases(bridge.roles, role).grant(payload)
+                            else:
+                                reply = invoke(payload)
+                        except Exception as error:
+                            status=getattr(error,'http_status',None)
+                            if status is not None:print('HTTP '+str(status),file=sys.stderr)
+                            detail=getattr(error,'upstream_detail',None)
+                            if detail:print(detail,file=sys.stderr)
+                            traceback.print_exc()
+                            raise
                 except Exception:
                     body = b'{"error":"scoped_call_held"}'
                     status = 409
