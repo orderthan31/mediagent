@@ -224,65 +224,66 @@ export const WorkflowCanvas = ({
   };
 
   const boxes = useMemo<Box[]>(
-    () => [
-      {
-        id: '$input',
-        label: inputLabel,
-        type: '',
-        x: 20,
-        y: 24,
-        width,
-        inputs: {},
-        outputs: definition.inputs || {},
-        height:
-          measurements.$input?.height ??
-          Math.max(94, 52 + Object.keys(definition.inputs || {}).length * 20),
-      },
-      ...definition.nodes.map((node, index) => {
-        const spec = resolvePorts(
-          catalog.find((item) => item.id === node.type),
-          node.options,
-        );
-        const inputs =
-          spec?.inputs ||
-          Object.fromEntries(
-            definition.edges
-              .filter((edge) => edge.target.node === node.id)
-              .map((edge) => [edge.target.port, '미확인']),
-          );
-        const outputs =
-          node.type === 'control_switch'
-            ? switchOutputs(node.options)
-            : spec?.outputs ||
-              Object.fromEntries(
-                definition.edges
-                  .filter((edge) => edge.source.node === node.id)
-                  .map((edge) => [edge.source.port, '미확인']),
-              );
-        const position =
-          !onChange && previewPositions && Object.hasOwn(previewPositions, node.id)
-            ? previewPositions[node.id]
-            : node.position;
-        return {
-          id: node.id,
-          label: spec?.label || node.type,
-          review: !!node.options.review_mode && node.options.review_mode !== 'none',
-          type: node.type,
-          x: position?.x ?? 330 + index * 290,
-          y: position?.y ?? 100,
+    () =>
+      [
+        {
+          id: '$input',
+          label: inputLabel,
+          type: '',
+          x: 20,
+          y: 24,
           width,
-          inputs,
-          outputs,
+          inputs: {},
+          outputs: definition.inputs || {},
           height:
-            measurements[node.id]?.height ??
-            Math.max(
-              94,
-              52 + Math.max(Object.keys(inputs).length, Object.keys(outputs).length) * 20,
-            ),
-        };
-      }),
-    ],
-    [definition, catalog, inputLabel, measurements, previewPositions, onChange],
+            measurements.$input?.height ??
+            Math.max(94, 52 + Object.keys(definition.inputs || {}).length * 20),
+        },
+        ...definition.nodes.map((node, index) => {
+          const spec = resolvePorts(
+            catalog.find((item) => item.id === node.type),
+            node.options,
+          );
+          const inputs =
+            spec?.inputs ||
+            Object.fromEntries(
+              definition.edges
+                .filter((edge) => edge.target.node === node.id)
+                .map((edge) => [edge.target.port, '미확인']),
+            );
+          const outputs =
+            node.type === 'control_switch'
+              ? switchOutputs(node.options)
+              : spec?.outputs ||
+                Object.fromEntries(
+                  definition.edges
+                    .filter((edge) => edge.source.node === node.id)
+                    .map((edge) => [edge.source.port, '미확인']),
+                );
+          const position =
+            !onChange && previewPositions && Object.hasOwn(previewPositions, node.id)
+              ? previewPositions[node.id]
+              : node.position;
+          return {
+            id: node.id,
+            label: spec?.label || node.type,
+            review: !!node.options.review_mode && node.options.review_mode !== 'none',
+            type: node.type,
+            x: position?.x ?? 330 + index * 290,
+            y: position?.y ?? 100,
+            width,
+            inputs,
+            outputs,
+            height:
+              measurements[node.id]?.height ??
+              Math.max(
+                94,
+                52 + Math.max(Object.keys(inputs).length, Object.keys(outputs).length) * 20,
+              ),
+          };
+        }),
+      ].filter((box) => !agentOnly || box.id !== '$input'),
+    [definition, catalog, inputLabel, measurements, previewPositions, onChange, agentOnly],
   );
   const readMeasurements = useCallback(() => {
     const measured: Record<string, NodeMetrics> = Object.create(null);

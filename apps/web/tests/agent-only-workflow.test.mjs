@@ -49,6 +49,11 @@ const render = (failed = false) => {
 test('observed coldboot is visible on the connecting edge and target, including reduced motion', () => {
   const html = render();
   assert.match(html, /data-edge-preparation=/);
+  assert.doesNotMatch(
+    html,
+    /data-node-id="\$input"/,
+    'agent-only canvas must not add a decorative input member',
+  );
   assert.match(html, /다음 단계 준비 중/);
   assert.match(html, /data-state="preparing"/);
   assert.equal((html.match(/data-node-kind="agent"/g) || []).length, 3);
