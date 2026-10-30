@@ -503,7 +503,7 @@ def mount_runtime(
                 job["id"],
                 digest({"automatic_roles": body.request_id, "job": job["id"]}),
             )
-        return job
+        return runtime._shared_view(job, owned)
 
     @app.get("/api/jobs")
     def jobs(owned=owner_dependency):

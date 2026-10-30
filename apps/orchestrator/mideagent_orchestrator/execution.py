@@ -313,6 +313,13 @@ class Execution(Intake):
                 "source_definition_sha256",
             }
         }
+        # The client graph is the frozen public agent contract, never its native transport.
+        # Keep exact native tool metadata only for the owning agent's detail panel.
+        agent_definition = (state.get("agent_workflow") or {}).get("definition") or state["snapshot"].get("agent_definition")
+        if agent_definition is not None:
+            from copy import deepcopy
+            value["snapshot"]["tool_definition"] = deepcopy(state["snapshot"]["definition"])
+            value["snapshot"]["definition"] = deepcopy(agent_definition)
         public_source = value["snapshot"].get("asset", {})
         if "original_uploaded_by" in public_source:
             value["snapshot"]["asset"] = {
