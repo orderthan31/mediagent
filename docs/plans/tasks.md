@@ -450,3 +450,27 @@ PM1562998217422147606의 b676 검토에서 기존 engine wire2(3필드 agent)를
 - [x] Product job-detail panel supports reference/policy selection, exact SHA review, preview/reopen, explicit confirmation and separate history/downloads. Real isolated PG/auth/API/CAS PC1440 +390 journey completed one operation and two actual download events; original source rows and model spend stayed identical. Initial controlled ASR setup is NOT a recovery model call or provider-quality evidence. Browser bootstrap initially lacked host port binding on the internal-only fixture network; existing loopback fixture bridge attachment fixed the harness without operating network changes.
 - [x] New immutable recovery evidence cannot be deleted/rewritten. Durable admission commits before CAS writes; final commit uncertainty stays running/held and is never automatically replayed. Wrong context/policy, missing/mismatched accepted result evidence, source-byte tampering, nonowner writes and missing CSRF fail closed. File verification runs off the API event loop and outside the source scheduling lock.
 - [ ] No live023/020/022 migration, consumer/preview/GPU/target/slot/permission/paid activation. Operating rollout, automatic vocal runner, real6h/large independent S3-MQ/large-input/long encode-GPU, full review/multilingual equivalence and mixed consumers remain pending. This is recovered artifact production, NOT automatic continuation/translation/video execution or arbitrary transcript/clock editing.
+
+
+## 에이전트 전용 흐름·실제 소스 계층 — 적용 확인
+
+### 무엇을 만들었나
+- 워크플로우에는 전사 → 한국어 번역 → 자막 영상 제작 에이전트만 연결한다. 에이전트가 자기 툴 순서·호출·결과 검사를 맡고, 오케스트레이터는 에이전트 간 배정·준비를 관리한다.
+- 오케스트레이터는 `apps/orchestrator`, 업무 에이전트는 `agents`, 실제 도구는 `tools/media`, `tools/models`, `tools/gpu` 및 `packages/tool-hub`, 실행기 수명주기는 `runtime/controlnet`, 모델 실행기는 `runtime/model-executor`로 실제 이전했다. 옛 import는 필요한 얇은 호환 경계만 유지한다.
+
+### 어떻게 쓰나
+- 기존 개발계의 저장된 ‘영상 전사·한국어 자막 번인’을 열어 영상·등록 모델·언어를 선택한다. 실행 캔버스에는 에이전트만 나오며, 노드를 열면 내부 툴의 진행·출력·실제 콘솔을 확인한다.
+- 모델 요청 오류는 붉은 에이전트 오류로 표시한다. 불명 원장과 보류는 그대로 남고 자동 재호출하지 않는다.
+
+### 실제 확인
+- 기존 개발계 API·오케스트레이터·연결부·ControlNet·웹을 교체했다. 실행 중인 canonical 모듈 바이트와 커밋 소스, 실제 HTTPS JS/CSS와 설치 이미지 바이트를 비교했다.
+- 기존 활성 정의 세 개를 에이전트 3개·연결선 2개의 새 revision으로 저장하고 읽어 확인했다. 과거 실행 snapshot·작업·run·호출·역할 task 원문은 교체 전후 동일하다.
+- 저장된 편집기의 재열기 화면, 작업 31의 오류와 내부 툴, PC와 390px·줄어든 모션, 완료 툴/대기 에이전트의 로그 탭을 실제 화면에서 확인했다. 브라우저 후속 검사 timeout은 남겼고, 그 전에 저장된 실제 편집기 화면과 HTTPS 근거 파일을 회수·검증했다.
+- 전사·번역 연결부에만 승인된 기존 외부 경로를 유지했고 DNS·인증서 검증 TLS를 확인했다. 해당 진단에서 HTTP 요청은 보내지 않았다.
+- 포장 경로·로컬 설치 의존성·GPU 도구의 미디어 helper import 회귀를 수정했다. GPU는 모델·torch를 로드하지 않는 import 검사만 했다. 독립 재검토에서 새 보안/논리 문제는 발견되지 않았다.
+
+### 남은 검증과 명확한 한계
+- 새 작업·30/31 재실행·모델/provider·유료/GPU 호출은 하지 않았다. 따라서 전사 완주·새 자막 MP4·실제 새 콜드부트 전환의 검증 근거는 아니다.
+- 준비 연결선은 실제 기동/준비/배정 관측을 사용하도록 연결하고 오프라인 회귀로 검사했다. 새로운 실운영 준비→시작 전환 관찰은 실행 승인 범위 밖이다.
+- 과거 HTTPError에 남아 있지 않은 상태 코드·원문·콘솔을 만들지 않았다. 없는 로그는 없다고 표시한다.
+- 전체 웹 회귀의 기존 실패는 남아 있으며, 이번 변경 범위 검사·타입 검사·웹 빌드 성공을 전체 검사 통과로 표현하지 않는다.
