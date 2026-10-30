@@ -20,7 +20,7 @@ class ComposeMountTests(unittest.TestCase):
             ("docker-compose.yml", "compose.windows.yaml"),
             ("infra/compose.yaml",),
             ("docker-compose.yml", "compose.transport.yaml"),
-            ("agents/cpu/compose.amqp.yaml",),
+            ("tools/media/compose.amqp.yaml",),
         ]
         for files in recipes:
             args = ["docker", "compose", "--profile", "*"]

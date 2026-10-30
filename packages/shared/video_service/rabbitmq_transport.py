@@ -18,7 +18,8 @@ from dataclasses import dataclass
 from urllib.parse import urlsplit
 
 from .agent_protocol import COMMAND, MAX_MESSAGE, RESULT
-from .cpu_agents import CPU_AGENTS, canonical, digest
+from video_service.canonical import canonical, digest
+from video_service.agent_protocol import CPU_AGENTS
 from .cpu_input_policy import input_limit
 from .node_contracts import node_spec, validate_node
 

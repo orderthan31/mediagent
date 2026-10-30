@@ -14,7 +14,9 @@ import subprocess
 import sys
 
 from .content_store import ID
-from .cpu_agents import CPU_AGENTS, canonical, digest, run
+from video_service.canonical import canonical, digest
+from video_service.agent_protocol import CPU_AGENTS
+from mideagent_media_tools.operations import run
 from .cpu_input_policy import command_timeout, workspace
 from .object_store import ObjectStoreError, from_config
 

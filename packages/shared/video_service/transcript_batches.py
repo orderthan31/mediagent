@@ -4,7 +4,7 @@ import hashlib
 from copy import deepcopy
 from typing import NamedTuple
 
-from .cpu_agents import canonical
+from video_service.canonical import canonical
 from .transcript_input import parse_segments
 
 MAX_BATCH_TRANSCRIPT_BYTES = 16 * 1024 * 1024

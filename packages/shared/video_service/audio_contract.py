@@ -3,7 +3,7 @@
 import io
 import wave
 
-from .cpu_agents import canonical
+from video_service.canonical import canonical
 from .transcript_input import parse_segments
 
 MAX_AUDIO_BYTES = 2 * 1024 * 1024

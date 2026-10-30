@@ -219,7 +219,7 @@ def validate_command(command):
 
 
 def make_clock(spans, *, source_sha256, audio_sha256, source_frames, packed_frames):
-    from .cpu_agents import canonical, digest
+    from video_service.canonical import canonical, digest
 
     value = {
         "version": 5,
@@ -240,7 +240,7 @@ def read_clock(value, *, audio_sha256):
     import re
 
     from .audio_clock import validate_clock
-    from .cpu_agents import canonical, digest
+    from video_service.canonical import canonical, digest
 
     if (
         not isinstance(value, dict)

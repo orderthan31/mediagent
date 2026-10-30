@@ -4,7 +4,7 @@ import hashlib
 import math
 import re
 
-from .cpu_agents import canonical
+from video_service.canonical import canonical
 from .subtitles import segment_subtitles, segments_to_srt
 from .transcript import TranscriptSegment
 

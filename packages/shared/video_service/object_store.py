@@ -254,7 +254,7 @@ class S3ContentStore(ContentStore):
         return reference
 
     def claim_attempt(self, owner, command):
-        from .cpu_agents import canonical, digest
+        from video_service.canonical import canonical, digest
 
         attempt = command.get("attempt_id")
         if not isinstance(attempt, str) or not ID.fullmatch(attempt):
@@ -292,7 +292,7 @@ class S3ContentStore(ContentStore):
         return result
 
     def finish_attempt(self, owner, command, result):
-        from .cpu_agents import canonical
+        from video_service.canonical import canonical
 
         raw = canonical(result)
         if len(raw) > 65536:

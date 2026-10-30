@@ -84,6 +84,8 @@ export const typeDefaults: Record<
 };
 export const nodeModelRoles: Record<string, string> = {
   transcribe: 'transcription',
+  transcription_agent: 'transcription',
+  translation_agent: 'translation',
   vocalize: 'vocalization',
   translate: 'translation',
   decision: 'decision',

@@ -9,7 +9,7 @@ from copy import deepcopy
 
 from psycopg.types.json import Jsonb
 
-from ..cpu_agents import canonical, digest
+from video_service.canonical import canonical, digest
 from ..packed_projection import project, validate_projection_clock
 from . import Conflict, Missing
 

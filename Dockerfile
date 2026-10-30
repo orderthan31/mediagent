@@ -6,11 +6,17 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg fontconfig fonts-noto-cjk ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# API still invokes upload/preview FFmpeg. No agent package or heavy engine here.
+# API composition includes deterministic business goals, not an LLM framework/inference engine.
 FROM media-base AS api
 COPY packages/shared /app/packages/shared
+COPY packages/tool-hub /app/packages/tool-hub
+COPY agents /app/agents
+COPY tools/media /app/tools/media
+COPY tools/models /app/tools/models
+COPY apps/orchestrator /app/apps/orchestrator
+COPY runtime/controlnet /app/runtime/controlnet
 COPY apps/api /app/apps/api
-RUN pip install --no-cache-dir '/app/packages/shared[postgres,models]' /app/apps/api \
+RUN pip install --no-cache-dir '/app/packages/shared[postgres,models]' /app/packages/tool-hub /app/agents /app/tools/media /app/tools/models /app/apps/orchestrator /app/runtime/controlnet /app/apps/api \
     && useradd --uid 10001 --create-home media \
     && mkdir -p /data/content && chown -R media:media /data
 USER media

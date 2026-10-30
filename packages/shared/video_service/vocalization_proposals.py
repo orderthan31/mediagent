@@ -288,7 +288,7 @@ def analyze_stream(
 ):
     from pathlib import Path
 
-    from .cpu_agents import canonical
+    from video_service.canonical import canonical
     from .long_audio_budget import FRAMES, PCM_BYTES, REGION_BYTES
 
     if (

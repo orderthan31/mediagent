@@ -4,8 +4,8 @@ from .registry import resource_id
 
 ERRORS = {
     'connection_failed': '모델 서버 연결에 실패했습니다. 주소와 통신 경로를 확인하세요.',
-    'outcome_unknown': '모델 응답 여부를 확인하지 못했습니다. 자동으로 다시 요청하지 않습니다.',
-    'model_reply_unknown': '모델 응답 여부를 확인하지 못해 처리를 보류했습니다.',
+    'outcome_unknown': '모델 요청 오류: 응답 여부를 확인하지 못했습니다. 자동으로 다시 요청하지 않습니다.',
+    'model_reply_unknown': '모델 요청 오류: 응답 여부를 확인하지 못해 처리가 멈췄습니다.',
     'authentication_failed': '모델 연결 인증이 거부됐습니다.',
     'request_rejected': '모델이 요청을 거부했습니다.',
     'rate_limited': '모델 요청 한도에 도달했습니다.',
@@ -53,7 +53,14 @@ def project_logs(run, role, calls):
         add(run['completed_at'], 'info', '태스크 결과를 저장했습니다.')
     # A model response timestamp is not stored in every older call row. Leave it absent rather than inventing it.
     entries.sort(key=lambda e: (e['at'] is None, e['at'] or ''))
+    dispatch_phase=(run.get('dispatch')or{}).get('phase')
+    display_state='failed' if state=='held' else state
+    if state not in {'completed','cancelled'} and (dispatch_phase in {'unknown','held','failed'} or any(c['status']=='unknown' for c in calls)):
+        display_state='failed'
+    elif state in {'running','waiting'} and (dispatch_phase in {'pending','sending','sent'} or role and role['phase'] in {'ready','sending'}):
+        display_state='preparing'
     return {'run_id':run['id'], 'node_id':run['node_id'], 'state':state,
+            'display_state':display_state,
             'received_responses':sum(c['status']=='completed' for c in calls), 'entries':entries}
 
 class TaskLogs:
@@ -73,6 +80,8 @@ class TaskLogs:
             run=db.execute('SELECT id,node_id,node_type,status,error_code,started_at,completed_at FROM node_runs WHERE owner_id=%s AND job_id=%s AND id=%s',(owner,identity,run_id)).fetchone()
             if not run:
                 raise Missing('이 작업의 태스크를 찾을 수 없습니다.')
+            from mideagent_orchestrator.dispatch_queue import DispatchQueue
+            run=DispatchQueue.decorate_in(db,[run])[0]
             present=db.execute("SELECT to_regclass('model_role_tasks') value").fetchone()['value']
             role=None; calls=[]; total=0
             if present:
@@ -89,6 +98,10 @@ class TaskLogs:
 
 def decorate_status_in(db,job,runs):
     result=[dict(r) for r in runs]
+    for run in result:
+        if run['status'] not in {'completed','cancelled'} and (run.get('dispatch')or{}).get('phase') in {'unknown','held','failed'}:
+            run['display_status']='failed'
+            run['display_reason']='실행 요청 전달을 확인하지 못했습니다. 자동으로 다시 보내지 않습니다.'
     if db.execute("SELECT to_regclass('model_role_tasks') value").fetchone()['value']:
         roles=db.execute('SELECT task_id,attempt_id,phase,held_reason FROM model_role_tasks WHERE owner_id=%s AND job_id=%s',(job['owner_id'],job['id'])).fetchall()
         for role in roles:
@@ -96,9 +109,9 @@ def decorate_status_in(db,job,runs):
             if run is None:continue
             calls=db.execute('SELECT chunk_index,status,error_code,created_at FROM model_role_tool_calls WHERE task_id=%s ORDER BY chunk_index',(role['task_id'],)).fetchall()
             projected=project_logs(run,role,calls)
-            if projected['state']!=run['status']:run['display_status']=projected['state']
+            if projected['display_state']!=run['status']:run['display_status']=projected['display_state']
             reason=next((c['error_code']for c in calls if c.get('error_code')in ERRORS),role.get('held_reason'))
-            if projected['state']in {'held','failed'}:run['display_reason']=ERRORS.get(reason,'처리 오류로 멈췄습니다.')
+            if projected['display_state']=='failed':run['display_reason']=ERRORS.get(reason,'처리 오류로 멈췄습니다.')
     active=[r for r in result if r.get('generation')==job['generation']]
     state=job['status']
     if state in {'running','waiting'}:

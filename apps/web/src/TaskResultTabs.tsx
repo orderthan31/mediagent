@@ -1,11 +1,13 @@
 import { useEffect, useId, useRef, useState, type ReactNode, type KeyboardEvent } from 'react';
 import { request } from './api';
+import { taskLogForRun } from './task-log-scope.mjs';
 import './task-result-tabs.css';
 
 type TaskLog = {
   run_id: string;
   node_id: string;
   state: string;
+  display_state?: string;
   has_more: boolean;
   shown_calls: number;
   total_calls: number;
@@ -18,6 +20,7 @@ type TaskLog = {
 };
 const states: Record<string, string> = {
   completed: '완료',
+  preparing: '준비 중',
   running: '처리 중',
   held: '보류 · 응답 확인 필요',
   failed: '실패',
@@ -31,17 +34,24 @@ export const TaskResultTabs = ({
   jobId,
   runId,
   initialState,
+  toolbar,
   children,
 }: {
   jobId: string;
   runId?: string;
   initialState: string;
+  toolbar?: ReactNode;
   children: ReactNode;
 }) => {
   const [active, setActive] = useState<'output' | 'logs'>('output');
   const [logs, setLogs] = useState<TaskLog | null>(null);
   const [loading, setLoading] = useState(!!runId);
   const [error, setError] = useState('');
+  const [completedScope, setCompletedScope] = useState<string | null>(null);
+  const currentScope = runId ? jobId + ':' + runId : null;
+  const visibleLogs = taskLogForRun(logs, runId);
+  const pending = Boolean(runId) && (loading || completedScope !== currentScope);
+  const visibleError = completedScope === currentScope ? error : '';
   const sequence = useRef(0);
   const prefix = useId();
   const tabs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -59,7 +69,7 @@ export const TaskResultTabs = ({
     const controller = new AbortController();
     setLogs(null);
     setError('');
-    setActive('output');
+    setCompletedScope(null);
     setLoading(!!runId);
     if (!runId) {
       return () => controller.abort();
@@ -84,6 +94,7 @@ export const TaskResultTabs = ({
       } finally {
         if (!controller.signal.aborted && turn === sequence.current) {
           setLoading(false);
+          setCompletedScope(jobId + ':' + runId);
         }
       }
     };
@@ -98,11 +109,12 @@ export const TaskResultTabs = ({
   return (
     <section className="task-result-tabs">
       <p role="status">
-        {error
+        {visibleError
           ? '상태 확인 필요'
-          : loading && !logs
+          : pending && !visibleLogs
             ? '상태 확인 중'
-            : states[logs?.state || initialState] || '상태 확인 필요'}
+            : states[visibleLogs?.display_state || visibleLogs?.state || initialState] ||
+              '상태 확인 필요'}
       </p>
       <div role="tablist" aria-label="태스크 상세" className="task-result-tablist">
         {(['output', 'logs'] as const).map((tab, index) => (
@@ -124,6 +136,7 @@ export const TaskResultTabs = ({
           </button>
         ))}
       </div>
+      {toolbar}
       <div
         role="tabpanel"
         id={`${prefix}-output-panel`}
@@ -142,27 +155,27 @@ export const TaskResultTabs = ({
         hidden={active !== 'logs'}
         tabIndex={0}
       >
-        {error && (
+        {visibleError && (
           <p role="alert">
-            {error}
-            {logs ? ' 아래는 마지막으로 확인한 기록입니다.' : ''}
+            {visibleError}
+            {visibleLogs ? ' 아래는 마지막으로 확인한 기록입니다.' : ''}
           </p>
         )}
-        {loading && !logs ? (
+        {pending && !visibleLogs ? (
           <p>처리 기록을 불러오는 중입니다.</p>
         ) : (
           <>
-            {logs?.console?.truncated && <p>콘솔 로그 표시 상한에 도달했습니다.</p>}
-            {logs?.console?.lines.length ? (
+            {visibleLogs?.console?.truncated && <p>콘솔 로그 표시 상한에 도달했습니다.</p>}
+            {visibleLogs?.console?.lines.length ? (
               <pre className="task-console-text">
-                {logs.console.lines.map((line, index) => (
+                {visibleLogs.console.lines.map((line, index) => (
                   <span className="task-console-line" data-stream={line.stream} key={index}>
                     {`${new Date(line.at).toLocaleString('ko-KR')} [${line.stream}] ${line.text}\n`}
                   </span>
                 ))}
               </pre>
             ) : (
-              !error && <p>보존된 콘솔 로그가 없습니다.</p>
+              !visibleError && <p>보존된 콘솔 로그가 없습니다.</p>
             )}
           </>
         )}

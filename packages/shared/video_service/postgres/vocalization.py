@@ -6,7 +6,7 @@ from copy import deepcopy
 
 from psycopg.types.json import Jsonb
 
-from ..cpu_agents import canonical, digest
+from video_service.canonical import canonical, digest
 from ..model_endpoints import EndpointFailure
 from ..model_profile import supports_vocalization
 from ..vocalization_endpoints import GeminiVocalizationAdapter

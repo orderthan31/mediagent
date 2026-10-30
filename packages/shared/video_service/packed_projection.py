@@ -4,7 +4,7 @@ import hashlib
 from bisect import bisect_right
 
 from .audio_clock import validate_clock
-from .cpu_agents import canonical
+from video_service.canonical import canonical
 from .transcript_input import parse_segments
 
 MAX_BYTES = 16 * 1024 * 1024

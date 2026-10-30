@@ -1,6 +1,6 @@
 """Deterministic next vocal call from the existing domain protocol and cached answers."""
 
-from .cpu_agents import digest
+from video_service.canonical import digest
 from .vocalization_proposals import analyze
 
 

@@ -5,7 +5,7 @@ from typing import Literal
 from fastapi import Depends, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import Field, StrictBool, StrictInt
-from video_service.cpu_agents import digest
+from video_service.canonical import digest
 from video_service.original_upload_policy import MAX_ORIGINAL_UPLOAD
 from video_service.postgres import Conflict
 from video_service.renewal_contracts import validate
@@ -137,7 +137,7 @@ def ledger(job):
                 "revision": job["workflow_revision"],
                 "name": snapshot["definition"]["name"],
                 "template": "renewal",
-                "stages": [n["type"] for n in snapshot["definition"]["nodes"]],
+                "stages": [n["type"] for n in (job.get("agent_workflow")or{}).get("definition",snapshot.get("agent_definition",snapshot["definition"]))["nodes"]],
             },
         },
     }
@@ -283,7 +283,11 @@ def mount_runtime(
 
     @app.post("/api/settings/workflow-definitions/validate")
     def validation(body: Definition, owned=admin_dependency):
-        return validate(body.model_dump())
+        from mideagent_orchestrator.workflow import upgrade_legacy
+        try:
+            return validate(upgrade_legacy(body.model_dump()))
+        except ValueError as exc:
+            return {"valid":False,"executable":False,"issues":[{"node_id":None,"edge_id":None,"message":str(exc)}]}
 
     @app.get("/api/settings/workflow-definitions/{identity}")
     def definition(identity: str, owned=admin_dependency):
@@ -291,7 +295,8 @@ def mount_runtime(
 
     @app.put("/api/settings/workflow-definitions/{identity}")
     def save_definition(identity: str, body: Definition, owned=admin_dependency):
-        return runtime.save_definition(owned, identity, body.model_dump())
+        from mideagent_orchestrator.workflow import upgrade_legacy
+        return runtime.save_definition(owned, identity, upgrade_legacy(body.model_dump()))
 
     @app.get("/api/settings/workflow-definitions/{identity}/versions")
     def versions(identity: str, owned=admin_dependency):
@@ -354,7 +359,9 @@ def mount_runtime(
                 "media": source.get("media"),
             },
         }
-        execution_definition = resolve_definition(original_asset, definition)
+        from mideagent_orchestrator.workflow import compile_definition
+        compiled = compile_definition(definition) if definition.get("catalog_version")==2 else None
+        execution_definition = resolve_definition(original_asset, compiled["definition"] if compiled else definition)
         from video_service.long_audio_budget import bounded_vocalization_policy
 
         vocal_policy = bounded_vocalization_policy(original_asset, execution_definition)
@@ -418,7 +425,7 @@ def mount_runtime(
                             ]
                         ]
                     )
-                    for node in definition["nodes"]
+                    for node in execution_definition["nodes"]
                     if node["type"] == stage and node.get("model_ref")
                 )
             ],
@@ -437,7 +444,7 @@ def mount_runtime(
                     if n["type"] in {"transcribe", "vocalize"}
                     else None,
                 }
-                for n in definition["nodes"]
+                for n in execution_definition["nodes"]
                 if n["type"] in {"transcribe", "translate", "vocalize"}
             ],
             "notice": "선택한 모델과 언어로 작업을 시작합니다."
@@ -488,8 +495,8 @@ def mount_runtime(
             broker_factory is not None
             and getattr(broker_factory, "model_role_factory", None) is not None
         ):
-            from video_service.model_role_coordinator import ModelRoleCoordinator
-            from video_service.cpu_agents import digest
+            from mideagent_orchestrator.model_roles import ModelRoleCoordinator
+            from video_service.canonical import digest
 
             job = ModelRoleCoordinator(runtime, broker_factory).auto_enroll_new_job(
                 owned,
@@ -522,7 +529,7 @@ def mount_runtime(
             or getattr(broker_factory, "model_role_factory", None) is None
         ):
             raise HTTPException(503, "independent_role_transport_unavailable")
-        from video_service.model_role_coordinator import ModelRoleCoordinator
+        from mideagent_orchestrator.model_roles import ModelRoleCoordinator
 
         return ModelRoleCoordinator(runtime, broker_factory)
 
@@ -536,7 +543,7 @@ def mount_runtime(
     def recover_role_result(
         identity: str, body: RoleResultRecovery, owned=owner_dependency
     ):
-        from video_service.model_role_delivery import RoleResultHeld
+        from mideagent_orchestrator.model_delivery import RoleResultHeld
 
         try:
             return model_roles().recover_result(
@@ -591,11 +598,11 @@ def mount_runtime(
         if not local_execution:
             raise HTTPException(403, "CPU 실행이 비활성입니다.")
         if broker_factory is not None:
-            from video_service.rabbitmq_controller import BrokerController
+            from mideagent_orchestrator.controller import BrokerController
             from video_service.rabbitmq_transport import BrokerError
 
             try:
-                from video_service.postgres.agent_pool import AgentPool
+                from mideagent_orchestrator.agent_pool import AgentPool
                 AgentPool(runtime).enroll(owned,identity)
                 return BrokerController(runtime, broker_factory).dispatch(
                     owned, identity

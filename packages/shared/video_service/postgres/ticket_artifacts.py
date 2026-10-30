@@ -8,7 +8,7 @@ from __future__ import annotations
 import hashlib
 import json
 
-from ..cpu_agents import canonical
+from video_service.canonical import canonical
 from . import Conflict, Missing
 
 

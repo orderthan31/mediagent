@@ -10,7 +10,8 @@ from uuid import uuid4
 from psycopg.types.json import Jsonb
 
 from ..content_store import MAX_CONTENT
-from ..cpu_agents import digest, ffmpeg, probe, process
+from video_service.canonical import digest
+from mideagent_media_tools.operations import ffmpeg, probe, process
 from ..original_upload_policy import MAX_ORIGINAL_UPLOAD, ORIGINAL_UPLOAD_LIMIT_MESSAGE
 from ..renewal_contracts import validate
 from . import Conflict, Missing
@@ -706,6 +707,8 @@ class Intake:
             for k in ("catalog_version", "revision", "name", "inputs", "nodes", "edges")
         }
         payload["revision"] = revision
+        from mideagent_orchestrator.workflow import upgrade_legacy
+        payload = upgrade_legacy(payload)
         return self.save_definition(
             owner,
             identity,

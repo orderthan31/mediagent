@@ -4,7 +4,7 @@ from uuid import uuid4
 
 from psycopg.types.json import Jsonb
 
-from ..cpu_agents import digest
+from video_service.canonical import digest
 from . import Conflict, Missing
 from .registry import resource_id
 from .intake import Intake

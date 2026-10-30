@@ -123,7 +123,7 @@ def test_failed_response_has_bounded_error_and_no_outputs():
 
 def test_flat_layout_and_optional_gpu_imports():
     assert not (ROOT / "agents/media").exists()
-    assert not (ROOT / "agents/cpu/mideagent_cpu").exists()
+    assert not (ROOT / "tools/media/mideagent_cpu").exists()
     assert not (ROOT / "scripts").exists()
     for path in (ROOT / "packages/shared/video_service").rglob("*.py"):
         for node in ast.walk(ast.parse(path.read_text())):

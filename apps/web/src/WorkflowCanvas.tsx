@@ -34,12 +34,14 @@ export type CanvasDefinition = {
   id: string;
   name: string;
   revision: number;
+  catalog_version?: number;
   inputs: Record<string, string>;
   nodes: {
     id: string;
     type: string;
     position: { x: number; y: number };
     options: Record<string, string>;
+    tool_settings?: Record<string, Record<string, string>>;
     model_ref?: { model_id: string; revision: number };
     fallback_refs?: { model_id: string; revision: number }[];
   }[];
@@ -69,6 +71,7 @@ export const WorkflowCanvas = ({
   details,
   disabled = false,
   nodeStates = {},
+  edgeStates = {},
   detailsLabel = '노드 설정',
   inputLabel = '입력 트리거',
   inputThumbnail,
@@ -80,11 +83,22 @@ export const WorkflowCanvas = ({
   onSelect?: (id: string) => void;
   details?: ReactNode;
   disabled?: boolean;
-  nodeStates?: Record<string, { label: string; state: string }>;
+  nodeStates?: Record<string, { label: string; state: string; reason?: string }>;
+  edgeStates?: Record<string, { state: string; label: string }>;
   detailsLabel?: string;
   inputLabel?: string;
   inputThumbnail?: string;
 }) => {
+  const agentOnly = definition.catalog_version === 2;
+  const portName = (port: string) =>
+    agentOnly
+      ? (
+          { media: '작업 자료', video: '영상', subtitle: '자막', report: '검사 결과' } as Record<
+            string,
+            string
+          >
+        )[port] || port
+      : port;
   const viewport = useRef<HTMLDivElement>(null);
   const detailsPanel = useRef<HTMLElement>(null);
   const marker = useId().replaceAll(':', '');
@@ -800,11 +814,17 @@ export const WorkflowCanvas = ({
       {Object.keys(nodeStates).length > 0 && (
         <div className="workflow-state-legend" aria-label="진행 상태">
           <span data-state="pending">대기</span>
+          <span data-state="preparing">준비 중</span>
           <span data-state="running">실행</span>
           <span data-state="completed">완료</span>
-          <span data-state="review_required">검수</span>
+          {!agentOnly && <span data-state="review_required">검수</span>}
           <span data-state="failed">실패</span>
         </div>
+      )}
+      {Object.values(edgeStates).some((edge) => edge.state === 'preparing') && (
+        <p className="workflow-preparation-status" role="status" aria-live="polite">
+          다음 단계 준비 중
+        </p>
       )}
       {catalogError && (
         <p role="alert" className="workflow-catalog-error">
@@ -912,9 +932,14 @@ export const WorkflowCanvas = ({
                 edgeId === edge.id ||
                 selected === edge.source.node ||
                 selected === edge.target.node;
+              const transition = edgeStates[edge.id];
+              const routePoints = routing.routes.get(edge.id)?.points || [from, to];
+              const middle = routePoints[Math.floor(routePoints.length / 2)];
+              const center = { x: (from.x + to.x) / 2, y: middle.y };
               return (
                 <g key={edge.id}>
                   <path
+                    data-edge-state={transition?.state}
                     data-edge-id={edge.id}
                     className={'workflow-wire ' + (active ? 'is-active' : '')}
                     d={routing.routes.get(edge.id)?.path || curve(from, to)}
@@ -954,6 +979,21 @@ export const WorkflowCanvas = ({
                   >
                     <title>{`${edge.source.port} → ${edge.target.port}`}</title>
                   </path>
+                  {transition?.state === 'preparing' && (
+                    <g
+                      data-edge-preparation={edge.id}
+                      className="workflow-edge-preparation"
+                      role="status"
+                      aria-label={transition.label}
+                      transform={`translate(${center.x}, ${Math.min(center.y - 24, ...boxes.filter((box) => box.id === edge.source.node || box.id === edge.target.node).map((box) => box.y - 18))})`}
+                    >
+                      <rect x={-78} y={-17} width={156} height={28} rx={10} />
+                      <circle className="workflow-preparation-spinner" cx={-61} cy={-3} r={6} />
+                      <text x={-48} y={1}>
+                        {transition.label}
+                      </text>
+                    </g>
+                  )}
                 </g>
               );
             })}
@@ -1071,7 +1111,14 @@ export const WorkflowCanvas = ({
                   )}
                 </span>
                 <span>
-                  <strong title={box.label}>{box.label}</strong>
+                  <strong title={box.label}>
+                    {nodeStates[box.id]?.state === 'failed' && (
+                      <span className="workflow-node-error-icon" role="img" aria-label="오류">
+                        !
+                      </span>
+                    )}
+                    {box.label}
+                  </strong>
                   <small>
                     {box.id === '$input'
                       ? '트리거'
@@ -1083,6 +1130,9 @@ export const WorkflowCanvas = ({
                   </small>
                 </span>
               </button>
+              {nodeStates[box.id]?.reason && (
+                <p className="workflow-node-error-reason">{nodeStates[box.id].reason}</p>
+              )}
               <div className="workflow-node-ports">
                 {(['inputs', 'outputs'] as const).map((direction) => (
                   <div key={direction} className={direction}>
@@ -1098,7 +1148,7 @@ export const WorkflowCanvas = ({
                         data-node={box.id}
                         data-port={port}
                         aria-label={`${box.label} ${direction === 'inputs' ? '입력' : '출력'} ${port}`}
-                        title={`${port} · ${box[direction][port]}`}
+                        title={agentOnly ? portName(port) : `${port} · ${box[direction][port]}`}
                         onPointerDown={(event) => {
                           if (
                             rewiring ||
@@ -1171,7 +1221,7 @@ export const WorkflowCanvas = ({
                         }}
                       >
                         <i />
-                        {port}
+                        {portName(port)}
                       </button>
                     ))}
                   </div>
@@ -1182,28 +1232,30 @@ export const WorkflowCanvas = ({
         </div>
         {onChange && (
           <div className="workflow-agent-picker">
-            {(['agent', 'control', 'review'] as const).map((kind) => (
-              <button
-                type="button"
-                className={kind === 'agent' ? 'ui02-primary' : 'workflow-control-add'}
-                key={kind}
-                disabled={disabled || definition.nodes.length >= 100}
-                aria-expanded={adding === kind}
-                aria-controls={`${marker}-nodes`}
-                onClick={() => {
-                  cancelConnection();
-                  setEdgeId('');
-                  setAdding((previous) => (previous === kind ? null : kind));
-                }}
-              >
-                <Plus size={17} />
-                {
-                  { agent: '에이전트 추가', control: '제어 노드 추가', review: '사람 검수 추가' }[
-                    kind
-                  ]
-                }
-              </button>
-            ))}
+            {(['agent', 'control', 'review'] as const)
+              .filter((kind) => !agentOnly || kind === 'agent')
+              .map((kind) => (
+                <button
+                  type="button"
+                  className={kind === 'agent' ? 'ui02-primary' : 'workflow-control-add'}
+                  key={kind}
+                  disabled={disabled || definition.nodes.length >= 100}
+                  aria-expanded={adding === kind}
+                  aria-controls={`${marker}-nodes`}
+                  onClick={() => {
+                    cancelConnection();
+                    setEdgeId('');
+                    setAdding((previous) => (previous === kind ? null : kind));
+                  }}
+                >
+                  <Plus size={17} />
+                  {
+                    { agent: '에이전트 추가', control: '제어 노드 추가', review: '사람 검수 추가' }[
+                      kind
+                    ]
+                  }
+                </button>
+              ))}
             {adding && (
               <div
                 id={`${marker}-nodes`}

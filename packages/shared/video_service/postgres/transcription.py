@@ -65,7 +65,7 @@ class TranscriptionRuntime(TranslationRuntime):
         from copy import deepcopy
 
         from ..audio_batches import RATE, split_normalized_audio
-        from ..cpu_agents import canonical
+        from video_service.canonical import canonical
         from ..model_endpoints import EndpointFailure
         from ..transcript_input import parse_segments
         from .model_batches import ModelCallBudgetExceeded

@@ -5,7 +5,7 @@ import math
 import re
 from copy import deepcopy
 
-from .cpu_agents import CPU_AGENTS
+from video_service.agent_protocol import CPU_AGENTS
 from .node_contracts import NODES, VALUE_TYPES, node_spec, validate_node
 
 CONTROL_TYPES = ("control_if", "control_switch", "control_loop", "control_fallback")
@@ -144,6 +144,9 @@ def spec(kind, options):
 
 
 def validate(payload):
+    if isinstance(payload, dict) and payload.get("catalog_version") == 2:
+        from mideagent_orchestrator.workflow import validate as validate_agents
+        return validate_agents(payload)
     issues = []
 
     def fail(message, node=None, edge=None):

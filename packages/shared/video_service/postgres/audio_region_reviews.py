@@ -3,7 +3,7 @@
 import wave
 
 from ..audio_regions import region_intervals
-from ..cpu_agents import canonical
+from video_service.canonical import canonical
 
 KIND = "audio_regions_v1"
 

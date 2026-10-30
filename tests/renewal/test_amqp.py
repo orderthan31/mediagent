@@ -357,7 +357,7 @@ def test_imports_and_cli_do_not_connect_without_opt_in():
     env = {
         **os.environ,
         "PYTHONPATH": ":".join(
-            str(root / p) for p in ("packages/shared", "agents/cpu", "apps/api")
+            str(root / p) for p in ("packages/shared", "tools/media", "apps/api")
         ),
     }
     check = subprocess.run(

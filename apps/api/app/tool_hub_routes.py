@@ -1,7 +1,7 @@
 """Protected goal-agent and tool reads. No activation or role-state filesystem access."""
 from fastapi import Depends, HTTPException
-from video_service.tool_hub import catalog, allowed_definitions, describe as describe_definition, tool_for_executor
-from video_service.task_agents import AGENTS, registration
+from mideagent_tool_hub.registry import catalog, allowed_definitions, describe as describe_definition, tool_for_executor
+from mideagent_agents.registry import AGENTS, registration
 
 
 def project_execution(row):
@@ -11,7 +11,7 @@ def project_execution(row):
     elif row['cancel_requested'] or phase == 'cancelled' or node == 'cancelled':
         status = 'cancelled'
     elif phase in {'held', 'unknown'} or node in {'failed', 'held'}:
-        status = 'held'
+        status = 'failed'
     elif node == 'running' and not row['lease_valid']:
         status = 'unknown'
     elif phase in {'ready', 'sending'}:
@@ -35,8 +35,9 @@ def mount_tool_hub(app, administrator, database):
         if item is None:
             raise HTTPException(404, '에이전트를 찾을 수 없습니다.')
         with database.connection() as db:
-            policy = db.execute('SELECT enabled FROM agent_pool_roles WHERE role=%s', (item['role'],)).fetchone()
-            pool = db.execute("SELECT count(*) FILTER(WHERE phase IN('ready','busy') AND observed_at>now()-interval '5 seconds') ready,count(*) FILTER(WHERE phase IN('reserved','creating','starting')) preparing,count(*) FILTER(WHERE phase IN('ready','busy') AND (observed_at IS NULL OR observed_at<=now()-interval '5 seconds')) stale FROM agent_pool_instances WHERE role=%s AND phase<>'removed'", (item['role'],)).fetchone()
+            runtime_roles=item.get('runtime_roles',[item['role']])
+            policy = db.execute('SELECT bool_and(enabled) enabled,count(*) count FROM agent_pool_roles WHERE role=ANY(%s)', (runtime_roles,)).fetchone()
+            pool = db.execute("SELECT count(*) FILTER(WHERE phase IN('ready','busy') AND observed_at>now()-interval '5 seconds') ready,count(*) FILTER(WHERE phase IN('reserved','creating','starting')) preparing,count(*) FILTER(WHERE phase IN('ready','busy') AND (observed_at IS NULL OR observed_at<=now()-interval '5 seconds')) stale FROM agent_pool_instances WHERE role=ANY(%s) AND phase<>'removed'", (runtime_roles,)).fetchone()
             rows = db.execute("""SELECT m.task_id,m.job_id,j.ticket_number,m.phase,n.status node_status,
                 (n.lease_expires_at>now()) IS TRUE lease_valid,j.cancel_requested,m.held_reason,m.created_at,n.completed_at,
                 (SELECT count(*) FROM model_role_tool_calls c WHERE c.task_id=m.task_id AND c.status='completed') completed_calls
@@ -47,7 +48,7 @@ def mount_tool_hub(app, administrator, database):
         active = [row for row in executions if row['status'] in {'preparing', 'processing'}]
         return {key: item[key] for key in ['id', 'name', 'goal', 'allowed_tools', 'model_driven_selection']} | {
             'kind': 'task_agent', 'autonomous': False,
-            'availability': 'on_demand' if policy and policy['enabled'] else 'unknown',
+            'availability': 'on_demand' if policy and policy['enabled'] and policy['count']==len(runtime_roles) else 'unknown',
             'status': 'processing' if any(row['status']=='processing' for row in active) else 'preparing' if active or pool['preparing'] else 'unknown' if pool['stale'] else 'ready' if pool['ready'] else 'idle',
             'instances': None if pool['stale'] else pool['ready'], 'executions': executions,
             'tools': [tool for tool in describe_tools() if tool['id'] in item['allowed_tools']],
@@ -69,6 +70,8 @@ def mount_tool_hub(app, administrator, database):
         goal = registration(identity)
         role = goal['role'] if goal else {'vocalize':'vocalization'}.get(identity,identity)
         tool_id = tool_for_executor(role)
+        if tool_id is None and goal:
+            tool_id=goal['allowed_tools'][0]
         if tool_id is None:
             raise HTTPException(404, '실행기를 찾을 수 없습니다.')
         item = next(t for t in catalog() if t['id']==tool_id)

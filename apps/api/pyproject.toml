@@ -10,6 +10,12 @@ dependencies = [
   "httpx>=0.28.1,<1",
   "psycopg[binary]>=3.2,<4",
   "video-service-shared",
+  "mideagent-business-agents",
+  "mideagent-orchestrator",
+  "mideagent-tool-hub",
+  "mideagent-cpu-agents",
+  "mideagent-model-tools",
+  "mideagent-controlnet",
 ]
 
 [tool.setuptools.packages.find]

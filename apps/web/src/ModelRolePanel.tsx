@@ -36,8 +36,8 @@ const states: Record<string, string> = {
   ready: '전달 준비',
   sending: '전달 확인 중',
   sent: '명령 전달 확인 · 결과 도착 대기',
-  unknown: '전달 결과 확인 필요',
-  held: '보류 · 기록 보존',
+  unknown: '전달 오류 · 결과 확인 필요',
+  held: '요청 오류 · 응답 확인 필요',
   adopting: '결과 확인 중',
   accepted: '결과 채택 완료',
   cancelled: '취소 확인',
@@ -53,7 +53,8 @@ const reasons: Record<string, string> = {
     '결과 전달 재시도 예산이 소진됐습니다. 기존 기록과 모델 호출 예산을 초기화하지 않습니다.',
   result_dispatch_reconcile_held:
     '기존 채택은 확인했지만 다음 배정이 보류됐습니다. 모델을 다시 호출하지 않습니다.',
-  model_reply_unknown: '모델 응답이 불명확해 중단했습니다. 자동으로 다시 호출하지 않습니다.',
+  model_reply_unknown:
+    '모델 요청 중 오류로 멈췄습니다. 응답 여부가 확인되지 않아 자동으로 다시 호출하지 않습니다.',
   result_transport_unavailable:
     '완료 결과를 가져오지 못했습니다. 모델을 다시 실행하지 않고 결과 전달만 확인할 수 있습니다.',
   result_adoption_commit_unknown:
@@ -71,9 +72,11 @@ export const ModelRolePanel = ({
   jobId,
   revision,
   canManage,
+  roleFilter,
   onChanged,
 }: {
   observationOnly?: boolean;
+  roleFilter?: string;
   jobId: string;
   revision: number;
   status: string;
@@ -95,7 +98,16 @@ export const ModelRolePanel = ({
       try {
         const next = await request<Observation>(base, { signal });
         if (turn === sequence.current && !signal?.aborted) {
-          setObservation(next);
+          setObservation(
+            roleFilter
+              ? {
+                  ...next,
+                  tasks: next.tasks.filter((task) => task.role === roleFilter),
+                  available_roles: next.available_roles?.filter((role) => role === roleFilter),
+                  enrolled_roles: next.enrolled_roles?.filter((role) => role === roleFilter),
+                }
+              : next,
+          );
           setReadError('');
           setCurrent(true);
         }
@@ -106,7 +118,7 @@ export const ModelRolePanel = ({
         }
       }
     },
-    [base],
+    [base, roleFilter],
   );
   const act = async (operation: () => Promise<unknown>) => {
     if (busy || !current) {

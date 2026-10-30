@@ -79,7 +79,31 @@ type Review = {
     audio?: { duration_seconds: number; source_frames: number; source_sha256: string };
   };
 };
+type AgentToolState = {
+  node_id: string;
+  role: string;
+  label: string;
+  state: string;
+  reason: string;
+  run_id: string | null;
+};
+type WorkflowAgentState = {
+  id: string;
+  type: string;
+  label: string;
+  state: string;
+  status_label: string;
+  reason: string;
+  selected_tool_id: string;
+  tools: AgentToolState[];
+};
 type State = {
+  agent_workflow?: {
+    definition: CanvasDefinition;
+    nodes: WorkflowAgentState[];
+    edges: Record<string, { state: string; label: string }>;
+    legacy_projection: boolean;
+  } | null;
   output_mode?: string | null;
   artifact_manifest?: {
     layout: string;
@@ -144,6 +168,7 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
   const [catalog, setCatalog] = useState<CanvasSpec[]>([]);
   const [modelRolesEnabled, setModelRolesEnabled] = useState(false);
   const [selected, setSelected] = useState('');
+  const [selectedTool, setSelectedTool] = useState('');
   const [, setPlan] = useState<Plan | null>(null);
   const [, setConsent] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -178,8 +203,13 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
     }
   };
   const canManage = job?.access?.can_manage === true;
-  const run = job?.runs.find((item) => item.node_id === selected);
-  const node = job?.snapshot.definition.nodes.find((item) => item.id === selected);
+  const currentAgent = job?.agent_workflow?.nodes.find((item) => item.id === selected);
+  const tool =
+    currentAgent?.tools.find((item) => item.node_id === selectedTool) ||
+    currentAgent?.tools.find((item) => item.node_id === currentAgent.selected_tool_id);
+  const internalId = tool?.node_id || selected;
+  const run = job?.runs.find((item) => item.node_id === internalId);
+  const node = job?.snapshot.definition.nodes.find((item) => item.id === internalId);
   const review = job?.reviews.find((item) => item.node_run_id === run?.id);
   const reviewFields =
     review && ['audio_regions_v1', 'audio_regions_long_v5'].includes(review.contract.kind || '')
@@ -331,7 +361,7 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
               않습니다.
             </p>
           )}
-          {modelRolesEnabled && (
+          {modelRolesEnabled && !job.agent_workflow && (
             <ModelRolePanel
               observationOnly
               key={id}
@@ -352,43 +382,114 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
           )}
           <section className="job-execution">
             <WorkflowCanvas
-              definition={job.snapshot.definition}
+              definition={job.agent_workflow?.definition || job.snapshot.definition}
               catalog={catalog}
-              onSelect={setSelected}
+              onSelect={(identity) => {
+                setSelected(identity);
+                setSelectedTool('');
+              }}
+              edgeStates={job.agent_workflow?.edges || {}}
               inputLabel={job.snapshot.asset.original_filename}
               inputThumbnail={mediaUrl('/videos/' + job.snapshot.asset.asset_id + '/thumbnail')}
-              nodeStates={Object.fromEntries(
-                job.runs.map((item) => [
-                  item.node_id,
-                  {
-                    label:
-                      !item.display_status && job.processing_review?.source_attempt_id === item.id
-                        ? '원 실행 기록 보존'
-                        : labels[item.display_status || item.status] || item.status,
-                    state:
-                      !item.display_status && job.processing_review?.source_attempt_id === item.id
-                        ? 'review_required'
-                        : item.display_status || item.status,
-                  },
-                ]),
-              )}
+              nodeStates={
+                job.agent_workflow
+                  ? Object.fromEntries(
+                      job.agent_workflow.nodes.map((agent) => [
+                        agent.id,
+                        { state: agent.state, label: agent.status_label, reason: agent.reason },
+                      ]),
+                    )
+                  : Object.fromEntries(
+                      job.runs.map((item) => [
+                        item.node_id,
+                        {
+                          label:
+                            !item.display_status &&
+                            job.processing_review?.source_attempt_id === item.id
+                              ? '원 실행 기록 보존'
+                              : labels[item.display_status || item.status] || item.status,
+                          state:
+                            !item.display_status &&
+                            job.processing_review?.source_attempt_id === item.id
+                              ? 'review_required'
+                              : item.display_status || item.status,
+                        },
+                      ]),
+                    )
+              }
               detailsLabel="노드 실행 결과"
               details={
                 selected ? (
                   <section className="execution-node-body renewal-node-results">
                     <h3>
-                      {node
-                        ? catalog.find((spec) => spec.id === node.type)?.label || node.type
-                        : '원본 입력'}
+                      {currentAgent?.label ||
+                        (node
+                          ? catalog.find((spec) => spec.id === node.type)?.label || node.type
+                          : '원본 입력')}
                     </h3>
+                    {currentAgent?.reason && (
+                      <p role="alert" className="workflow-agent-failure">
+                        {currentAgent.reason}
+                      </p>
+                    )}
                     <TaskResultTabs
-                      key={run?.id || selected}
+                      key={`${id}:${selected}`}
                       jobId={id}
                       runId={run?.id}
-                      initialState={run?.display_status || run?.status || 'waiting'}
+                      initialState={tool?.state || run?.display_status || run?.status || 'waiting'}
+                      toolbar={
+                        currentAgent && (
+                          <ol className="workflow-agent-tools" aria-label="에이전트 내부 처리">
+                            {currentAgent.tools.map((item) => (
+                              <li key={item.node_id} data-state={item.state}>
+                                <button
+                                  type="button"
+                                  aria-pressed={tool?.node_id === item.node_id}
+                                  onClick={() => setSelectedTool(item.node_id)}
+                                >
+                                  <span>{item.label}</span>
+                                  <span>
+                                    {(
+                                      {
+                                        waiting: '대기',
+                                        preparing: '준비 중',
+                                        running: '처리 중',
+                                        completed: '완료',
+                                        failed: '오류',
+                                        cancelled: '취소됨',
+                                      } as Record<string, string>
+                                    )[item.state] || '확인 필요'}
+                                  </span>
+                                </button>
+                              </li>
+                            ))}
+                          </ol>
+                        )
+                      }
                     >
+                      {modelRolesEnabled &&
+                        currentAgent &&
+                        ['transcription_agent', 'translation_agent'].includes(
+                          currentAgent.type,
+                        ) && (
+                          <ModelRolePanel
+                            key={`${id}:${currentAgent.id}`}
+                            observationOnly
+                            roleFilter={
+                              currentAgent.type === 'transcription_agent'
+                                ? 'transcription'
+                                : 'translation'
+                            }
+                            jobId={id}
+                            revision={job.revision}
+                            status={job.status}
+                            canManage={false}
+                            hasRuns={job.runs.length > 0}
+                            onChanged={reload}
+                          />
+                        )}
                       {run?.display_reason && <p role="alert">{run.display_reason}</p>}
-                      {run && !Object.keys(outputs).length && <p>아직 출력 결과가 없습니다.</p>}
+                      {!Object.keys(outputs).length && <p>아직 출력 결과가 없습니다.</p>}
                       {Object.entries(run?.inputs || {}).map(([port, ref]) => (
                         <section className="execution-artifact" key={port}>
                           <h4>

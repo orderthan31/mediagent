@@ -4,7 +4,7 @@ Callers choose an exact owner/job/message. A publisher must return True only aft
 its real publisher-confirm; result ack is strictly after the durable DB commit.
 """
 
-from .cpu_agents import canonical
+from video_service.canonical import canonical
 from .postgres import Conflict, Missing
 
 
@@ -44,7 +44,7 @@ class DurableTransport:
                     or run["generation"] != job["generation"]
                 ):
                     raise Conflict("취소/이전 세대 명령은 새로 전달하지 않습니다.")
-                from .cpu_agents import digest
+                from video_service.canonical import digest
 
                 if run["request_sha256"] != digest(row["payload"]):
                     raise Conflict("outbox 요청 무결성 오류")

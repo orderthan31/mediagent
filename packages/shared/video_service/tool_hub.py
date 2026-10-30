@@ -1,49 +1,10 @@
-"""Domain tool definitions/permissions. No custom public invocation protocol."""
-from copy import deepcopy
-from pydantic import BaseModel,ConfigDict,Field,StrictInt,create_model
-
-class ArtifactReference(BaseModel):
-    model_config=ConfigDict(extra='forbid',strict=True)
-    storage_key:str=Field(pattern=r'^blobs/[a-f0-9]{64}$')
-    sha256:str=Field(pattern=r'^[a-f0-9]{64}$')
-    bytes:StrictInt=Field(gt=0)
-    type:str=Field(min_length=1,max_length=80)
-    source_owner_id:str|None=None
-
-_DATA=[
- ('media.analyze','analyze','영상 분석',{'video':'영상'},{'metadata':'영상 정보'},[]),
- ('media.extract_audio','extract_audio','음성 추출',{'video':'영상'},{'audio':'PCM 오디오'},[]),
- ('media.preprocess_audio','preprocess_audio','음성 전처리',{'audio':'PCM 오디오','regions':'선택 음성 구간'},{'audio':'전처리 오디오','timeline':'원본 시각'},['음성 필터','음성 구간']),
- ('media.generate_subtitle','generate_subtitle','자막 생성',{'transcript':'전사문','metadata':'영상 정보'},{'subtitle':'자막 파일'},['자막 언어','자막 형식']),
- ('media.encode','encode','영상 인코딩',{'video':'영상','subtitle':'선택 자막'},{'video':'인코딩 영상'},['영상 품질','해상도','자막 표시']),
- ('media.validate_video','validate_video','영상 확인',{'video':'출력 영상','metadata':'원본 영상 정보'},{'report':'재생 확인 결과'},[]),
- ('speech.transcribe','transcription','전사 모델 호출',{'source':'검증된 오디오 구간'},{'transcript':'구간 전사 응답'},['음성 인식 모델','원문 언어']),
- ('text.translate','translation','번역 모델 호출',{'source':'분할된 원문과 문맥'},{'transcript':'구간 번역 응답'},['번역 모델','대상 언어']),
- ('audio.vocal_regions','vocalization','음성 구간 분석',{'source':'PCM 오디오'},{'regions':'음성 보존 구간'},['분석 모델']),
- ('speech.prepare_audio','transcription','전사 오디오 구간 준비',{'source':'검증된 PCM 오디오'},{'chunks':'재사용 가능한 음성 구간'},[]),
- ('speech.validate_chunk','transcription','전사 구간 확인',{'source':'오디오와 전사 응답'},{'segments':'시간·구간이 확인된 전사문'},[]),
- ('speech.merge_segments','transcription','전사 결과 합치기',{'source':'확인된 전사 구간과 원본 시각'},{'transcript':'원본 시각의 전사문'},[]),
- ('text.prepare_batches','translation','번역 구간 나누기',{'source':'시간 정보가 있는 원문'},{'batches':'문맥을 포함한 번역 구간'},[]),
- ('text.validate_batch','translation','번역 구간 확인',{'source':'원문과 번역 응답'},{'segments':'원문 구간·시각이 유지된 번역문'},[]),
- ('text.merge_batches','translation','번역 결과 합치기',{'source':'확인된 번역 구간'},{'transcript':'대상 언어 번역문'},[]),
-]
-DEFINITIONS={}
-for identity,role,name,inputs,outputs,settings in _DATA:
-    optional={'regions','subtitle'}
-    fields={key:((ArtifactReference|None if key in optional else ArtifactReference),Field(default=None if key in optional else ...,title=label,description=label))for key,label in inputs.items()}
-    args=create_model(identity.replace('.','_')+'_input',__config__=ConfigDict(extra='forbid',strict=True),**fields)
-    DEFINITIONS[identity]={'id':identity,'executor':role,'name':name,'args_schema':args,'outputs':outputs,'settings':settings,'requires_model':identity in {'speech.transcribe','text.translate','audio.vocal_regions'}}
-CALLER_TOOLS={('model:'if d['requires_model']else'cpu:')+d['executor']:(identity,)for identity,d in DEFINITIONS.items() if identity in {'media.analyze','media.extract_audio','media.preprocess_audio','media.generate_subtitle','media.encode','media.validate_video','speech.transcribe','text.translate','audio.vocal_regions'}}
-from .task_agents import AGENTS
-CALLER_TOOLS.update({'agent:'+identity:tuple(agent['allowed_tools'])for identity,agent in AGENTS.items()})
-
-def allowed_definitions(caller):
-    if caller not in CALLER_TOOLS:raise ValueError('unknown_tool_caller')
-    return [DEFINITIONS[identity]for identity in CALLER_TOOLS[caller]]
-
-def describe(definition):
-    schema=definition['args_schema'].model_json_schema()
-    return {'id':definition['id'],'executor':definition['executor'],'name':definition['name'],'inputs':{key:prop.get('title',key)for key,prop in schema['properties'].items()},'input_schema':schema,'outputs':deepcopy(definition['outputs']),'settings':list(definition['settings']),'requires_model':definition['requires_model'],'autonomous':False}
-
-def catalog():return [describe(d)for d in DEFINITIONS.values()]
-def tool_for_executor(role):return next((d['id']for d in DEFINITIONS.values()if d['executor']==role),None)
+"""Compatibility boundary only. Canonical implementation: mideagent_tool_hub.registry."""
+import sys as _sys
+from importlib import import_module as _import_module
+_implementation = _import_module("mideagent_tool_hub.registry")
+if __name__ == "__main__":
+    _main=getattr(_implementation,"main",None)
+    if _main is not None:
+        raise SystemExit(_main())
+else:
+    _sys.modules[__name__] = _implementation

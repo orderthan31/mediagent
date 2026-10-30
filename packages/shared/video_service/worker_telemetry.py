@@ -5,7 +5,7 @@ import re
 import time
 from uuid import uuid4
 
-from .cpu_agents import CPU_AGENTS
+from video_service.agent_protocol import CPU_AGENTS
 
 FAMILIES = {"cpu": frozenset(CPU_AGENTS), "model": frozenset({"transcribe", "translate"}),
             "gpu": frozenset({"preprocess_audio", "faceswap"})}

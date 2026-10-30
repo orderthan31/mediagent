@@ -134,8 +134,12 @@ export const WorkflowStart = () => {
       if (generation.current === current) {
         setInspection(result);
         setDefinition(graph);
-        const speech = graph.nodes.find((n) => n.type === 'transcribe');
-        const translated = graph.nodes.find((n) => n.type === 'translate');
+        const speech = graph.nodes.find((n) =>
+          ['transcribe', 'transcription_agent'].includes(n.type),
+        );
+        const translated = graph.nodes.find((n) =>
+          ['translate', 'translation_agent'].includes(n.type),
+        );
         if (speech?.options.source_language) {
           setSourceLanguage(speech.options.source_language);
         }

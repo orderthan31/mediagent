@@ -30,11 +30,12 @@ jobs:
       - uses: actions/setup-python@v5
         with: {python-version: "3.12"}
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg fontconfig fonts-noto-cjk
-      - run: python -m pip install -e 'packages/shared[postgres,models,objects,amqp,verify]' -e apps/api -e agents/cpu -e agents/gpu
+      - run: python -m pip install -e 'packages/shared[postgres,models,objects,amqp,verify]' -e agents -e apps/orchestrator -e packages/tool-hub -e tools/models -e runtime/controlnet -e apps/api -e tools/media -e tools/gpu
       - name: Validate recipes only; no broker, GPU or provider stack is started
         run: |
           docker compose --profile renewal config --quiet
-          docker compose -f agents/cpu/compose.yaml --profile '*' config --quiet
-          docker compose -f agents/cpu/compose.amqp.yaml --profile '*' config --quiet
+          docker compose -f tools/media/compose.yaml --profile '*' config --quiet
+          docker compose -f tools/media/compose.amqp.yaml --profile '*' config --quiet
           docker buildx bake --print api cpu cpu-amqp api-broker gpu
+      - run: python tests/renewal/check_layer_packaging.py
       - run: python -m pytest tests/renewal -q --tb=short

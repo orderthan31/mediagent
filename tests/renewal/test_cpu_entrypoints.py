@@ -45,7 +45,7 @@ def test_fixed_cpu_cli(kind, movie, tmp_path):
         "options": {"subtitle_mode": "none"} if kind == "encode" else {},
     }
     executable = Path(sys.executable).parent / ("mideagent-" + kind.replace("_", "-"))
-    assert executable.is_file(), "Install agents/cpu in the isolated test environment"
+    assert executable.is_file(), "Install tools/media in the isolated test environment"
     result = subprocess.run(
         [
             str(executable),

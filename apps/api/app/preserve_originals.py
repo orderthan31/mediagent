@@ -11,8 +11,8 @@ from psycopg.types.json import Jsonb
 from video_service.postgres import Database
 from video_service.postgres.registry import resource_id
 
-from app.operator import runtime_components
-from app.server import load_bootstrap
+from mideagent_orchestrator.bootstrap import runtime_components
+from video_service.bootstrap import load_bootstrap
 
 
 def main():

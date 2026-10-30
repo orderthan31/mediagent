@@ -35,16 +35,16 @@ test('ordinary routes are only originals and jobs, including their creation/deta
 test('runtime families separate CPU/GPU dependencies without legacy compatibility', () => {
   const root = new URL('../../../', import.meta.url);
   const api = readFileSync(new URL('Dockerfile', root), 'utf8');
-  const cpu = readFileSync(new URL('agents/cpu/Dockerfile', root), 'utf8');
-  const media = readFileSync(new URL('agents/gpu/Dockerfile', root), 'utf8');
+  const cpu = readFileSync(new URL('tools/media/Dockerfile', root), 'utf8');
+  const media = readFileSync(new URL('tools/gpu/Dockerfile', root), 'utf8');
   const apiStage = api;
   assert.doesNotMatch(api, /legacy-api|agents\/media/);
-  assert.doesNotMatch(apiStage, /COPY agents\/|WITH_FACEFUSION|WITH_NVIDIA_VAD|pip install.*torch/);
-  assert.match(cpu, /COPY agents\/cpu/);
+  assert.doesNotMatch(apiStage, /COPY tools\/gpu|WITH_FACEFUSION|WITH_NVIDIA_VAD|pip install.*torch/);
+  assert.match(cpu, /COPY tools\/media/);
   assert.doesNotMatch(cpu, /COPY apps\/api|COPY agents\/media|pip install.*torch|google-genai/);
   assert.match(media, /ARG WITH_FACEFUSION=0/);
   assert.match(media, /ARG WITH_NVIDIA_VAD=0/);
-  const compose = readFileSync(new URL('agents/cpu/compose.yaml', root), 'utf8');
+  const compose = readFileSync(new URL('tools/media/compose.yaml', root), 'utf8');
   assert.match(compose, /profiles: \[analyze\]/);
   assert.match(compose, /network_mode: none/);
   assert.doesNotMatch(compose, /container_name:|docker\.sock/);

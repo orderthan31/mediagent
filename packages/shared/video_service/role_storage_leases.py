@@ -4,7 +4,7 @@ import json
 from datetime import UTC, datetime
 
 from .content_store import reference_origin
-from .cpu_agents import digest
+from video_service.canonical import digest
 
 
 class RoleStorageLeases:

@@ -32,5 +32,5 @@ test('task panel has accessible output and log tabs without losing output childr
   assert.match(rendered.stdout, /기존 출력 받기/);
   const detail = fs.readFileSync(new URL('../src/RenewalJobDetail.tsx', import.meta.url), 'utf8');
   assert.match(detail, /<TaskResultTabs/);
-  assert.match(detail, /key=\{run\?\.id \|\| selected\}/);
+  assert.match(detail, /key=\{`\$\{id\}:\$\{selected\}`\}/);
 });

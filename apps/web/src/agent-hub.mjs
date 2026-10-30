@@ -8,6 +8,7 @@ export const agentStateLabel = (state) =>
     preparing: '준비 중',
     processing: '처리 중',
     completed: '완료',
+    failed: '오류',
     cancelled: '취소됨',
     held: '확인 필요',
     unknown: '확인 필요',

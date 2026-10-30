@@ -2,7 +2,7 @@
 
 import json
 import re
-from .cpu_agents import canonical, digest
+from video_service.canonical import canonical, digest
 from .node_contracts import node_spec, validate_node
 from .rabbitmq_transport import Delivery, InvalidMessage, MAX_MESSAGE
 

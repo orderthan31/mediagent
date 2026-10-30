@@ -16,7 +16,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, StrictBool, StrictInt
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from video_service.auth import LoginThrottled
-from video_service.model_endpoints import PROVIDERS
+from mideagent_model_tools.endpoints import PROVIDERS
 from video_service.postgres import Conflict, Missing
 from video_service.postgres.accounts import Accounts
 from video_service.postgres.registry import Registry
@@ -734,7 +734,7 @@ def create_app(
 
 
     if content_store is not None:
-        from video_service.postgres.execution import Execution
+        from mideagent_orchestrator.execution import Execution
 
         from .renewal_routes import mount_runtime
 

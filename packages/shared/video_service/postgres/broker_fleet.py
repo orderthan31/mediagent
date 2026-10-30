@@ -6,7 +6,7 @@ replicas or configuration are invented from queue counts. No topology is created
 
 from datetime import datetime, timezone
 
-from ..cpu_agents import CPU_AGENTS
+from video_service.agent_protocol import CPU_AGENTS
 from ..rabbitmq_transport import BrokerError
 from ..renewal_contracts import catalog
 from . import Conflict, Missing

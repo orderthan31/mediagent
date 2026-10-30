@@ -1,0 +1,15 @@
+[build-system]
+requires=["setuptools>=68"]
+build-backend="setuptools.build_meta"
+[project]
+name="mideagent-controlnet"
+version="0.1.0"
+requires-python=">=3.12"
+dependencies=["video-service-shared"]
+
+[project.scripts]
+mideagent-controlnet = "mideagent_controlnet.agent_pool_host:main"
+
+[tool.setuptools.packages.find]
+where=["."]
+include=["mideagent_controlnet*"]

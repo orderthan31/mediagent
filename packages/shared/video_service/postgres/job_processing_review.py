@@ -8,7 +8,7 @@ import json
 
 from uuid import uuid4
 from psycopg.types.json import Jsonb
-from ..cpu_agents import digest as content_digest
+from video_service.canonical import digest as content_digest
 from . import Conflict, Missing
 from .control_recovery import admin, digest, identity, public
 

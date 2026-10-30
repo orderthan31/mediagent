@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+[project]
+name = "mideagent-orchestrator"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = ["video-service-shared", "mideagent-business-agents", "mideagent-cpu-agents"]
+[project.scripts]
+mideagent-orchestrator = "mideagent_orchestrator.dispatch:main"
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["mideagent_orchestrator*"]

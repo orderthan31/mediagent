@@ -218,7 +218,7 @@ def main(argv=None):
         if args.mode == "provision":
             result = provision(Path(args.directory), manifests)
         else:
-            from app.server import load_bootstrap
+            from video_service.bootstrap import load_bootstrap
             from video_service.postgres import Database
             from video_service.postgres.engine_runtimes import EngineRuntimes
 

@@ -8,7 +8,7 @@ intent/receipt/adoption fences, and ACKs after adoption and next-node dispatch.
 import json
 import re
 
-from .cpu_agents import canonical, digest
+from video_service.canonical import canonical, digest
 from .rabbitmq_transport import (
     BrokerConfig,
     BrokerError,

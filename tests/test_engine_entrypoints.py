@@ -8,7 +8,7 @@ class EngineEntryPointTests(unittest.TestCase):
         from unittest.mock import patch
 
         module = runpy.run_path(
-            str(Path(__file__).resolve().parents[1] / "agents/cpu/cli.py")
+            str(Path(__file__).resolve().parents[1] / "tools/media/cli.py")
         )
         with (
             patch.object(sys, "argv", ["mideagent-preprocess-audio", "--help"]),

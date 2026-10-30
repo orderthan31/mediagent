@@ -5,7 +5,8 @@ from uuid import uuid4
 
 import psycopg
 
-from ..cpu_agents import CPU_AGENTS, digest
+from video_service.canonical import digest
+from video_service.agent_protocol import CPU_AGENTS
 from ..renewal_contracts import catalog
 from . import Conflict, Missing
 

@@ -1,5 +1,41 @@
 # mideagent
 
+## 실행 소스 위치
+
+워크플로우는 **전사 → 한국어 번역 → 자막 영상 제작** 에이전트를 연결한다. 내부 도구 순서·호출·결과 확인은 각 `agent.py`가 소유하며, 오케스트레이터는 에이전트 사이의 순서·배정·준비를 관리한다.
+
+```text
+apps/orchestrator/mideagent_orchestrator/  워크플로우·배정·준비·전달
+  dispatch.py                            실행: python -m mideagent_orchestrator.dispatch
+  operator.py                            실제 결과 수신/전달 CLI (consume-results 등)
+  controller.py                          BrokerController.dispatch (결과 수신 뒤 다음 에이전트 배정)
+  execution.py / workflow.py              영속 실행·에이전트 경계·도구 어댑터 연결
+agents/mideagent_agents/                  업무 목표와 내부 흐름
+  transcription/agent.py                 영상 분석·음성 준비·전사 목표
+  transcription/model_graph.py           기존 구간 전사 LangGraph
+  translation/agent.py / model_graph.py   한국어 번역 목표와 기존 LangGraph
+  subtitle_video/agent.py                자막 생성·번인·완성 영상 확인
+packages/tool-hub/mideagent_tool_hub/      도구 등록·권한·표준 호출 어댑터
+ tools/media/mideagent_media_tools/       FFmpeg 등 실제 CPU 도구 (operations.py)
+ tools/media/broker.py                    도구 실행기 전송 진입점: mideagent-media-amqp
+ tools/models/mideagent_model_tools/      모델 HTTP/로컬 호출 도구·연결부
+ tools/gpu/                              선택 GPU 도구·어댑터 (실행은 별도 승인)
+runtime/controlnet/mideagent_controlnet/  실제 실행기 기동·준비·회수
+  agent_pool_host.py                     실행: python -m mideagent_controlnet.agent_pool_host
+runtime/model-executor/src/              모델 실행기 전송·저장 연동
+  mideagent_model_runtime/broker.py       실행: python -m mideagent_model_runtime.broker
+packages/shared/video_service/           공통 계약·DB/MQ/저장소·엄격한 bootstrap
+apps/api/app/server.py                   인증된 제품 API 진입점
+apps/web/src/                            에이전트 캔버스·상세 출력/실제 콘솔
+```
+
+이전 `shared/postgres/execution.py`·`rabbitmq_controller.py`의 구현은 `apps/orchestrator`로, `agents/cpu`는 `tools/media`로, `agents/models`의 전송 코드는 `runtime/model-executor`로 이동했다. 전사·번역 그래프는 업무 `agents` 안에 있다. 필요한 옛 Python import/CLI 경로는 **구현 없는 호환 경계**이며 같은 구현을 두 위치에 복제하지 않는다. 기존 서명·큐·기록의 이름은 호환을 위해 유지한다.
+
+새 저장 정의에는 업무 에이전트만 있다. 실행 snapshot은 공개 `agent_definition`과 기존 전송 스키마를 재사용하는 내부 도구 계획을 함께 고정한다. 도구는 각 에이전트의 `advance`에서만 선택·호출된다. 과거 작업 화면의 그룹 집계는 읽기 전용이며 원래 snapshot·실행·결과·불명 호출 원장은 변경하지 않는다.
+
+DNS/TLS 확인과 실제 모델 실행은 별개다. 새 영상·유료/GPU·모델 호출 없이 하는 검사와 실제 영상 완주를 완료 보고에서 구분한다.
+
+
 원본과 저장한 workflow를 불변 티켓으로 처리하는 미디어 에이전트 제품이다.
 현재 `renewal`은 명시 CPU 실행·저장소·검수 기반이며 운영 전환이나 GPU/실모델 완료를 뜻하지 않는다.
 
@@ -15,8 +51,8 @@
 ```text
 apps/api/app/             renewal API·controller·명시 launcher
 apps/web/                 DEV-only 목업 / 인증된 renewal UI
-agents/cpu/               cli.py · server.py · broker.py (평탄한 패키지)
-agents/gpu/               facefusion.py · vad.py · models.py (선택 엔진)
+tools/media/               cli.py · server.py · broker.py (평탄한 패키지)
+tools/gpu/               facefusion.py · vad.py · models.py (선택 엔진)
 packages/shared/video_service/
   contracts/              versioned MQ request/response JSON Schema
   postgres/               DB 상태·불변 정의·outbox/inbox·fleet
@@ -41,7 +77,7 @@ Python import 이름은 `mideagent_cpu`, `mideagent_gpu`이며 각 `pyproject.to
 Python 3.12+, FFmpeg/FFprobe와 Node가 필요하다. 격리 환경에서:
 
 ```sh
-python -m pip install -e 'packages/shared[postgres,models,objects,amqp,verify]' -e apps/api -e agents/cpu -e agents/gpu
+python -m pip install -e 'packages/shared[postgres,models,objects,amqp,verify]' -e agents -e apps/orchestrator -e packages/tool-hub -e tools/models -e runtime/controlnet -e apps/api -e tools/media -e tools/gpu
 ```
 
 DB·합성 미디어·브라우저 검증의 실제 명령과 opt-in 조건은 [격리 검증 안내](tests/renewal/README.md)를 따른다. 기본 API startup은 migration·큐 scan·worker·provider/GPU 호출을 시작하지 않는다.
@@ -69,7 +105,7 @@ private 디렉터리의 `api.json` 구조:
 
 `MIDEAGENT_BOOTSTRAP_DIR`은 해당 private 디렉터리의 절대 경로다. `docker compose --profile renewal config --quiet`는 정적 검증이며 배포가 아니다. `/healthz`는 프로세스 liveness만 확인하며 DB 준비 완료를 의미하지 않는다. 실제 migration·DB/스토리지 준비·image build/run은 별도 수용 단계다. API는 외부에 publish하지 않고 web만 `127.0.0.1:8080`으로 publish한다. MagicDNS/원격 배포는 이 레시피만으로 완료되지 않는다.
 
-`agents/cpu/compose.yaml`은 명시 stdin/local-CAS, `compose.amqp.yaml`은 외부 broker/S3를 전제로 한 선택 레시피다. 선택 `infra/compose.yaml`은 별도 TLS broker/PG/S3 설치 recipe, `compose.transport.yaml`은 root API/results/operator 연결 overlay다. 신규 private bootstrap·수동 초기화·권한·복구는 [배포 절차](docs/rules/deploy.md)를 따른다. 실제 격리 broker/S3/독립 CPU 왕복은 수용했지만 운영 배포·원격 fleet 제어·GPU agent 실행은 별도다. 기본 startup에 consumer를 붙이지 않는다. 이미지 graph는 `docker buildx bake -f docker-bake.hcl --print api cpu cpu-amqp api-broker gpu`로 조회한다. 공통 FFmpeg base는 실행 서비스가 아닌 build layer다.
+`tools/media/compose.yaml`은 명시 stdin/local-CAS, `compose.amqp.yaml`은 외부 broker/S3를 전제로 한 선택 레시피다. 선택 `infra/compose.yaml`은 별도 TLS broker/PG/S3 설치 recipe, `compose.transport.yaml`은 root API/results/operator 연결 overlay다. 신규 private bootstrap·수동 초기화·권한·복구는 [배포 절차](docs/rules/deploy.md)를 따른다. 실제 격리 broker/S3/독립 CPU 왕복은 수용했지만 운영 배포·원격 fleet 제어·GPU agent 실행은 별도다. 기본 startup에 consumer를 붙이지 않는다. 이미지 graph는 `docker buildx bake -f docker-bake.hcl --print api cpu cpu-amqp api-broker gpu`로 조회한다. 공통 FFmpeg base는 실행 서비스가 아닌 build layer다.
 
 ## 이전 자료
 

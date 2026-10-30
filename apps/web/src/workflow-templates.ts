@@ -3,6 +3,43 @@ import type { CanvasDefinition } from './WorkflowCanvas';
 export type EditableWorkflow = CanvasDefinition & { catalog_version: number };
 const identity = () => crypto.randomUUID().replaceAll('-', '');
 
+/** Public workflow: goal agents only; tool plans belong to their implementations. */
+export const createAgentWorkflow = (): EditableWorkflow => {
+  const nodes: CanvasDefinition['nodes'] = [
+    {
+      id: 'transcription',
+      type: 'transcription_agent',
+      position: { x: 0, y: 80 },
+      options: { source_language: 'auto' },
+    },
+    {
+      id: 'translation',
+      type: 'translation_agent',
+      position: { x: 290, y: 80 },
+      options: { target_language: 'ko' },
+    },
+    {
+      id: 'subtitle_video',
+      type: 'subtitle_video_agent',
+      position: { x: 580, y: 80 },
+      options: {},
+    },
+  ];
+  return {
+    id: identity(),
+    catalog_version: 2,
+    revision: 0,
+    name: '영상 전사·한국어 자막 번인',
+    inputs: {},
+    nodes,
+    edges: [0, 1].map((i) => ({
+      id: identity(),
+      source: { node: nodes[i].id, port: 'media' },
+      target: { node: nodes[i + 1].id, port: 'media' },
+    })),
+  };
+};
+
 /** An editable draft, not a saved workflow, ticket, cost consent, or execution. */
 export const createLegacyWorkflow = ({
   review = true,

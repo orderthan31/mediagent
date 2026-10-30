@@ -35,8 +35,8 @@ def main(argv=None):
                 return 0
             from video_service.object_store import from_config
             from video_service.postgres import Database
-            from video_service.postgres.execution import Execution
-            from video_service.rabbitmq_controller import BrokerController
+            from mideagent_orchestrator.execution import Execution
+            from mideagent_orchestrator.controller import BrokerController
 
             runtime = Execution(
                 Database(os.environ[args.dsn_env]),

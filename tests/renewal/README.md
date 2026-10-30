@@ -6,8 +6,8 @@ provider request, real user media or startup migration is allowed.
 ## Dependencies
 
 Use Python 3.12+, FFmpeg/FFprobe, Node 22+ and installed web/Playwright dependencies.
-Install `packages/shared[postgres,models,objects,amqp,verify]`, `apps/api`, `agents/cpu`
-and `agents/gpu` in an isolated environment. The verify extra includes pytest,
+Install `packages/shared[postgres,models,objects,amqp,verify]`, `apps/api`, `tools/media`
+and `tools/gpu` in an isolated environment. The verify extra includes pytest,
 jsonschema and test-only `moto[server]>=5,<6`. Moto is an
 in-process disposable loopback S3 protocol fixture, **not MinIO vendor validation**.
 No test starts a production storage/broker deployment.
@@ -20,7 +20,7 @@ checksum-checked migrations and tears down only that schema. Missing DSN means
 skipped tests, not successful DB verification.
 
 ```sh
-PYTHONPATH=packages/shared:apps/api:agents/cpu python -m pytest tests/renewal -q
+PYTHONPATH=packages/shared:apps/api:tools/media python -m pytest tests/renewal -q
 ```
 
 Tests cover upload resume/hash/owner, immutable workflow revisions, job admission,
@@ -89,7 +89,7 @@ environment. `test_fleet_browser.py` launches a temporary loopback server with
 ordinary upload/create/consent/completion, and closes all owned processes.
 
 The isolated Node runtime must be available on the test subprocess PATH. The
-fleet driver requires installed `agents/cpu` in the same explicit environment;
+fleet driver requires installed `tools/media` in the same explicit environment;
 it does not infer deployment configuration. Container images are source recipes
 with static Compose validation only, and unconnected model/GPU adapters remain
 unavailable rather than falsely enabled.

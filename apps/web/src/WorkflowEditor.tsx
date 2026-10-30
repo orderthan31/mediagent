@@ -11,13 +11,8 @@ import { NodeModelBinding } from './NodeModelBinding';
 import { NodeConfiguration } from './NodeConfiguration';
 import { DefinitionHistory } from './DefinitionHistory';
 import { frontendOnly } from './preview';
-import {
-  controlSpecs,
-  isControlNode,
-  controlFieldLabels,
-  controlValueLabels,
-} from './workflow-controls';
-import { createLegacyWorkflow, withoutHumanReview } from './workflow-templates';
+import { isControlNode, controlFieldLabels, controlValueLabels } from './workflow-controls';
+import { createAgentWorkflow } from './workflow-templates';
 import './workflow-editor.css';
 
 type Definition = CanvasDefinition & { catalog_version: number };
@@ -28,10 +23,10 @@ type Validation = {
 const endpoint = '/settings/workflow-definitions';
 const draft = (): Definition => ({
   id: crypto.randomUUID().replaceAll('-', ''),
-  catalog_version: 1,
+  catalog_version: 2,
   revision: 0,
   name: '새 워크플로우',
-  inputs: { video: 'video' },
+  inputs: {},
   nodes: [],
   edges: [],
 });
@@ -379,7 +374,7 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
             : Promise.resolve(null),
         ]);
         if (!controller.signal.aborted) {
-          setCatalog([...specs.nodes, ...(frontendOnly ? controlSpecs : [])]);
+          setCatalog(specs.nodes);
           if (saved) {
             setDoc(saved);
           }
@@ -422,7 +417,7 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
               ) {
                 return;
               }
-              change(withoutHumanReview(createLegacyWorkflow()));
+              change(createAgentWorkflow());
               setSelected('');
               setError('');
               setTemplateNotice(

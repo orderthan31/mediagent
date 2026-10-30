@@ -19,7 +19,7 @@ target "api-broker" {
 }
 target "cpu" {
   context = "."
-  dockerfile = "agents/cpu/Dockerfile"
+  dockerfile = "tools/media/Dockerfile"
   target = "runtime"
   contexts = { media_base = "target:media-base" }
   tags = ["mideagent-cpu:local"]
@@ -41,7 +41,7 @@ target "gpu-amqp" {
 }
 target "gpu" {
   context = "."
-  dockerfile = "agents/gpu/Dockerfile"
+  dockerfile = "tools/gpu/Dockerfile"
   contexts = { media_base = "target:media-base" }
   tags = ["mideagent-gpu:local"]
 }

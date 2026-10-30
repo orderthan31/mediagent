@@ -10,7 +10,7 @@ from psycopg.types.json import Jsonb
 
 from .. import packed_projection
 from ..audio_clock import registered_clock
-from ..cpu_agents import canonical, digest
+from video_service.canonical import canonical, digest
 from ..long_audio_budget import read_clock, validate_command
 from . import Conflict, Missing
 from .execution import public

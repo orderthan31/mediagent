@@ -805,3 +805,100 @@
   background: var(--g-surface, #fff);
   color: var(--g-ink, #0f172a);
 }
+
+/* Real observed orchestration transitions; no synthetic timing/progress. */
+.workflow-edge-preparation {
+  pointer-events: none;
+}
+.workflow-edge-preparation rect {
+  fill: var(--surface, #fff);
+  stroke: #6679c7;
+}
+.workflow-edge-preparation text {
+  fill: var(--text-primary, #23324a);
+  font-size: 12px;
+  font-weight: 600;
+}
+.workflow-preparation-spinner {
+  fill: none;
+  stroke: #5265bd;
+  stroke-width: 2;
+  stroke-dasharray: 22 16;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: workflow-preparation-spin 1s linear infinite;
+}
+@keyframes workflow-preparation-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.workflow-wire[data-edge-state='preparing'] {
+  stroke: #6679c7;
+  stroke-dasharray: 6 4;
+}
+.workflow-wire[data-edge-state='failed'] {
+  stroke: #c53b43;
+}
+.workflow-graph-node[data-state='preparing'] {
+  border-color: #6679c7;
+}
+.workflow-node-error-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+  margin-right: 5px;
+  border-radius: 50%;
+  color: white;
+  background: #bc303b;
+  font-size: 12px;
+}
+.workflow-node-error-reason {
+  margin: 0;
+  padding: 0 12px 10px;
+  color: #a72c38;
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.workflow-preparation-status {
+  margin: 4px 0 10px;
+  font-size: 13px;
+  color: #5265bd;
+}
+.workflow-agent-tools {
+  display: flex;
+  gap: 6px;
+  padding: 0 0 5px;
+  margin: 8px 0;
+  list-style: none;
+  overflow-x: auto;
+}
+.workflow-agent-tools li {
+  flex: 0 0 auto;
+}
+.workflow-agent-tools button {
+  display: grid;
+  width: 100%;
+  gap: 3px;
+  justify-content: space-between;
+  padding: 7px 9px;
+  text-align: left;
+  border: 1px solid #d0d6df;
+  border-radius: 7px;
+  background: transparent;
+  color: inherit;
+}
+.workflow-agent-tools button[aria-pressed='true'] {
+  border-color: #6679c7;
+}
+.workflow-agent-tools [data-state='failed'] {
+  color: #a72c38;
+}
+@media (prefers-reduced-motion: reduce) {
+  .workflow-preparation-spinner {
+    animation: none;
+    stroke-dasharray: none;
+  }
+}

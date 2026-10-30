@@ -9,7 +9,7 @@ import re
 from copy import deepcopy
 from urllib.parse import urlsplit
 
-from ..cpu_agents import canonical
+from video_service.canonical import canonical
 from ..model_endpoints import EndpointFailure, GeminiTextAdapter, OpenAITextAdapter
 from ..model_profile import supports_role
 from ..transcript_input import parse_segments
@@ -499,7 +499,7 @@ def execute_translation(runtime, owner, command):
     """Execute inside the existing exact-delivery fence; no queue or default key."""
     from psycopg.types.json import Jsonb
 
-    from ..cpu_agents import digest
+    from video_service.canonical import digest
     from ..long_audio_budget import validate_command
 
     audio_budget = validate_command(command)

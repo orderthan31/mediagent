@@ -63,6 +63,9 @@ export const templates: Record<string, string> = {
   encode: '인코딩만',
 };
 export const stageLabels: Record<string, string> = {
+  transcription_agent: '전사 에이전트',
+  translation_agent: '한국어 번역 에이전트',
+  subtitle_video_agent: '자막 영상 제작 에이전트',
   faceswap: '얼굴 합성',
   analyze: '영상 확인',
   extract_audio: '음성 추출',

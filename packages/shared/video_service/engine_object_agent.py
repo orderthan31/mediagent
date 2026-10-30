@@ -2,7 +2,7 @@
 
 import json
 from pathlib import Path
-from .cpu_agents import canonical, digest
+from video_service.canonical import canonical, digest
 from .engine_protocol import envelope, validate_runtime
 from .rabbitmq_transport import InvalidMessage
 from .local_model_engines import transcribe, translate

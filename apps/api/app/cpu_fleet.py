@@ -9,7 +9,8 @@ import sys
 import threading
 import time
 
-from video_service.cpu_agents import CPU_AGENTS, canonical
+from video_service.canonical import canonical
+from video_service.agent_protocol import CPU_AGENTS
 
 
 class CpuProcesses:

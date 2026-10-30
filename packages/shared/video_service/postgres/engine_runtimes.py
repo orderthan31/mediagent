@@ -1,7 +1,7 @@
 """CAS-pinned physical engine revisions. Logical provider/model refs stay separate."""
 
 from psycopg.types.json import Jsonb
-from video_service.cpu_agents import digest
+from video_service.canonical import digest
 from video_service.engine_protocol import validate_runtime
 
 

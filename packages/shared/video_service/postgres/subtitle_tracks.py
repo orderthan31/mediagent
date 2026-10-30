@@ -10,7 +10,7 @@ from copy import deepcopy
 
 from psycopg.types.json import Jsonb
 
-from ..cpu_agents import canonical, digest
+from video_service.canonical import canonical, digest
 from ..sami import segments_to_sami
 from ..subtitle_tracks import MANIFEST_BYTES, POLICY, TRACK_BYTES, names, normalize
 from ..subtitles import segments_to_srt

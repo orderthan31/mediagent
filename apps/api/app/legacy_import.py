@@ -12,7 +12,7 @@ def main(argv=None):
     parser.add_argument("--apply", action="store_true")
     args = parser.parse_args(argv)
     try:
-        from app.server import load_bootstrap
+        from video_service.bootstrap import load_bootstrap
         from video_service.postgres import Database
         from video_service.postgres.legacy_archive import LegacyArchive
 
