@@ -275,7 +275,8 @@ class RoleToolBridge:
                     else None
                 )
                 adapter = executor.make_adapter(pin, key)
-                adapter._client.timeout = 15.0
+                if "inference" not in pin:
+                    adapter._client.timeout = 15.0
                 plain = [
                     {k: v for k, v in r.items() if k != "id"} for r in batch.segments
                 ]
@@ -454,7 +455,8 @@ class RoleToolBridge:
                     else None
                 )
                 adapter = executor.make_adapter(pin, key)
-                adapter._client.timeout = 15.0
+                if "inference" not in pin:
+                    adapter._client.timeout = 15.0
                 with model_call_fence(runtime.database, owner, command["run_id"]):
                     with runtime.database.connection() as c:
                         self.roles._current(c, owner, command)

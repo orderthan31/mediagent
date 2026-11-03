@@ -112,14 +112,17 @@ def supports_role(profile, role):
 
 
 def supports_transcription(profile, protocol, model):
-    """Implemented timed wire, not a live provider capability/authentication probe."""
-    import re
+    """Declared timed-audio contract; never use an LLM name as eligibility.
 
-    if not supports_role(profile, "transcription") or not isinstance(model, str):
-        return False
-    if protocol == "gemini":
-        return bool(re.fullmatch(r"gemini-[A-Za-z0-9._-]{1,190}", model))
-    return protocol in {"openai", "openai_compatible"} and model == "whisper-1"
+    The SDK/provider must still accept the selected operation and the response
+    must contain validated real timestamps. A declaration is not live readiness.
+    """
+    return bool(
+        supports_role(profile, "transcription")
+        and isinstance(model, str)
+        and 1 <= len(model) <= 200
+        and protocol in {"gemini", "openai", "openai_compatible"}
+    )
 
 
 def supports_vocalization(profile, protocol, model):

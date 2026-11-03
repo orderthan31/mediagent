@@ -43,8 +43,11 @@ def _shape(value):
         if not isinstance(node.get("position"),dict)or set(node["position"])!={"x","y"}or any(type(v)not in(int,float)or not -100000<=v<=100000 for v in node["position"].values()):
             raise ValueError("에이전트 위치를 확인하세요.")
         options=node.get("options",{})
-        if not isinstance(options,dict)or any(k not in specs[kind]["options"]or not isinstance(v,str)or v not in specs[kind]["options"][k]for k,v in options.items()):
+        if not isinstance(options,dict)or any(k not in specs[kind]["options"]or not isinstance(v,str)or k != "llm_options" and v not in specs[kind]["options"][k]for k,v in options.items()):
             raise ValueError("에이전트 처리 설정을 확인하세요.")
+        if "llm_options" in options:
+            from video_service.llm_contract import parse_options
+            parse_options(options["llm_options"])
         cls=CLASSES[kind];settings=node.get("tool_settings",{})
         if not isinstance(settings,dict)or set(settings)-set(cls.tool_order)or any(not isinstance(v,dict)or any(not isinstance(k,str)or not isinstance(x,str)for k,x in v.items())for v in settings.values()):
             raise ValueError("에이전트 내부 도구 설정을 확인하세요.")

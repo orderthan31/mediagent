@@ -14,7 +14,7 @@ def catalog():
         role=ROLE_KEYS[identity]
         native=spec(role,{})
         options={k:deepcopy(v)for k,v in native["options"].items()if k in (
-            ("source_language",) if role=="transcribe" else ("target_language",) if role=="translate" else ("resolution","quality_profile","video_codec"))}
+            ("source_language","llm_options") if role=="transcribe" else ("target_language","llm_options") if role=="translate" else ("resolution","quality_profile","video_codec"))}
         if role=="translate":options["target_language"]=["ko"]
         stages.append({"id":identity,"label":cls.label,"kind":"agent","node_kind":"agent","public":True,
             "inputs":{}if role=="transcribe"else{"media":"media_task"},

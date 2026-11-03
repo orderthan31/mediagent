@@ -22,7 +22,7 @@ FRONTIER_CONNECTIONS = {
 }
 # Implemented adapter capabilities, not a model-name heuristic or a live probe.
 PROTOCOL_USES = {'openai_compatible': ['translation', 'transcription'], 'openai': ['translation', 'transcription'],
-                 'gemini': ['translation', 'transcription'], 'anthropic': []}
+                 'gemini': ['translation', 'transcription'], 'anthropic': ['translation']}
 
 
 def validate_endpoint(value):
@@ -246,14 +246,14 @@ class GeminiTextAdapter(OpenAITextAdapter):
 
 
 class OpenAIAudioAdapter(OpenAITextAdapter):
-    """OpenAI whisper-1 multipart verbose_json with real segment timestamps."""
+    """Legacy multipart timed wire; historical non-SDK candidates only."""
 
     def transcribe(self, model, audio, language):
         from video_service.audio_contract import audio_info, timed_segments
 
         info = audio_info(audio)
         if model != 'whisper-1' or not re.fullmatch(r'auto|[a-z]{2,3}', language):
-            raise ValueError('지원되는 whisper-1/언어를 선택하세요.')
+            raise ValueError('과거 전사 요청의 고정 wire 계약과 다릅니다.')
         data = {'model': model, 'response_format': 'verbose_json', 'timestamp_granularities[]': 'segment'}
         if language != 'auto':
             data['language'] = language

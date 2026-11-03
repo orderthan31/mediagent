@@ -166,11 +166,16 @@ class PinnedModelTransport(httpx.BaseTransport):
             body.extend(chunk)
             if len(body) > 3 * 1024 * 1024:
                 raise httpx.TransportError("registered_request_denied")
-        connection = http.client.HTTPConnection(key[1], key[2], timeout=15)
+        # Only the new request-owned SDK guard supplies this private extension.
+        # Legacy frozen requests keep the original 15-second socket contract.
+        timeout = request.extensions.get("mideagent_timeout_seconds", 15)
+        if type(timeout) not in (int, float) or not 1 <= timeout <= 120:
+            raise httpx.TransportError("registered_timeout_denied")
+        connection = http.client.HTTPConnection(key[1], key[2], timeout=timeout)
         stream = None
         try:
             # No getaddrinfo(hostname), proxy, alternative-address retry, or redirect.
-            stream = socket.create_connection((addresses[0], key[2]), timeout=15)
+            stream = socket.create_connection((addresses[0], key[2]), timeout=timeout)
             if key[0] == "https":
                 stream = self.policy.context.wrap_socket(stream, server_hostname=key[1])
             connection.sock = stream

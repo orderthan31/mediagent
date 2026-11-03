@@ -583,7 +583,7 @@ class Intake:
                 )
             ]
 
-    def _bindings(self, db, owner, definition, *, active=True):
+    def _bindings(self, db, owner, definition, *, active=True, sdk=False):
         bindings = {}
         for node in definition["nodes"]:
             ref = node.get("model_ref")
@@ -591,7 +591,7 @@ class Intake:
                 continue
             model_id = resource_id(ref["model_id"])
             row = db.execute(
-                "SELECT mr.*,m.active AS model_active,c.active AS connection_active,cr.endpoint,cr.protocol,cr.credential_ref FROM model_revisions mr JOIN registered_models m ON m.owner_id=mr.owner_id AND m.id=mr.model_id JOIN serving_connections c ON c.owner_id=mr.owner_id AND c.id=mr.connection_id JOIN connection_revisions cr ON cr.owner_id=mr.owner_id AND cr.connection_id=mr.connection_id AND cr.revision=mr.connection_revision WHERE mr.owner_id=%s AND mr.model_id=%s AND mr.revision=%s FOR SHARE OF m,c",
+                "SELECT mr.*,m.active AS model_active,c.active AS connection_active,cr.endpoint,cr.protocol,cr.provider,cr.credential_ref FROM model_revisions mr JOIN registered_models m ON m.owner_id=mr.owner_id AND m.id=mr.model_id JOIN serving_connections c ON c.owner_id=mr.owner_id AND c.id=mr.connection_id JOIN connection_revisions cr ON cr.owner_id=mr.owner_id AND cr.connection_id=mr.connection_id AND cr.revision=mr.connection_revision WHERE mr.owner_id=%s AND mr.model_id=%s AND mr.revision=%s FOR SHARE OF m,c",
                 (owner, model_id, ref["revision"]),
             ).fetchone()
             if not row:
@@ -616,17 +616,23 @@ class Intake:
                     "capabilities",
                 )
             }
+            if sdk and node.get("type") in {"transcribe", "translate", "transcription_agent", "translation_agent"}:
+                from ..llm_contract import freeze_inference
+                bindings[node["id"]]["provider"] = row["provider"]
+                bindings[node["id"]]["inference"] = freeze_inference(
+                    row, node["type"], node.get("options", {}).get("llm_options", "")
+                )
         for node in definition["nodes"]:
             if node.get("model_ref"):
                 bindings[node["id"]]["owner_id"] = owner
             if node.get("fallback_refs"):
                 extra = {
                     "nodes": [
-                        {"id": str(i), "model_ref": ref}
+                        {"id": str(i), "model_ref": ref, "type": node.get("type"), "options": node.get("options", {})}
                         for i, ref in enumerate(node["fallback_refs"])
                     ]
                 }
-                resolved = self._bindings(db, owner, extra, active=active)
+                resolved = self._bindings(db, owner, extra, active=active, sdk=sdk)
                 bindings[node["id"]]["fallbacks"] = list(resolved.values())
         return bindings
 

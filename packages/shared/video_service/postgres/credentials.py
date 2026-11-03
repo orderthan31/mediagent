@@ -129,7 +129,7 @@ class CredentialStore:
             raise ValueError("invalid_model_revision")
         with self.database.connection() as db:
             row = db.execute(
-                "SELECT mr.*,cr.endpoint,cr.protocol,cr.credential_ref FROM model_revisions mr JOIN registered_models m ON m.owner_id=mr.owner_id AND m.id=mr.model_id JOIN serving_connections c ON c.owner_id=mr.owner_id AND c.id=mr.connection_id JOIN connection_revisions cr ON cr.owner_id=mr.owner_id AND cr.connection_id=mr.connection_id AND cr.revision=mr.connection_revision WHERE mr.owner_id=%s AND mr.model_id=%s AND mr.revision=%s AND m.active AND c.active AND EXISTS (SELECT 1 FROM accounts a WHERE a.id=mr.owner_id AND a.active AND a.role='admin')",
+                "SELECT mr.*,cr.endpoint,cr.protocol,cr.provider,cr.credential_ref FROM model_revisions mr JOIN registered_models m ON m.owner_id=mr.owner_id AND m.id=mr.model_id JOIN serving_connections c ON c.owner_id=mr.owner_id AND c.id=mr.connection_id JOIN connection_revisions cr ON cr.owner_id=mr.owner_id AND cr.connection_id=mr.connection_id AND cr.revision=mr.connection_revision WHERE mr.owner_id=%s AND mr.model_id=%s AND mr.revision=%s AND m.active AND c.active AND EXISTS (SELECT 1 FROM accounts a WHERE a.id=mr.owner_id AND a.active AND a.role='admin')",
                 (owner, model_id, revision),
             ).fetchone()
         if not row:

@@ -97,3 +97,9 @@
 
 #### Model-free preserved transcript reprojection
 The original failed transcription is not a resumable success. Require its completed delivery envelope and exact committed inbox hash, matching sanitized held-transcript metadata and no uncertain chunk attempt before offering recovery. Additive023 owns immutable preview/context and one-shot admission/outcome rows only; original jobs/runs/model budgets remain unchanged. Pin the original saved transcript/audio/clock refs and policy, actual verified frames/bytes and the current projector code SHA. Explicitly preview and acknowledge before storing a separate transcript/trace artifact; do not call registry/model transports, create a child job or dispatch descendants. A response/commit-unknown source remains blocked, and an uncertain recovery admission is not automatically replayed. Serving this feature needs its own migration/rollout approval; source acceptance of8167ca87 did not authorize that activation.
+
+
+### 모델 선택·요청 옵션 전달
+- 워크플로우의 모델 ID/revision을 그대로 저장·재열기한다. 선택한 노드에서 요청 옵션 JSON을 설정하며 키·공급자 주소·모델·transport·재시도/fallback을 옵션으로 덮어쓸 수 없다.
+- 새 작업 생성은 선택한 버전과 옵션을 snapshot에 고정하고 모델 툴의 실제 SDK 인자에 전달한다. SDK가 선택 모델이나 지원되지 않는 설정을 바꾸거나 버리는 경우의 방어 검증은 운영 승격 전 필수다.
+- 실제 시각이 없는 전사문, 비정상 JSON·비완료 응답, 시각 겹침은 정상 자막 입력으로 포장하지 않는다. 원래 상태/원장과 결과 불명 보류·취소·키 redaction 경계를 유지한다.

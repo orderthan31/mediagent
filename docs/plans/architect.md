@@ -168,3 +168,11 @@ flowchart TD
 - 실제 실행 코드: `bb6aea65ba0acdd122550c62cc47f5d944586c5c`.
 - 역할별 도구 실행·다운로드·보존 확인: 저장소 밖 `task-agent-responsibility/task-agent-result.json`.
 - 이 근거는 개발자 확인용이다. 제품 설명이나 새 화면 기능의 요구사항으로 복사하지 않는다.
+
+
+### 워크플로우 선택 기반 모델 SDK
+- 새 일반 작업은 워크플로우 모델 참조와 제한된 `llm_options`를 버전 있는 invocation 계약으로 candidate snapshot에 고정한다. 기존 모델 revision·과거 snapshot은 수정하지 않는다.
+- 실제 ASR/MT 툴 경계에서 계정별 키를 일시 해석해 LiteLLM 1.106.6의 요청별 클라이언트로 전달한다. SDK Proxy/Router·새 서비스·SDK 전역 사용자 키는 사용하지 않는다.
+- 원래 승인된 origin/TLS/address-pinned transport 앞에서 실제 최종 URL·모델·전송 횟수와 응답 크기를 검사한다. SDK 내부 재시도·다른 모델/주소 전환은 새 유료 전송으로 이어지지 못한다.
+- 비용표와 tokenizer 리소스는 image/build 시점에 준비하고 serving 중 자동 취득하지 않는다. SDK 의존성은 모델 툴의 `sdk` extra와 API 구성에 한정한다.
+- 과거 invocation 계약이 없는 고정 요청은 호환 경로를 유지한다. 모델 등록/SDK 능력 근거·비용 없는 인자 전달 검증과 실제 공급자 인증/유료 완주는 별개다.

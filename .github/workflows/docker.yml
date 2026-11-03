@@ -19,6 +19,8 @@ jobs:
         ports: ["127.0.0.1:5432:5432"]
         options: --health-cmd pg_isready --health-interval 2s --health-timeout 5s --health-retries 20
     env:
+      LITELLM_LOCAL_MODEL_COST_MAP: "True"
+      CUSTOM_TIKTOKEN_CACHE_DIR: /tmp/mideagent-tokenizers
       MIDEAGENT_TEST_DISPOSABLE: "1"
       MIDEAGENT_TEST_DSN: host=127.0.0.1 port=5432 user=postgres dbname=renewal_tests
       MIDEAGENT_BOOTSTRAP_DIR: /tmp/synthetic-bootstrap-unused
@@ -31,6 +33,7 @@ jobs:
         with: {python-version: "3.12"}
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg fontconfig fonts-noto-cjk
       - run: python -m pip install -e 'packages/shared[postgres,models,objects,amqp,verify]' -e agents -e apps/orchestrator -e packages/tool-hub -e tools/models -e runtime/controlnet -e apps/api -e tools/media -e tools/gpu
+      - run: python -m mideagent_model_tools.sdk_cache "$CUSTOM_TIKTOKEN_CACHE_DIR"
       - name: Validate recipes only; no broker, GPU or provider stack is started
         run: |
           docker compose --profile renewal config --quiet

@@ -190,7 +190,7 @@ class Registry:
                 "capabilities": sorted(CAPABILITIES),
                 "verified": False,
                 "adapter_capabilities": ["text_generation"]
-                if row["protocol"] in ("openai", "openai_compatible", "gemini")
+                if row["protocol"] in ("openai", "openai_compatible", "gemini", "anthropic")
                 else [],
                 "reason": "등록 가능한 메타데이터입니다. 모델 능력·실제 연결은 확인하지 않았습니다.",
             }
@@ -220,14 +220,14 @@ class Registry:
                     row, row["protocol"], row["remote_model"]
                 ),
                 "transcription_format": (
-                    "gemini_inline_timed_json"
-                    if row["protocol"] == "gemini"
-                    else "openai_verbose_json_segments"
+                    "structured_audio"
+                    if {"text_generation", "structured_output"} <= set(row["capabilities"])
+                    else "audio_transcription_with_timestamps"
                 )
                 if supports_transcription(row, row["protocol"], row["remote_model"])
                 else None,
                 "translation_supported": row["protocol"]
-                in ("openai", "openai_compatible", "gemini")
+                in ("openai", "openai_compatible", "gemini", "anthropic")
                 and "text_generation" in row["capabilities"],
                 "connection_id": row["connection_id"],
                 "connection_revision": row["connection_revision"],

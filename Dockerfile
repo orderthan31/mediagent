@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg fontconf
 
 # API composition includes deterministic business goals, not an LLM framework/inference engine.
 FROM media-base AS api
+ENV LITELLM_LOCAL_MODEL_COST_MAP=True CUSTOM_TIKTOKEN_CACHE_DIR=/opt/mideagent/tokenizers
 COPY packages/shared /app/packages/shared
 COPY packages/tool-hub /app/packages/tool-hub
 COPY agents /app/agents
@@ -17,6 +18,7 @@ COPY apps/orchestrator /app/apps/orchestrator
 COPY runtime/controlnet /app/runtime/controlnet
 COPY apps/api /app/apps/api
 RUN pip install --no-cache-dir '/app/packages/shared[postgres,models]' /app/packages/tool-hub /app/agents /app/tools/media /app/tools/models /app/apps/orchestrator /app/runtime/controlnet /app/apps/api \
+    && python -m mideagent_model_tools.sdk_cache /opt/mideagent/tokenizers \
     && useradd --uid 10001 --create-home media \
     && mkdir -p /data/content && chown -R media:media /data
 USER media

@@ -16,7 +16,7 @@ from ..transcript_input import parse_segments
 from . import Missing
 from .credentials import CredentialUnavailable
 
-PROTOCOLS = frozenset({"gemini", "openai", "openai_compatible"})
+PROTOCOLS = frozenset({"gemini", "openai", "openai_compatible", "anthropic"})
 ADVANCE = frozenset(
     {"rate_limited", "upstream_failure", "invalid_response", "unavailable"}
 )
@@ -144,6 +144,11 @@ class TranslationRuntime:
             ):
                 return False
             url = urlsplit(row["endpoint"])
+            if "inference" in pin:
+                from ..llm_contract import validate_inference
+                validate_inference(row, pin["inference"])
+                if pin["inference"]["role"] != self.role or pin.get("provider") != row["provider"]:
+                    return False
             if f"{url.scheme}://{url.netloc}" not in self.approved_origins:
                 return False
             if row["protocol"] != "openai_compatible" and not row["credential_ref"]:
@@ -157,6 +162,14 @@ class TranslationRuntime:
             return False
 
     def make_adapter(self, pin, key):
+        if "inference" in pin:
+            from ..llm_contract import validate_inference
+            from mideagent_model_tools.litellm_adapter import LiteLLMAdapter
+            validate_inference(pin, pin["inference"])
+            return LiteLLMAdapter(pin["endpoint"], protocol=pin["protocol"], contract=pin["inference"],
+                                  transport=self.transport_factory(), approved_origins=self.approved_origins, api_key=key)
+        if pin["protocol"] == "anthropic":
+            raise ValueError("과거 요청에는 Anthropic 호출 계약이 없습니다. 새 워크플로우 요청을 사용하세요.")
         adapter_type = (
             GeminiTextAdapter if pin["protocol"] == "gemini" else OpenAITextAdapter
         )
@@ -256,7 +269,8 @@ class TranslationRuntime:
                 else None
             )
             adapter = self.make_adapter(pin, key)
-            adapter._client.timeout = 15.0
+            if "inference" not in pin:
+                adapter._client.timeout = 15.0
             try:
                 attempt["status"] = "started"
                 record(deepcopy(attempts))  # must commit before any outbound bytes

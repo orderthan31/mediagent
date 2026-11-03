@@ -14,7 +14,7 @@ dependencies = [
   "mideagent-orchestrator",
   "mideagent-tool-hub",
   "mideagent-cpu-agents",
-  "mideagent-model-tools",
+  "mideagent-model-tools[sdk]",
   "mideagent-controlnet",
 ]
 

@@ -164,38 +164,19 @@ class CatalogGetTransport(httpx.BaseTransport):
 
 # Capability evidence is not a list of models to show: only IDs returned by the
 # selected account's official API enter the picker. Unknown IDs remain unknown.
-_OPENAI_TEXT = {
-    "gpt-5.5": "gpt-5.5",
-    "gpt-5.5-2026-04-23": "gpt-5.5",
-    "gpt-4.1": "gpt-4.1",
-    "gpt-4.1-2025-04-14": "gpt-4.1",
-}
-
+from mideagent_model_tools.sdk_metadata import sdk_profile
 
 def classify(provider, item, protocol, *, catalog_items=None):
     model = item["id"]
     profile = None
     evidence = []
     details = None
-    if provider == "openai" and model in _OPENAI_TEXT:
-        evidence = [
-            "https://developers.openai.com/api/docs/models/" + _OPENAI_TEXT[model]
-        ]
-        profile = {
-            "model_types": ["text", "vision"],
-            "input_modalities": ["image", "text"],
-            "output_modalities": ["text"],
-            "capabilities": ["image_understanding", "text_generation"],
-        }
-    if provider == "openai" and model == "whisper-1":
-        evidence = ["https://developers.openai.com/api/docs/models/whisper-1"]
-        profile = {
-            "model_types": ["speech_recognition"],
-            "input_modalities": ["audio"],
-            "output_modalities": ["text"],
-            "capabilities": ["speech_recognition"],
-        }
-    if provider == "gemini":
+    declared = sdk_profile(provider, model)
+    if declared:
+        details = {**declared, "classification_status": "verified", "provider_purpose": "language",
+                   "reason": "공급자 목록과 고정 SDK의 입출력·구조화 응답 능력 근거입니다. 실제 호출·품질은 미검증입니다."}
+        profile, evidence = declared["profile"], declared["evidence"]
+    if provider == "gemini" and not declared:
         from .gemini_catalog import classify_gemini
 
         details = classify_gemini(item, catalog_items)
@@ -211,7 +192,6 @@ def classify(provider, item, protocol, *, catalog_items=None):
         evidence = details["evidence"]
     if (
         provider == "anthropic"
-        and model.startswith("claude-")
         and isinstance(item.get("capabilities"), dict)
     ):
         caps = item["capabilities"]
@@ -270,6 +250,7 @@ def classify(provider, item, protocol, *, catalog_items=None):
             "openai",
             "openai_compatible",
             "gemini",
+            "anthropic",
         ):
             runtime.append("translation")
         if supports_transcription(profile, protocol, model):

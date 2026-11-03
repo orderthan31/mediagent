@@ -461,7 +461,7 @@ class Execution(Intake):
         with self.database.connection() as db:
             bindings = self._engine_bindings(db, definition)
             workflow_owner, _ = self._job_definition(db, owner, identity, revision)
-            models = self._bindings(db, workflow_owner, definition, active=False)
+            models = self._bindings(db, workflow_owner, definition, active=False, sdk=True)
             model_names = {
                 key: db.execute(
                     "SELECT name FROM model_revisions WHERE owner_id=%s AND model_id=%s AND revision=%s",
@@ -550,6 +550,13 @@ class Execution(Intake):
                 "id":n["id"],"type":n["type"],"options":n["options"]}for n in public_definition["nodes"]]
         return value
 
+    @staticmethod
+    def _creation_model_bindings(parent, definition, options, bindings):
+        if parent and parent["snapshot"]["definition"] == definition and parent["snapshot"]["options"] == options:
+            from copy import deepcopy
+            return deepcopy(parent["snapshot"]["model_bindings"])
+        return bindings
+
     def create(
         self,
         owner,
@@ -632,7 +639,7 @@ class Execution(Intake):
                 self.store.verify_descriptor(owner, reference)
             else:
                 self.store.path(owner, reference)
-            bindings = self._bindings(db, workflow_owner, definition, active=False)
+            bindings = self._bindings(db, workflow_owner, definition, active=False, sdk=True)
             engine_bindings = self._engine_bindings(db, definition)
             input_refs = {"video": reference}
             if definition["inputs"] == {"transcript": "transcript"}:
@@ -662,6 +669,7 @@ class Execution(Intake):
                     "종료된 실패/취소 작업만 새 복구 작업으로 분리할 수 있습니다."
                 )
             snapshot_asset = public_asset(asset)
+            bindings = self._creation_model_bindings(parent, definition, options, bindings)
             if asset["metadata"].get("legacy_origin"):
                 # Keep the applied012 FK compatibility field as storage custody,
                 # while preserving/displaying the real (possibly unknown) uploader.

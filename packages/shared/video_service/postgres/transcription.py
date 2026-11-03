@@ -12,11 +12,22 @@ class TranscriptionRuntime(TranslationRuntime):
     role = "transcription"
 
     def available(self, pin):
+        if "inference" not in pin:
+            # Frozen historical requests retain their original wire eligibility.
+            # This is never the eligibility rule for a new SDK workflow binding.
+            model, protocol = pin["remote_model"], pin["protocol"]
+            if not isinstance(model, str) or not (
+                protocol == "gemini" and re.fullmatch(r"gemini-[A-Za-z0-9._-]{1,190}", model)
+                or protocol in {"openai", "openai_compatible"} and model == "whisper-1"
+            ):
+                return False
         return supports_transcription(
             pin, pin["protocol"], pin["remote_model"]
         ) and super().available(pin)
 
     def make_adapter(self, pin, key):
+        if "inference" in pin:
+            return super().make_adapter(pin, key)
         adapter_type = (
             GeminiAudioAdapter if pin["protocol"] == "gemini" else OpenAIAudioAdapter
         )

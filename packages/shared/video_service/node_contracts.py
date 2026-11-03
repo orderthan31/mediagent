@@ -323,6 +323,7 @@ for _subtitle_stage in NODES:
 for _registered_stage in NODES:
     if _registered_stage["id"] in {"transcribe", "translate"}:
         _registered_stage["options"]["model_source"] = ["registered_api"]
+        _registered_stage["options"]["llm_options"] = [""]
 
 for _original_stage in NODES:
     if _original_stage["id"] in {
@@ -407,6 +408,9 @@ def validate_node(payload):
         raise ValueError("입력 포트의 자료 유형이 맞지 않습니다.")
     if set(options) - set(selected["options"]):
         raise ValueError("이 노드가 지원하지 않는 옵션입니다.")
+    if "llm_options" in options:
+        from .llm_contract import parse_options
+        parse_options(options["llm_options"])
     if any(
         not isinstance(v, str)
         or (
@@ -435,7 +439,7 @@ def validate_node(payload):
             )
             else v not in selected["options"][k]
         )
-        for k, v in options.items()
+        for k, v in options.items() if k != "llm_options"
     ):
         raise ValueError("지원하지 않는 처리 옵션 조합입니다.")
     if selected["id"] == "subtitle_tracks":

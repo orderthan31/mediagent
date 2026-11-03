@@ -235,8 +235,9 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
                 .filter(
                   ([key]) =>
                     !internal.has(key) &&
-                    (node.type !== 'transcribe' || key === 'source_language') &&
-                    (node.type !== 'translate' || key === 'target_language'),
+                    (node.type !== 'transcribe' ||
+                      ['source_language', 'llm_options'].includes(key)) &&
+                    (node.type !== 'translate' || ['target_language', 'llm_options'].includes(key)),
                 )
                 .map(([key, values]) => {
                   const update = (value: string) =>
@@ -258,6 +259,7 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
                           max_model_calls: '최대 모델 호출 수',
                           source_language: '원문 언어',
                           target_language: '대상 언어',
+                          llm_options: '모델 요청 옵션 (JSON)',
                           audio_filter: '음성 처리',
                           vad_mode: '음성 구간 처리',
                           subtitle_mode: '자막 표시',
@@ -283,6 +285,7 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
                               {
                                 batch_policy: '분할 처리 방식',
                                 max_model_calls: '최대 모델 호출 수',
+                                llm_options: '모델 요청 옵션 (JSON)',
                                 audio_filter: '음성 처리',
                                 vad_mode: '음성 구간 처리',
                                 subtitle_mode: '자막 표시',
@@ -311,6 +314,7 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
                               {
                                 batch_policy: '분할 처리 방식',
                                 max_model_calls: '최대 모델 호출 수',
+                                llm_options: '모델 요청 옵션 (JSON)',
                                 audio_filter: '음성 처리',
                                 vad_mode: '음성 구간 처리',
                                 subtitle_mode: '자막 표시',

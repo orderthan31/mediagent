@@ -5,7 +5,10 @@ build-backend="setuptools.build_meta"
 name="mideagent-model-tools"
 version="0.1.0"
 requires-python=">=3.12"
-dependencies=["video-service-shared", "httpx>=0.28.1,<1"]
+dependencies=["video-service-shared", "httpx==0.28.1"]
+
+[project.optional-dependencies]
+sdk=["litellm==1.106.6", "openai==2.54.0", "tiktoken==0.14.0"]
 
 [project.scripts]
 mideagent-model-tool="mideagent_model_tools.bridge:main"
