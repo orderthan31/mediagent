@@ -19,7 +19,8 @@ test('audio upload hints preserve videos and reject unadvertised codecs', async 
   assert.equal(isOriginalFile({ name: 'literal.mp3', type: '' }), true);
   assert.equal(isOriginalFile({ name: 'sound.WAV', type: 'audio/wav' }), true);
   assert.equal(isOriginalFile({ name: 'clip.mp4', type: '' }), true);
-  assert.equal(isOriginalFile({ name: 'sound.m4a', type: 'audio/mp4' }), false);
+  assert.equal(isOriginalFile({ name: 'sound.m4a', type: 'audio/mp4' }), true);
+  assert.equal(isOriginalFile({ name: 'sound.aac', type: 'audio/aac' }), false);
   assert.equal(isOriginalFile({ name: 'a.flac', type: 'audio/flac' }), false);
 });
 test('editor audio-file profile and root input agree without shrinking a broader workflow', async () => {

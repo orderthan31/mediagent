@@ -135,21 +135,24 @@ def test_audio_goal_selection_compiles_only_preprocess_then_transcribe():
 
 
 @pytest.fixture
-def audio_runtime(mt, store, monkeypatch):
+def audio_runtime(mt, store, monkeypatch, request):
     """Real create/plan/claim/binder, fake registry/queue grants and SQL only."""
     import subprocess
     from mideagent_media_tools.operations import probe_original
     from video_service.canonical import digest
     raw_wav = store.root / 'synthetic.wav'; raw_wav.write_bytes(pcm())
-    source = store.root / 'synthetic.mp3'
-    subprocess.run([str(TOOLS / 'ffmpeg.exe'), '-v', 'error', '-i', str(raw_wav), '-c:a', 'libmp3lame', '-b:a', '64k', str(source)], check=True, capture_output=True, timeout=10)
+    fixture_options = getattr(request, 'param', {})
+    container = fixture_options.get('container', 'mp3')
+    source = store.root / ('synthetic.' + container)
+    encoding = ['-c:a', 'aac', '-f', 'ipod'] if container == 'm4a' else ['-c:a', 'libmp3lame']
+    subprocess.run([str(TOOLS / 'ffmpeg.exe'), '-v', 'error', '-i', str(raw_wav), *encoding, '-b:a', '64k', str(source)], check=True, capture_output=True, timeout=10)
     owner = '8' * 32
     raw = source.read_bytes()
     ref = store.put(owner, [raw], 'audio')
     from video_service.audio_original import policy
-    asset = dict(owner_id=owner, id='d' * 32, filename='real-name.mp3', storage_key='sha256:' + ref['sha256'],
+    asset = dict(owner_id=owner, id='d' * 32, filename='real-name.' + container, storage_key='sha256:' + ref['sha256'],
                  sha256=ref['sha256'], bytes=len(raw), created_at=datetime.now(timezone.utc),
-                 metadata={'registration_state': 'verified', 'media': probe_original(source), 'media_type': 'audio/mpeg', 'audio_original_policy': policy()})
+                 metadata={'registration_state': 'verified', 'media': probe_original(source), 'media_type': 'audio/mp4' if container == 'm4a' else 'audio/mpeg', 'audio_original_policy': policy()})
     runtime = mt.runtime
     runtime.store = store
     ns = intake_methods({'asset_reference','_shared_asset','asset','asset_path'})
@@ -159,7 +162,7 @@ def audio_runtime(mt, store, monkeypatch):
         setattr(runtime,name,MethodType(ns[name],runtime))
     node = mt.definition['nodes'][0]
     node.update(model_ref=deepcopy(PRIMARY), fallback_refs=[deepcopy(FALLBACK)],
-                options={'source_language': 'ja', 'llm_options': LLM}, tool_settings={'transcribe': {'max_model_calls': '4',
+                options={'source_language': 'ja', 'llm_options': LLM}, tool_settings={'transcribe': {'max_model_calls': str(fixture_options.get('max_calls', 4)),
                 'batch_policy': 'bounded_60s_v1', 'clock_policy': 'packed_projection_v5', 'media_budget': 'audio_long_v5'}})
     for row in mt.rows.values():
         row.update(model_types=['multimodal'], input_modalities=['audio', 'text'],

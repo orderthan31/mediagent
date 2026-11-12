@@ -252,7 +252,7 @@ export const VideoWorkspace = () => {
       queue.add(file, {});
     }
     if (rejected.length) {
-      setError(`영상 또는 WAV·MP3 파일을 선택하세요: ${rejected.join(', ')}`);
+      setError(`영상 또는 WAV·MP3·M4A(AAC) 파일을 선택하세요: ${rejected.join(', ')}`);
     }
   };
   const chooseResume = (id: string, legacy = false) => {

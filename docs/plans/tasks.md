@@ -636,3 +636,11 @@ PM1562998217422147606의 b676 검토에서 기존 engine wire2(3필드 agent)를
 - [x] 원본 파일 선택·상세·기존 공통 준비 화면·편집기 저장 payload를 연결했다. PC1440/390px의 실제 React/AuthGate/production CSS 오프라인 응답 fixture에서 이어보내기 요청 계약, 재열기, 모델/언어 선택, stale/403/불완전 입력, 명시적 합성 Create 응답 불명 후 자동 재전송 차단과 모바일 카드/도구 좌표를 검사했다.
 - [x] 새 범위 backend 30건, frontend unit 3건 + offline browser 1건 통과. 변경 파일 lint/format, TypeScript, VITE_RENEWAL_BACKEND=1 빌드, Python compile-only와 CR-at-EOL diff 검사 통과. 기존 MT/SMI/GB/queue/persistence의 수용 검사·전체 suite는 반복하지 않았다.
 - [ ] 부모의 독립 검토·기존 개발 패키징/설치와 실제 PC390 입력 준비 수용은 별도다. 실제 PG/S3 권한·음성 PUT·native 스케줄링/정규화·Start·ASR/provider·결과 다운로드는 검증하지 않았다. writer는 운영 접근·원본/작업/키/모델 변경·commit/push/deploy를 하지 않았다.
+
+
+### 2026-11-13 M4A(AAC) 원본 → 기존 전사 준비 — 소스/로컬 fixture 검사
+
+- [x] 기존 uploader에 M4A 선택을 추가하고 실제 format_name·M4A 브랜드·AAC stream을 검증해 canonical m4a/audio/mp4로 등록·재검증한다. 일반 video는 기존 영상 경로이며 ALAC/raw AAC/FLAC/불명 브랜드를 음성 M4A로 채택하지 않는다. 기존 정책·용량/길이/정규화 한도와 여섯 필드 metadata를 유지한다.
+- [x] 실제 tiny synthetic AAC/M4A의 probe·업로드 완료·CAS와 source custody, 실제 Create→_plan→preprocess v5 정규화→같은 producer WAV/timeline의 ASR 명령·역할 envelope를 fake SQL/registry/queue와 임시 CAS로 확인했다. 선택 fixture의 모델/언어/옵션·호출 상한1을 보존했으며 모델은 호출하지 않았다.
+- [x] M4A 전용 backend 21건 및 변경 uploader helper 1건 RED→GREEN, 변경 프론트 lint/format·TypeScript·renewal 빌드를 통과했다. 원래 음성34건/기존 MT·render·GB·SMI·queue 전체 suite와 완료된 WAV/MP3 운영 여정은 반복하지 않았다.
+- [ ] 부모의 독립 검토·기존 개발 패키징/설치 후 실제 M4A 등록·입력 준비 확인은 별도다. Windows 합성 AAC 디코드는 설치 Linux 이미지의 codec/PG/S3/native/ASR/provider/다운로드 성공 증거가 아니다. writer는 실제 API·DB·S3·업로드·jobs/Start·provider/GPU·서비스·권한·Git ref/commit/push/deploy를 변경하지 않았다.

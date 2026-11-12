@@ -21,9 +21,9 @@ def validate_media(media, byte_count):
             or not 0 < media['duration'] <= MAX_SECONDS
             or type(media.get('sample_rate')) is not int or not 8000 <= media['sample_rate'] <= 192000
             or type(media.get('channels')) is not int or not 1 <= media['channels'] <= 8
-            or (media.get('format'), media.get('codec')) not in {('wav', 'pcm_s16le'), ('mp3', 'mp3')}
-            or media['format'] == 'mp3' and (media['channels'] > 2 or media['sample_rate'] > 48000)):
-        raise ValueError('음성 원본은 검증된 WAV(PCM16)·MP3, 256MiB·6시간 이내여야 합니다.')
+            or (media.get('format'), media.get('codec')) not in {('wav', 'pcm_s16le'), ('mp3', 'mp3'), ('m4a', 'aac')}
+            or media['format'] in {'mp3', 'm4a'} and (media['channels'] > 2 or media['sample_rate'] > 48000)):
+        raise ValueError('음성 원본은 검증된 WAV(PCM16)·MP3·M4A(AAC), 256MiB·6시간 이내여야 합니다.')
     return deepcopy(media)
 
 
@@ -34,8 +34,15 @@ def classify(info, byte_count):
         raise ValueError('음성 stream 하나가 있는 원본이 필요합니다.')
     source = audio[0]
     try:
+        container = info['format']['format_name']
+        if container not in {'wav', 'mp3'}:
+            if (container != 'mov,mp4,m4a,3gp,3g2,mj2'
+                    or info['format'].get('tags', {}).get('major_brand') != 'M4A '
+                    or source['codec_name'] != 'aac'):
+                raise ValueError('Unsupported audio container/codec')
+            container = 'm4a'
         media = {'kind': 'audio', 'duration': float(info['format']['duration']),
-                 'format': info['format']['format_name'], 'codec': source['codec_name'],
+                 'format': container, 'codec': source['codec_name'],
                  'sample_rate': int(source['sample_rate']), 'channels': source['channels']}
     except (KeyError, TypeError, ValueError):
         raise ValueError('음성 원본의 실제 형식·길이·채널을 확인할 수 없습니다.') from None
@@ -48,7 +55,7 @@ def asset_media(asset):
     if 'audio_original_policy' not in metadata and media.get('kind') != 'audio':
         return None
     if (metadata.get('registration_state') != 'verified' or metadata.get('audio_original_policy') != policy()
-            or metadata.get('media_type') != {'wav': 'audio/wav', 'mp3': 'audio/mpeg'}.get(media.get('format'))):
+            or metadata.get('media_type') != {'wav': 'audio/wav', 'mp3': 'audio/mpeg', 'm4a': 'audio/mp4'}.get(media.get('format'))):
         raise ValueError('검증된 음성 원본 등록이 필요합니다.')
     return validate_media(media, asset['bytes'])
 

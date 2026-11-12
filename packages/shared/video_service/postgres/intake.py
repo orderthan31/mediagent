@@ -490,7 +490,7 @@ class Intake:
             }
             if media.get('kind') == 'audio':
                 from ..audio_original import policy
-                metadata.update(media_type={'wav': 'audio/wav', 'mp3': 'audio/mpeg'}[media['format']], audio_original_policy=policy())
+                metadata.update(media_type={'wav': 'audio/wav', 'mp3': 'audio/mpeg', 'm4a': 'audio/mp4'}[media['format']], audio_original_policy=policy())
                 metadata.pop('thumbnail', None)
                 metadata.pop('web_preview', None)
             with guard.transaction():
