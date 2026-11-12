@@ -58,8 +58,11 @@ def _shape(value):
         if not isinstance(node.get("position"),dict)or set(node["position"])!={"x","y"}or any(type(v)not in(int,float)or not -100000<=v<=100000 for v in node["position"].values()):
             raise ValueError("에이전트 위치를 확인하세요.")
         options=node.get("options",{})
-        if not isinstance(options,dict)or any(k not in specs[kind]["options"]or not isinstance(v,str)or k not in {"llm_options", "target_language"} and v not in specs[kind]["options"][k]for k,v in options.items()):
+        if not isinstance(options,dict)or any(k not in specs[kind]["options"]or not isinstance(v,str)or k not in {"llm_options", "target_language", "video_description"} and v not in specs[kind]["options"][k]for k,v in options.items()):
             raise ValueError("에이전트 처리 설정을 확인하세요.")
+        if "video_description" in options:
+            from video_service.translation_context import description
+            description(options["video_description"])
         if "target_language" in options:
             from video_service.subtitle_tracks import language
             language(options["target_language"])
@@ -143,6 +146,19 @@ def render_definition(public, options):
 
 def selected_definition(public, options):
     """Resolve one explicit saved-copy goal; keep the existing render contract."""
+    if "translation_contexts" in options:
+        from video_service.translation_context import description
+        contexts = options["translation_contexts"]
+        _shape(public)
+        eligible = {n["id"] for n in public["nodes"] if n["type"] == "translation_agent"}
+        if (type(contexts) is not dict or not contexts or len(contexts) > 24
+                or set(contexts) - eligible
+                or any(key in options for key in ("audio_goal", "render_goal", "translation_goal"))):
+            raise ValueError("참고 설명에 사용할 번역 에이전트를 선택하세요.")
+        public = deepcopy(public)
+        for node in public["nodes"]:
+            if node["id"] in contexts:
+                node["options"] = {**node.get("options", {}), "video_description": description(contexts[node["id"]])}
     if "audio_goal" in options:
         return audio_definition(public, options)
     if "translation_goal" not in options:
@@ -151,7 +167,7 @@ def selected_definition(public, options):
     if ("render_goal" in options or "saved_subtitle" not in options or not isinstance(selected, dict)
             or set(selected) - {"node_id", "options", "model_ref"} or not {"node_id", "options"} <= set(selected)
             or not isinstance(selected["options"], dict)
-            or set(selected["options"]) - {"target_language", "llm_options"}):
+            or set(selected["options"]) - {"target_language", "llm_options", "video_description"}):
         raise ValueError("저장 자막과 번역 에이전트 하나를 선택하세요.")
     _shape(public)
     matches = [n for n in public["nodes"] if n["id"] == selected["node_id"] and n["type"] == "translation_agent"]

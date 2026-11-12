@@ -136,6 +136,10 @@ class Execution(Intake):
                     "vocalize": "vocalization",
                 }.get(node["type"])
                 executor = getattr(self, (kind or "unsupported") + "_runtime", None)
+                if node["options"].get("translation_context_profile") == "reference_v1" and (
+                    type(getattr(executor, "translation_context_version", None)) is not int
+                    or executor.translation_context_version != 1):
+                    reasons.append("번역 참고 설명을 지원하는 실행 연결이 필요합니다: " + node["id"])
                 if (
                     executor is None
                     or not pin
@@ -634,7 +638,7 @@ class Execution(Intake):
             "video_description",
             "branch_choices",
             "transcript",
-            "subtitle_srt", "input_language", "accepted_inputs", "saved_subtitle", "render_goal", "translation_goal", "audio_goal", "face_input",
+            "subtitle_srt", "input_language", "accepted_inputs", "saved_subtitle", "render_goal", "translation_goal", "audio_goal", "face_input", "translation_contexts",
         }:
             raise ValueError("작업 옵션 오류")
         from video_service.timed_subtitles import MAX_INPUT_OPTIONS_BYTES
@@ -1412,6 +1416,14 @@ class Execution(Intake):
                     "translation_paid_authorized", False
                 ),
             }
+            if kind == "translation":
+                from video_service.translation_context import from_options
+                context = from_options(node["options"])
+                if context is not None:
+                    from video_service.role_policy import snapshot_version
+                    if snapshot_version(job["snapshot"]) != 2:
+                        raise ValueError("translation_reference_requires_role_policy_v2")
+                    command[kind]["translation_context"] = context
             if kind == "translation" and job["snapshot"].get("agent_execution_policy") == 1:
                 from .workflow import translation_input_language
                 command[kind]["source_language"] = translation_input_language(job["snapshot"], node)

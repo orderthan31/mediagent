@@ -423,8 +423,13 @@ def mount_runtime(
                 verify_path(source_path, source["media"], source["size_bytes"])
         inspection = runtime.inspect(
             owned, selection.definition_id, selection.definition_revision,
-            **({"options": selection.options} if any(k in selection.options for k in ("render_goal", "translation_goal", "audio_goal")) else {})
+            **({"options": selection.options} if any(k in selection.options for k in ("render_goal", "translation_goal", "audio_goal", "translation_contexts")) else {})
         )
+        if not inspection["supported"] and any(
+            node.get("options", {}).get("translation_context_profile") == "reference_v1"
+            for node in execution_definition["nodes"]
+        ):
+            raise Conflict("; ".join(reason["message"] for reason in inspection["reasons"]))
         if not local_execution or not inspection["supported"]:
             raise Conflict(
                 "지원되는 CPU 작업/입력인지 확인하세요. 모델 호출은 비활성입니다."

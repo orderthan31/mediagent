@@ -666,3 +666,10 @@ PM1562998217422147606의 b676 검토에서 기존 engine wire2(3필드 agent)를
 - [ ] 실제 PG/S3 writer 신뢰/권한·v3 runtime descriptor/host/slot/image·GPU/FaceFusion/preview/render 및 설치 제품 수용은 별도 미검증/held다. writer는 operating session/job/Start·서비스·키/권한·schema/GRANT·commit/push/deploy를 수행하지 않는다.
 
 - 소스 검증: 신규 face backend 27 + 기존 순수 v2 wire 2 = 29 passed(ASGI subtests 3 포함 별도 표시), 신규 frontend unit/browser 2 passed(PC1440/390 OFFLINE), 변경 lint/줄바꿈 보존 format/TypeScript/renewal build 통과. 실제 PG/S3/GPU/제품 job·preview·render는 실행하지 않았다.
+
+
+### 선택 번역 참고 설명 — SOURCE/OFFLINE 진행
+
+- [x] 실제 catalog/정의 저장·재열기/선택 노드 override→compile/Create/_plan/command→strict v2 opt-in task→RoleToolBridge/messages/기존 SDK 진입 경계를 연결했다. 없는 과거 필드·메시지·키·digest는 실제 기준 함수와 비교해 보존한다.
+- [x] 0/2000/2001 codepoints·literal Unicode/줄바꿈·선택 노드 한정·후보/호출 상한/unknown/cancel·101 cue 두 batch 및 실제 React PC1440/390 집중 RED→GREEN을 확인했다. 기존 준비 경로에 새 agent/승인 단계를 추가하지 않는다.
+- [ ] 실제 SDK HTTP wire 증명은 승인된 로컬 Python 환경의 LiteLLM1.106.6/tiktoken/검증 tokenizer 부재로 skip이다. LangGraph 전체 scheduler/ToolHub 설치 실행도 source AST 전이 검사와 구분한다. 새 계약의 API·role·bridge 동시 패키징과 명시적 runtime 활성화/provider/TLS/제품 실행은 미수행·보류이며 기존 흐름은 바꾸지 않는다.

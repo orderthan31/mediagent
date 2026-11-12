@@ -113,3 +113,12 @@
 - 기존 입력 검사와 native v2 의미는 보존한다. 새 face-only v3 capability가 실제 새 runtime revision에 결속되지 않은 현재 실행기는 held다. 이번 구현은 source/offline이며 실제 GPU·미리보기·합성·배포 허가가 아니다.
 
 - 소스에서는 기존 편집기 저장/이력 복원, normal 입력 preview/Create/첫 Start 계획, 분석 결과 기반 두 사용자 대기와 최종 publication까지 연결했다. 정상 v3 binding fixture만 첫 분석을 허용하고 v2-only binding은 시작 불가 사유를 보존한다. 운영 runtime 활성화·실제 인물 분석/미리보기/합성은 검증하거나 수행하지 않았다.
+
+
+## 선택 번역의 참고 설명 — 신규 소스 범위
+
+- 사용자는 번역 에이전트의 기본 참고 설명을 저장·재열기하고, 새 작업 준비에서 선택한 번역 노드에만 별도 설명을 지정한다. 저장 자막 번역 전용에서도 같은 선택 노드와 모델·언어·옵션·유한 호출 상한을 사용하며 전사를 추가하지 않는다. 설명은 선택 사항이며 Unicode/줄바꿈/공백을 그대로 보존하는 최대 2000 codepoints 문자열이다.
+- 비어 있지 않은 신규 설명만 명시적 고정 문맥 계약으로 command/task/user JSON data에 전달한다. 과거 absent 계약/기존 무시된 최상위 설명/모델 pin/digest/메시지를 읽기 시 바꾸지 않는다. 사용자 설명은 system 지시·모델·주소·키·도구·예산 옵션이 아니다.
+- 실제 production 경로와 오프라인 SDK HTTP transport까지 검증하며 현재 설치 bridge의 새 계약 활성화·TLS·실제 provider 번역은 별도 보류다. 준비는 실행/승인/추가 호출을 발생시키지 않는다.
+
+- 소스는 비어 있지 않은 신규 설명에만 reference_v1 문맥과 bridge 요청 표식을 고정한다. 현재 미활성 연결은 읽기 전용 준비에서 구체적인 사유로 held다. 로컬 합성 SQL/CAS·역할 전이·메시지/PC1440·390 검사와 실제 SDK HTTP wire·provider 성공은 별개이며, 승인된 로컬 SDK/tokenizer 부재로 실제 wire 증명은 보류다.

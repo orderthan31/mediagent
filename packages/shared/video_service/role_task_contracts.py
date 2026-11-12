@@ -171,6 +171,13 @@ def validate_translation_task(task):
     from video_service.role_policy import is_v2
 
     v2 = is_v2(task)
+    if "translation_context" in task:
+        require(v2, "translation_reference_requires_role_policy_v2")
+        from .translation_context import validate as validate_context
+        try:
+            validate_context(task["translation_context"])
+        except (ValueError, TypeError, KeyError):
+            raise InvalidRoleDelivery("invalid_translation_reference_context") from None
     fields(
         task,
         {
@@ -183,7 +190,7 @@ def validate_translation_task(task):
             "target_language",
             "batch_policy",
             "max_calls",
-        } | ({"role_policy_version"} if v2 else set()),
+        } | ({"role_policy_version"} if v2 else set()) | ({"translation_context"} if "translation_context" in task else set()),
         "invalid_translation_task",
     )
     require(

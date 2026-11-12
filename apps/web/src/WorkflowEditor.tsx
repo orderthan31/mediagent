@@ -289,6 +289,7 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
                           transcript_source: '자막에 사용할 전사문',
                           language: '자막 언어',
                           llm_options: '모델 요청 옵션 (JSON)',
+                          video_description: '번역 참고 설명',
                           audio_filter: '음성 처리',
                           vad_mode: '음성 구간 처리',
                           subtitle_mode: '자막 표시',
@@ -301,7 +302,20 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
                       )[key] ||
                         controlFieldLabels[key] ||
                         key}
-                      {key === 'cases' ? (
+                      {key === 'video_description' ? (
+                        <>
+                          <textarea
+                            aria-label="번역 참고 설명"
+                            rows={4}
+                            value={selectedValue}
+                            aria-invalid={Array.from(selectedValue).length > 2000}
+                            onChange={(event) => update(event.target.value)}
+                          />
+                          <small>
+                            선택 사항 · 인명, 장면, 전문 용어를 적어 주세요. 최대 2000자.
+                          </small>
+                        </>
+                      ) : key === 'cases' ? (
                         <textarea
                           aria-label="분기값"
                           value={selectedValue}

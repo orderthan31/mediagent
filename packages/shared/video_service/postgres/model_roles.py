@@ -496,6 +496,12 @@ class ModelRoles:
         if batch_policy != "bounded_100x16k_v1":
             batch_policy = "single_100x16k_v1"
             segments([{k: v for k, v in r.items() if k != "id"} for r in source])
+        context_fields = {}
+        if "translation_context" in config:
+            from ..translation_context import validate
+            if version != 2:
+                raise Conflict("translation_reference_requires_role_policy_v2")
+            context_fields["translation_context"] = deepcopy(validate(config["translation_context"]))
         cap = config.get("max_model_calls", len(pins))
         if type(cap) is not int or cap < 1:
             raise Conflict("invalid_role_frozen_call_budget")
@@ -515,6 +521,7 @@ class ModelRoles:
                 "target_language": config["target_language"],
                 "batch_policy": batch_policy,
                 "max_calls": cap,
+                **context_fields,
             },
             "source": {"owner": source_owner, "reference": source_reference},
             "output_owner": owner,

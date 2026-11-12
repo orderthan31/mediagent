@@ -19,6 +19,8 @@ def catalog():
         native=spec(role,{})
         options={k:deepcopy(v)for k,v in native["options"].items()if k in (
             ("source_language","llm_options") if role=="transcribe" else ("target_language","llm_options") if role=="translate" else ("resolution","quality_profile","video_codec"))}
+        if role == "translate":
+            options["video_description"] = [""]
         if role == "face_render":
             options = {k: deepcopy(native["options"][k]) for k in ("preset", "video_codec")}
         if role == "transcribe":

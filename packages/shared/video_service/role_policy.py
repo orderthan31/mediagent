@@ -30,7 +30,14 @@ def model_binding(pin):
 def tool_context(task):
     if not is_v2(task):
         return {}
-    return {"version": 2, "role_policy_version": 2, "task_sha256": digest(task)}
+    result = {"version": 2, "role_policy_version": 2, "task_sha256": digest(task)}
+    if "translation_context" in task:
+        from .translation_context import validate
+        if task.get("role") != "translation":
+            raise ValueError("translation_context_wrong_role")
+        validate(task["translation_context"])
+        result["translation_context_version"] = 1
+    return result
 
 
 def endpoint_error_code(error, *, v2=False):

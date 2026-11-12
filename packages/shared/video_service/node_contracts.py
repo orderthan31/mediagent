@@ -112,6 +112,8 @@ NODES = [
         choices={
             "batch_policy": ["single", "bounded_100x16k_v1"],
             "translation_profile": ["legacy", "language_target_v1"],
+            "video_description": [""],
+            "translation_context_profile": ["reference_v1"],
             "target_language": [""],
             "max_model_calls": MODEL_CALL_LIMITS,
         },
@@ -419,6 +421,9 @@ def validate_node(payload):
         raise ValueError("입력 포트의 자료 유형이 맞지 않습니다.")
     if set(options) - set(selected["options"]):
         raise ValueError("이 노드가 지원하지 않는 옵션입니다.")
+    if selected["id"] == "translate":
+        from .translation_context import from_options
+        from_options(options)
     if "llm_options" in options:
         from .llm_contract import parse_options
         parse_options(options["llm_options"])
@@ -450,7 +455,7 @@ def validate_node(payload):
             )
             else v not in selected["options"][k]
         )
-        for k, v in options.items() if k != "llm_options"
+        for k, v in options.items() if k not in {"llm_options", "video_description"}
     ):
         raise ValueError("지원하지 않는 처리 옵션 조합입니다.")
     if selected["id"] == "subtitle_tracks":

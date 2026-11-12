@@ -75,6 +75,7 @@ export const WorkflowStart = () => {
   const [inspection, setInspection] = useState<Inspection | null>(null);
   const [choices, setChoices] = useState<Record<string, string>>({});
   const [plan, setPlan] = useState<StartPlan | null>(null);
+  const [translationContexts, setTranslationContexts] = useState<Record<string, string>>({});
 
   const [sourceLanguage, setSourceLanguage] = useState('auto');
   const [targetLanguage, setTargetLanguage] = useState('ko');
@@ -105,6 +106,7 @@ export const WorkflowStart = () => {
   const [error, setError] = useState('');
   const [listError, setListError] = useState('');
   const generation = useRef(0);
+  const inspectedContext = useRef('');
   const asset = assets.find((row) => row.asset_id === assetId);
   const selectedNode = inspection?.summary.find((row) => row.id === selected);
   const faceVersionReasonPrefix = '단계별 얼굴 합성을 지원하는 실행기 버전이 필요합니다: ';
@@ -118,6 +120,24 @@ export const WorkflowStart = () => {
         : [];
     }
     return [reason.message];
+  });
+  const translationGoals =
+    definition?.catalog_version === 2
+      ? definition.nodes.filter((node) => node.type === 'translation_agent')
+      : [];
+  const translationDescription = (node: CanvasDefinition['nodes'][number]) =>
+    translationContexts[node.id] ??
+    node.options.video_description ??
+    node.tool_settings?.translate?.video_description ??
+    '';
+  const translationContextValid = translationGoals.every(
+    (node) => Array.from(translationDescription(node)).length <= 2000,
+  );
+  const contextInspectionKey = JSON.stringify({
+    definitionId,
+    revision: definition?.revision,
+    assetId,
+    translationContexts,
   });
   const inputReady = normalInputReady(definition, normalInput);
   const invalidate = () => {
@@ -163,6 +183,8 @@ export const WorkflowStart = () => {
     setDefinitionId(identity);
     setInspection(null);
     setDefinition(null);
+    setTranslationContexts({});
+    inspectedContext.current = '';
     setNormalInput({});
     setSelected('');
     invalidate();
@@ -191,6 +213,12 @@ export const WorkflowStart = () => {
         throw new Error('워크플로우가 변경됐습니다. 다시 선택해 주세요.');
       }
       if (generation.current === current) {
+        inspectedContext.current = JSON.stringify({
+          definitionId: identity,
+          revision: graph.revision,
+          assetId,
+          translationContexts: {},
+        });
         setInspection(result);
         setDefinition(graph);
         if (graph.input_profile === 'face_workflow_v1') {
@@ -251,6 +279,9 @@ export const WorkflowStart = () => {
         ? { transcript: JSON.parse(transcript) }
         : {}),
       video_description: '',
+      ...(Object.keys(translationContexts).length
+        ? { translation_contexts: translationContexts }
+        : {}),
       branch_choices: choices,
     },
   });
@@ -263,9 +294,10 @@ export const WorkflowStart = () => {
     transcript,
     choices,
     normalInput,
+    translationContexts,
   });
   const create = async () => {
-    if (busy || !plan) {
+    if (busy || !plan || !translationContextValid) {
       return;
     }
     setBusy(true);
@@ -296,9 +328,56 @@ export const WorkflowStart = () => {
   };
   useEffect(() => {
     if (
+      !definition ||
+      !translationGoals.length ||
+      !translationContextValid ||
+      inspectedContext.current === contextInspectionKey
+    ) {
+      return;
+    }
+    const current = ++generation.current;
+    const controller = new AbortController();
+    inspectedContext.current = contextInspectionKey;
+    setInspection(null);
+    setPlan(null);
+    setError('');
+    void request<Inspection>(entryPath + '/inspect', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        definition_id: definitionId,
+        definition_revision: definition.revision,
+        options: Object.keys(translationContexts).length
+          ? { translation_contexts: translationContexts }
+          : {},
+      }),
+      signal: controller.signal,
+    })
+      .then((result) => {
+        if (
+          !controller.signal.aborted &&
+          generation.current === current &&
+          inspectedContext.current === contextInspectionKey
+        ) {
+          if (result.definition_revision !== definition.revision) {
+            throw new Error('워크플로우가 변경됐습니다. 다시 선택해 주세요.');
+          }
+          setInspection(result);
+        }
+      })
+      .catch((reason) => {
+        if (!controller.signal.aborted && generation.current === current) {
+          setError(reason instanceof Error ? reason.message : '워크플로우를 확인하지 못했습니다.');
+        }
+      });
+    return () => controller.abort();
+  }, [contextInspectionKey, translationContextValid]);
+  useEffect(() => {
+    if (
       !assetId ||
       !inspection?.supported ||
       !inspection.model_ready ||
+      !translationContextValid ||
       !inputReady ||
       inputLoading
     ) {
@@ -322,7 +401,14 @@ export const WorkflowStart = () => {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [selectionKey, inspection?.supported, inspection?.model_ready, inputReady, inputLoading]);
+  }, [
+    selectionKey,
+    inspection?.supported,
+    inspection?.model_ready,
+    inputReady,
+    inputLoading,
+    translationContextValid,
+  ]);
   useEffect(() => {
     if (
       !assetId ||
@@ -460,6 +546,40 @@ export const WorkflowStart = () => {
                 </label>
               </>
             )}
+            {translationGoals.map((node, index) => (
+              <label className="form-row" key={node.id}>
+                <span>
+                  {translationGoals.length === 1 ? '번역 참고 설명' : `번역 참고 설명 ${index + 1}`}
+                </span>
+                <textarea
+                  aria-label={
+                    translationGoals.length === 1 ? '번역 참고 설명' : `번역 참고 설명 ${index + 1}`
+                  }
+                  rows={4}
+                  value={translationDescription(node)}
+                  disabled={busy}
+                  aria-invalid={Array.from(translationDescription(node)).length > 2000}
+                  onChange={(event) => {
+                    if (event.target.value === translationDescription(node)) {
+                      return;
+                    }
+                    setTranslationContexts((current) => ({
+                      ...current,
+                      [node.id]: event.target.value,
+                    }));
+                    inspectedContext.current = '';
+                    setInspection(null);
+                    invalidate();
+                  }}
+                />
+                <small>
+                  선택 사항 · 이 번역에 참고할 인명, 장면, 전문 용어를 적어 주세요. 최대 2000자.
+                </small>
+                {Array.from(translationDescription(node)).length > 2000 && (
+                  <p role="alert">번역 참고 설명은 2000자 이내로 입력해 주세요.</p>
+                )}
+              </label>
+            ))}
             {definition?.input_profile === 'face_workflow_v1' && (
               <FaceWorkflowInputs
                 assets={assets}
@@ -521,7 +641,15 @@ export const WorkflowStart = () => {
                   value={assetId}
                   disabled={busy || !!listError}
                   onChange={(event) => {
+                    if (event.target.value === assetId) {
+                      return;
+                    }
                     setAssetId(event.target.value);
+                    setTranslationContexts({});
+                    if (translationGoals.length) {
+                      inspectedContext.current = '';
+                      setInspection(null);
+                    }
                     setNormalInput({});
                     invalidate();
                   }}
@@ -768,6 +896,7 @@ export const WorkflowStart = () => {
                 busy ||
                 !plan ||
                 !inputReady ||
+                !translationContextValid ||
                 inputLoading ||
                 !!listError ||
                 !inspection?.supported ||

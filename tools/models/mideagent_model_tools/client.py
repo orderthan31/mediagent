@@ -253,7 +253,7 @@ class RoleToolBridge:
         if (
             type(packet) is not dict
             or set(packet)
-            not in (legacy_keys, legacy_keys | {"version", "role_policy_version", "task_sha256"})
+            not in (legacy_keys, legacy_keys | {"version", "role_policy_version", "task_sha256"}, legacy_keys | {"version", "role_policy_version", "task_sha256", "translation_context_version"})
             or any(
                 type(packet[k]) is not int or packet[k] < 0
                 for k in ["batch_index", "candidate_index"]
@@ -277,7 +277,13 @@ class RoleToolBridge:
                 "SELECT request FROM node_runs WHERE owner_id=%s AND job_id=%s AND id=%s",
                 (owner, row["job_id"], row["attempt_id"]),
             ).fetchone()["request"]
+        from video_service.role_task_contracts import validate_translation_task
+        validate_translation_task(task)
         self._packet_context(packet, task, legacy_keys)
+        if task.get("translation_context") != command["translation"].get("translation_context"):
+            raise Conflict("tool_translation_context_changed")
+        if "translation_context" in task and getattr(runtime.translation_runtime, "translation_context_version", None) != 1:
+            raise Conflict("translation_context_bridge_not_enabled")
         v2 = is_v2(task)
         candidate = packet["candidate_index"]
         if (
@@ -369,7 +375,8 @@ class RoleToolBridge:
                     {k: v for k, v in r.items() if k != "id"} for r in batch.segments
                 ]
                 messages = translation_messages(
-                    plain, task["source_language"], task["target_language"]
+                    plain, task["source_language"], task["target_language"],
+                    **({"translation_context": task["translation_context"]} if "translation_context" in task else {})
                 )
                 with model_call_fence(runtime.database, owner, command["run_id"]):
                     with runtime.database.connection() as c:

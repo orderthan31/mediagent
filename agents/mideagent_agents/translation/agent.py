@@ -9,6 +9,11 @@ class TranslationAgent(GoalAgent):
 
     def plan(self, media, add):
         tool = self.tool("translate", {"target_language":"ko", "translation_profile":"language_target_v1"}, model=True)
+        from video_service.translation_context import description
+        text = description(tool["options"].pop("video_description", ""))
+        tool["options"].pop("translation_context_profile", None)
+        if text:
+            tool["options"].update(video_description=text, translation_context_profile="reference_v1")
         add(tool, {"transcript":media["transcript"]},
             input_languages={"transcript": media["transcript_language"]})
         return {**media,"transcript":(tool["id"],"transcript"),

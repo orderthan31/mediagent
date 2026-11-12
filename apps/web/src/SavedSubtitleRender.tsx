@@ -149,7 +149,14 @@ export const SavedSubtitleRender = ({
   const selectionKey = JSON.stringify(selection);
   const currentInspection = inspection?.key === inspectKey ? inspection.value : null;
   const currentPlan = plan?.key === selectionKey ? plan.value : null;
+  const description =
+    overrides.video_description ??
+    chosenGoal?.options.video_description ??
+    chosenGoal?.tool_settings?.translate?.video_description ??
+    '';
+  const descriptionValid = !translating || Array.from(description).length <= 2000;
   const ready =
+    descriptionValid &&
     sourceReady &&
     !!currentInspection?.supported &&
     !!currentInspection.model_ready &&
@@ -275,6 +282,10 @@ export const SavedSubtitleRender = ({
       !workflow ||
       !goals.some((n) => n.id === goalId)
     ) {
+      return;
+    }
+    if (!descriptionValid) {
+      setCheckError('번역 참고 설명은 2000자 이내로 입력해 주세요.');
       return;
     }
     if (audio && overrides.llm_options) {
@@ -517,6 +528,27 @@ export const SavedSubtitleRender = ({
                       chosenGoal.options.target_language,
                   )}
                 </span>
+              </label>
+            )}
+            {translating && (
+              <label>
+                번역 참고 설명
+                <Textarea
+                  aria-label="번역 참고 설명"
+                  rows={4}
+                  value={description}
+                  disabled={submitted}
+                  aria-invalid={!descriptionValid}
+                  onChange={(event) =>
+                    setOverrides((current) => ({
+                      ...current,
+                      video_description: event.target.value,
+                    }))
+                  }
+                />
+                <small>
+                  선택 사항 · 이 번역에 참고할 인명, 장면, 전문 용어를 적어 주세요. 최대 2000자.
+                </small>
               </label>
             )}
             <label>

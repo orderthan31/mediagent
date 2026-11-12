@@ -89,6 +89,7 @@ def runtime_components(
                 transport_factory=policy.transport,
                 approved_origins=policy.approved_origins,
                 mode=policy.mode,
+                **({"translation_context_version": 1} if role == "translation" else {}),
             )
             if enable_nonpaid:
                 runtime.nonpaid_origins = policy.nonpaid.approved_origins
