@@ -8,11 +8,12 @@ const ordinary = new Function(
   source.replace('export const', 'const').replace(': string', '').replace(': boolean', '') +
     '\nreturn isOrdinaryRoute;',
 )();
-test('ordinary routes are only originals and jobs, including their creation/detail paths', () => {
+test('ordinary routes are originals, jobs and local subtitle editing; management stays closed', () => {
   for (const route of [
     '#/',
     '#/jobs',
     '#/start',
+    '#/subtitles',
     '#/videos/' + 'a'.repeat(32),
     '#/jobs/' + '1'.repeat(32),
   ]) {
@@ -27,6 +28,7 @@ test('ordinary routes are only originals and jobs, including their creation/deta
     '#/account',
     '#/jobs/../../settings',
     '#/start/admin',
+    '#/subtitles/admin',
     '#/unknown',
   ]) {
     assert.equal(ordinary(route), false, route);
@@ -39,7 +41,10 @@ test('runtime families separate CPU/GPU dependencies without legacy compatibilit
   const media = readFileSync(new URL('tools/gpu/Dockerfile', root), 'utf8');
   const apiStage = api;
   assert.doesNotMatch(api, /legacy-api|agents\/media/);
-  assert.doesNotMatch(apiStage, /COPY tools\/gpu|WITH_FACEFUSION|WITH_NVIDIA_VAD|pip install.*torch/);
+  assert.doesNotMatch(
+    apiStage,
+    /COPY tools\/gpu|WITH_FACEFUSION|WITH_NVIDIA_VAD|pip install.*torch/,
+  );
   assert.match(cpu, /COPY tools\/media/);
   assert.doesNotMatch(cpu, /COPY apps\/api|COPY agents\/media|pip install.*torch|google-genai/);
   assert.match(media, /ARG WITH_FACEFUSION=0/);

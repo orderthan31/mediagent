@@ -14,6 +14,7 @@ import {
   Search,
   ChevronRight,
   UsersRound,
+  Captions,
 } from 'lucide-react';
 import { AccountMenu, useWorkspaceAuth } from './AuthGate';
 import { frontendOnly, renewalBackend } from './preview';
@@ -31,6 +32,7 @@ const sections = [
   ...(frontendOnly || renewalBackend
     ? [{ name: '계정 관리', href: '#/account', icon: UsersRound }]
     : []),
+  ...(renewalBackend ? [{ name: '자막 파일 편집', href: '#/subtitles', icon: Captions }] : []),
 ];
 export const WorkspaceChrome = ({
   route,
@@ -58,19 +60,21 @@ export const WorkspaceChrome = ({
   const dialog = useRef<HTMLDialogElement>(null),
     toggle = useRef<HTMLButtonElement>(null);
   const sectionRoute =
-    route.includes('workflow-editor') || route.startsWith('#/workflows')
-      ? '#/workflows'
-      : route.startsWith('#/agents')
-        ? '#/agents'
-        : route.startsWith('#/tools')
-          ? '#/tools'
-          : route.startsWith('#/serving')
-            ? '#/serving'
-            : route.startsWith('#/settings')
-              ? '#/settings'
-              : route === '#/' || route.startsWith('#/videos/')
-                ? '#/'
-                : '#/jobs';
+    renewalBackend && route === '#/subtitles'
+      ? '#/subtitles'
+      : route.includes('workflow-editor') || route.startsWith('#/workflows')
+        ? '#/workflows'
+        : route.startsWith('#/agents')
+          ? '#/agents'
+          : route.startsWith('#/tools')
+            ? '#/tools'
+            : route.startsWith('#/serving')
+              ? '#/serving'
+              : route.startsWith('#/settings')
+                ? '#/settings'
+                : route === '#/' || route.startsWith('#/videos/')
+                  ? '#/'
+                  : '#/jobs';
   const group = sections.findIndex((section) => section.href === sectionRoute);
   const accountView = route.startsWith('#/account');
   const current = accountView ? { name: '계정 관리', href: '#/account' } : sections[group];
@@ -126,7 +130,7 @@ export const WorkspaceChrome = ({
       <nav aria-label="주 메뉴">
         {sections.map(
           (item, index) =>
-            (administrator || index < 2) && (
+            (administrator || index < 2 || item.href === '#/subtitles') && (
               <a
                 href={item.href}
                 key={item.name}

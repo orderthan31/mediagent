@@ -1,0 +1,65 @@
+.direct-subtitle-page {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.direct-subtitle-file,
+.direct-subtitle-cues,
+.direct-subtitle-actions,
+.direct-subtitle-page > p {
+  max-width: 54rem;
+}
+.direct-subtitle-page input[type='file'] {
+  max-width: 100%;
+}
+.direct-subtitle-page label {
+  display: block;
+  margin-bottom: 8px;
+}
+.direct-subtitle-page p {
+  margin-block: 12px;
+}
+.direct-subtitle-file {
+  margin-bottom: 20px;
+}
+.direct-subtitle-filename {
+  font-weight: 600;
+}
+.direct-subtitle-cues {
+  list-style: none;
+  padding: 0;
+  margin-block: 24px;
+}
+.direct-subtitle-cues > li {
+  padding-block: 20px;
+  border-top: 1px solid var(--g-line);
+}
+.direct-subtitle-cues h2 {
+  margin: 0 0 16px;
+  font-size: 1rem;
+}
+.direct-subtitle-times {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.direct-subtitle-times p {
+  color: var(--g-soft);
+}
+.direct-subtitle-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-block: 20px;
+}
+.direct-subtitle-actions label {
+  margin: 0;
+}
+.direct-subtitle-actions select {
+  width: auto;
+}
+@media (max-width: 480px) {
+  .direct-subtitle-times {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

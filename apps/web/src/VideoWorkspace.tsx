@@ -14,6 +14,7 @@ import { JobDetail } from './JobDetail';
 import { RenewalJobDetail } from './RenewalJobDetail';
 import { SettingsPage } from './SettingsPage';
 import { SystemSettings } from './SystemSettings';
+import { DirectSubtitleEditor } from './DirectSubtitleEditor';
 import { ModelRegistryPage } from './ModelRegistryPage';
 import { ProviderConnections } from './ProviderConnections';
 import { ServingPage } from './ServingPage';
@@ -133,6 +134,7 @@ export const VideoWorkspace = () => {
   const assetId = route.match(/^#\/videos\/([a-f0-9]{32})$/)?.[1],
     jobId = route.match(/^#\/jobs\/([a-f0-9]{32})$/)?.[1];
   const jobsView = route === '#/jobs';
+  const directSubtitleView = renewalBackend && route === '#/subtitles';
   const settingsView = route === '#/settings' || (renewalBackend && route === '#/settings/storage');
   const startView = route === '#/start';
   const productTicketsView = route === '#/work-tickets' || route === '#/recovery-tickets';
@@ -471,6 +473,8 @@ export const VideoWorkspace = () => {
             <p role="alert">관리자만 이용할 수 있는 화면입니다.</p>
             <a href="#/jobs">작업으로 돌아가기</a>
           </main>
+        ) : directSubtitleView ? (
+          <DirectSubtitleEditor />
         ) : renewalBackend && capabilitiesLoading ? (
           <main className="video-main">
             <LoadingSkeleton

@@ -75,6 +75,8 @@ export type CopyCue = {
   from: number;
   to: number;
   text: string;
+  clockFrom: number;
+  clockTo: number;
   eols: string[];
   eol: string;
 };
@@ -90,6 +92,8 @@ const milliseconds = (stamp: string) => {
   const [hours, minutes, seconds, ms] = stamp.split(/[:,]/).map(Number);
   return ((hours * 60 + minutes) * 60 + seconds) * 1000 + ms;
 };
+export const copyTimeMilliseconds = (stamp: string): number | null =>
+  /^\d{2,5}:[0-5]\d:[0-5]\d,\d{3}$/.test(stamp) ? milliseconds(stamp) : null;
 export const cueCopyText = (cue: CopyCue) => cue.text.replace(/\r\n|\r/g, '\n');
 export const copyTextIssue = (text: string) =>
   !text.trim()
@@ -170,6 +174,8 @@ export const parseSrtCopy = async (raw: Uint8Array): Promise<SrtCopyDocument> =>
       from,
       to,
       text: value,
+      clockFrom: clock.from,
+      clockTo: clock.to,
       eols: lines.slice(first, index - 1).map((line) => line.eol),
       eol: clock.eol,
     });
@@ -187,11 +193,22 @@ export const parseSrtCopy = async (raw: Uint8Array): Promise<SrtCopyDocument> =>
 export const serializeSrtCopy = (
   document: SrtCopyDocument,
   edits: Readonly<Record<number, string>>,
+  clocks: Readonly<Record<number, string>> = {},
 ): Uint8Array => {
   const parts: string[] = [];
   let from = 0,
     changed = false;
   for (const [index, cue] of document.cues.entries()) {
+    const clock = clocks[index];
+    if (clock !== undefined && clock !== cue.clock) {
+      const match = clock.match(clockPattern);
+      if (!match || milliseconds(match[1]) >= milliseconds(match[2])) {
+        throw new Error(`자막 ${cue.id}: 시작·종료 시각을 확인하세요.`);
+      }
+      parts.push(document.text.slice(from, cue.clockFrom), clock);
+      from = cue.clockTo;
+      changed = true;
+    }
     const value = edits[index];
     if (value === undefined || value === cueCopyText(cue)) {
       continue;
