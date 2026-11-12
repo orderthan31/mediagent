@@ -1,4 +1,5 @@
 import { readSrtFile, maxSrtFileBytes } from './normal-inputs';
+import { parseSmiInput } from './smi-input';
 import {
   copyTextIssue,
   copyTimeMilliseconds,
@@ -16,6 +17,18 @@ export const readDirectSrt = async (file: Pick<File, 'name' | 'size' | 'arrayBuf
     throw new Error('UTF-8 SRT 파일을 선택하세요 (1 byte~16MiB).');
   }
   return parseSrtCopy(new TextEncoder().encode(await readSrtFile(file)));
+};
+export const readDirectSubtitle = async (file: Pick<File, 'name' | 'size' | 'arrayBuffer'>) => {
+  if (file.name.toLowerCase().endsWith('.srt')) {
+    return readDirectSrt(file);
+  }
+  if (!/\.(smi|sami)$/i.test(file.name)) {
+    throw new Error('UTF-8 SRT·SMI·SAMI 파일을 선택하세요.');
+  }
+  if (file.size < 1 || file.size > maxSrtFileBytes) {
+    throw new Error('자막 파일은 1 byte~16MiB여야 합니다.');
+  }
+  return parseSmiInput(new Uint8Array(await file.arrayBuffer()));
 };
 
 export const directCueValue = (document: SrtCopyDocument, edits: DirectEdits, index: number) => {
@@ -116,7 +129,7 @@ export const serializeDirectSubtitle = (
 };
 
 export const directDownloadName = (name: string, format: SubtitleFormat) =>
-  (name.replace(/\.srt$/i, '').replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_') || '자막') +
+  (name.replace(/\.(srt|smi|sami)$/i, '').replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_') || '자막') +
   '-수정본.' +
   format;
 export const downloadDirectSubtitle = (

@@ -3,10 +3,17 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 import { build } from 'esbuild';
 import { chromium, expect } from '@playwright/test';
 
 const scratch = 'C:/Users/skygg/AppData/Local/hermes/cache/scratch/mediagent-5178-parity';
+// Short explicit UTF-8 fixture; no generated product job or media/provider call.
+const smiFixture = Buffer.from(
+  '\ufeff<SAMI><HEAD><META charset="UTF-8"></HEAD><BODY><SYNC Start=0><P Class=KRCC>&nbsp;<SYNC Start=125><P Class=KRCC>한국어 &amp; &lt;script&gt;window.__smiXss=1&lt;/script&gt;<BR>\n둘째 줄<SYNC Start=750><P Class=KRCC>&nbsp;<SYNC Start=1000><P Class=KRCC>다음 자막<SYNC Start=1800><P Class=KRCC>&nbsp;</BODY></SAMI>',
+  'utf8',
+);
+const fixtureHash = createHash('sha256').update(smiFixture).digest('hex');
 test('ordinary user can open direct subtitle editing without a job, video or runtime capability', async () => {
   const directory = fs.mkdtempSync(path.join(scratch, 'direct-subtitle-downloads-'));
   const approvedPath = path.join(scratch, 'normal-flow-fixture/normal-input.srt');
@@ -92,12 +99,12 @@ test('ordinary user can open direct subtitle editing without a job, video or run
       await expect(
         page.getByRole('heading', { name: '자막 파일 편집', exact: true }),
       ).toBeVisible();
-      await expect(page.getByLabel('SRT 파일 선택', { exact: true })).toHaveAttribute(
+      await expect(page.getByLabel('자막 파일 선택', { exact: true })).toHaveAttribute(
         'accept',
-        '.srt',
+        '.srt,.smi,.sami',
       );
       await expect(page.getByRole('button', { name: 'SRT 받기', exact: true })).toBeDisabled();
-      const chooser = page.getByLabel('SRT 파일 선택', { exact: true });
+      const chooser = page.getByLabel('자막 파일 선택', { exact: true });
       await chooser.setInputFiles(approvedPath);
       const firstText = page.getByRole('textbox', { name: '자막 1 문구', exact: true });
       const firstStart = page.getByRole('textbox', { name: '자막 1 시작', exact: true });
@@ -218,11 +225,83 @@ test('ordinary user can open direct subtitle editing without a job, video or run
       assert.equal(await page.locator('.direct-subtitle-page header').count(), 0);
       assert.deepEqual(await receive('srt', 'long-수정본.srt'), Buffer.from(long));
 
+      await chooser.setInputFiles({
+        name: 'short.smi',
+        mimeType: 'application/x-sami',
+        buffer: smiFixture,
+      });
+      await expect(firstText).toHaveValue('한국어 & <script>window.__smiXss=1</script>\n둘째 줄');
+      await expect(firstStart).toHaveValue('00:00:00,125');
+      await expect(firstEnd).toHaveValue('00:00:00,750');
+      const selectedFileHash = async () => {
+        const bytes = await chooser.evaluate(async (input) =>
+          Array.from(new Uint8Array(await input.files[0].arrayBuffer())),
+        );
+        return createHash('sha256').update(Buffer.from(bytes)).digest('hex');
+      };
+      assert.equal(await selectedFileHash(), fixtureHash);
+      await expect(page.getByRole('textbox', { name: '자막 2 시작', exact: true })).toHaveValue(
+        '00:00:01,000',
+      );
+      await expect(page.getByRole('textbox', { name: '자막 2 종료', exact: true })).toHaveValue(
+        '00:00:01,800',
+      );
+      assert.equal(await page.evaluate(() => window.__smiXss), undefined);
+      await firstText.fill('SMI 수정 & <안전>\n두 줄');
+      await firstStart.fill('00:00:00,250');
+      await firstEnd.fill('00:00:00,900');
+      const smiEditedSrt =
+        '1\n00:00:00,250 --> 00:00:00,900\nSMI 수정 & <안전>\n두 줄\n\n2\n00:00:01,000 --> 00:00:01,800\n다음 자막\n';
+      assert.deepEqual(await receive('srt', 'short-수정본.srt'), Buffer.from(smiEditedSrt));
+      await format.selectOption('smi');
+      const editedSmi = (await receive('smi', 'short-수정본.smi')).toString('utf8');
+      assert.match(editedSmi, /SYNC Start="250"/);
+      assert.match(editedSmi, /SYNC Start="900"/);
+      assert.match(editedSmi, /SYNC Start="1000"/);
+      assert.match(editedSmi, /SYNC Start="1800"/);
+      assert.match(editedSmi, /SMI 수정 &amp; &lt;안전&gt;<BR>두 줄/);
+      assert.equal(await selectedFileHash(), fixtureHash);
+      await chooser.setInputFiles({
+        name: 'alias.sami',
+        mimeType: 'application/x-sami',
+        buffer: smiFixture,
+      });
+      await expect(firstText).toHaveValue('한국어 & <script>window.__smiXss=1</script>\n둘째 줄');
+      await expect(firstStart).toHaveValue('00:00:00,125');
+      await expect(page.locator('.direct-subtitle-filename')).toHaveText('alias.sami');
+      for (const [name, buffer, message] of [
+        [
+          'missing.smi',
+          Buffer.from('<SAMI><BODY><SYNC Start=0><P>끝 시각 없음</BODY></SAMI>'),
+          '종료 시각',
+        ],
+        [
+          'multi.smi',
+          Buffer.from(
+            '<SAMI><BODY><SYNC Start=0><P Class=KRCC>한국어<P Class=ENCC>English<SYNC Start=1000><P>&nbsp;</BODY></SAMI>',
+          ),
+          '여러 언어',
+        ],
+        ['encoding.smi', Buffer.from([0xbe, 0xc8]), 'UTF-8'],
+        [
+          'active.smi',
+          Buffer.from(
+            '<SAMI><BODY><SYNC Start=0><P><img src="https://never-requested.invalid/a"><SYNC Start=100><P>&nbsp;</BODY></SAMI>',
+          ),
+          '지원하지 않는',
+        ],
+      ]) {
+        await chooser.setInputFiles({ name, mimeType: 'application/x-sami', buffer });
+        await expect(page.getByRole('alert')).toContainText(message);
+        await expect(firstText).toHaveCount(0);
+        await expect(page.getByRole('button', { name: 'SRT 받기', exact: true })).toBeDisabled();
+      }
+
       // Native File reads cannot be cancelled; source sequence must reject a late old read.
       await page.evaluate(() => {
         const original = File.prototype.arrayBuffer;
         File.prototype.arrayBuffer = function () {
-          if (this.name === 'slow.srt') {
+          if (this.name === 'slow.smi') {
             return new Promise((resolve) => {
               window.__releaseDirect = async () => resolve(await original.call(this));
             });
@@ -231,9 +310,9 @@ test('ordinary user can open direct subtitle editing without a job, video or run
         };
       });
       await chooser.setInputFiles({
-        name: 'slow.srt',
-        mimeType: 'application/x-subrip',
-        buffer: approved,
+        name: 'slow.smi',
+        mimeType: 'application/x-sami',
+        buffer: smiFixture,
       });
       await expect(page.getByRole('status')).toContainText('자막 불러오는 중');
       await expect.poll(() => page.evaluate(() => Boolean(window.__releaseDirect))).toBe(true);
@@ -261,6 +340,7 @@ test('ordinary user can open direct subtitle editing without a job, video or run
         await expect(page.getByRole('button', { name: 'SRT 받기', exact: true })).toBeDisabled();
       }
       assert.deepEqual(fs.readFileSync(approvedPath), approved);
+      assert.equal(createHash('sha256').update(smiFixture).digest('hex'), fixtureHash);
       await page.close();
     }
     assert.deepEqual(errors, []);

@@ -9,7 +9,7 @@ import {
   directCueValue,
   directSmiIssue,
   downloadDirectSubtitle,
-  readDirectSrt,
+  readDirectSubtitle,
   type DirectCueEdit,
   type DirectEdits,
   type SubtitleFormat,
@@ -45,13 +45,13 @@ export const DirectSubtitleEditor = () => {
     setLoading(true);
     setSelection(token);
     try {
-      const next = await readDirectSrt(file);
+      const next = await readDirectSubtitle(file);
       if (token === sequence.current) {
         setDocument(next);
       }
     } catch (reason) {
       if (token === sequence.current) {
-        setError(reason instanceof Error ? reason.message : 'SRT 파일을 읽지 못했습니다.');
+        setError(reason instanceof Error ? reason.message : '자막 파일을 읽지 못했습니다.');
       }
     } finally {
       if (token === sequence.current) {
@@ -84,18 +84,18 @@ export const DirectSubtitleEditor = () => {
     <main className="video-main direct-subtitle-page">
       <PageTitle>자막 파일 편집</PageTitle>
       <div className="direct-subtitle-file">
-        <label htmlFor="direct-subtitle-file">SRT 파일 선택</label>
+        <label htmlFor="direct-subtitle-file">자막 파일 선택</label>
         <input
           id="direct-subtitle-file"
           type="file"
-          accept=".srt"
+          accept=".srt,.smi,.sami"
           aria-describedby="direct-subtitle-file-help"
           onClick={(event) => {
             event.currentTarget.value = '';
           }}
           onChange={(event) => void choose(event.target.files?.[0])}
         />
-        <p id="direct-subtitle-file-help">UTF-8 SRT · 최대 16MiB, 10000개 자막</p>
+        <p id="direct-subtitle-file-help">UTF-8 SRT·SMI·SAMI · 최대 16MiB, 10000개 자막</p>
       </div>
       {filename && <p className="direct-subtitle-filename">{filename}</p>}
       <p>원래 파일은 바뀌지 않습니다. 편집한 자막은 별도 파일로 받으세요.</p>
