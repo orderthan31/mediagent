@@ -250,6 +250,11 @@ test('audio library to ASR-only preparation and reload PC1440/390 (OFFLINE)', as
       }
       await mount(page, '#/videos/' + id);
       await expect(page.getByRole('link', { name: '음성 전사 준비', exact: true })).toBeVisible();
+      await expect(
+        page.getByText('음성 형식', { exact: true }).locator('..').locator('dd'),
+      ).toHaveText(
+        `${asset.media.codec} · ${asset.media.sample_rate}Hz · ${asset.media.channels}채널`,
+      );
       assert.equal(await page.locator('video').count(), 0);
       await page.getByRole('link', { name: '음성 전사 준비', exact: true }).click();
       await expect(page.getByLabel('원본 음성', { exact: true })).toHaveValue(id);

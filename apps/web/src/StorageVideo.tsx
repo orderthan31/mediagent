@@ -97,7 +97,7 @@ export const StorageVideoInfo = ({ video, assetId }: { video: VideoAsset; assetI
           <dt>{video.media_kind === 'audio' ? '음성 형식' : '해상도'}</dt>
           <dd>
             {video.media_kind === 'audio'
-              ? `${video.media?.codec} ? ${video.media?.sample_rate}Hz ? ${video.media?.channels}??`
+              ? `${video.media?.codec} · ${video.media?.sample_rate}Hz · ${video.media?.channels}채널`
               : video.media && (video.media.width || 0) > 0 && (video.media.height || 0) > 0
                 ? `${video.media.width} × ${video.media.height}`
                 : '미확인'}
