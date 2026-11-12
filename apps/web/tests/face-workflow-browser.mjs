@@ -377,3 +377,205 @@ test('new face normal preparation + explicit review controls PC1440/390 (OFFLINE
     await browser.close();
   }
 });
+
+test('face preparation version copy PC1440/390 preserves held inspection (OFFLINE)', async () => {
+  const dir = fs.mkdtempSync(path.join(scratch, 'codex-face-preparation-copy-ui-'));
+  const summary = '단계별 얼굴 합성을 지원하는 실행기 버전이 필요합니다.';
+  const prefix = '단계별 얼굴 합성을 지원하는 실행기 버전이 필요합니다: ';
+  const other = '설정 확인: 실행기 등록 정보를 확인해 주세요. · OFFLINE diagnostic';
+  const inspection = {
+    supported: false,
+    model_ready: false,
+    definition_revision: 2,
+    summary: definition.nodes,
+    reasons: [
+      ...['analyze_source', 'analyze_reference', 'preview', 'render'].map((stage) => ({
+        message: prefix + 'face__face_' + stage,
+        node_id: 'face__face_' + stage,
+      })),
+      { message: other, node_id: null },
+    ],
+  };
+  const originalInspection = structuredClone(inspection);
+  const bundle = await build({
+    stdin: {
+      resolveDir: process.cwd(),
+      loader: 'tsx',
+      contents: `import React from 'react';import {createRoot} from 'react-dom/client';import {AuthGate} from './src/AuthGate';import {PageTitleProvider} from './src/PageTitle';import {Theme} from './src/hangyeol/foundation/theme';import {WorkflowStart} from './src/WorkflowStart';createRoot(document.getElementById('root')).render(<AuthGate><PageTitleProvider><Theme mode="light" palette="Indigo" className="workspace-theme"><div className="video-workspace renewed-workspace ui02-workspace"><WorkflowStart/></div></Theme></PageTitleProvider></AuthGate>);`,
+    },
+    bundle: true,
+    write: false,
+    format: 'iife',
+    platform: 'browser',
+    define: { 'import.meta.env': '{"VITE_RENEWAL_BACKEND":"1"}' },
+    loader: { '.css': 'empty' },
+  });
+  const css = fs
+    .readdirSync('dist/assets')
+    .filter((n) => n.endsWith('.css'))
+    .map((n) => fs.readFileSync(path.join('dist/assets', n), 'utf8'))
+    .join('\n');
+  const browser = await chromium.launch({ channel: 'msedge', headless: true });
+  const calls = [],
+    unexpected = [],
+    errors = [],
+    responses = [];
+  try {
+    const context = await browser.newContext({ offline: true });
+    await context.route('**/*', async (route) => {
+      const req = route.request(),
+        url = new URL(req.url());
+      const json = (value) =>
+        route.fulfill({ contentType: 'application/json', body: JSON.stringify(value) });
+      if (url.origin !== 'https://face-preparation-copy.invalid') {
+        unexpected.push(url.href);
+        return route.abort();
+      }
+      if (url.pathname === '/') {
+        return route.fulfill({
+          contentType: 'text/html',
+          body: '<!doctype html><html lang="ko"><head><meta name="viewport" content="width=device-width, initial-scale=1"/></head><body><div id="root"></div></body></html>',
+        });
+      }
+      if (url.pathname.startsWith('/fonts/hangyeol/')) {
+        return route.fulfill({
+          body: fs.readFileSync(path.join('public', url.pathname)),
+          contentType: 'font/woff2',
+        });
+      }
+      calls.push({
+        method: req.method(),
+        path: url.pathname,
+        body: req.postData() ? req.postDataJSON() : null,
+      });
+      if (url.pathname === '/api/auth/session') {
+        return json({
+          enabled: true,
+          user: { id: 'b'.repeat(32), role: 'admin', username: 'offline' },
+          csrf_token: 'offline-csrf',
+        });
+      }
+      if (url.pathname === '/api/videos') {
+        return json({ videos: [photoAsset, targetAsset] });
+      }
+      if (url.pathname === '/api/work-entry/catalog') {
+        return json({ nodes: [descriptor] });
+      }
+      if (url.pathname === '/api/work-entry/workflows') {
+        return json({ definitions: [{ id: workflow, name: definition.name, revision: 2 }] });
+      }
+      if (url.pathname === '/api/work-entry/workflows/' + workflow) {
+        return json(definition);
+      }
+      if (url.pathname === '/api/work-entry/inspect' && req.method() === 'POST') {
+        return json(inspection);
+      }
+      if (url.pathname === '/api/work-entry/faceswap-inputs') {
+        return json({
+          engines: [
+            {
+              role: 'faceswap',
+              revision: 2,
+              sha256: sha,
+              engine: 'facefusion-3.9.0',
+              face_protocol: 2,
+            },
+          ],
+          reason: '',
+        });
+      }
+      unexpected.push(req.method() + ' ' + url.pathname);
+      return route.abort();
+    });
+    for (const width of [1440, 390]) {
+      const page = await context.newPage();
+      page.on('pageerror', (e) => errors.push(e.message));
+      page.on('response', (response) => {
+        if (new URL(response.url()).pathname === '/api/work-entry/inspect') {
+          responses.push(response.json());
+        }
+      });
+      await page.setViewportSize({ width, height: 950 });
+      await page.goto(
+        `https://face-preparation-copy.invalid/#/start?photo=${photo}&target=${target}&workflow=${workflow}`,
+      );
+      await page.addStyleTag({ content: css });
+      await page.addScriptTag({ content: bundle.outputFiles[0].text });
+      await expect(page.getByRole('combobox', { name: '워크플로우', exact: true })).toHaveValue(
+        workflow,
+      );
+      await expect(page.getByLabel('원본 사진', { exact: true })).toHaveValue(photo);
+      await expect(page.getByLabel('원본', { exact: true })).toHaveValue(target);
+      await page.getByLabel('얼굴 합성 실행기', { exact: true }).selectOption(`2:${sha}`);
+      await expect(page.getByLabel('얼굴 합성 실행기', { exact: true })).toHaveValue(`2:${sha}`);
+      await expect(page.getByLabel('영상 기준 프레임', { exact: true })).toHaveValue('1');
+      await expect(page.getByRole('button', { name: '작업 시작', exact: true })).toBeDisabled();
+      const reasonList = page
+        .getByRole('region', { name: '선택한 워크플로우', exact: true })
+        .getByRole('alert');
+      // RED: the actual four native-stage reasons currently expose internal handles.
+      await expect(reasonList.locator('p')).toHaveText([summary, other]);
+      await expect(reasonList).not.toContainText('face__');
+      await expect(page.getByText(summary, { exact: true })).toHaveCount(1);
+      assert.equal(await page.locator('[data-node-kind="agent"]').count(), 1);
+      assert.equal(await page.locator('[data-node-kind="input"]').count(), 0);
+      await page.getByLabel('얼굴 합성 실행기', { exact: true }).scrollIntoViewIfNeeded();
+      const rect = await page.getByLabel('얼굴 합성 실행기', { exact: true }).boundingBox();
+      assert.ok(rect.x >= 0 && rect.x + rect.width <= width + 1);
+      await reasonList.scrollIntoViewIfNeeded();
+      await page.screenshot({
+        path: path.join(dir, `OFFLINE-face-copy-${width}.png`),
+        fullPage: true,
+      });
+      await Promise.all(responses);
+      await page.close();
+    }
+    assert.equal(responses.length, 2);
+    for (const response of await Promise.all(responses)) {
+      assert.deepEqual(response, originalInspection);
+    }
+    assert.deepEqual(inspection, originalInspection);
+    assert.deepEqual(definition.nodes[0].options, { preset: 'fast', video_codec: 'h264' });
+    assert.ok(
+      calls
+        .filter((c) => c.method !== 'GET')
+        .every((c) => c.method === 'POST' && c.path === '/api/work-entry/inspect'),
+    );
+    assert.deepEqual(
+      calls.filter((c) => c.path === '/api/work-entry/inspect').map((c) => c.body),
+      [
+        { definition_id: workflow, definition_revision: 2 },
+        { definition_id: workflow, definition_revision: 2 },
+      ],
+    );
+    assert.deepEqual(unexpected, []);
+    assert.deepEqual(errors, []);
+    fs.writeFileSync(
+      path.join(dir, 'OFFLINE-requests.json'),
+      JSON.stringify({ calls, inspection }, null, 2),
+    );
+  } catch (error) {
+    fs.writeFileSync(
+      path.join(dir, 'OFFLINE-failure.json'),
+      JSON.stringify(
+        {
+          calls,
+          unexpected,
+          errors,
+          pages: await Promise.all(
+            browser
+              .contexts()
+              .flatMap((c) => c.pages())
+              .map((p) => p.locator('body').innerText()),
+          ),
+        },
+        null,
+        2,
+      ),
+    );
+    console.error('OFFLINE face preparation copy evidence', dir);
+    throw error;
+  } finally {
+    await browser.close();
+  }
+});

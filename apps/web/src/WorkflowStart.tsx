@@ -107,6 +107,18 @@ export const WorkflowStart = () => {
   const generation = useRef(0);
   const asset = assets.find((row) => row.asset_id === assetId);
   const selectedNode = inspection?.summary.find((row) => row.id === selected);
+  const faceVersionReasonPrefix = '단계별 얼굴 합성을 지원하는 실행기 버전이 필요합니다: ';
+  const inspectionMessages = inspection?.reasons.flatMap((reason, index, reasons) => {
+    if (
+      definition?.input_profile === 'face_workflow_v1' &&
+      reason.message.startsWith(faceVersionReasonPrefix)
+    ) {
+      return reasons.findIndex((row) => row.message.startsWith(faceVersionReasonPrefix)) === index
+        ? ['단계별 얼굴 합성을 지원하는 실행기 버전이 필요합니다.']
+        : [];
+    }
+    return [reason.message];
+  });
   const inputReady = normalInputReady(definition, normalInput);
   const invalidate = () => {
     setPlan(null);
@@ -598,8 +610,8 @@ export const WorkflowStart = () => {
               </div>
               {!inspection.supported && (
                 <div role="alert">
-                  {inspection.reasons.map((reason, index) => (
-                    <p key={index}>{reason.message}</p>
+                  {inspectionMessages?.map((message, index) => (
+                    <p key={index}>{message}</p>
                   ))}
                 </div>
               )}
