@@ -36,14 +36,25 @@ export const TaskResultTabs = ({
   initialState,
   toolbar,
   children,
+  initialTab = 'output',
+  activeTab,
+  onTabChange,
 }: {
   jobId: string;
   runId?: string;
   initialState: string;
   toolbar?: ReactNode;
   children: ReactNode;
+  initialTab?: 'output' | 'logs';
+  activeTab?: 'output' | 'logs';
+  onTabChange?: (tab: 'output' | 'logs') => void;
 }) => {
-  const [active, setActive] = useState<'output' | 'logs'>('output');
+  const [localActive, setLocalActive] = useState<'output' | 'logs'>(initialTab);
+  const active = activeTab ?? localActive;
+  const setActive = (tab: 'output' | 'logs') => {
+    setLocalActive(tab);
+    onTabChange?.(tab);
+  };
   const [logs, setLogs] = useState<TaskLog | null>(null);
   const [loading, setLoading] = useState(!!runId);
   const [error, setError] = useState('');

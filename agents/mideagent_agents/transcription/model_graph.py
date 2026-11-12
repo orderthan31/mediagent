@@ -22,6 +22,8 @@ from langgraph.types import Send
 from video_service.audio_contract import timed_segments
 from video_service.canonical import canonical
 from video_service.packed_projection import project, validate_projection_clock
+from video_service.role_policy import ADVANCE, attempt_index, endpoint_error_code, is_v2
+from mideagent_model_tools.endpoints import EndpointFailure
 
 from mideagent_agents.state import RoleState
 from mideagent_agents.tool_binding import invoke as invoke_tool
@@ -36,6 +38,8 @@ class SpeechState(TypedDict, total=False):
     reply: list
     result: dict
     progress: Annotated[dict, operator.or_]
+    candidate: int
+    call_index: int
 
 
 class TranscriptionAgent:
@@ -75,9 +79,9 @@ class TranscriptionAgent:
         chunk.add_conditional_edges(
             "invoke",
             lambda s: s["status"],
-            {"received": "validate", "held": END, "cancelled": END},
+            {"received": "validate", "retry": "acquire", "held": END, "cancelled": END},
         )
-        chunk.add_edge("validate", END)
+        chunk.add_conditional_edges("validate", lambda s: s["status"], {"retry": "acquire", "cached": END, "held": END})
         self.chunk_graph = chunk.compile(checkpointer=self.saver)
         graph = StateGraph(SpeechState)
         for name in ["prepare", "advance", "finish", "hold", "cancelled"]:
@@ -114,7 +118,7 @@ class TranscriptionAgent:
                 "configurable": {
                     "thread_id": s["task"]["task_id"] + ":chunk:" + str(index)
                 },
-                "recursion_limit": 8,
+                "recursion_limit": 8 + (len(s["task"]["models"]) * 3 if is_v2(s["task"]) else 0),
                 "max_concurrency": 1,
             },
         )
@@ -132,24 +136,30 @@ class TranscriptionAgent:
         return self.state.cancel(task)
 
     def prepare_task(self, task, audio):
+        v2 = is_v2(task)
         keys = {
             "version",
             "task_id",
             "role",
             "audio",
-            "model",
             "source_language",
             "chunk_frames",
             "max_calls",
             "timeline",
-        }
+        } | ({"models", "role_policy_version"} if v2 else {"model"})
         if (
             set(task) != keys
-            or task["version"] != 1
+            or task["version"] != (2 if v2 else 1)
             or task["role"] != "transcription"
             or not re.fullmatch("[a-f0-9]{32}", task["task_id"])
         ):
             raise ValueError("invalid_self_contained_speech_task")
+        if v2:
+            from video_service.role_task_contracts import validate_models
+
+            validate_models(task["models"])
+            if type(task["source_language"]) is not str or not re.fullmatch("auto|[a-z]{2,3}", task["source_language"]):
+                raise ValueError("invalid_source_language")
         if (
             type(task["chunk_frames"]) is not int
             or not 0 < task["chunk_frames"] <= 60 * 16000
@@ -243,6 +253,8 @@ class TranscriptionAgent:
         }
 
     def _acquire(self, s):
+        if is_v2(s["task"]):
+            return self._acquire_candidate(s)
         task = s["task"]["task_id"]
         if self.state.cancelled(task):
             return {"status": "cancelled"}
@@ -267,6 +279,8 @@ class TranscriptionAgent:
         }
 
     def _invoke(self, s):
+        if is_v2(s["task"]):
+            return self._invoke_candidate(s)
         task = s["task"]
         identifier = task["task_id"]
         chunk = s["chunks"][s["index"]]
@@ -302,6 +316,7 @@ class TranscriptionAgent:
                 return {"status": "held"}
 
     def _validate(self, s):
+        index = s["call_index"] if is_v2(s["task"]) else s["chunks"][s["index"]]["index"]
         try:
             chunk = s["chunks"][s["index"]]
             def validate():
@@ -316,12 +331,15 @@ class TranscriptionAgent:
                     for i, row in enumerate(rows)
                 ]
                 return rows
-            rows = invoke_tool(self, s["task"], "speech.validate_chunk", validate, index=chunk["index"])
+            rows = invoke_tool(self, s["task"], "speech.validate_chunk", validate, index=index)
             self.state.complete(
-                s["task"]["task_id"], s["chunks"][s["index"]]["index"], rows
+                s["task"]["task_id"], index, rows
             )
             return {"status": "cached"}
         except (ValueError, TypeError, KeyError):
+            if is_v2(s["task"]):
+                self.state.candidate_failed(s["task"]["task_id"], index, "invalid_response")
+                return {"status": "retry"}
             self.state.fail(
                 s["task"]["task_id"],
                 s["chunks"][s["index"]]["index"],
@@ -330,11 +348,89 @@ class TranscriptionAgent:
             )
             return {"status": "held"}
 
+    def _acquire_candidate(self, s):
+        task = s["task"]
+        identifier = task["task_id"]
+        if self.state.cancelled(identifier):
+            return {"status": "cancelled"}
+        chunk = s["chunks"][s["index"]]
+        for candidate in range(len(task["models"])):
+            index = attempt_index(chunk["index"], candidate, len(task["models"]))
+            row = self.state.chunk(identifier, index)
+            choice = {"candidate": candidate, "call_index": index}
+            if row is None:
+                return {**choice, "status": "held" if self.state.task(identifier)["status"] == "held" else "ready"}
+            if row["status"] == "completed":
+                return {**choice, "status": "cached"}
+            if row["status"] == "received":
+                return {**choice, "status": "received", "reply": json.loads(row["reply"])}
+            if row["status"] == "started":
+                self.state.fail(identifier, index, "interrupted_model_intent", True)
+            if row["status"] != "failed" or row["error"] not in ADVANCE:
+                return {"status": "held"}
+        return {"status": "held"}
+
+    def _invoke_candidate(self, s):
+        task = s["task"]
+        identifier, index = task["task_id"], s["call_index"]
+        chunk = s["chunks"][s["index"]]
+        candidate = s["candidate"]
+        with self.call_slots, self.state.lock(identifier, "call-fence", shared=True):
+            status = self.state.reserve(identifier, index)
+            if status == "cancelled":
+                return {"status": "cancelled"}
+            if status != "reserved":
+                return {"status": "held"}
+            try:
+                raw = Path(chunk["path"]).read_bytes()
+                if hashlib.sha256(raw).hexdigest() != chunk["sha256"]:
+                    raise ValueError("chunk_sha_mismatch")
+                if self.state.cancelled(identifier):
+                    return {"status": "cancelled"}
+                tool = self.model_tool.for_chunk(task, chunk, candidate) if hasattr(self.model_tool, "for_chunk") else self.model_tool
+                reply = invoke_tool(self, task, "speech.transcribe", lambda: tool(task["models"][candidate], raw, task["source_language"]), index=index)
+                if type(reply) is dict:
+                    if reply.get("status") == "failed":
+                        self.state.candidate_failed(identifier, index, reply["error"])
+                        return {"status": "retry"}
+                    if reply.get("status") != "received":
+                        self.state.fail(identifier, index, reply.get("error", "model_reply_unknown"), True)
+                        return {"status": "held"}
+                    reply = reply["reply"]
+                self.state.reply(identifier, index, reply)
+                return {"status": "received", "reply": reply}
+            except EndpointFailure as error:
+                code = endpoint_error_code(error, v2=True)
+                if code in ADVANCE:
+                    self.state.candidate_failed(identifier, index, code)
+                    return {"status": "retry"}
+                self.state.fail(identifier, index, code, code == "outcome_unknown")
+                return {"status": "held"}
+            except Exception as error:
+                self.state.fail(identifier, index, type(error).__name__, True)
+                return {"status": "held"}
+
+    def _completed_chunks(self, s):
+        task = s["task"]
+        if not is_v2(task):
+            return [self.state.chunk(task["task_id"], i) for i in range(len(s["chunks"]))]
+        completed = []
+        for chunk in s["chunks"]:
+            selected = None
+            for candidate in range(len(task["models"])):
+                index = attempt_index(chunk["index"], candidate, len(task["models"]))
+                row = self.state.chunk(task["task_id"], index)
+                if row and row["status"] == "completed":
+                    selected = row
+                    break
+            completed.append(selected)
+        return completed
+
     def _advance(self, s):
         task = s["task"]["task_id"]
         if self.state.cancelled(task):
             return {"status": "cancelled"}
-        chunks = [self.state.chunk(task, i) for i in range(len(s["chunks"]))]
+        chunks = self._completed_chunks(s)
         return {
             "status": "completed"
             if all(c and c["status"] == "completed" for c in chunks)
@@ -342,9 +438,7 @@ class TranscriptionAgent:
         }
 
     def _terminal(self, s, status, segments=None, projection_trace=None):
-        chunks = [
-            self.state.chunk(s["task"]["task_id"], i) for i in range(len(s["chunks"]))
-        ]
+        chunks = self._completed_chunks(s)
         result = {
             "version": 1,
             "task_id": s["task"]["task_id"],
@@ -356,7 +450,11 @@ class TranscriptionAgent:
             "model_calls": self.state.task(s["task"]["task_id"])["calls"],
         }
         if status == "held":
-            if any(c and c["status"] == "unknown" for c in chunks):
+            attempts = chunks
+            if is_v2(s["task"]):
+                width = len(s["task"]["models"])
+                attempts = [self.state.chunk(s["task"]["task_id"], i) for i in range(len(chunks) * width)]
+            if any(c and c["status"] == "unknown" for c in attempts):
                 result["held_reason"] = "model_reply_unknown"
             elif len(chunks) > s["task"]["max_calls"]:
                 result["held_reason"] = "call_budget_below_required_chunks"
@@ -370,6 +468,14 @@ class TranscriptionAgent:
             result["segments"] = segments
         if projection_trace is not None:
             result["projection_trace"] = projection_trace
+        if is_v2(s["task"]) and status == "completed":
+            task = s["task"]
+            result["chunks"] = [
+                {"index": chunk["index"], "start": chunk["start"], "frames": chunk["frames"],
+                 "input_sha256": chunk["sha256"], "candidate_index": row["idx"] % len(task["models"]),
+                 "model": task["models"][row["idx"] % len(task["models"])]}
+                for chunk, row in zip(s["chunks"], chunks)
+            ]
         result = self.state.finish(s["task"]["task_id"], result)
         return {"status": result["status"], "result": result}
 
@@ -378,8 +484,8 @@ class TranscriptionAgent:
             return self._cancelled(s)
         def assemble():
             rows = []
-            for i in range(len(s["chunks"])):
-                rows.extend(json.loads(self.state.chunk(s["task"]["task_id"], i)["result"]))
+            for row in self._completed_chunks(s):
+                rows.extend(json.loads(row["result"]))
             return project(rows, s["task"]["timeline"], policy="packed_projection_v5")
         projected, trace = invoke_tool(self, s["task"], "speech.merge_segments", assemble)
         return self._terminal(s, "completed", projected, projection_trace=trace)

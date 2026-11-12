@@ -66,8 +66,8 @@ class _GuardedTransport(httpx.BaseTransport):
         self.options, self.schema = options, None
         self.calls, self.failure, self.lock = 0, None, Lock()
 
-    def _fail(self, message, code="request_rejected"):
-        error = EndpointFailure(message, code=code)
+    def _fail(self, message, code="request_rejected", *, capacity_exceeded=False):
+        error = EndpointFailure(message, code=code, capacity_exceeded=capacity_exceeded)
         if self.failure is None:
             self.failure = error
         raise error
@@ -139,7 +139,7 @@ class _GuardedTransport(httpx.BaseTransport):
                 body.extend(part[: max(0, limit + 1 - len(body))])
                 if len(body) > limit:
                     if response.status_code == 200:
-                        self._fail("모델 서버 응답 크기 초과", "invalid_response")
+                        self._fail("모델 서버 응답 크기 초과", "invalid_response", capacity_exceeded=True)
                     del body[limit:]
                     break
             if response.status_code != 200:

@@ -20,6 +20,13 @@ class ModelRoles:
         self.results = result_store or runtime.store
         self.result_stores = result_stores or {}
 
+    def _policy_version(self, owner, command):
+        from ..role_policy import snapshot_version
+
+        with self.runtime.database.connection() as c:
+            job = self.runtime._job(c, owner, command["run_id"])
+        return snapshot_version(job["snapshot"])
+
     def _current(self, c, owner, command):
         runtime = self.runtime
         job = runtime._job(c, owner, command["run_id"], lock=True)
@@ -62,9 +69,12 @@ class ModelRoles:
                     "independent_role_requires_explicit_packed_batched_contract"
                 )
             pins = config["candidates"]
+            version = self._policy_version(owner, command)
             # Never silently drop configured fallbacks while that contract is pending.
-            if len(pins) != 1:
+            if version == 1 and len(pins) != 1:
                 raise Conflict("independent_role_candidate_chain_not_connected")
+            if version == 2 and not 1 <= len(pins) <= 4:
+                raise Conflict("invalid_role_candidates")
             cap = config["max_model_calls"]
             if type(cap) is not int or cap < 1:
                 raise Conflict("invalid_role_frozen_call_budget")
@@ -81,11 +91,14 @@ class ModelRoles:
                 "version": 1,
                 "role": "transcription",
                 "task": {
-                    "version": 1,
+                    "version": version,
+                    **({"role_policy_version": 2} if version == 2 else {}),
                     "task_id": command["attempt_id"],
                     "role": "transcription",
                     "audio": {k: audio[k] for k in ["sha256", "bytes"]},
-                    "model": {k: pins[0][k] for k in ["model_id", "revision"]},
+                    **({"models": [self._model_binding(p) for p in pins]} if version == 2 else {
+                        "model": {k: pins[0][k] for k in ["model_id", "revision"]}
+                    }),
                     "source_language": config["source_language"],
                     "chunk_frames": 960000,
                     "max_calls": cap,
@@ -136,6 +149,12 @@ class ModelRoles:
                 ),
             )
         return envelope
+
+    @staticmethod
+    def _model_binding(pin):
+        from ..role_policy import model_binding
+
+        return model_binding(pin)
 
     def publish_exact(self, owner, job_id, attempt_id, send_confirm):
         # A session advisory guard spans both durable commits and external I/O.
@@ -239,6 +258,15 @@ class ModelRoles:
             )
         )
         envelope = row["envelope"]
+        from ..role_policy import is_v2
+
+        v2 = is_v2(envelope["task"])
+        if v2:
+            from ..translation_output import validate_packet
+
+            validate_packet(packet)
+            if canonical(packet.get("task")) != canonical(envelope["task"]):
+                raise Conflict("role_result_policy_changed")
         if (
             packet.get("request_sha256") != row["envelope_sha256"]
             or packet.get("task") != envelope["task"]
@@ -304,10 +332,25 @@ class ModelRoles:
             else:
                 trace = result["projection_trace"]
                 packed = [r["packed_segment"] for r in trace["rows"]]
+                if v2:
+                    from ..role_receipts import speech_receipts
+
+                    task = envelope["task"]
+                    durable = self._tool_calls(task, row["frozen_candidates"], result)
+                    reference = command["inputs"]["audio"]
+                    verified, chunks = speech_receipts(
+                        task, self.runtime.store.read(owner, reference, limit=reference["bytes"]), durable
+                    )
+                    if canonical(verified) != canonical(packed) or canonical(result.get("chunks")) != canonical(chunks) or type(result.get("completed_chunks")) is not int or result["completed_chunks"] != len(chunks):
+                        raise Conflict("role_transcription_selection_changed")
                 projected, expected = project(
                     packed, envelope["task"]["timeline"], policy="packed_projection_v5"
                 )
-                if expected != trace or projected != result["segments"]:
+                projection_changed = (
+                    canonical(expected) != canonical(trace)
+                    or canonical(projected) != canonical(result["segments"])
+                ) if v2 else (expected != trace or projected != result["segments"])
+                if projection_changed:
                     raise Conflict("role_projection_trace_changed")
                 outputs = {}
                 outputs["transcript"] = self.runtime.store.put(
@@ -344,7 +387,10 @@ class ModelRoles:
                         "role_task_id": row["task_id"],
                         "model_calls": calls,
                         "completed_chunks": result["completed_chunks"],
-                        "model": envelope["task"]["model"],
+                        **({"role_policy_version": 2, "chunks": [
+                            {**chunk, "selected": self._public_pin(row["frozen_candidates"][chunk["candidate_index"]])}
+                            for chunk in chunks
+                        ]} if v2 else {"model": envelope["task"]["model"]}),
                         "tool_mode": packet["tool_mode"],
                         "result_ref": message["result_ref"],
                     },
@@ -385,6 +431,25 @@ class ModelRoles:
             )
         return state
 
+    def _tool_calls(self, task, pins, result):
+        if [self._model_binding(p) for p in pins] != task["models"]:
+            raise Conflict("role_frozen_model_binding_changed")
+        with self.runtime.database.connection() as c:
+            calls = c.execute(
+                "SELECT * FROM model_role_tool_calls WHERE task_id=%s ORDER BY chunk_index",
+                (task["task_id"],),
+            ).fetchall()
+        if result["model_calls"] != len(calls):
+            raise Conflict("role_durable_call_count_changed")
+        return calls
+
+    @staticmethod
+    def _public_pin(pin):
+        return {key: pin[key] for key in (
+            "model_id", "revision", "connection_id", "connection_revision", "remote_model", "protocol",
+            "sha256", "inference",
+        ) if key in pin}
+
     @staticmethod
     def cancelled_in(c, owner, job_id, attempt_id):
         # Caller holds the product job lock. Cancellation is terminal independent
@@ -415,6 +480,7 @@ class ModelRoles:
         from ..postgres.translation import languages, segments
         from ..transcript_batches import validate_source
 
+        version = self._policy_version(owner, command)
         config = command["translation"]
         pins = config["candidates"]
         if command["agent"]["id"] != "translate" or not 1 <= len(pins) <= 4:
@@ -424,7 +490,7 @@ class ModelRoles:
             owner, reference, limit=min(reference["bytes"], 16 * 1024 * 1024)
         )
         source = json.loads(raw)
-        validate_source(source)
+        validate_source(source, policy_version=version)
         languages(config["source_language"], config["target_language"])
         batch_policy = config.get("batch_policy", "single_100x16k_v1")
         if batch_policy != "bounded_100x16k_v1":
@@ -433,21 +499,24 @@ class ModelRoles:
         cap = config.get("max_model_calls", len(pins))
         if type(cap) is not int or cap < 1:
             raise Conflict("invalid_role_frozen_call_budget")
+        from ..content_store import reference_origin
+        source_owner, source_reference = reference_origin(owner, reference)
         return {
             "version": 1,
             "role": "translation",
             "task": {
-                "version": 1,
+                "version": version,
+                **({"role_policy_version": 2} if version == 2 else {}),
                 "task_id": command["attempt_id"],
                 "role": "translation",
                 "transcript": {k: reference[k] for k in ["sha256", "bytes"]},
-                "models": [{k: p[k] for k in ["model_id", "revision"]} for p in pins],
+                "models": [self._model_binding(p) if version == 2 else {k: p[k] for k in ["model_id", "revision"]} for p in pins],
                 "source_language": config["source_language"],
                 "target_language": config["target_language"],
                 "batch_policy": batch_policy,
                 "max_calls": cap,
             },
-            "source": {"owner": owner, "reference": reference},
+            "source": {"owner": source_owner, "reference": source_reference},
             "output_owner": owner,
         }, pins
 
@@ -461,17 +530,32 @@ class ModelRoles:
                 limit=min(command["inputs"]["transcript"]["bytes"], 16 * 1024 * 1024),
             )
         )
+        task = row["envelope"]["task"]
+        from ..role_policy import is_v2
+
+        version = 2 if is_v2(task) else 1
         translated = result["segments"]
-        validate_source(translated)
+        if version == 2:
+            from ..translation_output import validate_output
+            from ..role_receipts import translation_receipts
+
+            validate_output(translated, source)
+            durable = self._tool_calls(task, row["frozen_candidates"], result)
+            verified, receipts = translation_receipts(task, source, durable)
+            if canonical(translated) != canonical(verified) or canonical(result.get("chunks")) != canonical(receipts):
+                raise Conflict("role_translation_durable_receipt_changed")
+        else:
+            validate_source(translated)
         if len(source) != len(translated) or any(
             {k: v for k, v in a.items() if k != "text"}
             != {k: v for k, v in b.items() if k != "text"}
             for a, b in zip(source, translated)
         ):
             raise Conflict("role_translation_source_structure_changed")
-        task = row["envelope"]["task"]
-        batches = list(split_transcript(source))
+        batches = list(split_transcript(source, policy_version=version))
         chunks = result["chunks"]
+        if version == 2 and type(result.get("completed_chunks")) is not int:
+            raise Conflict("role_translation_batch_coverage_changed")
         if len(chunks) != len(batches) or result["completed_chunks"] != len(batches):
             raise Conflict("role_translation_batch_coverage_changed")
         for chunk, batch in zip(chunks, batches):
@@ -490,13 +574,19 @@ class ModelRoles:
                 }
             ):
                 raise Conflict("role_translation_batch_binding_changed")
+            if version == 2:
+                validate_output(translated[batch.start:batch.end], batch.segments, batch=True)
         if (
             result["source_language"] != task["source_language"]
             or result["target_language"] != task["target_language"]
         ):
             raise Conflict("role_translation_language_changed")
+        if version == 2 and not chunks and (
+            result["model_calls"] != 0 or result.get("selected", "missing") is not None
+        ):
+            raise Conflict("role_empty_translation_must_not_select_or_call")
+        selected = row["frozen_candidates"][chunks[-1]["candidate_index"]] if chunks else None
         output = self.runtime.store.put(owner, [canonical(translated)], "transcript")
-        selected = row["frozen_candidates"][chunks[-1]["candidate_index"]]
         metadata = {
             "role_task_id": row["task_id"],
             "model_calls": result["model_calls"],
@@ -515,9 +605,16 @@ class ModelRoles:
                     "remote_model",
                     "protocol",
                 ]
-            },
+            } if selected is not None else None,
             "result_ref": message["result_ref"],
         }
+        if version == 2:
+            metadata["role_policy_version"] = 2
+            metadata["chunks"] = [
+                {**chunk, "selected": self._public_pin(row["frozen_candidates"][chunk["candidate_index"]])}
+                for chunk in chunks
+            ]
+            metadata["selected"] = self._public_pin(selected) if selected is not None else None
         return {
             **{
                 k: command[k]

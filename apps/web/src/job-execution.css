@@ -20,6 +20,31 @@
   flex-shrink: 0;
   margin-left: auto;
 }
+.job-failure-actions > div {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-block: 12px;
+  font-size: 1rem;
+}
+.job-failure-actions p {
+  flex-basis: 100%;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.job-failure-actions button {
+  min-width: 44px;
+  min-height: 44px;
+}
+.job-files li {
+  margin-block: 8px;
+  overflow-wrap: anywhere;
+}
+.job-files a {
+  display: inline-block;
+  padding-block: 6px;
+}
 .job-source-context {
   min-width: 0;
   overflow: hidden;

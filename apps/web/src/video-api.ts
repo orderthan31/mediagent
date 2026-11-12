@@ -64,8 +64,11 @@ export const templates: Record<string, string> = {
 };
 export const stageLabels: Record<string, string> = {
   transcription_agent: '전사 에이전트',
-  translation_agent: '한국어 번역 에이전트',
+  translation_agent: '번역 에이전트',
   subtitle_video_agent: '자막 영상 제작 에이전트',
+  subtitle_file_agent: '자막 파일 제작 에이전트',
+  video_conversion_agent: '영상 변환 에이전트',
+  audio_extraction_agent: '음성 추출 에이전트',
   faceswap: '얼굴 합성',
   analyze: '영상 확인',
   extract_audio: '음성 추출',

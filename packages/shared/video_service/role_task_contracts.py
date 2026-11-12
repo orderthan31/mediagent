@@ -66,6 +66,9 @@ def validate(packet, kind, *, expected_role=None):
     elif packet["role"] == "translation":
         validate_translation_task(task)
     else:
+        from video_service.role_policy import is_v2
+
+        v2 = is_v2(task)
         fields(
             task,
             {
@@ -73,17 +76,16 @@ def validate(packet, kind, *, expected_role=None):
                 "task_id",
                 "role",
                 "audio",
-                "model",
                 "source_language",
                 "chunk_frames",
                 "max_calls",
                 "timeline",
-            },
+            } | ({"models", "role_policy_version"} if v2 else {"model"}),
             "invalid_role_task_fields",
         )
         require(
             type(task["version"]) is int
-            and task["version"] == 1
+            and task["version"] == (2 if v2 else 1)
             and task["role"] == packet["role"]
             and hex_id(task["task_id"], 32),
             "invalid_role_task_identity",
@@ -95,13 +97,16 @@ def validate(packet, kind, *, expected_role=None):
             and task["audio"]["bytes"] > 0,
             "invalid_role_audio",
         )
-        fields(task["model"], {"model_id", "revision"}, "invalid_role_model")
-        require(
-            hex_id(task["model"]["model_id"], 32)
-            and type(task["model"]["revision"]) is int
-            and task["model"]["revision"] > 0,
-            "invalid_role_model",
-        )
+        if v2:
+            validate_models(task["models"])
+        else:
+            fields(task["model"], {"model_id", "revision"}, "invalid_role_model")
+            require(
+                hex_id(task["model"]["model_id"], 32)
+                and type(task["model"]["revision"]) is int
+                and task["model"]["revision"] > 0,
+                "invalid_role_model",
+            )
         require(
             type(task["source_language"]) is str
             and re.fullmatch("auto|[a-z]{2,3}", task["source_language"]) is not None,
@@ -163,6 +168,9 @@ def decode(body, kind, *, expected_role=None):
 
 
 def validate_translation_task(task):
+    from video_service.role_policy import is_v2
+
+    v2 = is_v2(task)
     fields(
         task,
         {
@@ -175,12 +183,12 @@ def validate_translation_task(task):
             "target_language",
             "batch_policy",
             "max_calls",
-        },
+        } | ({"role_policy_version"} if v2 else set()),
         "invalid_translation_task",
     )
     require(
         type(task["version"]) is int
-        and task["version"] == 1
+        and task["version"] == (2 if v2 else 1)
         and task["role"] == "translation"
         and hex_id(task["task_id"], 32),
         "invalid_translation_identity",
@@ -197,13 +205,15 @@ def validate_translation_task(task):
         "invalid_translation_candidates",
     )
     for model in task["models"]:
-        fields(model, {"model_id", "revision"}, "invalid_translation_model")
+        fields(model, {"model_id", "revision"} | ({"pin_sha256"} if v2 else set()), "invalid_translation_model")
         require(
             hex_id(model["model_id"], 32)
             and type(model["revision"]) is int
             and model["revision"] > 0,
             "invalid_translation_model",
         )
+        if v2:
+            require(hex_id(model["pin_sha256"], 64), "invalid_translation_model_pin")
     require(
         len({m["model_id"] for m in task["models"]}) == len(task["models"]),
         "duplicate_translation_model",
@@ -214,13 +224,26 @@ def validate_translation_task(task):
         and task["batch_policy"] in {"single_100x16k_v1", "bounded_100x16k_v1"},
         "invalid_translation_budget",
     )
-    from video_service.postgres.translation import languages
+    from video_service.translation_languages import languages
 
     try:
         languages(task["source_language"], task["target_language"])
     except (ValueError, TypeError):
         raise InvalidRoleDelivery("invalid_translation_languages") from None
     return task
+
+
+def validate_models(models):
+    require(type(models) is list and 1 <= len(models) <= 4, "invalid_role_candidates")
+    for model in models:
+        fields(model, {"model_id", "revision", "pin_sha256"}, "invalid_role_model")
+        require(
+            hex_id(model["model_id"], 32)
+            and type(model["revision"]) is int and model["revision"] > 0
+            and hex_id(model["pin_sha256"], 64),
+            "invalid_role_model",
+        )
+    require(len({m["model_id"] for m in models}) == len(models), "duplicate_role_model")
 
 
 def validate_vocal_task(task):

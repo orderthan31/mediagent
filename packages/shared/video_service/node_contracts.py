@@ -123,6 +123,7 @@ NODES = [
         {"subtitles": "subtitle"},
         choices={
             "format": ["srt", "srt_smi"],
+            "cue_policy": ["reflow_v1", "preserve_v1"],
             "language": [
                 "und",
                 "en",

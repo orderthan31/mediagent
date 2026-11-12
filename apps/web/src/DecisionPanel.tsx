@@ -16,49 +16,33 @@ export type DecisionEvidence = {
 export const DecisionPanel = ({
   evidence,
   status,
-  compact = false,
 }: {
   evidence?: DecisionEvidence;
   status: string;
   compact?: boolean;
 }) => (
-  <section className="decision-evidence" aria-label="서버 고정 AI 판단 근거">
-    <h4>서버 고정 AI 판단 근거</h4>
+  <section className="decision-evidence" aria-label="판단 결과">
+    <h4>판단 결과</h4>
     {!evidence ? (
-      <p>
+      <p role={['failed', 'blocked', 'quarantined'].includes(status) ? 'alert' : undefined}>
         {status === 'skipped'
-          ? '상위 경로 미선택 · 판단 호출 없음'
-          : '판단 전 미확정 · 미선택 skipped/비용0이 아닙니다.'}
+          ? '선택되지 않은 경로입니다. 판단은 호출되지 않았습니다.'
+          : ['pending', 'queued', 'running', 'waiting'].includes(status)
+            ? '판단 결과를 기다리고 있습니다.'
+            : `판단 결과 기록이 없습니다. 현재 상태: ${status}. 작업 내역을 확인하세요.`}
       </p>
     ) : evidence.status === 'succeeded' ? (
       <>
         <p>
-          <strong>선택 경로 {evidence.selected_port}</strong> · {evidence.judgment?.label} ·
-          confidence {evidence.judgment?.confidence}
+          <strong>선택 경로 {evidence.selected_port}</strong> · {evidence.judgment?.label} · 신뢰도{' '}
+          {evidence.judgment?.confidence}
         </p>
         <p>{evidence.judgment?.reason}</p>
-        <details open={!compact}>
-          <summary>입력/SHA·adapter·조건 상세</summary>
-          <p>
-            adapter {evidence.adapter?.id} / revision {evidence.adapter?.revision} · schema{' '}
-            {evidence.adapter?.schema_version}
-          </p>
-          <p>입력 SHA {evidence.input_sha256}</p>
-          <p>판단 결과 SHA {evidence.report_sha256}</p>
-          <p>조건/선택 고정 SHA {evidence.sha256}</p>
-          <pre>
-            {JSON.stringify(
-              { conditions: evidence.conditions, matches: evidence.matches, input: evidence.input },
-              null,
-              2,
-            )}
-          </pre>
-        </details>
       </>
     ) : (
       <p role="alert">
-        판단 {evidence.status} · {evidence.code} · {evidence.error_type}. 정상 미선택이 아닙니다.
-        영향 후행은 차단하며 독립 결과를 보존합니다. 재판정/복구는 새 티켓으로 분리하세요.
+        판단 {evidence.status} · {evidence.code} · {evidence.error_type}. 후속 작업이
+        차단되었습니다. 다시 진행하려면 새 작업을 만드세요.
       </p>
     )}
   </section>

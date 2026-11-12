@@ -168,19 +168,9 @@ export const AuthGate = ({ children }: { children: ReactNode }) => {
       <main className="auth-main">
         <section className="auth-panel" aria-labelledby="auth-title">
           <div className="auth-intro">
-            <p className="auth-eyebrow">다시 이어가는 작업</p>
             <h1 id="auth-title" className="text-g-title leading-g-title font-semibold">
-              {setup ? '최초 관리자 생성' : session ? '작업 공간에 로그인' : '작업 공간 연결'}
+              로그인
             </h1>
-            <p className="auth-description">
-              {setup
-                ? '관리자 계정을 만든 뒤 로그인해 주세요.'
-                : session
-                  ? '영상과 자막 작업을 이어가세요.'
-                  : error
-                    ? '서버 연결에 실패했어요. 연결 상태를 확인한 뒤 다시 시도해 주세요.'
-                    : '서버 연결과 로그인 상태를 확인하고 있어요.'}
-            </p>
           </div>
           {notice && <p role="status">{notice}</p>}
           {error && (
@@ -256,15 +246,10 @@ export const AuthGate = ({ children }: { children: ReactNode }) => {
                 <LogIn size={18} aria-hidden="true" />
                 {busy ? '처리 중...' : setup ? '관리자 생성' : '로그인'}
               </Button>
-              <p className="auth-form-note">
-                {setup
-                  ? '아이디 3~64자 · 비밀번호 12~256자'
-                  : '이 작업 공간에 등록된 계정으로 로그인해 주세요.'}
-              </p>
+              {setup && <p className="auth-form-note">아이디 3~64자 · 비밀번호 12~256자</p>}
             </form>
           )}
         </section>
-        <p className="auth-footer">영상 보관 · 작업 관리 · 자막 검수</p>
       </main>
     </Theme>
   );

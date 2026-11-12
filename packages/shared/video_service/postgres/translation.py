@@ -5,7 +5,6 @@ HTTP. Unknown delivery, auth/rejection and cancellation never advance candidates
 """
 
 import json
-import re
 from copy import deepcopy
 from urllib.parse import urlsplit
 
@@ -13,6 +12,7 @@ from video_service.canonical import canonical
 from ..model_endpoints import EndpointFailure, GeminiTextAdapter, OpenAITextAdapter
 from ..model_profile import supports_role
 from ..transcript_input import parse_segments
+from ..translation_languages import languages
 from . import Missing
 from .credentials import CredentialUnavailable
 
@@ -35,24 +35,6 @@ PIN_FIELDS = (
     "output_modalities",
     "capabilities",
 )
-
-
-def languages(source, target):
-    if (
-        not isinstance(source, str)
-        or not isinstance(target, str)
-        or not (
-            re.fullmatch(r"auto|[A-Za-z]{2,8}(?:-[A-Za-z0-9]{2,8})?", source)
-            or len(source) <= 64
-            and re.fullmatch(r"[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*", source)
-        )
-        or not (
-            re.fullmatch(r"[A-Za-z]{2,8}(?:-[A-Za-z0-9]{2,8})?", target)
-            or len(target) <= 64
-            and re.fullmatch(r"[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*", target)
-        )
-    ):
-        raise ValueError("번역 원문/대상 언어를 선택하세요.")
 
 
 def segments(value):
@@ -87,7 +69,16 @@ def translation_messages(source, source_language, target_language):
     return messages
 
 
-def translated_segments(raw, source):
+def translated_segments(raw, source, *, policy_version=1):
+    if type(policy_version) is int and policy_version == 2:
+        from ..translation_output import OutputCapacityError, decode_output
+
+        try:
+            return decode_output(raw, source)
+        except OutputCapacityError:
+            raise
+        except (ValueError, TypeError, RecursionError):
+            raise EndpointFailure("번역 결과 형식 오류") from None
     try:
         values = json.loads(raw)
         if (

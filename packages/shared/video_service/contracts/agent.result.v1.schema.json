@@ -524,6 +524,12 @@
                     "srt_smi"
                   ]
                 },
+                "cue_policy": {
+                  "enum": [
+                    "reflow_v1",
+                    "preserve_v1"
+                  ]
+                },
                 "language": {
                   "type": "string",
                   "pattern": "^[a-z]{2,3}$"
@@ -607,6 +613,12 @@
                   "enum": [
                     "srt",
                     "srt_smi"
+                  ]
+                },
+                "cue_policy": {
+                  "enum": [
+                    "reflow_v1",
+                    "preserve_v1"
                   ]
                 },
                 "language": {

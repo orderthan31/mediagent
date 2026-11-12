@@ -85,9 +85,10 @@ def connection_contract(provider, protocol=None, endpoint=None, *, previous=None
 class EndpointFailure(RuntimeError):
     """Sanitized failure: raw upstream errors/responses never become API errors."""
 
-    def __init__(self, message, *, code='invalid_response'):
+    def __init__(self, message, *, code='invalid_response', capacity_exceeded=False):
         super().__init__(message)
         self.code = code
+        self.capacity_exceeded = capacity_exceeded
 
 
 class OpenAITextAdapter:
@@ -128,7 +129,7 @@ class OpenAITextAdapter:
                 for chunk in response.iter_bytes():
                     body.extend(chunk)
                     if len(body) > 262144:
-                        raise EndpointFailure('모델 서버 응답 크기 초과')
+                        raise EndpointFailure('모델 서버 응답 크기 초과', capacity_exceeded=True)
             value = json.loads(body)
             stack = [(value, 0)]
             count = 0

@@ -22,6 +22,8 @@ from video_service.postgres.translation import (
     translated_segments,
 )
 from video_service.transcript_batches import split_transcript, validate_source
+from video_service.role_policy import is_v2
+from video_service.translation_output import OutputCapacityError, validate_output
 
 from mideagent_agents.state import RoleState
 from mideagent_agents.tool_binding import invoke as invoke_tool
@@ -40,6 +42,7 @@ class TranslationState(TypedDict, total=False):
     audio_path: str
     pending: dict
     document: dict
+    held_reason: str
 
 
 class TranslationAgent:
@@ -129,14 +132,15 @@ class TranslationAgent:
         ):
             raise ValueError("transcript_input_mismatch")
         source = json.loads(raw)
-        validate_source(source)
+        version = 2 if is_v2(task) else 1
+        validate_source(source, policy_version=version)
         languages(task["source_language"], task["target_language"])
         if task["batch_policy"] == "single_100x16k_v1":
             segments([{k: v for k, v in r.items() if k != "id"} for r in source])
         self.state.ensure(
             task["task_id"], hashlib.sha256(canonical(task)).hexdigest(), task
         )
-        return invoke_tool(self, task, "text.prepare_batches", lambda: list(split_transcript(source)))
+        return invoke_tool(self, task, "text.prepare_batches", lambda: list(split_transcript(source, policy_version=version)))
 
     def run(self, task, path):
         with self.state.lock(task["task_id"], "execution"):
@@ -231,10 +235,14 @@ class TranslationAgent:
         try:
             def validate():
                 plain = [{k: v for k, v in row.items() if k != "id"} for row in source]
-                parsed = translated_segments(s["reply"], plain)
+                version = 2 if is_v2(s["task"]) else 1
+                parsed = translated_segments(s["reply"], plain, policy_version=version)
                 rows = [{**before, "text": after["text"]} for before, after in zip(source, parsed)]
-                return validate_source(rows)
+                return validate_output(rows, source, batch=True) if version == 2 else validate_source(rows)
             rows = invoke_tool(self, s["task"], "text.validate_batch", validate, index=s["call_index"])
+        except OutputCapacityError:
+            self.state.hold(s["task"]["task_id"])
+            return {"status": "held", "held_reason": "translation_output_capacity"}
         except (ValueError, EndpointFailure):
             self.state.candidate_failed(
                 s["task"]["task_id"], s["call_index"], "invalid_response"
@@ -258,14 +266,18 @@ class TranslationAgent:
             **extra,
         }
         if status == "held":
-            result["held_reason"] = self.role + "_checkpoint_held"
+            result.setdefault("held_reason", self.role + "_checkpoint_held")
         result = self.state.finish(task["task_id"], result)
         return {"result": result, "status": result["status"]}
 
     def _finish(self, s):
         if self.state.cancelled(s["task"]["task_id"]):
             return self._cancelled(s)
-        result = invoke_tool(self, s["task"], "text.merge_batches", lambda: self._assemble(s))
+        try:
+            result = invoke_tool(self, s["task"], "text.merge_batches", lambda: self._assemble(s))
+        except OutputCapacityError:
+            self.state.hold(s["task"]["task_id"])
+            return self._terminal(s, "held", held_reason="translation_output_capacity")
         return self._terminal(s, "completed", **result)
 
     def _assemble(self, s):
@@ -290,8 +302,11 @@ class TranslationAgent:
                         }
                     )
                     break
-        validate_source(rows)
         expected = [row for batch in s["batches"] for row in batch.segments]
+        if is_v2(task):
+            validate_output(rows, expected)
+        else:
+            validate_source(rows)
         if len(rows) != len(expected) or any(
             {k:v for k,v in before.items() if k != "text"} !=
             {k:v for k,v in after.items() if k != "text"}
@@ -299,10 +314,11 @@ class TranslationAgent:
         ):
             raise ValueError("translation_source_identity_changed")
         return dict(segments=rows, chunks=chunks, completed_chunks=len(chunks),
+                    **({"selected": None} if is_v2(task) and not chunks else {}),
                     source_language=task["source_language"], target_language=task["target_language"])
 
     def _hold(self, s):
-        return self._terminal(s, "held")
+        return self._terminal(s, "held", **({"held_reason": s["held_reason"]} if s.get("held_reason") else {}))
 
     def _cancelled(self, s):
         return self._terminal(s, "cancelled")

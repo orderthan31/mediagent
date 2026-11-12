@@ -378,12 +378,6 @@ export const ServingPage = () => {
       {catalog && (
         <section aria-label="에이전트 입출력 검증">
           <h2>현재 처리 단계·입출력</h2>
-          <p>{catalog.scope}</p>
-          {catalog.notes.map((t) => (
-            <p className="serving-help" key={t}>
-              {t}
-            </p>
-          ))}
           <div className="serving-node-list">
             {catalog.nodes.map((n) => (
               <Button
@@ -399,17 +393,11 @@ export const ServingPage = () => {
             <article className="serving-node">
               <h3>{node.label}</h3>
               <p>
-                역할 {node.worker_role} · 실행 연결 <code>{node.entrypoint || '미연결'}</code>
-              </p>
-              <p>
                 출력:{' '}
                 {Object.entries(node.outputs)
                   .map(([key, type]) => `${key}: ${type}`)
                   .join(' · ')}
               </p>
-              {node.embedded_operations.length > 0 && (
-                <p>포함 동작: {node.embedded_operations.join(' · ')} (독립 실행 API 아님)</p>
-              )}
               <div className="serving-grid">
                 {Object.entries(node.inputs).map(([key, type]) => (
                   <label key={key}>

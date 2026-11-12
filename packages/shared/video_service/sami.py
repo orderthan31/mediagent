@@ -3,7 +3,7 @@ import re
 from xml.etree import ElementTree as ET
 
 
-def segments_to_sami(segments, language="ko"):
+def segments_to_sami(segments, language="ko", *, preserve_text=False):
     if not re.fullmatch(r"[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*", language):
         raise ValueError("Invalid SAMI language code")
     events = {0: ""}
@@ -18,7 +18,7 @@ def segments_to_sami(segments, language="ko"):
         start, end = round(segment.start * 1000), round(segment.end * 1000)
         if start < previous_end or end <= start:
             raise ValueError("Overlapping or submillisecond SAMI cue")
-        if not segment.text.strip():
+        if not preserve_text and not segment.text.strip():
             continue
         events[start] = segment.text
         events[end] = ""
@@ -38,7 +38,7 @@ def segments_to_sami(segments, language="ko"):
     for timestamp, text in sorted(events.items()):
         sync = ET.SubElement(body, "SYNC", {"Start": str(timestamp)})
         paragraph = ET.SubElement(sync, "P", {"Class": "SUBTTL"})
-        lines = text.splitlines() if text else ["\u00a0"]
+        lines = (text.split("\n") if preserve_text else text.splitlines()) if text else ["\u00a0"]
         paragraph.text = lines[0]
         for line in lines[1:]:
             ET.SubElement(paragraph, "BR").tail = line

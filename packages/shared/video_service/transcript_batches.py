@@ -18,8 +18,9 @@ class TranscriptBatch(NamedTuple):
     sha256: str
 
 
-def validate_source(source):
-    if not isinstance(source, list) or not 1 <= len(source) <= 10000:
+def validate_source(source, *, policy_version=1):
+    minimum = 0 if type(policy_version) is int and policy_version == 2 else 1
+    if not isinstance(source, list) or not minimum <= len(source) <= 10000:
         raise ValueError("번역 전체 자막은 1~10000구간 이내입니다.")
     if len(canonical(source)) > MAX_BATCH_TRANSCRIPT_BYTES:
         raise ValueError("분할 번역 전체 자막 용량 제한 초과")
@@ -59,9 +60,9 @@ def validate_source(source):
     return source
 
 
-def split_transcript(source):
+def split_transcript(source, *, policy_version=1):
     # Validate even the last row before any first batch can trigger a paid call.
-    validate_source(source)
+    validate_source(source, policy_version=policy_version)
     start, current, index = 0, [], 0
     for row in source:
         proposed = current + [row]

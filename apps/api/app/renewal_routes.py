@@ -131,6 +131,10 @@ def ledger(job):
         "metadata": {
             "processing_review": job.get("processing_review"),
             "raw_status": job["status"],
+            "display_status": job.get("display_status"),
+            "execution_state": job.get("execution_state"),
+            "dispatch_phase": next((phase for phase in ("unknown", "sending", "sent", "received", "pending")
+                if any(run["status"] in {"running", "waiting"} and (run.get("dispatch") or {}).get("phase") == phase for run in job.get("runs", []))), None),
             "asset_id": job["asset_id"],
             "workflow": {
                 "definition_id": job["workflow_id"],
@@ -325,6 +329,10 @@ def mount_runtime(
             ),
         }
 
+    @app.get("/api/work-entry/inputs")
+    def input_choices(asset_id: str = Query(pattern="^[a-f0-9]{32}$"), owned=owner_dependency):
+        return {"inputs": runtime.input_choices(owned, asset_id)}
+
     @app.get("/api/work-entry/workflows/{identity}")
     def job_graph(identity: str, revision: int = Query(ge=1), owned=owner_dependency):
         return runtime.job_definition(owned, identity, revision)
@@ -360,7 +368,9 @@ def mount_runtime(
             },
         }
         from mideagent_orchestrator.workflow import compile_definition
-        compiled = compile_definition(definition) if definition.get("catalog_version")==2 else None
+        from mideagent_orchestrator.normal_inputs import public_input_summary
+        normal_inputs = runtime.normal_input_plan(owned, selection.asset_id, definition, selection.options) if definition.get("catalog_version")==2 else None
+        compiled = compile_definition(definition, input_language=normal_inputs["language"] if normal_inputs else None) if definition.get("catalog_version")==2 else None
         execution_definition = resolve_definition(original_asset, compiled["definition"] if compiled else definition)
         from video_service.long_audio_budget import bounded_vocalization_policy
 
@@ -402,9 +412,13 @@ def mount_runtime(
                     "source": source,
                     "definition": definition,
                     "selection": selection.model_dump(),
+                    **({"normal_inputs": normal_inputs["bindings"]} if normal_inputs and normal_inputs["bindings"] else {}),
                     **({"cpu_input_policy": cpu_policy} if cpu_policy else {}),
                 }
             ),
+            **({"input_bindings_sha256": digest(normal_inputs["bindings"]),
+                "selected_inputs": public_input_summary(normal_inputs["bindings"])}
+               if normal_inputs and normal_inputs["bindings"] else {}),
             "paid_roles": [
                 role
                 for stage, role in [
@@ -447,9 +461,9 @@ def mount_runtime(
                 for n in execution_definition["nodes"]
                 if n["type"] in {"transcribe", "translate", "vocalize"}
             ],
-            "notice": "선택한 모델과 언어로 작업을 시작합니다."
+            "notice": "선택한 입력과 저장된 워크플로우로 작업을 시작합니다."
             + (
-                " 선택 원본에 맞춘 독립 역할별 영상·PCM·clock·모델 분할 예산이 적용됩니다."
+                " 원본은 최대 6시간까지 처리합니다."
                 if cpu_policy and cpu_policy.get("id") == "original_video_v6"
                 else (
                     " 대용량 CPU 전용: 원본4GiB/길이6시간/처리2시간/캐시10GiB/결과256MiB 한도입니다."
@@ -489,6 +503,7 @@ def mount_runtime(
             request_id=body.request_id,
             options=body.options,
             paid_confirmed=body.paid_confirmed,
+            **({"input_plan_sha256": plan["input_bindings_sha256"]} if "input_bindings_sha256" in plan else {}),
         )
 
         if (

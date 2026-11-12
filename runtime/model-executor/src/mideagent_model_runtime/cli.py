@@ -11,7 +11,6 @@ import urllib.request
 from pathlib import Path
 
 from mideagent_agents.state import RoleState
-from mideagent_agents.transcription.model_graph import TranscriptionAgent
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -52,14 +51,14 @@ class ScopedSpeechTool:
             _NoRedirect(), urllib.request.HTTPSHandler(context=context)
         )
 
-    def for_chunk(self, task, chunk):
+    def for_chunk(self, task, chunk, candidate=None):
         if self.contract != "registry_scoped_v1":
             return self
         return lambda model, audio, language: self._request(
             model,
             audio,
             language,
-            {"task_id": task["task_id"], "chunk_index": chunk["index"]},
+            speech_context(task, chunk, candidate),
         )
 
     def __call__(self, model, audio, language):
@@ -97,13 +96,29 @@ class ScopedSpeechTool:
 
 
 def translation_packet(task, batch, candidate):
+    from video_service.role_policy import tool_context
+
     return {
+        **tool_context(task),
         "task_id": task["task_id"],
         "batch_index": batch.chunk_index,
         "candidate_index": candidate,
         "model": task["models"][candidate],
         "input_sha256": batch.sha256,
     }
+
+
+def speech_context(task, chunk, candidate=None):
+    from video_service.role_policy import is_v2, tool_context
+
+    context = {"task_id": task["task_id"], "chunk_index": chunk["index"]}
+    if is_v2(task):
+        if type(candidate) is not int or not 0 <= candidate < len(task["models"]):
+            raise ValueError("strict_speech_candidate_index_required")
+        context.update(tool_context(task), candidate_index=candidate)
+    elif candidate is not None:
+        raise ValueError("legacy_speech_candidate_not_supported")
+    return context
 
 
 class ScopedTranslationTool(ScopedSpeechTool):
@@ -159,6 +174,8 @@ def main():
         if not args.audio:
             raise ValueError("verified_audio_path_required")
         task = json.load(sys.stdin)
+        from mideagent_agents.transcription.model_graph import TranscriptionAgent
+
         agent = TranscriptionAgent(
             config["state_root"],
             ScopedSpeechTool(config),

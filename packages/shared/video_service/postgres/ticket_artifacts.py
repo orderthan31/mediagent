@@ -9,6 +9,7 @@ import hashlib
 import json
 
 from video_service.canonical import canonical
+from video_service.goal_outputs import output_stage
 from . import Conflict, Missing
 
 
@@ -27,12 +28,10 @@ class TicketArtifacts:
 
     @staticmethod
     def entry(job, run, port, reference):
-        used = any(edge['source'] == {'node': run['node_id'], 'port': port}
-                   for edge in job['snapshot']['definition']['edges'])
         return {
             'ticket_id': job['id'], 'node_id': run['node_id'], 'node_run_id': run['id'],
             'attempt': run['attempt'], 'generation': run['generation'],
-            'output_port': port, 'stage': 'intermediate' if used else 'final',
+            'output_port': port, 'stage': output_stage(job['snapshot'], run['node_id'], port),
             'reference': reference,
         }
 

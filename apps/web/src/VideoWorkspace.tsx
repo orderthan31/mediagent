@@ -6,7 +6,7 @@ import { PageTitle } from './PageTitle';
 import { Pagination, usePagination } from './Pagination';
 import { frontendOnly, renewalBackend } from './preview';
 import { ticketNumber, workflowName } from './job-identity';
-import { rowClick, rowKeyDown } from './row-navigation';
+import { JobLedger } from './JobLedger';
 import { LoadingSkeleton } from './LoadingSkeleton';
 import { AccountPage } from './AccountPage';
 import { PublishingAuth } from './PublishingAuth';
@@ -259,82 +259,6 @@ export const VideoWorkspace = () => {
       srtInput.current.value = '';
     }
   };
-  const jobRows = (items: Job[]) => (
-    <div className="job-ledger-scroll" role="region" aria-label="작업 목록" tabIndex={0}>
-      <table className="job-ledger">
-        <colgroup>
-          <col className="job-ticket-column" />
-          <col />
-          <col />
-          <col className="job-state-column" />
-          <col className="job-created-column" />
-        </colgroup>
-        <thead>
-          <tr>
-            <th scope="col">티켓번호</th>
-            <th scope="col">원본</th>
-            <th scope="col">워크플로우</th>
-            <th scope="col">상태</th>
-            <th scope="col">생성일</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((job) => (
-            <tr
-              key={job.job_id}
-              className="job-ledger-row"
-              tabIndex={0}
-              aria-label={`작업 ${ticketNumber(job)} 상세 열기`}
-              onClick={(event) => rowClick(event, `#/jobs/${job.job_id}`)}
-              onKeyDown={(event) => rowKeyDown(event, `#/jobs/${job.job_id}`)}
-            >
-              <td>
-                <a
-                  className="job-ticket-link"
-                  href={`#/jobs/${job.job_id}`}
-                  title={ticketNumber(job)}
-                >
-                  {ticketNumber(job)}
-                </a>
-              </td>
-              <td>
-                <span title={job.original_filename}>{job.original_filename}</span>
-              </td>
-              <td>
-                <span className="job-workflow" title={workflowName(job)}>
-                  {workflowName(job)}
-                </span>
-              </td>
-              <td>
-                <span className={'status job-state ' + job.status.toLowerCase()}>
-                  {job.status === 'AWAITING_REVIEW'
-                    ? '검토 대기'
-                    : statusLabels[job.status] || job.status}
-                </span>
-              </td>
-              <td>
-                <time className="job-created" dateTime={job.created_at}>
-                  {new Date(job.created_at).toLocaleString('ko-KR', {
-                    month: '2-digit',
-                    day: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </time>
-              </td>
-            </tr>
-          ))}
-          {!items.length && (
-            <tr>
-              <td colSpan={5}>
-                <p className="ui02-empty">작업이 없습니다.</p>
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
   useEffect(() => {
     const navigate = () => {
       // Capability discovery below keeps foundation-only API media paths closed.
@@ -724,7 +648,7 @@ export const VideoWorkspace = () => {
                   />
                 ) : jobsView ? (
                   <>
-                    {hasConfirmedList && jobRows(jobPage.items)}
+                    {hasConfirmedList && <JobLedger items={jobPage.items} />}
                     {hasConfirmedList && (
                       <Pagination {...jobPage} disabled={!online}>
                         {!renewalBackend && <ExecutionPopover jobs={jobs} onChanged={refresh} />}

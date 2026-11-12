@@ -23,8 +23,10 @@ test('primary workflow start consumes server inspection instead of an executor-t
   assert.ok(!component.includes('aria-label="실행기 유형"'));
 });
 
-test('product judgment keeps compact outcome separate from technical evidence', () => {
+test('product judgment shows outcome and actionable errors without implementation rows', () => {
   const panel = readFileSync(new URL('../src/DecisionPanel.tsx', import.meta.url), 'utf8');
-  assert.ok(panel.includes('입력/SHA·adapter·조건 상세'));
-  assert.ok(panel.includes('open={!compact}'));
+  assert.ok(panel.includes('evidence.judgment?.reason'));
+  assert.ok(panel.includes('role="alert"'));
+  assert.ok(!panel.includes('<details'));
+  assert.ok(!panel.includes('입력/SHA·adapter·조건 상세'));
 });

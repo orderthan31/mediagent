@@ -68,6 +68,7 @@ export const WorkflowCanvas = ({
   catalogError = '',
   onChange,
   onSelect,
+  selectedNodeId,
   details,
   disabled = false,
   nodeStates = {},
@@ -81,6 +82,7 @@ export const WorkflowCanvas = ({
   catalogError?: string;
   onChange?: (next: CanvasDefinition) => void;
   onSelect?: (id: string) => void;
+  selectedNodeId?: string;
   details?: ReactNode;
   disabled?: boolean;
   nodeStates?: Record<string, { label: string; state: string; reason?: string }>;
@@ -93,10 +95,15 @@ export const WorkflowCanvas = ({
   const portName = (port: string) =>
     agentOnly
       ? (
-          { media: '작업 자료', video: '영상', subtitle: '자막', report: '검사 결과' } as Record<
-            string,
-            string
-          >
+          {
+            media: '작업 자료',
+            video: '영상',
+            subtitles: '자막 SRT',
+            sami: '자막 SAMI',
+            audio: '음성 WAV',
+            transcript: '전사문',
+            report: '검사 결과',
+          } as Record<string, string>
         )[port] || port
       : port;
   const viewport = useRef<HTMLDivElement>(null);
@@ -104,7 +111,8 @@ export const WorkflowCanvas = ({
   const marker = useId().replaceAll(':', '');
   const [size, setSize] = useState({ width: 900, height: 580 });
   const [view, setView] = useState({ x: 40, y: 40, scale: 1 });
-  const [selected, setSelected] = useState('');
+  const [localSelected, setSelected] = useState('');
+  const selected = selectedNodeId ?? localSelected;
   const [edgeId, setEdgeId] = useState('');
   const [rewiring, setRewiring] = useState<'source' | 'target' | null>(null);
   const [edgeHistory, setEdgeHistory] = useState<{ key: string; values: EdgeChange[] }>({
@@ -243,6 +251,7 @@ export const WorkflowCanvas = ({
           const spec = resolvePorts(
             catalog.find((item) => item.id === node.type),
             node.options,
+            node.tool_settings,
           );
           const inputs =
             spec?.inputs ||
@@ -567,7 +576,12 @@ export const WorkflowCanvas = ({
               )
               .map(([key, values]) => [
                 key,
-                key === 'subtitle_mode' && values.includes('none') ? 'none' : values[0],
+                spec.option_defaults?.[key] ??
+                  (key === 'audio_source' && definition.inputs.audio
+                    ? 'selected_audio'
+                    : key === 'subtitle_mode' && values.includes('none')
+                      ? 'none'
+                      : values[0]),
               ]),
           ),
         },

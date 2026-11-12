@@ -6,7 +6,7 @@ import math
 from .transcript import TranscriptSegment
 
 
-def parse_segments(raw):
+def parse_segments(raw, *, max_text_chars=16000):
     try:
         values = json.loads(raw)
     except (ValueError, UnicodeError):
@@ -25,7 +25,7 @@ def parse_segments(raw):
             )
             or not 0 <= value["start"] < value["end"]
             or not isinstance(value["text"], str)
-            or not 1 <= len(value["text"]) <= 16000
+            or not 1 <= len(value["text"]) <= max_text_chars
             or (
                 value.get("speaker") is not None
                 and (

@@ -350,8 +350,14 @@ def run(command, input_root, output_root, *, agent=None):
             if len(raw) > maximum:
                 raise ValueError("Transcript size exceeded")
             file = work / "subtitles.srt"
-            srt_text = segments_to_srt(segment_subtitles(_segments(raw)))
-            if long_budget:
+            preserved = None
+            if options.get("cue_policy") == "preserve_v1":
+                from video_service.timed_subtitles import preserved_files
+                preserved = preserved_files(json.loads(raw), options)
+            srt_text = preserved["subtitles"].decode("utf-8") if preserved else segments_to_srt(segment_subtitles(_segments(raw)))
+            if preserved:
+                file.write_bytes(preserved["subtitles"])
+            elif long_budget:
                 serialized = srt_text.encode("utf-8")
                 if len(serialized) > long_budget["outputs"]["subtitles"]:
                     raise ValueError("long_srt_serialized_byte_budget_exceeded")
@@ -365,11 +371,12 @@ def run(command, input_root, output_root, *, agent=None):
                 from video_service.sami import segments_to_sami
 
                 sami = work / "subtitles.smi"
-                cues = segment_subtitles(_segments(raw))
-                sami_text = segments_to_sami(
-                    cues, language=options.get("language", "und")
+                sami_text = preserved["sami"].decode("utf-8") if preserved else segments_to_sami(
+                    segment_subtitles(_segments(raw)), language=options.get("language", "und")
                 )
-                if long_budget:
+                if preserved:
+                    sami.write_bytes(preserved["sami"])
+                elif long_budget:
                     serialized = sami_text.encode("utf-8")
                     if len(serialized) > long_budget["outputs"]["sami"]:
                         raise ValueError("long_sami_serialized_byte_budget_exceeded")

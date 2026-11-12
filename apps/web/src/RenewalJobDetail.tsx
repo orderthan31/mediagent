@@ -1,10 +1,15 @@
 import { publicAgentGraph } from './job-graphs';
+import type { GoalOutput } from './GoalResults';
+import { JobFiles, outputLabel } from './JobFiles';
+import { jobStateLabel } from './job-display';
+import { languageLabel } from './language-label';
+import { frozenGoalLanguages } from './goal-languages';
 import { startSavedJob } from './job-start.mjs';
 import { useEffect, useRef, useState } from 'react';
 import { request, mediaUrl } from './api';
 import { jsonPost } from './video-api';
 import { FullVideoPreview } from './FullVideoPreview';
-import { processingLabel, type ProcessingProjection } from './processing-review-state';
+import type { ProcessingProjection } from './processing-review-state';
 import { JobProcessingReview } from './JobProcessingReview';
 import { ProjectionRecoveryPanel } from './ProjectionRecoveryPanel';
 import { ModelRolePanel } from './ModelRolePanel';
@@ -97,8 +102,16 @@ type WorkflowAgentState = {
   reason: string;
   selected_tool_id: string;
   tools: AgentToolState[];
+  outputs?: GoalOutput[];
 };
 type State = {
+  selected_inputs?: {
+    input: string;
+    kind: string;
+    language?: string;
+    segments?: number;
+    job_id?: string;
+  }[];
   agent_workflow?: {
     definition: CanvasDefinition;
     nodes: WorkflowAgentState[];
@@ -153,11 +166,11 @@ const translationLabels: Record<string, string> = {
 const labels: Record<string, string> = {
   held: '보류 · 응답 확인 필요',
   draft: '실행 전',
-  waiting: '실행 대기',
+  waiting: '대기',
   running: '처리 중',
   completed: '완료',
-  failed: '실패 · 기록 보존',
-  cancelled: '취소 · 기록 보존',
+  failed: '실패',
+  cancelled: '취소',
   cancelling: '취소 접수 · 진행 처리 정리 중',
   review_required: '검수 대기',
   skipped: '미선택',
@@ -176,6 +189,11 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
   const [busy, setBusy] = useState(false);
   const [cancelBusy, setCancelBusy] = useState(false);
   const [error, setError] = useState('');
+  const [loadError, setLoadError] = useState('');
+  const [resultsTab, setResultsTab] = useState<'output' | 'logs'>('output');
+  const [panelRequest, setPanelRequest] = useState(0);
+  const resultsPanel = useRef<HTMLElement>(null);
+  const processingPanel = useRef<HTMLDivElement>(null);
   const [risk, setRisk] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, FormData>>({});
   const nonces = useRef({
@@ -187,6 +205,7 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
   const reload = async () => {
     const next = await request<State>(base);
     setJob(next);
+    setLoadError('');
     return next;
   };
   const action = async (operation: () => Promise<unknown>) => {
@@ -213,7 +232,6 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
   const internalId = tool?.node_id || selected;
   const run = job?.runs.find((item) => item.node_id === internalId);
   const toolDefinition = job?.snapshot.tool_definition || job?.snapshot.definition;
-  const node = toolDefinition?.nodes.find((item) => item.id === internalId);
   const review = job?.reviews.find((item) => item.node_run_id === run?.id);
   const reviewFields =
     review && ['audio_regions_v1', 'audio_regions_long_v5'].includes(review.contract.kind || '')
@@ -240,6 +258,35 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
   const traceLabel = run?.node_type === 'transcribe' ? '전사' : '번역';
   const url = (port: string) =>
     mediaUrl(`${base}/artifacts/${run?.id}/${encodeURIComponent(port)}`);
+  const failedSteps =
+    job?.agent_workflow?.nodes.flatMap((agent) => {
+      const failed = agent.tools.find(
+        (item) =>
+          ['failed', 'held', 'quarantined'].includes(item.state) &&
+          job.runs.some(
+            (attempt) => attempt.id === item.run_id && attempt.node_id === item.node_id,
+          ),
+      );
+      return failed ? [{ agent, tool: failed }] : [];
+    }) || [];
+  const openLogs = (agentId: string, toolId: string) => {
+    setSelected(agentId);
+    setSelectedTool(toolId);
+    setResultsTab('logs');
+    setPanelRequest((value) => value + 1);
+  };
+  useEffect(() => {
+    if (panelRequest) {
+      const frame = requestAnimationFrame(() => {
+        const tab = resultsPanel.current?.querySelector<HTMLButtonElement>(
+          '[role="tab"][aria-selected="true"]',
+        );
+        tab?.focus({ preventScroll: true });
+        tab?.scrollIntoView({ block: 'nearest' });
+      });
+      return () => cancelAnimationFrame(frame);
+    }
+  }, [selected, panelRequest]);
   useEffect(() => {
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout>;
@@ -256,10 +303,11 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
           setJob(next);
           setCatalog(specs.nodes);
           setModelRolesEnabled(specs.independent_model_roles === true);
+          setLoadError('');
         }
       } catch (reason) {
         if (!controller.signal.aborted) {
-          setError(reason instanceof Error ? reason.message : '작업 조회 실패');
+          setLoadError(reason instanceof Error ? reason.message : '작업 조회 실패');
         }
       } finally {
         if (!controller.signal.aborted) {
@@ -281,22 +329,22 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
           {error}
         </p>
       )}
-      {!job && !error && <LoadingSkeleton layout="canvas" label="작업 상세 불러오는 중" />}
+      {loadError && (
+        <p role="alert">
+          {loadError}
+          {job && ' · 마지막으로 확인한 상태입니다.'}
+        </p>
+      )}
+      {!job && !error && !loadError && (
+        <LoadingSkeleton layout="canvas" label="작업 상세 불러오는 중" />
+      )}
       {job && (
         <>
           <div className="job-detail-toolbar">
             <a href={'#/videos/' + job.snapshot.asset.asset_id}>
               {job.snapshot.asset.original_filename}
             </a>
-            <strong role="status">
-              {(job.display_status && job.display_status !== job.status
-                ? labels[job.display_status]
-                : null) ||
-                processingLabel(job.processing_review) ||
-                (job.execution_state === 'preparing'
-                  ? '준비 중'
-                  : labels[job.status] || job.status)}
-            </strong>
+            <strong role="status">{jobStateLabel(job)}</strong>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
               {canManage && job.status === 'draft' && (
                 <Button
@@ -313,6 +361,30 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
               </Button>
             </div>
           </div>
+          {!!failedSteps.length && (
+            <div className="job-failure-actions" aria-label="실패 단계 확인">
+              {failedSteps.map(({ agent, tool: failed }) => (
+                <div key={agent.id}>
+                  <span>{agent.label}</span>
+                  <Button variant="secondary" onClick={() => openLogs(agent.id, failed.node_id)}>
+                    로그 보기
+                  </Button>
+                  {agent.reason && <p role="alert">{agent.reason}</p>}
+                </div>
+              ))}
+            </div>
+          )}
+          {job.processing_review && (
+            <Button
+              variant="quiet"
+              onClick={() => {
+                processingPanel.current?.scrollIntoView({ block: 'start' });
+                processingPanel.current?.focus();
+              }}
+            >
+              처리 확인
+            </Button>
+          )}
           {canManage && job.status === 'draft' && (
             <p className="job-start-scope">
               {toolDefinition?.nodes
@@ -342,23 +414,39 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
               </div>
             </dl>
           </details>
-          {job.artifact_manifest && (
-            <section className="shared-job-custody" aria-label="티켓별 산출물">
-              <strong>작업 파일 {job.artifact_manifest.entry_count}개</strong>
-              <p>중간 결과와 최종 파일을 확인하고 받을 수 있습니다.</p>
-              {job.artifact_manifest.entry_count > 0 && (
-                <a href={mediaUrl(base + '/manifest?download=true')} download>
-                  파일 목록 받기
-                </a>
+          <JobFiles
+            base={base}
+            runs={job.runs}
+            agents={job.agent_workflow?.nodes}
+            manifest={job.artifact_manifest}
+            stale={!!loadError}
+          />
+          {job.selected_inputs?.map((input) => (
+            <p key={input.input}>
+              {input.input === 'audio' ? '같은 영상의 추출 WAV' : '선택 시간 자막'}
+              {input.segments !== undefined && ` · ${input.segments}구간`}
+              {input.language &&
+                ` · 원문 언어: ${input.language === 'auto' ? '미지정' : languageLabel(input.language)}`}
+              {input.job_id && (
+                <>
+                  {' '}
+                  · <a href={`#/jobs/${input.job_id}`}>입력 출처 작업</a>
+                </>
               )}
-            </section>
-          )}
-          {job.snapshot.options?.target_language && (
+            </p>
+          ))}
+          {!job.agent_workflow && job.snapshot.options?.target_language && (
             <p>
-              원문/대상 언어: {job.snapshot.options.source_language} →{' '}
-              {job.snapshot.options.target_language}
+              원문/대상 언어: {languageLabel(job.snapshot.options.source_language)} →{' '}
+              {languageLabel(job.snapshot.options.target_language)}
             </p>
           )}
+          {job.agent_workflow &&
+            frozenGoalLanguages(job.snapshot.definition).map((language) => (
+              <p key={language.id}>
+                {language.label}: {languageLabel(language.value)}
+              </p>
+            ))}
           {job.parent_id && (
             <p>
               원 작업 <a href={'#/jobs/' + job.parent_id}>복구 출처 열기</a> · 원 기록은 변경하지
@@ -382,9 +470,11 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
             />
           )}
           {job.processing_review && (
-            <JobProcessingReview jobId={id} onChanged={() => void reload()} />
+            <div id="job-processing-review" ref={processingPanel} tabIndex={-1}>
+              <JobProcessingReview jobId={id} onChanged={() => void reload()} />
+            </div>
           )}
-          <section className="job-execution">
+          <section className="job-execution" ref={resultsPanel}>
             {!agentDefinition && (
               <p role="alert">워크플로우를 불러오지 못했습니다. 새로고침해 주세요.</p>
             )}
@@ -392,9 +482,11 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
               <WorkflowCanvas
                 definition={agentDefinition}
                 catalog={catalog}
+                selectedNodeId={selected}
                 onSelect={(identity) => {
                   setSelected(identity);
                   setSelectedTool('');
+                  setResultsTab('output');
                 }}
                 edgeStates={job.agent_workflow?.edges || {}}
                 inputLabel={job.snapshot.asset.original_filename}
@@ -429,21 +521,12 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
                 details={
                   selected ? (
                     <section className="execution-node-body renewal-node-results">
-                      <h3>
-                        {currentAgent?.label ||
-                          (node
-                            ? catalog.find((spec) => spec.id === node.type)?.label || node.type
-                            : '원본 입력')}
-                      </h3>
-                      {currentAgent?.reason && (
-                        <p role="alert" className="workflow-agent-failure">
-                          {currentAgent.reason}
-                        </p>
-                      )}
                       <TaskResultTabs
                         key={`${id}:${selected}`}
                         jobId={id}
                         runId={run?.id}
+                        activeTab={resultsTab}
+                        onTabChange={setResultsTab}
                         initialState={
                           tool?.state || run?.display_status || run?.status || 'waiting'
                         }
@@ -498,7 +581,9 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
                               onChanged={reload}
                             />
                           )}
-                        {run?.display_reason && <p role="alert">{run.display_reason}</p>}
+                        {run?.display_reason && run.display_reason !== currentAgent?.reason && (
+                          <p role="alert">{run.display_reason}</p>
+                        )}
                         {!Object.keys(outputs).length && <p>아직 출력 결과가 없습니다.</p>}
                         {Object.entries(run?.inputs || {}).map(([port, ref]) => (
                           <section className="execution-artifact" key={port}>
@@ -587,13 +672,7 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
                         )}
                         {Object.entries(outputs).map(([port, ref]) => (
                           <section className="execution-artifact" key={port}>
-                            <h4>
-                              {ref.type === 'video'
-                                ? '결과 영상'
-                                : ref.type === 'audio'
-                                  ? '결과 음성'
-                                  : '결과 파일'}
-                            </h4>
+                            <h4>{outputLabel(port, ref.type)}</h4>
                             {ref.type === 'video' &&
                               run?.result?.previews?.[port]?.status === 'ready' && (
                                 <video

@@ -4,6 +4,9 @@ import { PageTitle } from './PageTitle';
 import { LoadingSkeleton } from './LoadingSkeleton';
 import { jsonPost } from './video-api';
 import { resolvePorts } from './workflow-spec';
+import { savedGoalOption } from './goal-languages';
+import { languageLabel } from './language-label';
+import { setWorkflowInput } from './normal-inputs';
 import { WorkflowCanvas, type CanvasDefinition, type CanvasSpec } from './WorkflowCanvas';
 import { Button } from './hangyeol/primitives/button';
 import { Input } from './hangyeol/primitives/input';
@@ -55,6 +58,7 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
   const spec = resolvePorts(
     catalog.find((item) => item.id === node?.type),
     node?.options,
+    node?.tool_settings,
   );
   const inputTypes = [...new Set(catalog.flatMap((item) => Object.values(item.inputs)))];
   const change = (next: Definition) => {
@@ -240,6 +244,7 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
                     (node.type !== 'translate' || ['target_language', 'llm_options'].includes(key)),
                 )
                 .map(([key, values]) => {
+                  const selectedValue = savedGoalOption(node, spec, key, values[0]);
                   const update = (value: string) =>
                     change({
                       ...doc,
@@ -250,7 +255,8 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
                       ),
                     });
                   const free =
-                    values.length === 1 && (isControlNode(node.type) || values[0] === '');
+                    (key === 'target_language' && node.type === 'translation_agent') ||
+                    (values.length === 1 && (isControlNode(node.type) || values[0] === ''));
                   return (
                     <label key={key}>
                       {(
@@ -258,7 +264,10 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
                           batch_policy: '분할 처리 방식',
                           max_model_calls: '최대 모델 호출 수',
                           source_language: '원문 언어',
+                          audio_source: '전사 음성 출처',
                           target_language: '대상 언어',
+                          transcript_source: '자막에 사용할 전사문',
+                          language: '자막 언어',
                           llm_options: '모델 요청 옵션 (JSON)',
                           audio_filter: '음성 처리',
                           vad_mode: '음성 구간 처리',
@@ -274,7 +283,7 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
                       {key === 'cases' ? (
                         <textarea
                           aria-label="분기값"
-                          value={node.options[key] ?? values[0]}
+                          value={selectedValue}
                           rows={4}
                           onChange={(event) => update(event.target.value)}
                         />
@@ -293,6 +302,7 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
                                 quality_profile: '화질',
                                 resolution: '해상도',
                                 format: '자막 형식',
+                                target_language: '대상 언어',
                               } as Record<string, string>
                             )[key] ||
                             controlFieldLabels[key] ||
@@ -304,7 +314,7 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
                               : 'text'
                           }
                           min={1}
-                          value={node.options[key] ?? values[0]}
+                          value={selectedValue}
                           onChange={(event) => update(event.target.value)}
                         />
                       ) : (
@@ -322,24 +332,40 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
                                 quality_profile: '화질',
                                 resolution: '해상도',
                                 format: '자막 형식',
+                                transcript_source: '자막에 사용할 전사문',
+                                language: '자막 언어',
+                                audio_source: '전사 음성 출처',
                               } as Record<string, string>
                             )[key] ||
                             controlFieldLabels[key] ||
                             key
                           }
-                          value={node.options[key] || values[0]}
+                          value={selectedValue}
                           onChange={(event) => update(event.target.value)}
                         >
                           {values.map((value) => (
                             <option value={value} key={value}>
-                              {(
-                                {
-                                  streamed_vocalization_v2: '장문 분할 판정 (원본 최대 6시간)',
-                                  bounded_vocalization_v1: '기존 단기 판정 (원본 최대 300초)',
-                                } as Record<string, string>
-                              )[value] ||
-                                controlValueLabels[value] ||
-                                value}
+                              {['source_language', 'target_language', 'language'].includes(key) &&
+                              !['from_transcript', 'und'].includes(value)
+                                ? languageLabel(value)
+                                : (
+                                    {
+                                      streamed_vocalization_v2: '장문 분할 판정 (원본 최대 6시간)',
+                                      bounded_vocalization_v1: '기존 단기 판정 (원본 최대 300초)',
+                                      current: '연결된 전사·번역 결과',
+                                      original: '원문 전사',
+                                      translated: '번역 전사',
+                                      from_transcript: '선택한 전사문 언어 (자동 감지는 미지정)',
+                                      und: '언어 미지정',
+                                      burn: '번인',
+                                      soft: '소프트 자막',
+                                      srt_smi: 'SRT + SAMI',
+                                      video: '선택 영상에서 새로 추출',
+                                      selected_audio: '같은 영상의 완료된 추출 WAV 재사용',
+                                    } as Record<string, string>
+                                  )[value] ||
+                                  controlValueLabels[value] ||
+                                  value}
                             </option>
                           ))}
                         </select>
@@ -449,6 +475,29 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
         <p className="workflow-template-notice" role="status">
           {templateNotice}
         </p>
+      )}
+      {doc.catalog_version === 2 && (
+        <fieldset disabled={!!busy} aria-label="워크플로우 선택 입력 설정">
+          <legend>작업 시작 시 선택할 입력</legend>
+          <label>
+            <input
+              type="checkbox"
+              checked={doc.inputs.transcript === 'transcript'}
+              onChange={(event) =>
+                change(setWorkflowInput(doc, 'transcript', event.target.checked))
+              }
+            />
+            SRT 또는 완료된 전사문 선택
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={doc.inputs.audio === 'audio'}
+              onChange={(event) => change(setWorkflowInput(doc, 'audio', event.target.checked))}
+            />
+            같은 영상의 추출 WAV 재사용 (전사 목표에서 재추출 생략)
+          </label>
+        </fieldset>
       )}
       {error && (
         <p role="alert" className="alert">

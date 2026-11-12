@@ -20,7 +20,7 @@ class AudioBatch(NamedTuple):
     sha256: str
 
 
-def split_normalized_audio(raw):
+def split_normalized_audio(raw, *, chunk_frames=None):
     """Validate all input before yielding any provider-sized PCM16 WAV batch."""
     if not isinstance(raw, bytes) or not 44 <= len(raw) <= MAX_BATCH_AUDIO_BYTES:
         raise ValueError("긴 음성은 PCM WAV 1GiB/6시간 이내입니다.")
@@ -41,7 +41,9 @@ def split_normalized_audio(raw):
                 raise ValueError("음성 길이/본문이 일치하지 않습니다.")
     except (wave.Error, EOFError):
         raise ValueError("검증 가능한 전체 PCM WAV가 필요합니다.") from None
-    window = RATE * MAX_AUDIO_SECONDS
+    window = RATE * MAX_AUDIO_SECONDS if chunk_frames is None else chunk_frames
+    if type(window) is not int or not 0 < window <= RATE * MAX_AUDIO_SECONDS:
+        raise ValueError("invalid_provider_chunk_frames")
     for index, start in enumerate(range(0, frames, window)):
         end = min(frames, start + window)
         output = io.BytesIO()

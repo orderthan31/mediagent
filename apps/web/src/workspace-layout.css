@@ -194,6 +194,63 @@
 .job-ledger td > .job-state {
   display: inline-block;
 }
+@media (max-width: 47.999rem) {
+  .renewed-workspace .job-ledger-scroll .job-ledger {
+    display: block;
+    min-width: 0;
+  }
+  .job-ledger colgroup {
+    display: none;
+  }
+  .job-ledger thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .job-ledger tbody {
+    display: block;
+  }
+  .job-ledger .job-ledger-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, auto);
+    grid-template-areas: 'ticket status' 'filename status' 'workflow workflow' 'created created';
+    gap: 6px 12px;
+    padding: 12px 4px;
+    border-bottom: 1px solid var(--g-line);
+  }
+  .renewed-workspace .job-ledger .job-ledger-row td {
+    display: block;
+    min-width: 0;
+    height: auto;
+    padding: 0;
+    border: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .job-ledger .job-ledger-row td > :is(a, span, time) {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .job-ledger .job-ticket-cell {
+    grid-area: ticket;
+  }
+  .job-ledger .job-filename-cell {
+    grid-area: filename;
+  }
+  .job-ledger .job-status-cell {
+    grid-area: status;
+    max-width: 9rem;
+    align-self: start;
+  }
+  .job-ledger .job-workflow-cell {
+    grid-area: workflow;
+  }
+  .job-ledger .job-created-cell {
+    grid-area: created;
+  }
+}
 .job-heading-context {
   display: flex;
   flex-wrap: wrap;
@@ -218,6 +275,12 @@
 }
 .entry-selection {
   max-width: var(--m-form-width);
+}
+.field-validation {
+  display: block;
+  margin-block: 4px;
+  font-size: 0.875rem;
+  font-weight: 500;
 }
 .model-profile-fields {
   display: grid;

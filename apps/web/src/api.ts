@@ -29,6 +29,11 @@ export type Job = {
   error: string | null;
   status_message?: string | null;
   metadata: {
+    raw_status?: string;
+    display_status?: string | null;
+    execution_state?: string | null;
+    dispatch_phase?: string | null;
+    processing_review?: import('./processing-review-state').ProcessingProjection | null;
     cancel_requested?: boolean;
     duration?: number;
     stage_progress?: number | null;

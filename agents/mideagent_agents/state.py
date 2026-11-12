@@ -206,6 +206,14 @@ class RoleState:
                 (error, task, index),
             )
 
+    def hold(self, task):
+        """Preserve a received reply so capacity revalidation cannot spend again."""
+        with self.connect() as c:
+            c.execute(
+                "UPDATE tasks SET status='held' WHERE id=? AND cancelled=0 AND status!='completed'",
+                (task,),
+            )
+
     def finish(self, task, result):
         with self.connect() as c:
             c.execute("BEGIN IMMEDIATE")

@@ -2,6 +2,8 @@ export type PortSpec = {
   inputs: Record<string, string>;
   outputs: Record<string, string>;
   options: Record<string, string[]>;
+  option_roles?: Record<string, string>;
+  option_defaults?: Record<string, string>;
   conditional_outputs?: Record<string, Record<string, Record<string, string>>>;
   port_types_from_options?: Partial<Record<'inputs' | 'outputs', Record<string, string>>>;
 };
@@ -9,10 +11,19 @@ export type PortSpec = {
 export const resolvePorts = <T extends PortSpec>(
   spec: T | undefined,
   options: Record<string, string> = {},
+  toolSettings: Record<string, Record<string, string>> = {},
 ): T | undefined => {
   if (!spec) {
     return undefined;
   }
+  options = {
+    ...Object.fromEntries(
+      Object.entries(spec.option_roles || {}).flatMap(([key, role]) =>
+        key in (toolSettings[role] || {}) ? [[key, toolSettings[role][key]]] : [],
+      ),
+    ),
+    ...options,
+  };
   const result = { ...spec, inputs: { ...spec.inputs }, outputs: { ...spec.outputs } };
   for (const direction of ['inputs', 'outputs'] as const) {
     for (const [port, key] of Object.entries(spec.port_types_from_options?.[direction] || {})) {

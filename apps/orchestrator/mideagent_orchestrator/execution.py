@@ -377,6 +377,9 @@ class Execution(Intake):
             {k: v for k, v in r.items() if k in review_keys}
             for r in state.get("reviews", [])
         ]
+        if "normal_input_bindings" in state["snapshot"]:
+            from .normal_inputs import public_input_summary
+            value["selected_inputs"] = public_input_summary(state["snapshot"]["normal_input_bindings"])
         return value
 
     def shared_get(self, actor, identity):
@@ -475,10 +478,10 @@ class Execution(Intake):
                     db, definition, bindings, None, model_bindings=models
                 )
             ]
-        if definition["inputs"] not in (
-            {"video": "video"},
-            {"transcript": "transcript"},
-        ):
+        supported_inputs = definition["inputs"] in ({"video": "video"}, {"transcript": "transcript"})
+        if agent_plan:
+            supported_inputs = bool(definition["inputs"]) and all(k in {"video", "transcript", "audio"} and v == k for k, v in definition["inputs"].items())
+        if not supported_inputs:
             reasons.append(
                 {
                     "node_id": None,
@@ -544,11 +547,41 @@ class Execution(Intake):
         }
 
         if agent_plan:
-            from mideagent_agents.catalog import CLASSES
+            from mideagent_agents.catalog import CLASSES, goal_options
+            from mideagent_agents.registry import registration
             indexed={n["id"]:n for n in value["summary"]}
             value["summary"]=[{**indexed[CLASSES[n["type"]](n).publication()],
-                "id":n["id"],"type":n["type"],"options":n["options"]}for n in public_definition["nodes"]]
+                "id":n["id"],"type":n["type"],"options":goal_options(n),
+                "runtime_roles":registration(n["type"],node=n)["runtime_roles"]}for n in public_definition["nodes"]]
         return value
+
+    def normal_input_plan(self, actor, asset_id, definition, options):
+        from .normal_inputs import NormalInputs
+        with self.database.connection() as db:
+            asset = self._shared_asset(db, asset_id)
+            return NormalInputs(self).resolve(db, actor, asset, definition, options)
+
+    def input_choices(self, actor, asset_id):
+        """Public candidate identities only; byte/manifest validation occurs on selection."""
+        with self.database.connection() as db:
+            self._shared_asset(db, asset_id)
+            jobs = db.execute("SELECT id FROM jobs WHERE status='completed' AND library_removed_at IS NULL ORDER BY (asset_id=%s) DESC,created_at DESC,id LIMIT 50", (asset_id,)).fetchall()
+            choices = []
+            for item in jobs:
+                job = self._shared_job(db, item["id"])
+                if job["status"] != "completed" or job.get("library_removed_at"):
+                    continue
+                nodes = {n["id"]: n for n in job["snapshot"]["definition"]["nodes"]}
+                for run in self._runs(db, job["owner_id"], job["id"]):
+                    node = nodes.get(run["node_id"], {})
+                    kind = node.get("type")
+                    port = "audio" if kind == "extract_audio" else "transcript" if kind in {"transcribe", "translate"} else None
+                    if port == "audio" and job["asset_id"] != asset_id:
+                        continue
+                    if port and run["status"] == "completed" and (run.get("result") or {}).get("outputs", {}).get(port, {}).get("type") == port:
+                        choices.append({"job_id": job["id"], "run_id": run["id"], "port": port,
+                                        "label": f'#{job.get("ticket_number", job["id"])} · {"16kHz 모노 WAV" if port == "audio" else "번역 전사문" if kind == "translate" else "원문 전사문"}'})
+            return choices
 
     @staticmethod
     def _creation_model_bindings(parent, definition, options, bindings):
@@ -568,6 +601,7 @@ class Execution(Intake):
         options=None,
         parent_id=None,
         paid_confirmed=False,
+        input_plan_sha256=None,
     ):
         globals()["request_id"](request_id)
         if type(definition_revision) is not int or definition_revision < 1:
@@ -579,9 +613,11 @@ class Execution(Intake):
             "video_description",
             "branch_choices",
             "transcript",
+            "subtitle_srt", "input_language", "accepted_inputs",
         }:
             raise ValueError("작업 옵션 오류")
-        if len(canonical(options)) > 20000:
+        from video_service.timed_subtitles import MAX_INPUT_OPTIONS_BYTES
+        if len(canonical(options)) > MAX_INPUT_OPTIONS_BYTES:
             raise ValueError("작업 옵션 크기 초과")
         creation = {
             "asset_id": asset_id,
@@ -590,6 +626,7 @@ class Execution(Intake):
             "options": options,
             "parent_id": parent_id,
             **({"paid_confirmed": True} if paid_confirmed else {}),
+            **({"input_plan_sha256": input_plan_sha256} if input_plan_sha256 is not None else {}),
         }
         with self.database.connection() as db:
             previous = db.execute(
@@ -604,16 +641,46 @@ class Execution(Intake):
             workflow_owner, definition = self._job_definition(
                 db, owner, definition_id, definition_revision
             )
+            if not (definition.get("catalog_version") == 2 and "transcript" in definition.get("inputs", {})) and len(canonical(options)) > 20000:
+                raise ValueError("작업 옵션 크기 초과")
+            parent = self._job(db, owner, parent_id) if parent_id else None
+            from video_service.postgres.job_processing_review import JobProcessingReview
+
+            if parent and JobProcessingReview.blocked_in(db, owner, parent_id):
+                raise Conflict("관리자 판단에 연결된 새 작업 절차를 사용하세요.")
+            if parent and parent["status"] not in ("failed", "cancelled"):
+                raise Conflict(
+                    "종료된 실패/취소 작업만 새 복구 작업으로 분리할 수 있습니다."
+                )
             from video_service.cpu_input_policy import source_policy
             from video_service.long_audio_budget import definition_policy
             from video_service.original_video_budget import resolve_definition
 
             original_definition_sha = digest(definition)
             from mideagent_orchestrator.workflow import compile_definition
-            agent_plan = compile_definition(definition) if definition.get("catalog_version") == 2 else None
+            normal_inputs = None
+            input_language = None
+            if definition.get("catalog_version") == 2:
+                if parent:
+                    input_language = parent["snapshot"].get("normal_input_bindings", {}).get("transcript", {}).get("language")
+                else:
+                    from .normal_inputs import NormalInputs
+                    normal_inputs = NormalInputs(self).resolve(db, owner, asset, definition, options)
+                    input_language = normal_inputs["language"]
+                    if input_plan_sha256 is not None and digest(normal_inputs["bindings"]) != input_plan_sha256:
+                        raise Conflict("선택 입력이 미리보기 후 바뀌었습니다. 다시 확인하세요.")
+            preserve_input_cues = not parent or any(n["options"].get("cue_policy") == "preserve_v1" for n in parent["snapshot"]["definition"]["nodes"])
+            agent_plan = compile_definition(definition, input_language=input_language, preserve_input_cues=preserve_input_cues) if definition.get("catalog_version") == 2 else None
             if agent_plan:
                 definition = agent_plan["definition"]
+                from mideagent_orchestrator.workflow import goal_execution_options
+                options = goal_execution_options(agent_plan, options)
             definition = resolve_definition(asset, definition)
+            if parent and (
+                digest(definition) != digest(parent["snapshot"]["definition"])
+                or digest(options) != digest(parent["snapshot"]["options"])
+            ):
+                raise Conflict("복구 정의·옵션이 원 작업과 다릅니다. 새 계약으로 자동 전환하지 않습니다.")
 
             for track_node in definition["nodes"]:
                 if track_node["type"] == "subtitle_tracks" and (
@@ -642,6 +709,9 @@ class Execution(Intake):
             bindings = self._bindings(db, workflow_owner, definition, active=False, sdk=True)
             engine_bindings = self._engine_bindings(db, definition)
             input_refs = {"video": reference}
+            if normal_inputs and normal_inputs["bindings"]:
+                from .normal_inputs import NormalInputs
+                input_refs.update(NormalInputs(self).materialize(owner, normal_inputs))
             if definition["inputs"] == {"transcript": "transcript"}:
                 from video_service.postgres.translation import segments
 
@@ -649,7 +719,7 @@ class Execution(Intake):
                 input_refs = {
                     "transcript": self.store.put(owner, [canonical(text)], "transcript")
                 }
-            if any(
+            if not agent_plan and any(
                 n["type"] in {"translate", "transcribe", "vocalize"}
                 and n.get("model_ref")
                 for n in definition["nodes"]
@@ -658,15 +728,6 @@ class Execution(Intake):
 
                 languages(
                     options.get("source_language"), options.get("target_language", "ko")
-                )
-            parent = self._job(db, owner, parent_id) if parent_id else None
-            from video_service.postgres.job_processing_review import JobProcessingReview
-
-            if parent and JobProcessingReview.blocked_in(db, owner, parent_id):
-                raise Conflict("관리자 판단에 연결된 새 작업 절차를 사용하세요.")
-            if parent and parent["status"] not in ("failed", "cancelled"):
-                raise Conflict(
-                    "종료된 실패/취소 작업만 새 복구 작업으로 분리할 수 있습니다."
                 )
             snapshot_asset = public_asset(asset)
             bindings = self._creation_model_bindings(parent, definition, options, bindings)
@@ -696,11 +757,14 @@ class Execution(Intake):
                     else {}
                 ),
                 "version": 1,
+                "role_policy_version": 2,
                 "artifact_layout": 1,
                 "asset": snapshot_asset,
                 "inputs": input_refs,
+                **({"normal_input_policy": 1, "normal_input_bindings": normal_inputs["bindings"]} if normal_inputs and normal_inputs["bindings"] else {}),
                 "definition": definition,
-                **({"agent_plan_version":1,"agent_definition":agent_plan["agent_definition"],
+                **({"agent_plan_version":1,"agent_output_policy":1,"agent_execution_policy":1,
+                    "agent_input_contexts":agent_plan["input_contexts"],"agent_definition":agent_plan["agent_definition"],
                     "agent_tool_owners":agent_plan["owners"],
                     "agent_output_bindings":agent_plan["outputs"]} if agent_plan else {}),
                 "options": options,
@@ -722,6 +786,17 @@ class Execution(Intake):
                 from video_service.subtitle_tracks import POLICY
 
                 snapshot["subtitle_tracks_policy"] = deepcopy(POLICY)
+            if parent:
+                from copy import deepcopy
+
+                # A recovery forks the exact frozen contract, including absent
+                # fields. Fresh compilation/defaults must not migrate its policy,
+                # inputs, pins, publication classification or agent scope.
+                snapshot = deepcopy(parent["snapshot"])
+                snapshot["recovery"] = {
+                    "parent_id": parent_id,
+                    "snapshot_sha256": parent["snapshot_sha256"],
+                }
             # Serialize duplicate creation IDs without depending on a unique-error fallback.
             db.execute(
                 "SELECT pg_advisory_xact_lock(hashtextextended(%s,0))",
@@ -1231,6 +1306,9 @@ class Execution(Intake):
                     "translation_paid_authorized", False
                 ),
             }
+            if kind == "translation" and job["snapshot"].get("agent_execution_policy") == 1:
+                from .workflow import translation_input_language
+                command[kind]["source_language"] = translation_input_language(job["snapshot"], node)
             if kind == "vocalization":
                 command[kind].update(
                     purpose="vocalization_regions_v1",
@@ -1481,7 +1559,8 @@ class Execution(Intake):
                 if scope:
                     from mideagent_agents.catalog import CLASSES
                     agent_node=next(n for n in scope["definition"]["nodes"] if n["id"]==scope["owners"][node["id"]])
-                    agent=CLASSES[agent_node["type"]](agent_node,tool_bindings=scope["bindings"][agent_node["id"]])
+                    agent=CLASSES[agent_node["type"]](agent_node,tool_bindings=scope["bindings"][agent_node["id"]],
+                        verify_references=job["snapshot"].get("agent_output_policy")==1)
                     claimed=agent.advance(indexed,definition,invoke_tool)
                     if claimed is None:
                         continue
@@ -1657,6 +1736,11 @@ class Execution(Intake):
             if not any(r["status"] in ("running", "waiting") for r in indexed.values()):
                 if any(r["status"] == "review_required" for r in indexed.values()):
                     status = "review_required"
+                elif job["snapshot"].get("agent_execution_policy") == 1:
+                    from .workflow import goal_settlement
+                    status = goal_settlement(job["snapshot"], indexed)
+                    if status is None:
+                        return None
                 elif len(indexed) == len(definition["nodes"]):
                     status = (
                         "failed"

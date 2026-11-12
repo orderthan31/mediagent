@@ -114,6 +114,11 @@ class RoleReceiver:
             "tool_mode": self.tool_mode,
             "result": result,
         }
+        from video_service.role_policy import is_v2
+        if is_v2(task):
+            from video_service.translation_output import validate_packet
+
+            validate_packet(payload)
         output = self.outputs.put(owner, [canonical(payload)], "model_result")
         return {
             "version": 1,

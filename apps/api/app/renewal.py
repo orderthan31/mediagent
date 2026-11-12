@@ -132,11 +132,14 @@ class JsonBodyLimit:
                 scope["path"],
             )
         )
-        # Exact new per-track route only; legacy JSON/4MiB upload bounds unchanged.
-        limit = (
-            (16 * 1024 * 1024 + 4096)
-            if subtitle_save
-            else (4194304 if binary else 65536)
+        selected_input = (
+            scope["method"] == "POST"
+            and re.fullmatch(r"/api/(?:settings/)?work-entry/(?:preview|create)", scope["path"])
+        )
+        from video_service.timed_subtitles import INPUT_REQUEST_BYTES
+        # Exact input-selection routes only; other JSON/upload bounds unchanged.
+        limit = INPUT_REQUEST_BYTES if selected_input else (
+            (16 * 1024 * 1024 + 4096) if subtitle_save else (4194304 if binary else 65536)
         )
         size, messages = 0, []
         while True:

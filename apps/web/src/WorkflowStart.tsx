@@ -1,4 +1,8 @@
 import { startSavedJob } from './job-start.mjs';
+import { frozenGoalLanguages } from './goal-languages';
+import { languageLabel } from './language-label';
+import { WorkflowInputs } from './WorkflowInputs';
+import { normalInputReady, type InputChoice, type NormalInputValue } from './normal-inputs';
 import { useEffect, useRef, useState } from 'react';
 import { PageTitle } from './PageTitle';
 import { LoadingSkeleton } from './LoadingSkeleton';
@@ -44,6 +48,13 @@ type StartPlan = {
     request_max_audio_bytes?: number;
   };
   notice: string;
+  selected_inputs?: {
+    input: string;
+    kind: string;
+    language?: string;
+    segments?: number;
+    job_id?: string;
+  }[];
 };
 export const WorkflowStart = () => {
   const auth = useWorkspaceAuth();
@@ -65,6 +76,12 @@ export const WorkflowStart = () => {
   const [sourceLanguage, setSourceLanguage] = useState('auto');
   const [targetLanguage, setTargetLanguage] = useState('ko');
   const [transcript, setTranscript] = useState('');
+  const [normalInput, setNormalInput] = useState<NormalInputValue>({});
+  const [inputChoices, setInputChoices] = useState<InputChoice[]>([]);
+  const [inputChoicesFor, setInputChoicesFor] = useState('');
+  const [inputLoading, setInputLoading] = useState(false);
+  const [inputError, setInputError] = useState('');
+  const [inputAttempt, setInputAttempt] = useState(0);
   const [ticketId, setTicketId] = useState('');
   const [requestId, setRequestId] = useState(() => crypto.randomUUID());
   const [loading, setLoading] = useState(true);
@@ -74,6 +91,7 @@ export const WorkflowStart = () => {
   const generation = useRef(0);
   const asset = assets.find((row) => row.asset_id === assetId);
   const selectedNode = inspection?.summary.find((row) => row.id === selected);
+  const inputReady = normalInputReady(definition, normalInput);
   const invalidate = () => {
     setPlan(null);
     setRequestId(crypto.randomUUID());
@@ -105,6 +123,7 @@ export const WorkflowStart = () => {
     setDefinitionId(identity);
     setInspection(null);
     setDefinition(null);
+    setNormalInput({});
     setSelected('');
     invalidate();
     setError('');
@@ -170,9 +189,13 @@ export const WorkflowStart = () => {
     definition_id: definitionId,
     definition_revision: inspection?.definition_revision,
     options: {
-      source_language: sourceLanguage,
-      target_language: targetLanguage,
-      ...(definition?.inputs.transcript === 'transcript'
+      ...(definition?.catalog_version !== 2
+        ? {
+            source_language: sourceLanguage,
+            target_language: targetLanguage,
+          }
+        : normalInput),
+      ...(definition?.catalog_version !== 2 && definition?.inputs.transcript === 'transcript'
         ? { transcript: JSON.parse(transcript) }
         : {}),
       video_description: '',
@@ -187,6 +210,7 @@ export const WorkflowStart = () => {
     targetLanguage,
     transcript,
     choices,
+    normalInput,
   });
   const create = async () => {
     if (busy || !plan) {
@@ -219,7 +243,13 @@ export const WorkflowStart = () => {
     }
   };
   useEffect(() => {
-    if (!assetId || !inspection?.supported || !inspection.model_ready) {
+    if (
+      !assetId ||
+      !inspection?.supported ||
+      !inspection.model_ready ||
+      !inputReady ||
+      inputLoading
+    ) {
       return;
     }
     let cancelled = false;
@@ -240,7 +270,47 @@ export const WorkflowStart = () => {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [selectionKey, inspection?.supported, inspection?.model_ready]);
+  }, [selectionKey, inspection?.supported, inspection?.model_ready, inputReady, inputLoading]);
+  useEffect(() => {
+    if (
+      !assetId ||
+      definition?.catalog_version !== 2 ||
+      (!definition.inputs.transcript && !definition.inputs.audio)
+    ) {
+      setInputChoices([]);
+      setInputLoading(false);
+      setInputError('');
+      return;
+    }
+    const controller = new AbortController();
+    setInputLoading(true);
+    setInputChoices([]);
+    setInputError('');
+    void request<{ inputs: InputChoice[] }>(
+      `/work-entry/inputs?asset_id=${encodeURIComponent(assetId)}`,
+      { signal: controller.signal },
+    )
+      .then((value) => {
+        if (!controller.signal.aborted) {
+          setInputChoices(value.inputs);
+          setInputChoicesFor(assetId);
+        }
+      })
+      .catch((reason) => {
+        if (!controller.signal.aborted) {
+          setInputChoices([]);
+          setInputError(
+            reason instanceof Error ? reason.message : '완료 입력 목록을 불러오지 못했습니다.',
+          );
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setInputLoading(false);
+        }
+      });
+    return () => controller.abort();
+  }, [assetId, definition, inputAttempt]);
   useEffect(() => {
     void load();
     return () => {
@@ -268,70 +338,109 @@ export const WorkflowStart = () => {
       ) : (
         <div className="work-entry-layout">
           <section className="entry-selection" aria-label="작업 구성">
-            <label className="form-row">
-              <span>원문 언어</span>
-              <select
-                aria-label="원문 언어"
-                value={sourceLanguage}
-                disabled={busy}
-                onChange={(e) => {
-                  setSourceLanguage(e.target.value);
-                  invalidate();
-                }}
-              >
-                {['auto', 'en', 'ko', 'ja', 'zh', 'de', 'fr', 'es'].map((lang) => (
-                  <option key={lang} value={lang}>
-                    {lang === 'auto' ? '자동 감지' : lang}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="form-row">
-              <span>대상 언어</span>
-              <select
-                aria-label="대상 언어"
-                value={targetLanguage}
-                disabled={busy}
-                onChange={(e) => {
-                  setTargetLanguage(e.target.value);
-                  invalidate();
-                }}
-              >
-                {['ko', 'en', 'ja', 'zh', 'de', 'fr', 'es'].map((lang) => (
-                  <option key={lang} value={lang}>
-                    {lang}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {definition?.inputs.transcript === 'transcript' && (
-              <label className="form-row">
-                <span>번역할 자막 JSON</span>
-                <textarea
-                  aria-label="번역할 자막 JSON"
-                  value={transcript}
+            {definition?.catalog_version === 2 && frozenGoalLanguages(definition).length > 0 && (
+              <div className="form-row">
+                <span>저장된 워크플로우 언어</span>
+                <div>
+                  {frozenGoalLanguages(definition).map((language) => (
+                    <p key={language.id}>
+                      {language.label}: {languageLabel(language.value)}
+                    </p>
+                  ))}
+                  <small>언어는 저장된 워크플로우 버전에 고정됩니다.</small>
+                </div>
+              </div>
+            )}
+            {definition?.catalog_version !== 2 && (
+              <>
+                <label className="form-row">
+                  <span>원문 언어</span>
+                  <select
+                    aria-label="원문 언어"
+                    value={sourceLanguage}
+                    disabled={busy}
+                    onChange={(e) => {
+                      setSourceLanguage(e.target.value);
+                      invalidate();
+                    }}
+                  >
+                    {['auto', 'en', 'ko', 'ja', 'zh', 'de', 'fr', 'es'].map((lang) => (
+                      <option key={lang} value={lang}>
+                        {languageLabel(lang)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="form-row">
+                  <span>대상 언어</span>
+                  <select
+                    aria-label="대상 언어"
+                    value={targetLanguage}
+                    disabled={busy}
+                    onChange={(e) => {
+                      setTargetLanguage(e.target.value);
+                      invalidate();
+                    }}
+                  >
+                    {['ko', 'en', 'ja', 'zh', 'de', 'fr', 'es'].map((lang) => (
+                      <option key={lang} value={lang}>
+                        {languageLabel(lang)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </>
+            )}
+            {definition?.catalog_version === 2 &&
+              (definition.inputs.transcript || definition.inputs.audio) && (
+                <WorkflowInputs
+                  key={`${assetId}:${definition.id}:${definition.revision}`}
+                  inputs={definition.inputs}
+                  value={normalInput}
+                  choices={inputChoicesFor === assetId ? inputChoices : []}
+                  loading={inputLoading}
+                  error={inputError}
                   disabled={busy}
-                  onChange={(e) => {
-                    setTranscript(e.target.value);
+                  onReload={() => setInputAttempt((previous) => previous + 1)}
+                  onChange={(value) => {
+                    setNormalInput(value);
+                    setError('');
                     invalidate();
                   }}
-                  placeholder='[{"start":0,"end":1,"text":"자막"}]'
                 />
-                <small>
-                  원본은 작업 출처로 보존하고, 입력한 자막과 시각을 티켓에 고정합니다. 최대
-                  100개/16KB.
-                </small>
-              </label>
-            )}
+              )}
+            {definition?.catalog_version !== 2 &&
+              definition?.inputs.transcript === 'transcript' && (
+                <label className="form-row">
+                  <span>번역할 자막 JSON</span>
+                  <textarea
+                    aria-label="번역할 자막 JSON"
+                    value={transcript}
+                    disabled={busy}
+                    onChange={(e) => {
+                      setTranscript(e.target.value);
+                      invalidate();
+                    }}
+                    placeholder='[{"start":0,"end":1,"text":"자막"}]'
+                  />
+                  <small>
+                    원본은 작업 출처로 보존하고, 입력한 자막과 시각을 티켓에 고정합니다. 최대
+                    100개/16KB.
+                  </small>
+                </label>
+              )}
             <label className="form-row">
               <span>원본</span>
               <div>
                 <select
                   aria-label="원본"
+                  aria-invalid={!assetId}
+                  aria-describedby={!assetId ? 'entry-source-required' : undefined}
                   value={assetId}
                   disabled={busy || !!listError}
                   onChange={(event) => {
                     setAssetId(event.target.value);
+                    setNormalInput({});
                     invalidate();
                   }}
                 >
@@ -349,6 +458,11 @@ export const WorkflowStart = () => {
                     </option>
                   ))}
                 </select>
+                {!assetId && (
+                  <small id="entry-source-required" className="field-validation">
+                    원본을 선택하세요.
+                  </small>
+                )}
                 {!assets.length && !listError && (
                   <p className="form-note">
                     등록된 원본이 없습니다. <a href="#/">원본 등록</a>
@@ -361,6 +475,8 @@ export const WorkflowStart = () => {
               <div>
                 <select
                   aria-label="워크플로우"
+                  aria-invalid={!definitionId}
+                  aria-describedby={!definitionId ? 'entry-workflow-required' : undefined}
                   value={definitionId}
                   disabled={busy || !!listError}
                   onChange={(event) => void inspect(event.target.value)}
@@ -372,6 +488,11 @@ export const WorkflowStart = () => {
                     </option>
                   ))}
                 </select>
+                {!definitionId && (
+                  <small id="entry-workflow-required" className="field-validation">
+                    워크플로우를 선택하세요.
+                  </small>
+                )}
                 {!definitions.length && !listError && (
                   <p className="form-note">
                     {administrator ? (
@@ -447,12 +568,25 @@ export const WorkflowStart = () => {
                                 'video_budget',
                                 'max_model_calls',
                                 'review_policy',
+                                'cue_policy',
                               ].includes(k),
                           )
                           .map(([key, value]) => (
                             <div key={key}>
-                              <dt>{key}</dt>
-                              <dd>{value}</dd>
+                              <dt>
+                                {(
+                                  {
+                                    source_language: '원문 언어',
+                                    target_language: '대상 언어',
+                                    language: '자막 언어',
+                                  } as Record<string, string>
+                                )[key] || key}
+                              </dt>
+                              <dd>
+                                {['source_language', 'target_language', 'language'].includes(key)
+                                  ? languageLabel(value)
+                                  : value}
+                              </dd>
                             </div>
                           ))}
                       </dl>
@@ -481,6 +615,14 @@ export const WorkflowStart = () => {
             </section>
           )}
           <div className="work-entry-actions page-actions">
+            {plan?.selected_inputs?.map((input) => (
+              <p key={input.input}>
+                {input.input === 'audio' ? '같은 영상의 추출 WAV' : '선택 시간 자막'}
+                {input.segments !== undefined && ` · ${input.segments}구간`}
+                {input.language &&
+                  ` · 원문 언어: ${input.language === 'auto' ? '미지정' : languageLabel(input.language)}`}
+              </p>
+            ))}
             {plan?.model_call_budgets?.length ? (
               <section aria-label="이번 작업 모델 호출 상한">
                 <h3>모델 호출 상한</h3>
@@ -513,13 +655,39 @@ export const WorkflowStart = () => {
               </p>
             ) : null}
             <Button
+              aria-describedby={
+                !assetId
+                  ? 'entry-source-required'
+                  : !definitionId
+                    ? 'entry-workflow-required'
+                    : !plan && inputReady
+                      ? 'start-readiness'
+                      : undefined
+              }
               disabled={
-                busy || !plan || !!listError || !inspection?.supported || !inspection.model_ready
+                busy ||
+                !plan ||
+                !inputReady ||
+                inputLoading ||
+                !!listError ||
+                !inspection?.supported ||
+                !inspection.model_ready
               }
               onClick={() => void create()}
             >
               {busy ? '시작 준비 중…' : '작업 시작'}
             </Button>
+            {!busy && !plan && assetId && definitionId && inputReady && (
+              <p id="start-readiness" role="status">
+                {error || listError
+                  ? '위 오류를 확인하고 입력이나 설정을 변경하세요.'
+                  : inputLoading
+                    ? '완료 입력 목록을 불러오고 있습니다.'
+                    : inspection && (!inspection.supported || !inspection.model_ready)
+                      ? '위 안내에 따라 워크플로우 설정을 확인하세요.'
+                      : '입력과 설정을 확인하고 있습니다.'}
+              </p>
+            )}
           </div>
         </div>
       )}

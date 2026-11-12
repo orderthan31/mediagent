@@ -1,9 +1,46 @@
 """Read-only public goal states from durable tool attempts and actual capacity observations."""
 from mideagent_agents.catalog import CLASSES
 from video_service.renewal_contracts import spec
+from video_service.object_store import validate_reference
 from .workflow import scope_snapshot
 
 LABELS={"waiting":"대기","preparing":"준비 중","running":"처리 중","completed":"완료","failed":"오류","cancelled":"취소됨","blocked":"선행 오류","skipped":"미선택"}
+
+
+def goal_outputs(snapshot, node, scope, runs, native):
+    """Resolve only frozen owned bindings to unique accepted typed run outputs.
+
+    The public DTO contains identifiers for authenticated artifact routes, never
+    storage keys, model pins, receipts or credentials. No historical inference.
+    """
+    bindings = snapshot.get("agent_output_bindings", {}).get(node["id"], {})
+    cls = CLASSES[node["type"]]
+    values = []
+    for name, binding in bindings.items():
+        if name not in cls.output_ports or not isinstance(binding, dict) or set(binding) != {"node", "port"}:
+            continue
+        identity, port = binding["node"], binding["port"]
+        if scope["owners"].get(identity) != node["id"] or identity not in native:
+            continue
+        tool = native[identity]
+        kind = spec(tool["type"], tool["options"])["outputs"].get(port)
+        if not kind or name != port:
+            continue
+        matches = [run for run in runs if run["node_id"] == identity]
+        if len(matches) != 1:
+            continue
+        run = matches[0]
+        if run["status"] != "completed" or run.get("display_status", "completed") != "completed":
+            continue
+        reference = (run.get("result") or {}).get("outputs", {}).get(port)
+        try:
+            validate_reference(reference)
+        except ValueError:
+            continue
+        if reference["type"] != kind:
+            continue
+        values.append({"name": name, "run_id": run["id"], "node_id": identity, "port": port, "type": kind})
+    return values
 
 def project_agents(job,runs,demands,instances,execution_observations=None):
     scope=scope_snapshot(job["snapshot"])
@@ -13,8 +50,9 @@ def project_agents(job,runs,demands,instances,execution_observations=None):
     pending={d["node_id"]:d for d in demands if d.get("node_run_id")is None} if job["status"]not in {"cancelled","cancelling","completed","failed"}else{}
     observations=execution_observations or {}
     for node in public["nodes"]:
-        cls=CLASSES[node["type"]];agent=cls(node,tool_bindings=scope["bindings"][node["id"]]);tools=[]
-        for role in cls.tool_order:
+        cls=CLASSES[node["type"]];agent=cls(node,tool_bindings=scope["bindings"][node["id"]],
+                                         verify_references=job["snapshot"].get("agent_output_policy")==1);tools=[]
+        for role in agent.tool_order:
             identity=agent.tool_id(role);run=indexed.get(identity);demand=pending.get(identity)
             state=(run.get("display_status")or run["status"])if run else "waiting"
             reason=(run.get("display_reason")or "")if run else ""
@@ -47,14 +85,15 @@ def project_agents(job,runs,demands,instances,execution_observations=None):
         elif job["status"]in {"cancelled","cancelling"}or any(t["state"]=="cancelled"for t in tools):state="cancelled";reason=""
         elif completed:state="running";reason=""
         else:state="waiting";reason=""
-        if state=="completed":
-            decision=agent.next_tool(indexed,job["snapshot"]["definition"])
-            if decision["state"]!="completed":state="failed";reason=decision.get("reason")or"처리 결과를 확인할 수 없습니다."
+        decision=agent.next_tool(indexed,job["snapshot"]["definition"])
+        if decision["state"]=="failed" or state=="completed" and decision["state"]!="completed":
+            state="failed";reason=decision.get("reason")or"처리 결과를 확인할 수 없습니다."
         primary=next((t for t in tools if t["role"]==cls.primary and t["run_id"]),None)
         selected=failed or active or primary or (completed[-1]if completed else tools[0])
         result.append({"id":node["id"],"type":node["type"],"label":cls.label,"state":state,
                        "status_label":LABELS.get(state,"상태 확인 필요"),"reason":reason,
-                       "selected_tool_id":selected["node_id"],"tools":tools})
+                       "selected_tool_id":selected["node_id"],"tools":tools,
+                       "outputs":goal_outputs(job["snapshot"],node,scope,runs,native) if state=="completed" else []})
     # No fixed timer, guessed readiness or spinner during an agent's internal tools.
     by_id={n["id"]:n for n in result};edges={}
     for edge in public["edges"]:

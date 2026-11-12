@@ -185,7 +185,7 @@ export const JobProcessingReview = ({
         }
       } catch {
         setError(
-          '판단 응답을 확인하지 못했습니다. 자동 재요청하지 않습니다. 판단 원장을 새로 조회하세요.',
+          '판단 응답을 확인하지 못했습니다. 자동 재요청하지 않습니다. 확인 내역을 새로고침하세요.',
         );
       }
     } finally {
@@ -201,10 +201,7 @@ export const JobProcessingReview = ({
   return (
     <section className="processing-review ticket-panel" aria-label="작업 처리 확인">
       <h2>작업 처리 확인</h2>
-      <p>
-        원 작업의 상태·실행·전송 기록은 보존합니다. 아래 판단은 별도 원장에 남고, 새 작업 생성만으로
-        실행되지는 않습니다.
-      </p>
+      <p>새 작업은 자동으로 시작되지 않습니다.</p>
       {error && <p role="alert">{error}</p>}
       {notice && <p role="status">{notice}</p>}
       {user?.role !== 'admin' && user && <p>관리자 확인이 필요합니다.</p>}
@@ -215,7 +212,7 @@ export const JobProcessingReview = ({
               현재 근거 확인
             </Button>
             <Button variant="quiet" disabled={busy} onClick={() => void refresh()}>
-              판단 원장 새로고침
+              확인 내역 새로고침
             </Button>
           </div>
           {pending && (
