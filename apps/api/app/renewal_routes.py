@@ -524,6 +524,10 @@ def mount_runtime(
     def jobs(owned=owner_dependency):
         return {"jobs": [ledger(j) for j in runtime.shared_jobs(owned)]}
 
+    @app.get("/api/renewal/execution-waiting")
+    def execution_waiting(owned=owner_dependency):
+        return runtime.execution_waiting(owned)
+
     @app.get("/api/jobs/{identity}")
     def job(identity: str, owned=owner_dependency):
         return ledger(runtime.shared_get(owned, identity))

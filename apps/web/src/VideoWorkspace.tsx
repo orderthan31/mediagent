@@ -651,7 +651,7 @@ export const VideoWorkspace = () => {
                     {hasConfirmedList && <JobLedger items={jobPage.items} />}
                     {hasConfirmedList && (
                       <Pagination {...jobPage} disabled={!online}>
-                        {!renewalBackend && <ExecutionPopover jobs={jobs} onChanged={refresh} />}
+                        <ExecutionPopover jobs={jobs} onChanged={refresh} />
                       </Pagination>
                     )}
                   </>

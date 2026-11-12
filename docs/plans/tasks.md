@@ -559,3 +559,10 @@ PM1562998217422147606의 b676 검토에서 기존 engine wire2(3필드 agent)를
 - 현재 화면: 기존5da2bdc의 실제 인증 PC/390px 캡처와 실제31 출력/로그 탭을 저장했다.31은 출력 없음·보존 console 없음이며 재실행하지 않았다.32는 이미 admission된 waiting/run0/dispatch0이라 draft용 Start를 추가하지 않는다. 현재 화면 캡처를 수정 후로 부르지 않는다.
 - 반영 경계: 이 기록 시점은 source/index/refs 백업과 검토를 마친 릴리스 준비다. 기존 개발계 배포·실제 수정 후 PC/휴대폰 및 허용 CPU 결과/다운로드·실제 GitHub renewal readback은 이어서 확인한다. 새 cue 옵션은 실제 generate-subtitle 패키지에도 필요하므로 API/web 교체만으로 완료 처리하지 않는다. 기존 on-demand pool의 현재 이미지/템플릿과 원본 작업 보호를 먼저 확인했다.
 - 전체 범위 잔여: 실제 전달 대기 목록/기존 취소 연결이 다음 최소 단계다. 전체 큐 pause/reorder, 완료 자막의 편집 revision 발행, 공유 CAS 안전 정리, 얼굴 합성 session/preview/render는 별도 미완료다. 목록 숨김을 물리 삭제로, 검수 API를 완료 편집으로, 보존 adapter를 실제 GPU 기능으로 부르지 않는다. 유료/provider/GPU와 사용자 장편/원본·기존 작업 재실행은 계속 별도 승인 범위다.
+
+### 2026-11-12 실제 전달 대기 조회 — 소스 구현, 운영 미반영
+- 기존 실행 관리 popover에 renewal용 읽기 경로를 연결했다. `GET /api/renewal/execution-waiting`은 실제 broker_dispatch_queue/node_runs/outbox/jobs를 한 번의 제한 SELECT로 읽는다. 일반 waiting/QUEUED와 admission된 run0/dispatch0 작업을 큐로 세지 않는다. 기존 `_view`의 관측 capture나 cleanup은 호출하지 않는다.
+- 실제 pending/sending/sent/received/unknown을 작업별 상태·건수로 묶고 최대100작업과 추가 항목 존재를 표시한다. pending은 현재 admission/세대/claim·미발행 outbox가 일치해야 하며, unknown은 과거 세대/실패 상태만으로 숨기거나 자동 재전송하지 않는다. 공유 읽기와 자기 작업 관리 권한을 구분하고 snapshot/모델 요청/저장 locator/claim/worker/키는 응답에 넣지 않는다.
+- 취소는 기존 작업 상세 링크에서 최신 권한/revision으로 확인한다. 새 취소 계약·일괄 취소·pause/reorder·replica 제어는 없다. loading/조회 실패/마지막 확인값/확정 빈 목록과 보낸 뒤 수신 대기/실제 처리를 구분한다. legacy 큐 경로와 기존 normal-input/cue/custodian/UI 보정을 보존했다.
+- 소스 검사: 실제 handler/auth 의존성과 실제 SELECT의 메모리 SQL23개, 기존 popover/detail의 오프라인 PC/390px 포함 대상 웹10개, TypeScript/build·변경 파일 lint/format 통과. 독립 검토에서 발견한 sent/received 확정 실패의 잘못된 대기 집계를 보정하고 한정 재검토를 통과했다. 부모가 보정 SELECT를 기존 API의 원래 PostgreSQL 계정·DSN으로 읽기 전용 실행했으며0행·쓰기0을 확인했다. 이는 소스 조회 구문/기존 권한 확인이고 설치된 신규 HTTP 경로·실제 화면/전달·취소·배포 수용은 아니다. native binding42501은 해당 바인딩만 보류한다. Git 게시에는 기존 Windows 사용자 인증만 사용하며 App 전환·새 인증·전역 설정 변경·force-push는 하지 않는다.
+- 이후 부모가 이 소스를 검토/반영하고 기존 화면을 읽어 확인한다. 전체 큐 pause/reorder, 완료 자막 편집, CAS 정리, 얼굴 합성 및 실제 유료/GPU 실행은 위 미완료 경계 그대로다.

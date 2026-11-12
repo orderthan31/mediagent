@@ -6,14 +6,13 @@ import { request, type Job } from './api';
 import { moveQueuedJob, type QueueState } from './queue-state';
 import { Pagination, usePagination } from './Pagination';
 import './queue-controls.css';
+import { renewalBackend } from './preview';
+import { RenewalWaitingPanel } from './RenewalWaitingPanel';
 
-export const QueuePanel = ({
-  jobs,
-  onChanged,
-}: {
-  jobs: Job[];
-  onChanged: () => Promise<void>;
-}) => {
+export const QueuePanel = ({ jobs, onChanged }: { jobs: Job[]; onChanged: () => Promise<void> }) =>
+  renewalBackend ? <RenewalWaitingPanel /> : <LegacyQueuePanel jobs={jobs} onChanged={onChanged} />;
+
+const LegacyQueuePanel = ({ jobs, onChanged }: { jobs: Job[]; onChanged: () => Promise<void> }) => {
   const [state, setState] = useState<QueueState | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);

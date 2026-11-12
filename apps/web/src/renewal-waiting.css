@@ -1,0 +1,52 @@
+.renewal-waiting-panel {
+  min-width: 0;
+}
+.renewal-waiting-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.renewal-waiting-jobs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.renewal-waiting-jobs > li {
+  padding: 12px 0;
+  border-top: 1px solid var(--g-line);
+  overflow-wrap: anywhere;
+}
+.renewal-waiting-job-title {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+.renewal-waiting-job-title > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.renewal-waiting-job-title > strong {
+  flex-shrink: 0;
+}
+.renewal-delivery-states {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  padding: 0;
+  margin-block: 8px;
+}
+.renewal-waiting-readonly {
+  margin-left: 12px;
+  color: var(--g-soft);
+}
+.renewal-waiting-jobs a {
+  display: inline-block;
+  min-height: 44px;
+  padding-block: 10px;
+  box-sizing: border-box;
+}
+.renewal-waiting-warning {
+  margin-block: 8px;
+}

@@ -403,6 +403,10 @@ class Execution(Intake):
                 for r in rows
             ]
 
+    def execution_waiting(self, actor):
+        from .waiting_view import WaitingView
+        return WaitingView(self.database).read(actor)
+
     def shared_file(
         self, actor, identity, run_id, port, *, inputs=False, preview=False
     ):
