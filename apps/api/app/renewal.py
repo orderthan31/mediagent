@@ -136,9 +136,16 @@ class JsonBodyLimit:
             scope["method"] == "POST"
             and re.fullmatch(r"/api/(?:settings/)?work-entry/(?:preview|create)", scope["path"])
         )
+        independent_subtitle_save = (
+            self.uploads
+            and scope['method'] == 'POST'
+            and scope['path'] == '/api/subtitle-copies'
+        )
         from video_service.timed_subtitles import INPUT_REQUEST_BYTES
         # Exact input-selection routes only; other JSON/upload bounds unchanged.
-        limit = INPUT_REQUEST_BYTES if selected_input else (
+        # JSON escaping can use six bytes for one SRT control character.
+        # The document itself still has the independent 16MiB UTF-8 bound.
+        limit = (6 * 16 * 1024 * 1024 + 8192) if independent_subtitle_save else INPUT_REQUEST_BYTES if selected_input else (
             (16 * 1024 * 1024 + 4096) if subtitle_save else (4194304 if binary else 65536)
         )
         size, messages = 0, []

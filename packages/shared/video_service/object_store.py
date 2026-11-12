@@ -1,4 +1,4 @@
-"""Explicit S3-compatible CAS. No bucket creation, listing, deletion or URL grants.
+"""Explicit S3 CAS and bounded subtitle-copy index. No bucket creation or deletion.
 
 A private local cache is disposable process workspace, never shared authority.
 Every read verifies remote bytes; ETag is deliberately not treated as SHA-256.
@@ -26,7 +26,18 @@ from .content_store import (
 
 
 class ObjectStoreError(ValueError):
-    pass
+    def __init__(self, message, *, status=None, code=None):
+        super().__init__(message)
+        self.status, self.code = status, code
+
+
+def _client_failure(message, exc):
+    """Preserve status/code without exposing endpoint, signed headers or credentials."""
+    status = exc.response.get('ResponseMetadata', {}).get('HTTPStatusCode')
+    code = exc.response.get('Error', {}).get('Code')
+    if not isinstance(code, str) or not re.fullmatch(r'[A-Za-z0-9]{1,80}', code):
+        code = None
+    return ObjectStoreError(message, status=status, code=code)
 
 
 class ObjectIntegrityError(ObjectStoreError):
@@ -96,15 +107,13 @@ class S3ContentStore(ContentStore):
         except ClientError as exc:
             if exc.response.get("ResponseMetadata", {}).get("HTTPStatusCode") == 412:
                 return False
-            raise ObjectStoreError(
-                "Object write failed; outcome may be unknown"
-            ) from None
+            raise _client_failure("Object write failed; outcome may be unknown", exc) from None
         except BotoCoreError:
             raise ObjectStoreError(
                 "Object write failed; outcome may be unknown"
             ) from None
 
-    def _download(self, key, limit, destination):
+    def _download(self, key, limit, destination, *, verify_metadata=False):
         from botocore.exceptions import BotoCoreError, ClientError
 
         body = None
@@ -122,8 +131,14 @@ class S3ContentStore(ContentStore):
                 destination.write(block)
             if size != response["ContentLength"]:
                 raise ObjectStoreError("Remote object truncated")
+            if verify_metadata and response.get('Metadata', {}) != {
+                'sha256': digest.hexdigest(), 'bytes': str(size)
+            }:
+                raise ObjectIntegrityError('Remote receipt digest mismatch')
             return digest.hexdigest(), size
-        except (BotoCoreError, ClientError, OSError):
+        except ClientError as exc:
+            raise _client_failure("Object unavailable or transfer failed", exc) from None
+        except (BotoCoreError, OSError):
             raise ObjectStoreError("Object unavailable or transfer failed") from None
         finally:
             if body is not None:
@@ -252,6 +267,51 @@ class S3ContentStore(ContentStore):
         ):
             raise ObjectStoreError("Preservation source or remote bytes changed")
         return reference
+
+    def read_subtitle_copy(self, id):
+        import io
+        from .subtitle_copies import identity, MAX_RECEIPT
+        stream = io.BytesIO()
+        self._download(self.prefix + '/subtitle-copies/' + identity(id) + '.json',
+                       MAX_RECEIPT, stream, verify_metadata=True)
+        return stream.getvalue()
+
+    def create_subtitle_copy(self, id, raw):
+        from .subtitle_copies import identity, decode_receipt
+        decode_receipt(raw, identity(id))
+        self._create(self.prefix + '/subtitle-copies/' + id + '.json', raw,
+                     hashlib.sha256(raw).hexdigest(), len(raw))
+        return self.read_subtitle_copy(id)
+
+    def list_subtitle_copies(self, after=None):
+        from botocore.exceptions import BotoCoreError, ClientError
+        from .subtitle_copies import identity, PAGE_SIZE
+        prefix = self.prefix + '/subtitle-copies/'
+        request = dict(Bucket=self.bucket, Prefix=prefix, MaxKeys=PAGE_SIZE)
+        if after is not None:
+            request['StartAfter'] = prefix + identity(after) + '.json'
+        try:
+            response = self.client.list_objects_v2(**request)
+        except ClientError as exc:
+            raise _client_failure('Subtitle copy list unavailable', exc) from None
+        except BotoCoreError:
+            raise ObjectStoreError('Subtitle copy list unavailable') from None
+        contents = response.get('Contents', [])
+        if not isinstance(contents, list) or len(contents) > PAGE_SIZE:
+            raise ObjectIntegrityError('Invalid subtitle copy page')
+        ids = []
+        for row in contents:
+            key = row.get('Key')
+            if not isinstance(key, str) or not re.fullmatch(re.escape(prefix) + r'[a-f0-9]{32}\.json', key):
+                raise ObjectIntegrityError('Invalid subtitle copy index key')
+            id = key[len(prefix):-5]
+            if id <= (after or '') or (ids and id <= ids[-1]):
+                raise ObjectIntegrityError('Invalid subtitle copy index order')
+            ids.append(id)
+        more = response.get('IsTruncated', False)
+        if type(more) is not bool or (more and not ids):
+            raise ObjectIntegrityError('Invalid subtitle copy continuation')
+        return ids, more
 
     def claim_attempt(self, owner, command):
         from video_service.canonical import canonical, digest

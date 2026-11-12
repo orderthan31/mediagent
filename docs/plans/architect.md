@@ -24,7 +24,7 @@
 
 ## 각 역할은 어떻게 일하는가
 
-직접 자막 파일 편집은 기존 로그인·shell 안의 브라우저 기능이다. 파일 읽기·문구/시각 draft·별도 SRT/SMI 다운로드를 클라이언트에서 처리하며 작업·모델·서버 저장 경로와 분리한다. 기존 accepted 파일 읽기의 job/run/포트·인증 결속은 유지한다.
+직접 자막 파일 편집은 기존 로그인·shell 안에서 파일 읽기·문구/시각 draft·별도 SRT/SMI 다운로드를 제공한다. 독립 수정본 저장은 작업·검토·모델과 분리된 인증 API를 사용한다. 수정 SRT bytes는 실제 runtime ContentStore의 불변 CAS에, 작은 canonical JSON 기록은 configured S3 prefix의 `subtitle-copies/{id}.json`에 조건부 생성한다. 공유 목록은 이 namespace만 매번 유한 페이지로 조회하며 로컬 cache를 권위로 삼지 않는다. 명시적 local ContentStore fallback도 같은 불변 기록 계약을 쓴다. 작성자는 서버 감사 주체로 보존하고 새 DB·권한·사용자별 자료 분리를 만들지 않는다. 기존 accepted 파일 읽기의 job/run/포트·인증 결속은 유지하며, 제품의 실제 PUT/GET 권한·저장 수용은 부모 검증 범위다.
 
 - 오케스트레이터는 에이전트 사이의 작업 순서와 배정, 필요한 처리 용량을 관리한다.
 - 전사·번역 에이전트는 자기 업무의 준비·분할·처리·확인·완료를 책임진다.

@@ -8,6 +8,10 @@
 .direct-subtitle-page > p {
   max-width: 54rem;
 }
+.direct-subtitle-save {
+  max-width: 54rem;
+  padding-block: 20px;
+}
 .direct-subtitle-page input[type='file'] {
   max-width: 100%;
 }

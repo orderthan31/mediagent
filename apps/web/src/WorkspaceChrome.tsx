@@ -60,7 +60,7 @@ export const WorkspaceChrome = ({
   const dialog = useRef<HTMLDialogElement>(null),
     toggle = useRef<HTMLButtonElement>(null);
   const sectionRoute =
-    renewalBackend && route === '#/subtitles'
+    renewalBackend && /^#\/subtitles(?:\/saved(?:\/[a-f0-9]{32})?)?$/.test(route)
       ? '#/subtitles'
       : route.includes('workflow-editor') || route.startsWith('#/workflows')
         ? '#/workflows'

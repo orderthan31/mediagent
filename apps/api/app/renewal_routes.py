@@ -163,6 +163,10 @@ def mount_runtime(
 
     mount_subtitle_tracks(app, runtime, owner_dependency)
 
+    from .subtitle_copy_routes import mount_subtitle_copies
+
+    mount_subtitle_copies(app, runtime.store, session_dependency)
+
     from video_service.content_store import MAX_CONTENT
 
     from .original_finalizations import OriginalFinalizations

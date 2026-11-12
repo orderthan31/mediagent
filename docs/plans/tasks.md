@@ -594,3 +594,10 @@ PM1562998217422147606의 b676 검토에서 기존 engine wire2(3필드 agent)를
 - [x] 여러 언어/문단·빈 자료·잘못된/없는 마지막 종료·미지원 인코딩/태그는 파일 오류로 표시한다. HTML/CSS를 DOM에 넣거나 외부 리소스를 읽지 않고, 새 출력은 기존 plain SRT/escaped SMI exporter를 사용한다. 언어 선택/스타일 편집·원래 SMI HEAD/스타일의 완전 복원은 지원하지 않는다. 원래 File은 불변이며 SMI 사본은 표준 형식으로 재생성된다.
 - [x] 실제 File 입력의 SMI 미지원 RED를 확인했다. SMI/기존 직접 SRT/두 exporter의 관련10건과 실제 Python SAMI producer의 문구/clear 간격 왕복 검사가 통과했다. 같은 실제 편집기·production CSS/설치 글꼴·native File·Blob의 오프라인 브라우저1건(PC1440/390px)에서 문구/시작/종료 편집·SRT/SMI 파일명/bytes·원래 File hash·선택 race·오류 후 stale 다운로드 차단을 확인했다. 변경 파일 lint/format과 SMI delta의 TypeScript/Vite build(1754 modules)가 통과했다. GB36b의 기존 실제 수용/배포 검사는 반복하지 않았다.
 - [ ] 부모의 기존 HTTPS PC390 파일 선택/다운로드·검토·배포/정상 USER Git 게시 수용은 별도다. 서버 저장/재열기/렌더·새 작업/accepted 결과를 만들지 않고 원래 작업/키/모델/감사 이력을 보존한다. source writer는 운영·모델/provider/GPU·설치/네트워크·commit/push/deploy를 수행하지 않는다.
+
+### 2026-11-12 독립 자막 수정본 저장·목록·재열기 — 소스 구현, 제품 수용 전
+
+- [x] 기존 직접 입력 편집기에 `수정본 저장`과 `저장된 자막`을 연결했다. `/api/subtitle-copies` POST/GET 및 ID GET은 기존 session/CSRF/origin 경계를 사용하고 maintenance는 계속 차단한다. 새 API는 원본·job/review·accepted 결과를 갱신하지 않는다. 제목·입력 파일명·저장 시각·cue 수의 공유 목록과 같은 편집기의 상세 재열기를 제공한다.
+- [x] 수정된 SRT는 16MiB/10000cue·literal ID/시각/문구를 서버 검증한 뒤 기존 CAS에 보관한다. 기록은 별도 `subtitle-copies/{id}.json`에 IfNoneMatch 불변 생성하고 SHA·canonical JSON과 CAS bytes를 재확인한다. S3 목록은 20개씩 해당 namespace만 조회하며 기존 owner-CAS는 서버 작성자 감사와 함께 보존한다. 새 table/GRANT/credential/플랫폼을 추가하지 않는다.
+- [x] 첫 서버 수직 검사 11실패·1통과 RED에서 GREEN으로 수정했다. 실제 편집기의 제목/저장 동선 부재 RED도 확인했다. 서버/ASGI·local CAS·fakeS3 관련16건과 프론트 helper2건·production CSS의 오프라인 PC1440/390px 저장/전체 reload/재열기/SRT·SMI 실제 다운로드 브라우저1건이 통과했다. 쓰기 거절/재조회 실패는 성공을 표시하지 않고 같은 요청의 명시 재시도만 같은 ID를 사용한다. 합성 검사는 실제 S3 권한이나 설치 제품 수용이 아니다.
+- [ ] 부모의 설치 후 원래 API 자격으로 실제 immutable PUT/GET·인증 PC/390 저장/목록/재열기·원본 불변 및 정상 USER Git 게시 수용은 별도다. ListBucket 확인만으로 PUT/GET 권한을 주장하지 않는다. 실제403은 그 저장을 차단하고 권한을 바꾸지 않는다. 기존 결과 revision 발행·영상 재렌더와 운영 접근·모델/provider/GPU 실행·commit/push/deploy는 수행하지 않는다.

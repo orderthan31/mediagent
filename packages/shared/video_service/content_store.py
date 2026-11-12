@@ -185,3 +185,52 @@ class ContentStore:
         if len(data) > limit or hashlib.sha256(data).hexdigest() != reference["sha256"]:
             raise ValueError("Structured content integrity mismatch")
         return data
+
+    def _subtitle_copy_directory(self):
+        directory = self.root / 'subtitle-copies'
+        if directory.is_symlink():
+            raise ValueError('Symlink storage denied')
+        directory.mkdir(mode=0o700, exist_ok=True)
+        return directory
+
+    def read_subtitle_copy(self, id):
+        from .subtitle_copies import identity, MAX_RECEIPT
+        path = self._subtitle_copy_directory() / (identity(id) + '.json')
+        if path.is_symlink():
+            raise ValueError('Symlink storage denied')
+        with path.open('rb') as stream:
+            raw = stream.read(MAX_RECEIPT + 1)
+        if not 0 < len(raw) <= MAX_RECEIPT:
+            raise ValueError('Subtitle copy receipt size exceeded')
+        return raw
+
+    def create_subtitle_copy(self, id, raw):
+        from .subtitle_copies import identity, decode_receipt
+        decode_receipt(raw, identity(id))
+        directory = self._subtitle_copy_directory()
+        fd, name = tempfile.mkstemp(prefix='.incoming-', dir=directory)
+        try:
+            with os.fdopen(fd, 'wb') as stream:
+                stream.write(raw)
+                stream.flush()
+                os.fsync(stream.fileno())
+            try:
+                os.link(name, directory / (id + '.json'))
+            except FileExistsError:
+                pass
+        finally:
+            os.unlink(name)
+        return self.read_subtitle_copy(id)
+
+    def list_subtitle_copies(self, after=None):
+        import heapq
+        from .subtitle_copies import PAGE_SIZE, identity
+        if after is not None:
+            identity(after)
+        with os.scandir(self._subtitle_copy_directory()) as entries:
+            ids = heapq.nsmallest(PAGE_SIZE + 1, (
+                entry.name[:-5] for entry in entries
+                if re.fullmatch(r'[a-f0-9]{32}\.json', entry.name)
+                and entry.name[:-5] > (after or '')
+            ))
+        return ids[:PAGE_SIZE], len(ids) > PAGE_SIZE
