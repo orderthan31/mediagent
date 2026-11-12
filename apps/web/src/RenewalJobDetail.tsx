@@ -14,6 +14,8 @@ import { JobProcessingReview } from './JobProcessingReview';
 import { ProjectionRecoveryPanel } from './ProjectionRecoveryPanel';
 import { ModelRolePanel } from './ModelRolePanel';
 import { TaskResultTabs } from './TaskResultTabs';
+import { SrtCopyAction } from './SrtCopyEditor';
+import { artifactSrtSource } from './srt-copy';
 import { SubtitleTrackReview, SubtitleOutputs } from './SubtitleTracksPanel';
 import { PageTitle } from './PageTitle';
 import { LoadingSkeleton } from './LoadingSkeleton';
@@ -714,6 +716,7 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
                                 <a href={url(port) + '?download=true'} download>
                                   파일 받기
                                 </a>
+                                <SrtCopyAction source={artifactSrtSource(base, run, port)} />
                               </>
                             )}
                             <details>

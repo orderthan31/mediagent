@@ -1,5 +1,7 @@
 import { mediaUrl } from './api';
 import { GoalResults, type GoalOutput } from './GoalResults';
+import { SrtCopyAction } from './SrtCopyEditor';
+import { artifactSrtSource } from './srt-copy';
 
 type FileRun = {
   id: string;
@@ -59,7 +61,7 @@ export const JobFiles = ({
           파일 목록(JSON) 받기
         </a>
       )}
-      {!!requested.length && <GoalResults base={base} agents={agents} />}
+      {!!requested.length && <GoalResults base={base} agents={agents} runs={runs} />}
       {!!other.length && (
         <ul>
           {other.map(({ run, port, reference }) => {
@@ -78,6 +80,7 @@ export const JobFiles = ({
                 <a href={url + '?download=true'} download>
                   {label} 받기
                 </a>
+                <SrtCopyAction source={artifactSrtSource(base, run, port)} />
               </li>
             );
           })}

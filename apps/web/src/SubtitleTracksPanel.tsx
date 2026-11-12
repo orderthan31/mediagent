@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { SrtCopyAction } from './SrtCopyEditor';
+import { trackSrtSource } from './srt-copy';
 import { request, mediaUrl } from './api';
 import { jsonPost } from './video-api';
 import { Button } from './hangyeol/primitives/button';
@@ -381,7 +383,7 @@ export const SubtitleOutputs = ({ jobId, revision }: { jobId: string; revision: 
               <h4>{title(name, track.language)}</h4>
               <p className="subtitle-sha">전사 SHA {track.transcript.sha256}</p>
               {Object.entries(track.files).map(([extension, file]) => (
-                <p key={extension} className="subtitle-sha">
+                <div key={extension} className="subtitle-sha">
                   <a
                     href={mediaUrl(
                       base + '/' + output.run_id + '/' + encodeURIComponent(name) + '/' + extension,
@@ -390,8 +392,11 @@ export const SubtitleOutputs = ({ jobId, revision }: { jobId: string; revision: 
                   >
                     {file.filename} 받기
                   </a>{' '}
+                  <SrtCopyAction
+                    source={trackSrtSource(jobId, output.run_id, name, extension, file)}
+                  />
                   · {file.reference.bytes.toLocaleString()} bytes · {file.reference.sha256}
-                </p>
+                </div>
               ))}
             </section>
           ))}

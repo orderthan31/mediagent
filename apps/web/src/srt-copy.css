@@ -1,0 +1,64 @@
+.srt-copy-dialog {
+  width: calc(100% - 24px);
+  max-width: 54rem;
+  max-height: calc(100dvh - 24px);
+  margin: auto;
+  padding: 0;
+  border: 1px solid var(--g-line);
+  border-radius: 8px;
+  background: var(--g-surface);
+  color: var(--g-ink);
+  overflow: hidden;
+}
+.srt-copy-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+.srt-copy-heading,
+.srt-copy-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 0 0 auto;
+  gap: 12px;
+  padding: 12px 16px;
+}
+.srt-copy-heading h2 {
+  margin: 0;
+}
+.srt-copy-actions {
+  justify-content: flex-end;
+  border-top: 1px solid var(--g-line);
+}
+.srt-copy-body {
+  overflow: auto;
+  overscroll-behavior: contain;
+  min-height: 0;
+  padding: 0 16px 16px;
+  overflow-wrap: anywhere;
+}
+.srt-copy-filename,
+.srt-copy-clock {
+  color: var(--g-soft);
+}
+.srt-copy-clock {
+  font-variant-numeric: tabular-nums;
+  white-space: pre-wrap;
+}
+.srt-copy-cues {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.srt-copy-cues > li {
+  padding-top: 20px;
+  border-top: 1px solid var(--g-line);
+}
+.srt-copy-dialog .srt-copy-cues label {
+  display: block;
+  margin: 0;
+}
+.srt-copy-dialog textarea {
+  min-height: 6rem;
+  font: inherit;
+}

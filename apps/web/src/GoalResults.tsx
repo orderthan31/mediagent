@@ -1,4 +1,6 @@
 import { mediaUrl } from './api';
+import { SrtCopyAction } from './SrtCopyEditor';
+import { artifactSrtSource, type SrtFileRun } from './srt-copy';
 
 export type GoalOutput = {
   name: string;
@@ -10,9 +12,11 @@ export type GoalOutput = {
 export const GoalResults = ({
   base,
   agents,
+  runs = [],
 }: {
   base: string;
   agents: { id: string; label: string; outputs?: GoalOutput[] }[];
+  runs?: SrtFileRun[];
 }) => {
   const available = agents.filter((agent) => agent.outputs?.length);
   return (
@@ -48,6 +52,19 @@ export const GoalResults = ({
                   <a href={url + '?download=true'} download>
                     {label} 받기
                   </a>
+                  <SrtCopyAction
+                    source={
+                      output.type === 'subtitle'
+                        ? artifactSrtSource(
+                            base,
+                            runs.find(
+                              (run) => run.id === output.run_id && run.node_id === output.node_id,
+                            ),
+                            output.port,
+                          )
+                        : null
+                    }
+                  />
                 </li>
               );
             })}
