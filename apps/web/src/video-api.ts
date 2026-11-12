@@ -6,6 +6,8 @@ export type VideoAsset = {
     excerpt_seconds?: number;
     coverage?: 'full';
   };
+  media_kind?: 'audio';
+  media_type?: string;
   asset_id: string;
   original_filename: string;
   uploaded_by?: string | null;
@@ -14,9 +16,12 @@ export type VideoAsset = {
   created_at: string;
   media?: {
     duration: number;
-    width: number;
-    height: number;
-    has_audio: boolean;
+    width?: number;
+    height?: number;
+    has_audio?: boolean;
+    codec?: string;
+    sample_rate?: number;
+    channels?: number;
     frame_rate?: string;
   };
   provenance: {

@@ -11,7 +11,7 @@ from video_service.editor_contracts import resolve_editor_contracts
 from video_service.model_reference import valid_reference
 from video_service.renewal_contracts import validate as validate_native
 
-_FIELDS={"catalog_version","revision","name","inputs","nodes","edges","id","executable"}
+_FIELDS={"catalog_version","revision","name","inputs","nodes","edges","id","executable","input_profile"}
 
 def default_definition(name="영상 전사·한국어 자막 번인"):
     nodes=[]
@@ -33,6 +33,12 @@ def _shape(value):
     if not isinstance(inputs, dict) or any(k not in {"video", "audio", "transcript"} or v != k for k, v in inputs.items()):
         raise ValueError("영상·시간 자막·동일 영상의 추출 음성 입력을 확인하세요.")
     nodes=value.get("nodes");edges=value.get("edges")
+    audio_file = value.get("input_profile") == "audio_file_v1"
+    if value.get("input_profile") not in (None, "audio_file_v1") or audio_file and (
+            inputs != {"audio": "audio"} or not isinstance(nodes, list) or len(nodes) != 1
+            or nodes[0].get("type") != "transcription_agent"
+            or nodes[0].get("options", {}).get("audio_source") != "audio_file_v1" or edges != []):
+        raise ValueError("음성 원본 profile은 전사 에이전트 하나와 audio 입력을 사용합니다.")
     if not isinstance(nodes,list)or not 1<=len(nodes)<=24 or not isinstance(edges,list)or len(edges)>48:
         raise ValueError("에이전트 연결을 확인하세요.")
     ids=set();specs={n["id"]:n for n in catalog()["nodes"]}
@@ -83,7 +89,9 @@ def _shape(value):
             if required and not parents[node["id"]] and "transcript" in inputs:
                 required = 0
             if len(parents[node["id"]])!=required:raise ValueError("에이전트 사이의 작업 자료 연결을 확인하세요.")
-            if node["type"] == "transcription_agent" and (node.get("options", {}).get("audio_source") == "selected_audio") != ("audio" in inputs):
+            if node["type"] == "transcription_agent" and (
+                    (node.get("options", {}).get("audio_source") == "audio_file_v1") != audio_file
+                    or not audio_file and (node.get("options", {}).get("audio_source") == "selected_audio") != ("audio" in inputs)):
                 raise ValueError("재사용 음성 입력과 전사 목표의 음성 출처를 맞추세요.")
             if any(next(n for n in nodes if n["id"]==p)["type"]=="subtitle_video_agent"for p in parents[node["id"]]):
                 raise ValueError("완성 영상은 다음 번역 입력으로 연결할 수 없습니다.")
@@ -129,6 +137,8 @@ def render_definition(public, options):
 
 def selected_definition(public, options):
     """Resolve one explicit saved-copy goal; keep the existing render contract."""
+    if "audio_goal" in options:
+        return audio_definition(public, options)
     if "translation_goal" not in options:
         return render_definition(public, options)
     selected = options["translation_goal"]
@@ -163,6 +173,39 @@ def selected_definition(public, options):
     return result
 
 
+def audio_definition(public, options):
+    selected = options["audio_goal"]
+    if (any(k in options for k in ("saved_subtitle", "render_goal", "translation_goal", "accepted_inputs", "subtitle_srt", "transcript"))
+            or not isinstance(selected, dict) or set(selected) - {"node_id", "options", "model_ref"}
+            or not {"node_id", "options"} <= set(selected) or not isinstance(selected["options"], dict)
+            or set(selected["options"]) - {"source_language", "llm_options"}):
+        raise ValueError("음성 원본에 사용할 전사 에이전트 하나를 선택하세요.")
+    _shape(public)
+    matches = [n for n in public["nodes"] if n["id"] == selected["node_id"] and n["type"] == "transcription_agent"]
+    if len(matches) != 1 or not matches[0].get("model_ref"):
+        raise ValueError("등록 모델이 고정된 전사 에이전트를 선택하세요.")
+    node = deepcopy(matches[0])
+    source = compile_definition(public)
+    tools = {n["type"]: n for n in source["definition"]["nodes"] if source["owners"][n["id"]] == node["id"]}
+    candidates = [node["model_ref"], *node.get("fallback_refs", [])]
+    if "model_ref" in selected:
+        ref = valid_reference(selected["model_ref"])
+        if ref not in candidates:
+            raise ValueError("선택 에이전트에 고정된 모델 버전만 선택하세요.")
+        node.update(model_ref=ref, fallback_refs=[deepcopy(p) for p in candidates if p != ref])
+    prepare = deepcopy(tools["preprocess_audio"]["options"])
+    if prepare.get("vad_mode", "off") != "off":
+        raise ValueError("음성 원본에는 CPU 음성 준비 설정을 선택하세요.")
+    prepare.update(processing_profile="regions_long_v5", media_budget="audio_long_v5")
+    speech = {**deepcopy(tools["transcribe"]["options"]), "media_budget": "audio_long_v5",
+              "batch_policy": "bounded_60s_v1", "clock_policy": "packed_projection_v5"}
+    node.update(tool_settings={"preprocess_audio": prepare, "transcribe": speech},
+                options={**node.get("options", {}), **selected["options"], "audio_source": "audio_file_v1"})
+    result = {**deepcopy(public), "input_profile": "audio_file_v1", "inputs": {"audio": "audio"}, "nodes": [node], "edges": []}
+    compile_definition(result)
+    return result
+
+
 def compile_definition(public, *, input_language=None, preserve_input_cues=True):
     ordered,parents=_shape(public)
     nodes=[];edges=[];owners={};contexts={};output_contexts={};input_contexts={}
@@ -178,7 +221,7 @@ def compile_definition(public, *, input_language=None, preserve_input_cues=True)
                     for port, value in input_languages.items()}
             for port,source in inputs.items():
                 edges.append({"id":"tool_edge_"+str(len(edges)),"source":{"node":source[0],"port":source[1]},"target":{"node":tool["id"],"port":port}})
-        context=contexts[parents[node["id"]][0]]if parents[node["id"]]else {"video":("$input","video")}
+        context=contexts[parents[node["id"]][0]]if parents[node["id"]]else ({} if public.get("input_profile") == "audio_file_v1" else {"video":("$input","video")})
         if not parents[node["id"]]:
             if "audio" in public["inputs"]:
                 context["audio"] = ("$input", "audio")
@@ -191,10 +234,18 @@ def compile_definition(public, *, input_language=None, preserve_input_cues=True)
                     context["cue_policy"] = "preserve_v1"
         contexts[node["id"]]=agent.plan(deepcopy(context),add)
         output_contexts[node["id"]]={k:{"node":v[0],"port":v[1]}for k,v in agent.outputs(contexts[node["id"]]).items()}
-    definition=resolve_editor_contracts({"catalog_version":1,"revision":public["revision"],"name":public["name"],"inputs":{"video":"video", **public["inputs"]},"nodes":nodes,"edges":edges})
+    definition=resolve_editor_contracts({"catalog_version":1,"revision":public["revision"],"name":public["name"],"inputs":({} if public.get("input_profile") == "audio_file_v1" else {"video":"video"}) | public["inputs"],"nodes":nodes,"edges":edges})
     validation=validate_native(definition)
     if not validation["valid"]:
         raise ValueError("에이전트 내부 도구 설정이 맞지 않습니다: "+"; ".join(i["message"]for i in validation["issues"])[:600])
+    if public.get("input_profile") == "audio_file_v1":
+        prepare, speech = definition["nodes"]
+        if (prepare["options"].get("processing_profile") != "regions_long_v5"
+                or prepare["options"].get("vad_mode", "off") != "off"
+                or any(n["options"].get("media_budget") != "audio_long_v5" for n in (prepare, speech))
+                or speech["options"].get("clock_policy") != "packed_projection_v5"
+                or speech["options"].get("batch_policy") != "bounded_60s_v1"):
+            raise ValueError("음성 원본은 v5 CPU 정규화와 시간 정보 전사를 함께 사용합니다.")
     return {"definition":definition,"owners":owners,"outputs":output_contexts,
             "input_contexts": input_contexts, "agent_definition":deepcopy(public),
             **({"input_language": input_language or "auto"} if "transcript" in public["inputs"] else {})}

@@ -196,6 +196,21 @@ class NormalInputs:
         return bound, pin, rows
 
     def resolve(self, db, actor, asset, definition, options):
+        from video_service.audio_original import PROFILE, asset_media, policy
+        audio_media = asset_media(asset)
+        if definition.get("input_profile") == PROFILE:
+            if len(canonical(options)) > 20000:
+                raise ValueError("작업 입력 크기를 초과했습니다.")
+            if audio_media is None or any(k in options for k in ("accepted_inputs", "subtitle_srt", "transcript", "saved_subtitle")):
+                raise ValueError("등록이 검증된 음성 원본을 선택하세요. 완료 WAV 재사용과는 다른 입력입니다.")
+            reference = self.runtime.asset_reference(asset)
+            custodian = asset["owner_id"]
+            bound = {**reference, **({"source_owner_id": custodian} if custodian != actor else {})}
+            pin = {"kind": "audio_original", "asset_id": asset["id"], "reference": deepcopy(reference),
+                   "custodian_id": custodian, "content_sha256": reference["sha256"], "media": audio_media, "policy": policy()}
+            return {"references": {"audio": bound}, "bindings": {"audio": pin}, "segments": None, "language": None}
+        if audio_media is not None:
+            raise ValueError("음성 원본에는 음성 전용 전사 구성을 선택하세요.")
         declared = definition.get("inputs", {})
         if len(canonical(options)) > (MAX_INPUT_OPTIONS_BYTES if "transcript" in declared else 20000):
             raise ValueError("작업 입력 크기를 초과했습니다. 자막을 나눈 뒤 다시 선택하세요.")
@@ -264,5 +279,5 @@ class NormalInputs:
 
 
 def public_input_summary(bindings):
-    return [{"input": port, **{k: pin[k] for k in ("kind", "language", "segments", "job_id", "run_id", "port", "copy_id", "title", "filename", "source_sha256") if k in pin}}
+    return [{"input": port, **{k: pin[k] for k in ("kind", "language", "segments", "job_id", "run_id", "port", "copy_id", "title", "filename", "source_sha256", "asset_id") if k in pin}}
             for port, pin in bindings.items()]

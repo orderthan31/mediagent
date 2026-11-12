@@ -19,7 +19,7 @@ def catalog():
         options={k:deepcopy(v)for k,v in native["options"].items()if k in (
             ("source_language","llm_options") if role=="transcribe" else ("target_language","llm_options") if role=="translate" else ("resolution","quality_profile","video_codec"))}
         if role == "transcribe":
-            options["audio_source"] = ["video", "selected_audio"]
+            options["audio_source"] = ["video", "selected_audio", "audio_file_v1"]
         if issubclass(cls, SubtitleFileAgent):
             subtitle = spec("generate_subtitle", {})
             options.update(format=deepcopy(subtitle["options"]["format"]),

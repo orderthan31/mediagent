@@ -31,7 +31,7 @@ export const readSrtFile = async (file: Pick<File, 'name' | 'size' | 'arrayBuffe
 };
 
 export const normalInputReady = (
-  definition: Pick<CanvasDefinition, 'inputs' | 'catalog_version'> | null,
+  definition: Pick<CanvasDefinition, 'inputs' | 'catalog_version' | 'input_profile'> | null,
   value: NormalInputValue,
 ) => {
   if (definition?.catalog_version !== 2) {
@@ -40,12 +40,16 @@ export const normalInputReady = (
   return (
     (!definition.inputs.transcript ||
       Number(!!value.subtitle_srt) + Number(!!value.accepted_inputs?.transcript) === 1) &&
-    (!definition.inputs.audio || !!value.accepted_inputs?.audio) &&
+    (definition.input_profile === 'audio_file_v1' ||
+      !definition.inputs.audio ||
+      !!value.accepted_inputs?.audio) &&
     value.input_language !== ''
   );
 };
 
-export const setWorkflowInput = <T extends Pick<CanvasDefinition, 'inputs' | 'nodes'>>(
+export const setWorkflowInput = <
+  T extends Pick<CanvasDefinition, 'inputs' | 'nodes' | 'input_profile'>,
+>(
   definition: T,
   port: 'transcript' | 'audio',
   enabled: boolean,
@@ -58,6 +62,7 @@ export const setWorkflowInput = <T extends Pick<CanvasDefinition, 'inputs' | 'no
   }
   return {
     ...definition,
+    ...(port === 'audio' && definition.input_profile ? { input_profile: undefined } : {}),
     inputs,
     nodes: definition.nodes.map((node) =>
       port === 'audio' && node.type === 'transcription_agent'
@@ -97,3 +102,36 @@ export const withSrtInput = (value: NormalInputValue, text?: string): NormalInpu
   ...(text !== undefined ? { subtitle_srt: text } : {}),
   input_language: value.input_language ?? 'auto',
 });
+
+/** The source choice and public input declaration are one edit. */
+export const setAudioSource = <
+  T extends Pick<CanvasDefinition, 'inputs' | 'nodes' | 'input_profile'>,
+>(
+  definition: T,
+  nodeId: string,
+  value: string,
+): T => {
+  if (
+    value === 'audio_file_v1' &&
+    (definition.nodes.length !== 1 ||
+      definition.nodes[0].id !== nodeId ||
+      definition.nodes[0].type !== 'transcription_agent')
+  ) {
+    throw new Error('음성 원본 입력은 전사 에이전트 하나인 워크플로우에서 선택하세요.');
+  }
+  const { input_profile: _profile, ...base } = definition;
+  const inputs = { ...definition.inputs };
+  if (value === 'video') {
+    delete inputs.audio;
+  } else {
+    inputs.audio = 'audio';
+  }
+  return {
+    ...base,
+    ...(value === 'audio_file_v1' ? { input_profile: 'audio_file_v1' } : {}),
+    inputs,
+    nodes: definition.nodes.map((n) =>
+      n.id === nodeId ? { ...n, options: { ...n.options, audio_source: value } } : n,
+    ),
+  } as T;
+};

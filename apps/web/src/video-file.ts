@@ -8,3 +8,6 @@ export const isVideoFile = (file: Pick<File, 'name' | 'type'>): boolean => {
     )
   );
 };
+
+export const isOriginalFile = (file: Pick<File, 'name' | 'type'>): boolean =>
+  isVideoFile(file) || /\.(wav|mp3)$/i.test(file.name);

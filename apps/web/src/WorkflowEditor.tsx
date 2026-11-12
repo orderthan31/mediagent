@@ -6,7 +6,7 @@ import { jsonPost } from './video-api';
 import { resolvePorts } from './workflow-spec';
 import { savedGoalOption } from './goal-languages';
 import { languageLabel } from './language-label';
-import { setWorkflowInput } from './normal-inputs';
+import { setWorkflowInput, setAudioSource } from './normal-inputs';
 import { WorkflowCanvas, type CanvasDefinition, type CanvasSpec } from './WorkflowCanvas';
 import { Button } from './hangyeol/primitives/button';
 import { Input } from './hangyeol/primitives/input';
@@ -33,13 +33,22 @@ const draft = (): Definition => ({
   nodes: [],
   edges: [],
 });
-const payload = ({ catalog_version, revision, name, inputs, nodes, edges }: Definition) => ({
+const payload = ({
   catalog_version,
   revision,
   name,
   inputs,
   nodes,
   edges,
+  input_profile,
+}: Definition) => ({
+  catalog_version,
+  revision,
+  name,
+  inputs,
+  nodes,
+  edges,
+  ...(input_profile ? { input_profile } : {}),
 });
 export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
   const [doc, setDoc] = useState<Definition>(draft);
@@ -245,7 +254,17 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
                 )
                 .map(([key, values]) => {
                   const selectedValue = savedGoalOption(node, spec, key, values[0]);
-                  const update = (value: string) =>
+                  const update = (value: string) => {
+                    if (key === 'audio_source') {
+                      try {
+                        change(setAudioSource(doc, node.id, value));
+                      } catch (reason) {
+                        setError(
+                          reason instanceof Error ? reason.message : '음성 출처를 확인하세요.',
+                        );
+                      }
+                      return;
+                    }
                     change({
                       ...doc,
                       nodes: doc.nodes.map((item) =>
@@ -254,6 +273,7 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
                           : item,
                       ),
                     });
+                  };
                   const free =
                     (key === 'target_language' && node.type === 'translation_agent') ||
                     (values.length === 1 && (isControlNode(node.type) || values[0] === ''));
@@ -361,6 +381,7 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
                                       soft: '소프트 자막',
                                       srt_smi: 'SRT + SAMI',
                                       video: '선택 영상에서 새로 추출',
+                                      audio_file_v1: '음성 원본 파일',
                                       selected_audio: '같은 영상의 완료된 추출 WAV 재사용',
                                     } as Record<string, string>
                                   )[value] ||

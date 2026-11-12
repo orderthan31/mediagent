@@ -42,6 +42,8 @@ def public_upload(row):
 
 
 def public_asset(row):
+    from ..audio_original import asset_media
+    audio = asset_media(row)
     legacy = row["metadata"].get("legacy_origin")
     large_policy = None
     if row["bytes"] > MAX_CONTENT:
@@ -64,7 +66,7 @@ def public_asset(row):
             )
         except ValueError:
             pass
-    return {
+    value = {
         **(
             {
                 "processing_roles": [
@@ -100,6 +102,11 @@ def public_asset(row):
             else "declaration"
         },
     }
+    if audio:
+        value.update(media_kind='audio', media_type=row['metadata']['media_type'],
+                     processing_roles=['preprocess_audio', 'transcribe'], audio_original_policy=row['metadata']['audio_original_policy'])
+        value.pop('web_preview', None)
+    return value
 
 
 class Intake:
@@ -132,11 +139,12 @@ class Intake:
             or row["storage_key"] != "sha256:" + row["sha256"]
         ):
             raise ValueError("실제 콘텐츠 검증이 끝난 원본이 필요합니다.")
+        from ..audio_original import asset_media
         return {
             "storage_key": "blobs/" + row["sha256"],
             "sha256": row["sha256"],
             "bytes": row["bytes"],
-            "type": "video",
+            "type": "audio" if asset_media(row) else "video",
         }
 
     def asset(self, owner, identity):
@@ -179,6 +187,9 @@ class Intake:
     def thumbnail_path(self, owner, identity):
         with self.database.connection() as db:
             row = self._shared_asset(db, identity)
+            from ..audio_original import asset_media
+            if asset_media(row):
+                raise Missing("음성 원본에는 영상 썸네일이 없습니다.")
             reference = row["metadata"].get("thumbnail")
             if reference is None and getattr(self, "full_previews_enabled", False):
                 from .video_previews import VideoPreviews
@@ -196,6 +207,9 @@ class Intake:
     def web_preview_path(self, owner, identity):
         with self.database.connection() as db:
             row = self._shared_asset(db, identity)
+            from ..audio_original import asset_media
+            if asset_media(row):
+                raise Missing("음성 원본은 원본 받기를 사용하세요.")
             state = row["metadata"].get("web_preview", {})
         if (
             state.get("status") != "ready"
@@ -437,30 +451,32 @@ class Intake:
                 raise ValueError("원본 조립 크기가 선언한 크기와 다릅니다.")
             # put verified the full remote SHA; reuse that local immutable CAS file.
             source = ContentStore.path(self.store, owner, reference)
-            media = probe(source)
+            from mideagent_media_tools.operations import probe_original
+            media = probe_original(source)
             thumbnail = None
-            try:
-                with tempfile.TemporaryDirectory(prefix="mideagent-thumb-") as work:
-                    target = Path(work) / "thumbnail.jpg"
-                    process(
-                        [
-                            *ffmpeg(),
-                            "-i",
-                            str(source),
-                            "-frames:v",
-                            "1",
-                            "-vf",
-                            "scale=480:-2",
-                            "-threads",
-                            "1",
-                            str(target),
-                        ],
-                        timeout=10,
-                    )
-                    thumbnail = self.store.put(owner, [target.read_bytes()], "image")
-            except (ValueError, OSError, TimeoutError):
-                # A derivative failure must not discard a verified valid original.
-                thumbnail = None
+            if media.get('kind') != 'audio':
+                try:
+                    with tempfile.TemporaryDirectory(prefix="mideagent-thumb-") as work:
+                        target = Path(work) / "thumbnail.jpg"
+                        process(
+                            [
+                                *ffmpeg(),
+                                "-i",
+                                str(source),
+                                "-frames:v",
+                                "1",
+                                "-vf",
+                                "scale=480:-2",
+                                "-threads",
+                                "1",
+                                str(target),
+                            ],
+                            timeout=10,
+                        )
+                        thumbnail = self.store.put(owner, [target.read_bytes()], "image")
+                except (ValueError, OSError, TimeoutError):
+                    # A derivative failure must not discard a verified valid original.
+                    thumbnail = None
             metadata = {
                 "registration_state": "verified",
                 "media": media,
@@ -472,6 +488,11 @@ class Intake:
                     "reason": "original_registered_independently",
                 },
             }
+            if media.get('kind') == 'audio':
+                from ..audio_original import policy
+                metadata.update(media_type={'wav': 'audio/wav', 'mp3': 'audio/mpeg'}[media['format']], audio_original_policy=policy())
+                metadata.pop('thumbnail', None)
+                metadata.pop('web_preview', None)
             with guard.transaction():
                 guard.execute("SET LOCAL statement_timeout='15s'")
                 guard.execute("SET LOCAL lock_timeout='5s'")
@@ -512,7 +533,7 @@ class Intake:
                     ),
                 )
                 # The unactivated020 hook is opt-in; normal original registration never needs it.
-                if getattr(self, "full_previews_enabled", False):
+                if media.get('kind') != 'audio' and getattr(self, "full_previews_enabled", False):
                     from .video_previews import VideoPreviews
 
                     previews = VideoPreviews(self)
@@ -730,6 +751,8 @@ class Intake:
             k: old[k]
             for k in ("catalog_version", "revision", "name", "inputs", "nodes", "edges")
         }
+        if "input_profile" in old:
+            payload["input_profile"] = old["input_profile"]
         payload["revision"] = revision
         from mideagent_orchestrator.workflow import upgrade_legacy
         payload = upgrade_legacy(payload)

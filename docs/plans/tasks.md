@@ -626,3 +626,13 @@ PM1562998217422147606의 b676 검토에서 기존 engine wire2(3필드 agent)를
 - [x] 실제 인증 GET/PATCH `/api/queue`와 기존 admit/run/controller·결과 수신, 기존 API lifespan wakeup에 연결했다. 별도 daemon이 떠 있다는 가정이나 UI의 자동 Run 반복에 의존하지 않는다. GET은 정책·metadata만 읽고 기존 전달 관측 패널을 유지한다. strict body/CSRF/origin/no-store/maintenance 경계를 유지한다.
 - [x] 실제 renewal 실행 관리에 pause·resume·맨 앞으로/위로/아래로 이동을 연결했다. 409·응답 유실 뒤 GET으로 확인하고 PATCH를 자동 재전송하지 않는다. 조회 실패·이전 revision·미확인은 빈 대기열로 표시하지 않는다. PC1440/390px의 실제 React/production CSS 오프라인 응답 fixture와 source domain/route/첫 예약·저장 adapter 합성 검사를 수행했다. 자막 수정본8a의 기존 검사·다운로드·실제 저장 검증은 반복하지 않았다.
 - [ ] 부모의 독립 원문 대조·코드 검토와 원래 principal의 실제 PG/S3·저장 권한·예약 직렬화·pause/resume/order·정상 자원 준비·PC/390px 제품 수용은 별도다. 합성 검사를 실제 admission 성공으로 부르지 않는다. 기존 #20/21/30/31/32/33·원본·키/모델/이력·응답 불명 시도는 운영에서 접근하거나 변경하지 않았다. 설치·운영·provider/GPU·commit/push/deploy는 부모 범위다.
+
+
+### 2026-11-13 임의 음성 원본 → 전사만 준비 — 소스 완료, 운영 미검증
+
+- [x] 기존 원본 완료 경로에 실제 WAV(PCM16)·MP3 분류와 검증된 음성 asset 참조를 연결했다. 실제 SHA·바이트·길이·형식·샘플레이트·채널과 custodian을 보존하고 음성의 영상 썸네일/미리보기 생성을 건너뛴다. 기존 업로드 취소·prefix·offset·최종 해시·멱등 경계를 유지한다.
+- [x] 새 명시적 음성 입력 프로필과 저장된 실제 ASR 목표 선택을 공통 준비 경로에 연결했다. 실제 asset/workflow FK, source owner, 모델 primary/fallback·버전·옵션·호출 예산을 고정한다. 단일 전사 에이전트의 preprocess_audio → transcribe와 같은 producer의 audio/timeline만 사용한다. 기존 영상·완료 WAV 재사용과 과거 absent-profile 해석은 유지한다.
+- [x] 실제 Create·_plan·preflight·claim·모델 역할 serializer를 fake DB/registry/queue와 임시 CAS로 검사했다. 원본 압축 입력에 한정된 검증과 후속 strict PCM/clock 검증을 분리했다. 합성 WAV/MP3의 로컬 probe·정규화는 수행했지만 제품/native/provider 작업은 실행하지 않았다.
+- [x] 원본 파일 선택·상세·기존 공통 준비 화면·편집기 저장 payload를 연결했다. PC1440/390px의 실제 React/AuthGate/production CSS 오프라인 응답 fixture에서 이어보내기 요청 계약, 재열기, 모델/언어 선택, stale/403/불완전 입력, 명시적 합성 Create 응답 불명 후 자동 재전송 차단과 모바일 카드/도구 좌표를 검사했다.
+- [x] 새 범위 backend 30건, frontend unit 3건 + offline browser 1건 통과. 변경 파일 lint/format, TypeScript, VITE_RENEWAL_BACKEND=1 빌드, Python compile-only와 CR-at-EOL diff 검사 통과. 기존 MT/SMI/GB/queue/persistence의 수용 검사·전체 suite는 반복하지 않았다.
+- [ ] 부모의 독립 검토·기존 개발 패키징/설치와 실제 PC390 입력 준비 수용은 별도다. 실제 PG/S3 권한·음성 PUT·native 스케줄링/정규화·Start·ASR/provider·결과 다운로드는 검증하지 않았다. writer는 운영 접근·원본/작업/키/모델 변경·commit/push/deploy를 하지 않았다.

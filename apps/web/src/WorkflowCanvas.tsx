@@ -35,6 +35,7 @@ export type CanvasDefinition = {
   name: string;
   revision: number;
   catalog_version?: number;
+  input_profile?: 'audio_file_v1';
   inputs: Record<string, string>;
   nodes: {
     id: string;

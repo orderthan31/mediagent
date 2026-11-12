@@ -33,6 +33,7 @@ class Definition(Body):
     inputs: dict
     nodes: list = Field(max_length=100)
     edges: list = Field(max_length=300)
+    input_profile: Literal["audio_file_v1"] | None = None
 
 
 class SourceRevision(Body):
@@ -312,7 +313,7 @@ def mount_runtime(
     def validation(body: Definition, owned=admin_dependency):
         from mideagent_orchestrator.workflow import upgrade_legacy
         try:
-            return validate(upgrade_legacy(body.model_dump()))
+            return validate(upgrade_legacy(body.model_dump(exclude_none=True)))
         except ValueError as exc:
             return {"valid":False,"executable":False,"issues":[{"node_id":None,"edge_id":None,"message":str(exc)}]}
 
@@ -323,7 +324,7 @@ def mount_runtime(
     @app.put("/api/settings/workflow-definitions/{identity}")
     def save_definition(identity: str, body: Definition, owned=admin_dependency):
         from mideagent_orchestrator.workflow import upgrade_legacy
-        return runtime.save_definition(owned, identity, upgrade_legacy(body.model_dump()))
+        return runtime.save_definition(owned, identity, upgrade_legacy(body.model_dump(exclude_none=True)))
 
     @app.get("/api/settings/workflow-definitions/{identity}/versions")
     def versions(identity: str, owned=admin_dependency):
@@ -388,6 +389,7 @@ def mount_runtime(
                 if source["content_verified"]
                 else "unverified",
                 "media": source.get("media"),
+                **({"audio_original_policy": source["audio_original_policy"], "media_type": source["media_type"]} if source.get("media_kind") == "audio" else {}),
             },
         }
         from mideagent_orchestrator.workflow import compile_definition, selected_definition
@@ -400,18 +402,7 @@ def mount_runtime(
         from video_service.long_audio_budget import bounded_vocalization_policy
 
         vocal_policy = bounded_vocalization_policy(original_asset, execution_definition)
-        cpu_policy = source_policy(
-            {
-                "bytes": source["size_bytes"],
-                "metadata": {
-                    "registration_state": "verified"
-                    if source["content_verified"]
-                    else "unverified",
-                    "media": source.get("media"),
-                },
-            },
-            execution_definition,
-        )
+        cpu_policy = source_policy(original_asset, execution_definition)
         if cpu_policy and broker_factory is None:
             raise Conflict(
                 "Large CPU video requires the independent broker execution path"
@@ -423,10 +414,13 @@ def mount_runtime(
                 original_row["owner_id"], runtime.asset_reference(original_row)
             )
         else:
-            runtime.asset_path(owned, selection.asset_id)
+            source_path = runtime.asset_path(owned, selection.asset_id)
+            if definition.get("input_profile") == "audio_file_v1":
+                from video_service.audio_original import verify_path
+                verify_path(source_path, source["media"], source["size_bytes"])
         inspection = runtime.inspect(
             owned, selection.definition_id, selection.definition_revision,
-            **({"options": selection.options} if any(k in selection.options for k in ("render_goal", "translation_goal")) else {})
+            **({"options": selection.options} if any(k in selection.options for k in ("render_goal", "translation_goal", "audio_goal")) else {})
         )
         if not local_execution or not inspection["supported"]:
             raise Conflict(
@@ -437,7 +431,7 @@ def mount_runtime(
                 {
                     "source": source,
                     "definition": definition,
-                    **({"source_definition_sha256": source_definition_sha} if any(k in selection.options for k in ("render_goal", "translation_goal")) else {}),
+                    **({"source_definition_sha256": source_definition_sha} if any(k in selection.options for k in ("render_goal", "translation_goal", "audio_goal")) else {}),
                     "selection": selection.model_dump(),
                     **({"normal_inputs": normal_inputs["bindings"]} if normal_inputs and normal_inputs["bindings"] else {}),
                     **({"cpu_input_policy": cpu_policy} if cpu_policy else {}),
@@ -446,7 +440,7 @@ def mount_runtime(
             **({"input_bindings_sha256": digest(normal_inputs["bindings"]),
                 "selected_inputs": public_input_summary(normal_inputs["bindings"])}
                if normal_inputs and normal_inputs["bindings"] else {}),
-            "paid_roles": inspection["paid_roles"] if "translation_goal" in selection.options else [
+            "paid_roles": inspection["paid_roles"] if definition.get("input_profile") == "audio_file_v1" or any(k in selection.options for k in ("translation_goal", "audio_goal")) else [
                 role
                 for stage, role in [
                     ("translate", "translation"),

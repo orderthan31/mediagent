@@ -1,5 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, FileVideo, FolderOpen, Plus, Search, Trash2, Upload, X } from 'lucide-react';
+import {
+  ArrowLeft,
+  FileAudio,
+  FileVideo,
+  FolderOpen,
+  Plus,
+  Search,
+  Trash2,
+  Upload,
+  X,
+} from 'lucide-react';
 import { ApiError, mediaUrl, Job, request, resumeUpload, uploadRequest } from './api';
 import { assertOriginalUploadSize, finishOriginalUpload } from './original-upload';
 import { PageTitle } from './PageTitle';
@@ -26,7 +36,7 @@ import { WorkflowTickets } from './WorkflowTickets';
 import { ExecutionPopover } from './ExecutionPopover';
 import { SubtitleEditor } from './SubtitleEditor';
 import { UploadItem, UploadQueue } from './upload-queue';
-import { isVideoFile } from './video-file';
+import { isOriginalFile } from './video-file';
 import { WorkflowDialog } from './WorkflowDialog';
 import { FaceSwapDialog } from './FaceSwapDialog';
 import {
@@ -140,6 +150,9 @@ export const VideoWorkspace = () => {
   const savedSubtitleListView = renewalBackend && route === '#/subtitles/saved';
   const directSubtitleView = renewalBackend && (route === '#/subtitles' || !!savedSubtitleId);
   const settingsView = route === '#/settings' || (renewalBackend && route === '#/settings/storage');
+  const audioAssetId = renewalBackend
+    ? route.match(/^#\/start\/audio\/([a-f0-9]{32})$/)?.[1]
+    : undefined;
   const startView = route === '#/start';
   const renderCopyId = renewalBackend
     ? route.match(/^#\/start\/subtitles\/([a-f0-9]{32})(?:\/translate)?$/)?.[1]
@@ -227,7 +240,7 @@ export const VideoWorkspace = () => {
     }
     setError('');
     for (const file of selected) {
-      if (!isVideoFile(file)) {
+      if (!isOriginalFile(file)) {
         rejected.push(file.name);
         continue;
       }
@@ -239,7 +252,7 @@ export const VideoWorkspace = () => {
       queue.add(file, {});
     }
     if (rejected.length) {
-      setError(`영상 파일만 업로드할 수 있습니다: ${rejected.join(', ')}`);
+      setError(`영상 또는 WAV·MP3 파일을 선택하세요: ${rejected.join(', ')}`);
     }
   };
   const chooseResume = (id: string, legacy = false) => {
@@ -551,6 +564,8 @@ export const VideoWorkspace = () => {
             copyId={renderCopyId}
             mode={route.endsWith('/translate') ? 'translation' : 'render'}
           />
+        ) : audioAssetId ? (
+          <SavedSubtitleRender key={route} mode="audio" audioAssetId={audioAssetId} />
         ) : startView ? (
           <WorkflowStart />
         ) : workflowTicketsView ? (
@@ -681,14 +696,20 @@ export const VideoWorkspace = () => {
                         <StorageAssetRow
                           key={v.asset_id}
                           video={v}
-                          thumbnail={<Thumbnail assetId={v.asset_id} />}
+                          thumbnail={
+                            v.media_kind === 'audio' ? (
+                              <FileAudio aria-label="음성 원본" />
+                            ) : (
+                              <Thumbnail assetId={v.asset_id} />
+                            )
+                          }
                         />
                       ))}
                       {!shownVideos.length && online && (
                         <EmptyState
                           className="storage-empty"
                           illustration={<FolderOpen size={32} aria-hidden="true" />}
-                          heading={query ? '검색 결과가 없습니다.' : '등록된 원본 영상이 없습니다.'}
+                          heading={query ? '검색 결과가 없습니다.' : '등록된 원본이 없습니다.'}
                         />
                       )}
                     </div>

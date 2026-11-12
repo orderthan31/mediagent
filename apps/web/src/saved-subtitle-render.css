@@ -22,3 +22,14 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+@media (max-width: 640px) {
+  .saved-subtitle-render .workflow-graph .workflow-layout-actions {
+    flex-wrap: nowrap;
+    gap: 2px;
+    padding: 2px;
+    left: 8px;
+    bottom: 8px;
+    max-width: calc(100% - 16px);
+  }
+}

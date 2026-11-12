@@ -71,6 +71,9 @@ def policy():
 
 
 def selected(asset, definition):
+    from .audio_original import asset_media
+    if asset_media(asset) is not None:
+        return False
     nodes = definition.get("nodes", [])
     if any(n.get("options", {}).get("media_budget") == ID for n in nodes):
         return True

@@ -28,10 +28,12 @@ export const StorageAssetRow = ({
           ? '결과에서 등록'
           : video.provenance.kind === 'preserved_legacy'
             ? '원본'
-            : '원본'}
+            : video.media_kind === 'audio'
+              ? '음성 원본'
+              : '원본'}
       </Badge>
       <h2 className="ui02-list-title">{video.original_filename}</h2>
-      <ul className="storage-metadata" aria-label="영상 정보">
+      <ul className="storage-metadata" aria-label="원본 정보">
         <li>{videoDuration(video)}</li>
         <li>{sizeLabel(video.size_bytes)}</li>
         <li>
@@ -42,37 +44,42 @@ export const StorageAssetRow = ({
       </ul>
     </div>
     <span className="storage-open">
-      영상 열기 <ArrowRight size={17} aria-hidden="true" />
+      {video.media_kind === 'audio' ? '음성 열기' : '영상 열기'}{' '}
+      <ArrowRight size={17} aria-hidden="true" />
     </span>
   </a>
 );
 
 export const StorageVideoInfo = ({ video, assetId }: { video: VideoAsset; assetId: string }) => (
-  <section className="storage-video-info" aria-label="원본 영상 정보">
+  <section className="storage-video-info" aria-label="원본 정보">
     <div className="storage-preview">
-      {video.web_preview && video.web_preview.status !== 'ready' ? (
-        !renewalBackend ? (
-          <p role="status">미리보기를 준비하고 있습니다.</p>
-        ) : null
-      ) : (
-        <video
-          controls
-          playsInline
-          preload="none"
-          poster={mediaUrl(`/videos/${assetId}/thumbnail`)}
-          src={mediaUrl(`/videos/${assetId}/stream`)}
-        />
-      )}
+      {video.media_kind !== 'audio' &&
+        (video.web_preview && video.web_preview.status !== 'ready' ? (
+          !renewalBackend ? (
+            <p role="status">미리보기를 준비하고 있습니다.</p>
+          ) : null
+        ) : (
+          <video
+            controls
+            playsInline
+            preload="none"
+            poster={mediaUrl(`/videos/${assetId}/thumbnail`)}
+            src={mediaUrl(`/videos/${assetId}/stream`)}
+          />
+        ))}
       {video.web_preview?.excerpt_seconds && (
         <p role="note">
           미리보기는 앞부분 {video.web_preview.excerpt_seconds}초입니다. 전체 영상은 원본 받기를
           사용하세요.
         </p>
       )}
-      {renewalBackend && <FullVideoPreview resource={`/videos/${assetId}/preview/full`} />}
+      {renewalBackend && video.media_kind !== 'audio' && (
+        <FullVideoPreview resource={`/videos/${assetId}/preview/full`} />
+      )}
     </div>
     <div className="storage-info">
-      <h2>영상 정보</h2>
+      <h2>{video.media_kind === 'audio' ? '음성 정보' : '영상 정보'}</h2>
+      {video.media_kind === 'audio' && <a href={`#/start/audio/${assetId}`}>음성 전사 준비</a>}
       <dl>
         <div>
           <dt>원본 업로더</dt>
@@ -87,11 +94,13 @@ export const StorageVideoInfo = ({ video, assetId }: { video: VideoAsset; assetI
           <dd>{sizeLabel(video.size_bytes)}</dd>
         </div>
         <div>
-          <dt>해상도</dt>
+          <dt>{video.media_kind === 'audio' ? '음성 형식' : '해상도'}</dt>
           <dd>
-            {video.media && video.media.width > 0 && video.media.height > 0
-              ? `${video.media.width} × ${video.media.height}`
-              : '미확인'}
+            {video.media_kind === 'audio'
+              ? `${video.media?.codec} ? ${video.media?.sample_rate}Hz ? ${video.media?.channels}??`
+              : video.media && (video.media.width || 0) > 0 && (video.media.height || 0) > 0
+                ? `${video.media.width} × ${video.media.height}`
+                : '미확인'}
           </dd>
         </div>
         <div>
@@ -116,12 +125,12 @@ export const StorageVideoInfo = ({ video, assetId }: { video: VideoAsset; assetI
           </dd>
         </div>
       </dl>
-      {video.web_preview && (
-        <nav className="storage-downloads" aria-label="영상 다운로드">
+      {(video.web_preview || video.media_kind === 'audio') && (
+        <nav className="storage-downloads" aria-label="원본 다운로드">
           <a href={mediaUrl(`/videos/${assetId}/download`)} download>
             원본 받기
           </a>
-          {video.web_preview.status === 'ready' && (
+          {video.web_preview?.status === 'ready' && (
             <a href={mediaUrl(`/videos/${assetId}/stream?download=true`)} download>
               WebM 받기
             </a>

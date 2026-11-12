@@ -275,6 +275,7 @@ export const WorkflowStart = () => {
     if (
       !assetId ||
       definition?.catalog_version !== 2 ||
+      definition.input_profile === 'audio_file_v1' ||
       (!definition.inputs.transcript && !definition.inputs.audio)
     ) {
       setInputChoices([]);
@@ -392,6 +393,7 @@ export const WorkflowStart = () => {
               </>
             )}
             {definition?.catalog_version === 2 &&
+              definition.input_profile !== 'audio_file_v1' &&
               (definition.inputs.transcript || definition.inputs.audio) && (
                 <WorkflowInputs
                   key={`${assetId}:${definition.id}:${definition.revision}`}
@@ -470,6 +472,9 @@ export const WorkflowStart = () => {
                 )}
               </div>
             </label>
+            {asset?.media_kind === 'audio' && (
+              <a href={`#/start/audio/${assetId}`}>음성 전사 준비</a>
+            )}
             <label className="form-row">
               <span>워크플로우</span>
               <div>
@@ -528,7 +533,11 @@ export const WorkflowStart = () => {
                 definition={definition}
                 catalog={catalog}
                 inputLabel={asset?.original_filename || '입력 미디어 선택 전'}
-                inputThumbnail={asset ? mediaUrl(`/videos/${asset.asset_id}/thumbnail`) : undefined}
+                inputThumbnail={
+                  asset && asset.media_kind !== 'audio'
+                    ? mediaUrl(`/videos/${asset.asset_id}/thumbnail`)
+                    : undefined
+                }
                 onSelect={setSelected}
                 detailsLabel="선택한 노드 정보"
                 details={

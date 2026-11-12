@@ -212,6 +212,21 @@ def probe(path):
     }
 
 
+def probe_original(path):
+    """Classify bytes for new registration; old video probe stays unchanged."""
+    raw = process(['ffprobe', '-v', 'error', '-protocol_whitelist', 'file,pipe',
+                   '-format_whitelist', 'mov,matroska,webm,wav,mp3,ogg', '-show_entries',
+                   'format=format_name,duration:stream=codec_type,codec_name,sample_rate,channels:stream_disposition=attached_pic',
+                   '-of', 'json', str(path)], timeout=10)
+    if len(raw) > 65536:
+        raise ValueError('Original stream metadata exceeds bound')
+    info = json.loads(raw)
+    if any(s.get('codec_type') == 'video' and not s.get('disposition', {}).get('attached_pic') for s in info.get('streams', [])):
+        return probe(path)
+    from video_service.audio_original import classify
+    return classify(info, Path(path).stat().st_size)
+
+
 def ffmpeg():
     return [
         "ffmpeg",

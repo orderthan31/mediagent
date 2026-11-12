@@ -558,10 +558,12 @@ class Execution(Intake):
             value["summary"]=[{**indexed[CLASSES[n["type"]](n).publication()],
                 "id":n["id"],"type":n["type"],"options":goal_options(n),
                 "runtime_roles":registration(n["type"],node=n)["runtime_roles"]}for n in public_definition["nodes"]]
-        if (options or {}).get("translation_goal") is not None:
-            value["paid_roles"] = ["translation"] if self.translation_runtime and any(
-                self.translation_runtime.requires_paid([pin, *pin.get("fallbacks", [])]) for pin in models.values()) else []
-        if any(key in (options or {}) for key in ("render_goal", "translation_goal")):
+        if public_definition.get("input_profile") == "audio_file_v1" or any(key in (options or {}) for key in ("translation_goal", "audio_goal")):
+            role = "transcription" if public_definition.get("input_profile") == "audio_file_v1" else "translation"
+            executor = getattr(self, role + "_runtime")
+            value["paid_roles"] = [role] if executor and any(
+                executor.requires_paid([pin, *pin.get("fallbacks", [])]) for pin in models.values()) else []
+        if any(key in (options or {}) for key in ("render_goal", "translation_goal", "audio_goal")):
             value["agent_definition"] = public_definition
         return value
 
@@ -624,7 +626,7 @@ class Execution(Intake):
             "video_description",
             "branch_choices",
             "transcript",
-            "subtitle_srt", "input_language", "accepted_inputs", "saved_subtitle", "render_goal", "translation_goal",
+            "subtitle_srt", "input_language", "accepted_inputs", "saved_subtitle", "render_goal", "translation_goal", "audio_goal",
         }:
             raise ValueError("작업 옵션 오류")
         from video_service.timed_subtitles import MAX_INPUT_OPTIONS_BYTES
@@ -712,15 +714,20 @@ class Execution(Intake):
             if cpu_policy and getattr(self.store, "storage_kind", None) != "s3":
                 raise ValueError("Large CPU input requires independent S3 transport")
             reference = self.asset_reference(asset)
+            if reference["type"] == "audio" and (not agent_plan or agent_plan["agent_definition"].get("input_profile") != "audio_file_v1"):
+                raise ValueError("음성 원본에는 음성 전용 전사 구성이 필요합니다.")
             if asset["owner_id"] != owner:
                 reference = {**reference, "source_owner_id": asset["owner_id"]}
             if cpu_policy and cpu_policy.get("id") == "original_video_v6":
                 self.store.verify_descriptor(owner, reference)
             else:
-                self.store.path(owner, reference)
+                source_path = self.store.path(owner, reference)
+                if reference["type"] == "audio":
+                    from video_service.audio_original import verify_path
+                    verify_path(source_path, asset["metadata"]["media"], reference["bytes"])
             bindings = self._bindings(db, workflow_owner, definition, active=False, sdk=True)
             engine_bindings = self._engine_bindings(db, definition)
-            input_refs = {"video": reference}
+            input_refs = {"audio" if reference["type"] == "audio" else "video": reference}
             if normal_inputs and normal_inputs["bindings"]:
                 from .normal_inputs import NormalInputs
                 input_refs.update(NormalInputs(self).materialize(owner, normal_inputs))
@@ -773,6 +780,10 @@ class Execution(Intake):
                 "artifact_layout": 1,
                 "asset": snapshot_asset,
                 "inputs": input_refs,
+                **({"audio_origin_policy": {"version": 1, "asset_id": asset["id"], "custodian_id": asset["owner_id"],
+                    "reference": input_refs["audio"], "media": asset["metadata"]["media"]}} if reference["type"] == "audio" else {}),
+                **({"audio_selection": {"version": 1, "node_id": options["audio_goal"]["node_id"],
+                    "source_definition_sha256": original_definition_sha}} if "audio_goal" in options else {}),
                 **({"render_selection": {"version": 1, "node_id": options["render_goal"]["node_id"],
                     "source_definition_sha256": original_definition_sha}} if "render_goal" in options else {}),
                 **({"translation_selection": {"version": 1, "node_id": options["translation_goal"]["node_id"],
@@ -856,6 +867,9 @@ class Execution(Intake):
             ):
                 return None
             references = list(job["snapshot"]["inputs"].values())
+            from video_service.audio_original import frozen_origin
+            origin = frozen_origin(job["snapshot"])
+            original_indexes = {i for i, ref in enumerate(references) if origin and ref == origin['reference']}
             if command is not None:
                 run = db.execute(
                     "SELECT request_sha256,inputs FROM node_runs WHERE owner_id=%s AND job_id=%s AND id=%s",
@@ -864,6 +878,7 @@ class Execution(Intake):
                 if not run or run["request_sha256"] != digest(command):
                     raise Conflict("Unknown frozen CPU input request")
                 references = list(run["inputs"].values())
+                original_indexes = {i for i, ref in enumerate(references) if origin and command['agent']['id'] == 'preprocess_audio' and ref == origin['reference']}
             else:
                 for run in self._runs(db, owner, identity):
                     if run["status"] == "completed":
@@ -872,8 +887,12 @@ class Execution(Intake):
                         )
             snapshot_sha = job["snapshot_sha256"]
         audio_contracts = {}
-        for ref in references:
-            self.store.path(owner, ref)
+        for index, ref in enumerate(references):
+            path = self.store.path(owner, ref)
+            if index in original_indexes:
+                from video_service.audio_original import verify_path
+                verify_path(path, origin['media'], ref['bytes'])
+                continue
             if job["snapshot"].get("audio_pipeline_policy") and ref["type"] == "audio":
                 from video_service.postgres.audio_region_reviews import contract_for
 
@@ -944,8 +963,12 @@ class Execution(Intake):
 
             # Validate the frozen public/native declarations, not the set of
             # stored refs: undeclared video may still be retained for lineage.
+            audio_file = agent_definition.get("input_profile") == "audio_file_v1"
+            from video_service.audio_original import frozen_origin
+            if audio_file and frozen_origin(job["snapshot"]) is None:
+                reasons.append("고정 음성 원본 입력이 필요합니다.")
             if (not validate(agent_definition)["valid"] or not validate(definition)["valid"]
-                    or definition["inputs"] != {"video": "video", **agent_definition["inputs"]}):
+                    or definition["inputs"] != (({} if audio_file else {"video": "video"}) | agent_definition["inputs"])):
                 reasons.append("고정 에이전트의 입력 선언과 실행 정의를 확인하세요.")
             else:
                 for port, kind in definition["inputs"].items():
