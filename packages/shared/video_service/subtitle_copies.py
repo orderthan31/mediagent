@@ -34,7 +34,7 @@ def label(value, *, filename=False):
     return value
 
 
-def validate_srt(text):
+def validate_srt(text, *, include_segments=False):
     if not isinstance(text, str):
         raise ValueError('SRT 문구가 필요합니다.')
     try:
@@ -57,6 +57,7 @@ def validate_srt(text):
         h, m, s, ms = map(int, re.split('[:,]', value))
         return ((h * 60 + m) * 60 + s) * 1000 + ms
 
+    rows = []
     while index < len(lines):
         candidate = lines[index]
         if re.fullmatch('[ \t]*', candidate) and not (
@@ -79,12 +80,23 @@ def validate_srt(text):
             index += 1
         if index == first or not '\n'.join(lines[first:index]).strip():
             raise ValueError('자막 문구가 필요합니다.')
+        if include_segments:
+            # Preserve literal IDs; native TranscriptSegment also accepts integer
+            # IDs when a canonical numeric producer ID exceeds its string bound.
+            cue_id = candidate
+            if len(candidate) > 128:
+                try:
+                    cue_id = int(candidate)
+                except ValueError:
+                    raise ValueError('자막 번호가 영상 입력 한도를 초과합니다.') from None
+            rows.append({'id': cue_id, 'start': time(match[1]) / 1000,
+                         'end': time(match[2]) / 1000, 'text': '\n'.join(lines[first:index])})
         ids.add(candidate)
         if len(ids) > 10000:
             raise ValueError('자막은 10000개 이내여야 합니다.')
     if not ids:
         raise ValueError('시각과 문구가 있는 SRT 파일이 필요합니다.')
-    return raw, len(ids)
+    return (raw, rows) if include_segments else (raw, len(ids))
 
 
 def encode_receipt(receipt):
@@ -166,16 +178,23 @@ class SubtitleCopies:
         return public(stored)
 
     def get(self, id):
+        receipt, text = self.source(id)
+        return {**public(receipt), 'srt': text, 'srt_sha256': receipt['reference']['sha256']}
+
+    def source(self, id):
+        """Internal immutable source with its real custodian; no write on reads."""
         receipt = decode_receipt(self.store.read_subtitle_copy(identity(id)), id)
         raw = self.store.read(receipt['actor_id'], receipt['reference'], limit=MAX_SRT)
         try:
             text = raw.decode('utf8')
         except UnicodeError:
             raise ValueError('Invalid saved UTF-8 subtitle') from None
+        if hashlib.sha256(raw).hexdigest() != receipt['reference']['sha256']:
+            raise ValueError('Subtitle copy bytes differ')
         _, count = validate_srt(text)
         if count != receipt['cue_count']:
             raise ValueError('Subtitle copy cue count differs')
-        return {**public(receipt), 'srt': text}
+        return receipt, text
 
     def list(self, after=None):
         if after is not None:

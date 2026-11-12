@@ -1,5 +1,13 @@
 # 현재 구현 태스크
 
+## 저장 수정본 → 별도 자막 영상 준비 — 소스 범위
+
+- [x] copy ID/SRT SHA만 받는 server-resolved 입력을 기존 NormalInputs에 연결했다. 실제 custodian·receipt·원문 SHA·변환 transcript SHA를 고정하며 accepted job/run 출처를 만들지 않는다. 미리보기는 CAS를 쓰지 않고 영상 길이·native 자막 소비 한도를 확인한다.
+- [x] 실제 저장 workflow의 자막 영상 에이전트만 명시 선택해 inspect/preview/Create가 같은 agent-only 정의를 사용한다. 원래 workflow revision/hash와 effective graph를 구분하고 새 snapshot에 고정한다. 기존 입력·과거 absent-policy snapshot과 정상 새 Start 대기열 경로를 유지한다.
+- [x] 저장 목록·상세에서 기존 인증 shell의 준비 화면으로 연결하고 URL의 copy identity를 reload에서 서버 재조회한다. 선택 변경 시 preview를 무효화한다. 생성 오류/응답 불명은 목록 확인을 안내하며 자동 재전송하지 않는다.
+- [x] 새 연결의 production resolver/HTTP/Create/command/자막 serializer를 임시 CAS·fake DB로, 실제 React/production CSS PC1440/390을 오프라인 fixture로 확인했다. 영상 encoder·provider·운영 데이터 호출은 하지 않았다.
+- [ ] 부모 독립 검토와 실제 설치 후 권한·저장소·명시적 새 작업 생성·Start·native 렌더·MP4 및 자막 결과 수용은 별도다. 이 소스 작업에서 실행·배포·publication을 수행하지 않는다.
+
 ## 확정 추가 범위: 에이전트 전용 워크플로우와 실제 소스 계층
 
 - 만들 것: 전사 → 한국어 번역 → 자막 영상 제작의 업무 에이전트만 저장/편집/실행 캔버스에 둔다. 분석·오디오 준비와 구간 처리는 전사 내부 도구, 자막 생성·번인·검사는 영상 제작 내부 도구다. 오케스트레이터는 에이전트 간 순서·배정·준비를, 에이전트는 자기 도구 선택·순서·결과 확인을 책임진다.

@@ -1,0 +1,24 @@
+.saved-render-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  max-width: 54rem;
+  margin-block: 24px;
+}
+.saved-render-fields label,
+.saved-render-fields select {
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+}
+.saved-subtitle-render .workflow-graph {
+  max-width: 100%;
+}
+.saved-subtitle-render .workflow-graph-viewport {
+  height: clamp(300px, 35dvh, 420px);
+}
+@media (max-width: 640px) {
+  .saved-render-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

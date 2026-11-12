@@ -6,6 +6,7 @@ origins are resolved on the server and are never accepted from a client selector
 from copy import deepcopy
 import hashlib
 import json
+import math
 import re
 import wave
 
@@ -89,6 +90,41 @@ def transcript_consumers(native):
 class NormalInputs:
     def __init__(self, runtime):
         self.runtime = runtime
+
+    def saved(self, actor, asset, selector, selected_language, *, maximum):
+        from video_service.subtitle_copies import SubtitleCopies, validate_srt
+        if (not isinstance(selector, dict) or set(selector) != {"copy_id", "srt_sha256"}
+                or not isinstance(selector.get("copy_id"), str) or not ID.fullmatch(selector["copy_id"])
+                or not isinstance(selector.get("srt_sha256"), str)
+                or not re.fullmatch(r"[a-f0-9]{64}", selector["srt_sha256"])):
+            raise ValueError("저장한 자막 수정본을 다시 선택하세요.")
+        try:
+            receipt, text = SubtitleCopies(self.runtime.store).source(selector["copy_id"])
+        except FileNotFoundError:
+            raise ValueError("저장된 자막을 찾을 수 없습니다. 다시 선택하세요.") from None
+        except OSError:
+            raise ValueError("저장 자막을 읽지 못했습니다. 다시 확인하세요.") from None
+        if receipt["reference"]["sha256"] != selector["srt_sha256"]:
+            raise ValueError("선택 자막이 변경됐습니다. 다시 불러오세요.")
+        _, rows = validate_srt(text, include_segments=True)
+        rows = timed_segments(rows, maximum=maximum)
+        duration = (asset.get("metadata", {}).get("media") or {}).get("duration")
+        if type(duration) not in (int, float) or not math.isfinite(duration) or duration <= 0:
+            raise ValueError("길이가 확인된 원본 영상을 선택하세요.")
+        if any(row["end"] > duration for row in rows):
+            raise ValueError("자막 종료 시각이 선택한 영상 길이를 초과합니다. 수정본 또는 영상을 다시 선택하세요.")
+        raw = canonical(rows)
+        sha = digest(rows)
+        owner = receipt["actor_id"]
+        ref = {"type": "transcript", "bytes": len(raw), "sha256": sha, "storage_key": "blobs/" + sha}
+        if owner != actor:
+            ref["source_owner_id"] = owner
+        pin = {"kind": "saved_subtitle", "copy_id": receipt["id"], "custodian_id": owner,
+               "reference": deepcopy(receipt["reference"]), "receipt_sha256": digest(receipt),
+               "source_sha256": selector["srt_sha256"], "content_sha256": sha,
+               "language": selected_language, "segments": len(rows),
+               "title": receipt["title"], "filename": receipt["filename"]}
+        return ref, pin, rows
 
     def accepted(self, db, actor, asset, port, selector, *, maximum=MAX_TEXT):
         if (not isinstance(selector, dict) or set(selector) != {"job_id", "run_id", "port"}
@@ -174,13 +210,13 @@ class NormalInputs:
         accepted = options.get("accepted_inputs", {})
         if not isinstance(accepted, dict) or set(accepted) - {k for k in declared if k in {"audio", "transcript"}}:
             raise ValueError("워크플로우가 요구하는 입력만 선택하세요.")
-        if "transcript" not in declared and any(k in options for k in ("subtitle_srt", "transcript", "input_language")):
+        if "transcript" not in declared and any(k in options for k in ("subtitle_srt", "transcript", "input_language", "saved_subtitle")):
             raise ValueError("이 워크플로우에는 자막 입력을 추가하지 않습니다.")
         refs, bindings, rows, input_language = {}, {}, None, None
         for port in ("transcript", "audio"):
             if port not in declared:
                 continue
-            inline = [k for k in ("subtitle_srt", "transcript") if k in options] if port == "transcript" else []
+            inline = [k for k in ("subtitle_srt", "transcript", "saved_subtitle") if k in options] if port == "transcript" else []
             if (port in accepted) + len(inline) != 1:
                 raise ValueError("필요한 자막 파일 또는 완료 입력 하나를 선택하세요.")
             if port in accepted:
@@ -192,8 +228,11 @@ class NormalInputs:
                         raise ValueError("완료 전사문의 원래 언어를 임의로 바꿀 수 없습니다.")
             else:
                 kind = inline[0]
-                rows = parse_srt(options[kind], maximum=maximum) if kind == "subtitle_srt" else timed_segments(options[kind], maximum=maximum)
                 input_language = language(options.get("input_language", options.get("source_language", "auto")), auto=True)
+                if kind == "saved_subtitle":
+                    refs[port], bindings[port], rows = self.saved(actor, asset, options[kind], input_language, maximum=maximum)
+                    continue
+                rows = parse_srt(options[kind], maximum=maximum) if kind == "subtitle_srt" else timed_segments(options[kind], maximum=maximum)
                 raw = canonical(rows)
                 refs[port] = {"type": "transcript", "bytes": len(raw), "sha256": digest(rows), "storage_key": "blobs/" + digest(rows)}
                 bindings[port] = {"kind": kind, "language": input_language, "content_sha256": digest(rows),
@@ -214,13 +253,16 @@ class NormalInputs:
 
     def materialize(self, actor, resolved):
         refs = deepcopy(resolved["references"])
-        if resolved["bindings"].get("transcript", {}).get("kind") in {"subtitle_srt", "transcript"}:
-            reference = self.runtime.store.put(actor, [canonical(resolved["segments"])], "transcript")
-            if reference != refs["transcript"]:
+        pin = resolved["bindings"].get("transcript", {})
+        if pin.get("kind") in {"subtitle_srt", "transcript", "saved_subtitle"}:
+            owner = pin["custodian_id"] if pin["kind"] == "saved_subtitle" else actor
+            reference = self.runtime.store.put(owner, [canonical(resolved["segments"])], "transcript")
+            bound = {**reference, **({"source_owner_id": owner} if owner != actor else {})}
+            if bound != refs["transcript"]:
                 raise ValueError("고정 자막 입력의 저장 digest가 다릅니다.")
         return refs
 
 
 def public_input_summary(bindings):
-    return [{"input": port, **{k: pin[k] for k in ("kind", "language", "segments", "job_id", "run_id", "port") if k in pin}}
+    return [{"input": port, **{k: pin[k] for k in ("kind", "language", "segments", "job_id", "run_id", "port", "copy_id", "title", "filename", "source_sha256") if k in pin}}
             for port, pin in bindings.items()]

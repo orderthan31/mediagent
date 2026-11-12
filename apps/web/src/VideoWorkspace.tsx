@@ -20,6 +20,7 @@ import { ModelRegistryPage } from './ModelRegistryPage';
 import { ProviderConnections } from './ProviderConnections';
 import { ServingPage } from './ServingPage';
 import { WorkflowStart } from './WorkflowStart';
+import { SavedSubtitleRender } from './SavedSubtitleRender';
 import { WorkflowEditor } from './WorkflowEditor';
 import { WorkflowTickets } from './WorkflowTickets';
 import { ExecutionPopover } from './ExecutionPopover';
@@ -140,6 +141,9 @@ export const VideoWorkspace = () => {
   const directSubtitleView = renewalBackend && (route === '#/subtitles' || !!savedSubtitleId);
   const settingsView = route === '#/settings' || (renewalBackend && route === '#/settings/storage');
   const startView = route === '#/start';
+  const renderCopyId = renewalBackend
+    ? route.match(/^#\/start\/subtitles\/([a-f0-9]{32})$/)?.[1]
+    : undefined;
   const productTicketsView = route === '#/work-tickets' || route === '#/recovery-tickets';
   const servingView = route === '#/serving' || route.startsWith('#/serving/');
   const modelIdentity = route.match(/^#\/serving\/([a-f0-9]{32})/)?.[1];
@@ -541,6 +545,8 @@ export const VideoWorkspace = () => {
           </main>
         ) : (frontendOnly || renewalBackend) && route.startsWith('#/account') ? (
           <AccountPage key={route} create={route === '#/account/new'} />
+        ) : renderCopyId ? (
+          <SavedSubtitleRender key={renderCopyId} copyId={renderCopyId} />
         ) : startView ? (
           <WorkflowStart />
         ) : workflowTicketsView ? (

@@ -459,9 +459,10 @@ class Execution(Intake):
         # Release each row lock separately; never hold child then parent list locks.
         return [self.get(owner, identity) for identity in ids]
 
-    def inspect(self, owner, identity, revision):
+    def inspect(self, owner, identity, revision, options=None):
         public_definition = self.job_definition(owner, identity, revision)
-        from mideagent_orchestrator.workflow import compile_definition
+        from mideagent_orchestrator.workflow import compile_definition, render_definition
+        public_definition = render_definition(public_definition, options or {})
         agent_plan = compile_definition(public_definition) if public_definition.get("catalog_version")==2 else None
         definition = agent_plan["definition"] if agent_plan else public_definition
         reasons = []
@@ -557,13 +558,16 @@ class Execution(Intake):
             value["summary"]=[{**indexed[CLASSES[n["type"]](n).publication()],
                 "id":n["id"],"type":n["type"],"options":goal_options(n),
                 "runtime_roles":registration(n["type"],node=n)["runtime_roles"]}for n in public_definition["nodes"]]
+        if (options or {}).get("render_goal") is not None:
+            value["agent_definition"] = public_definition
         return value
 
     def normal_input_plan(self, actor, asset_id, definition, options):
         from .normal_inputs import NormalInputs
+        from .workflow import render_definition
         with self.database.connection() as db:
             asset = self._shared_asset(db, asset_id)
-            return NormalInputs(self).resolve(db, actor, asset, definition, options)
+            return NormalInputs(self).resolve(db, actor, asset, render_definition(definition, options), options)
 
     def input_choices(self, actor, asset_id):
         """Public candidate identities only; byte/manifest validation occurs on selection."""
@@ -617,7 +621,7 @@ class Execution(Intake):
             "video_description",
             "branch_choices",
             "transcript",
-            "subtitle_srt", "input_language", "accepted_inputs",
+            "subtitle_srt", "input_language", "accepted_inputs", "saved_subtitle", "render_goal",
         }:
             raise ValueError("작업 옵션 오류")
         from video_service.timed_subtitles import MAX_INPUT_OPTIONS_BYTES
@@ -661,7 +665,8 @@ class Execution(Intake):
             from video_service.original_video_budget import resolve_definition
 
             original_definition_sha = digest(definition)
-            from mideagent_orchestrator.workflow import compile_definition
+            from mideagent_orchestrator.workflow import compile_definition, render_definition
+            definition = render_definition(definition, options)
             normal_inputs = None
             input_language = None
             if definition.get("catalog_version") == 2:
@@ -765,6 +770,8 @@ class Execution(Intake):
                 "artifact_layout": 1,
                 "asset": snapshot_asset,
                 "inputs": input_refs,
+                **({"render_selection": {"version": 1, "node_id": options["render_goal"]["node_id"],
+                    "source_definition_sha256": original_definition_sha}} if "render_goal" in options else {}),
                 **({"normal_input_policy": 1, "normal_input_bindings": normal_inputs["bindings"]} if normal_inputs and normal_inputs["bindings"] else {}),
                 "definition": definition,
                 **({"agent_plan_version":1,"agent_output_policy":1,"agent_execution_policy":1,
@@ -923,7 +930,33 @@ class Execution(Intake):
                 reasons.append("장문 보컬은 독립 보컬 실행을 먼저 선택해야 합니다.")
         if not job["recovery_ready"]:
             reasons.append("복구 receipt 검증이 끝나지 않았습니다.")
-        if definition["inputs"] not in (
+        agent_definition = job["snapshot"].get("agent_definition", {})
+        if (job["snapshot"].get("agent_execution_policy") == 1
+                and agent_definition.get("catalog_version") == 2):
+            from video_service.renewal_contracts import validate
+            from video_service.content_store import reference_origin
+            from video_service.object_store import validate_reference
+
+            # Validate the frozen public/native declarations, not the set of
+            # stored refs: undeclared video may still be retained for lineage.
+            if (not validate(agent_definition)["valid"] or not validate(definition)["valid"]
+                    or definition["inputs"] != {"video": "video", **agent_definition["inputs"]}):
+                reasons.append("고정 에이전트의 입력 선언과 실행 정의를 확인하세요.")
+            else:
+                for port, kind in definition["inputs"].items():
+                    try:
+                        custodian, reference = reference_origin(job["owner_id"], job["snapshot"]["inputs"].get(port))
+                        validate_reference(reference)
+                        if reference["type"] != kind:
+                            raise ValueError("Input type mismatch")
+                        if job["snapshot"].get("normal_input_policy") == 1 and port != "video":
+                            pin = job["snapshot"].get("normal_input_bindings", {}).get(port, {})
+                            if (not isinstance(pin, dict) or custodian != pin.get("custodian_id", job["owner_id"])
+                                    or reference["sha256"] != pin.get("content_sha256", (pin.get("reference") or {}).get("sha256"))):
+                                raise ValueError("Frozen normal input binding mismatch")
+                    except ValueError:
+                        reasons.append(f"{port} 입력의 고정 자료와 유형을 확인하세요.")
+        elif definition["inputs"] not in (
             {"video": "video"},
             {"transcript": "transcript"},
         ):

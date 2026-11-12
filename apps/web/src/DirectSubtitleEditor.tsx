@@ -44,6 +44,8 @@ export const DirectSubtitleEditor = ({ savedId }: { savedId?: string }) => {
       Object.values(directCueIssues(directCueValue(document, edits, index))).some(Boolean),
     ) ?? -1;
   const smiIssue = document && format === 'smi' ? directSmiIssue(document, edits) : '';
+  const renderCopyId =
+    saved?.id || (openedAt && Object.keys(edits).length === 0 ? savedId : undefined);
   const choose = async (file?: File) => {
     if (!file) {
       return;
@@ -167,6 +169,11 @@ export const DirectSubtitleEditor = ({ savedId }: { savedId?: string }) => {
     <main className="video-main direct-subtitle-page">
       <PageTitle>자막 파일 편집</PageTitle>
       <a href="#/subtitles/saved">저장된 자막</a>
+      {renderCopyId && (
+        <p>
+          <a href={`#/start/subtitles/${renderCopyId}`}>영상 작업 준비</a>
+        </p>
+      )}
       {openedAt && (
         <p>
           저장 시각 <time dateTime={openedAt}>{new Date(openedAt).toLocaleString('ko-KR')}</time>

@@ -62,6 +62,7 @@ class Create(Selection):
 class Inspect(Body):
     definition_id: str = Field(pattern="^[a-f0-9]{32}$")
     definition_revision: StrictInt = Field(ge=1)
+    options: dict = Field(default_factory=dict)
 
 
 class Confirm(Body):
@@ -362,7 +363,7 @@ def mount_runtime(
     @app.post("/api/settings/work-entry/inspect", dependencies=[Depends(administrator)])
     @app.post("/api/work-entry/inspect")
     def inspect(body: Inspect, owned=owner_dependency):
-        result = runtime.inspect(owned, body.definition_id, body.definition_revision)
+        result = runtime.inspect(owned, body.definition_id, body.definition_revision, **({"options": body.options} if body.options else {}))
         if not local_execution:
             result["supported"] = result["model_ready"] = False
             result["reasons"].append(
@@ -389,8 +390,10 @@ def mount_runtime(
                 "media": source.get("media"),
             },
         }
-        from mideagent_orchestrator.workflow import compile_definition
+        from mideagent_orchestrator.workflow import compile_definition, render_definition
         from mideagent_orchestrator.normal_inputs import public_input_summary
+        source_definition_sha = digest(definition)
+        definition = render_definition(definition, selection.options)
         normal_inputs = runtime.normal_input_plan(owned, selection.asset_id, definition, selection.options) if definition.get("catalog_version")==2 else None
         compiled = compile_definition(definition, input_language=normal_inputs["language"] if normal_inputs else None) if definition.get("catalog_version")==2 else None
         execution_definition = resolve_definition(original_asset, compiled["definition"] if compiled else definition)
@@ -422,7 +425,8 @@ def mount_runtime(
         else:
             runtime.asset_path(owned, selection.asset_id)
         inspection = runtime.inspect(
-            owned, selection.definition_id, selection.definition_revision
+            owned, selection.definition_id, selection.definition_revision,
+            **({"options": selection.options} if "render_goal" in selection.options else {})
         )
         if not local_execution or not inspection["supported"]:
             raise Conflict(
@@ -433,6 +437,7 @@ def mount_runtime(
                 {
                     "source": source,
                     "definition": definition,
+                    **({"source_definition_sha256": source_definition_sha} if "render_goal" in selection.options else {}),
                     "selection": selection.model_dump(),
                     **({"normal_inputs": normal_inputs["bindings"]} if normal_inputs and normal_inputs["bindings"] else {}),
                     **({"cpu_input_policy": cpu_policy} if cpu_policy else {}),

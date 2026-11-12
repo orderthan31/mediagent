@@ -94,6 +94,39 @@ def _shape(value):
         raise ValueError("선택 자막을 사용하는 루트 번역·자막 목표를 연결하세요.")
     return ordered,parents
 
+def render_definition(public, options):
+    """Explicitly select a real saved video goal, without saving a new workflow.
+
+    The source revision remains the job's FK; the effective agent graph and
+    selection are frozen separately. Absent selection preserves historical use.
+    """
+    selected = options.get("render_goal")
+    if selected is None:
+        if "saved_subtitle" in options:
+            raise ValueError("저장 자막에 사용할 자막 영상 에이전트를 선택하세요.")
+        return deepcopy(public)
+    if ("saved_subtitle" not in options or not isinstance(selected, dict)
+            or set(selected) != {"node_id", "options"}
+            or not isinstance(selected["node_id"], str)
+            or not isinstance(selected["options"], dict)):
+        raise ValueError("저장 자막과 자막 영상 에이전트를 선택하세요.")
+    _shape(public)
+    matches = [n for n in public["nodes"] if n["id"] == selected["node_id"]
+               and n["type"] == "subtitle_video_agent"]
+    if len(matches) != 1:
+        raise ValueError("선택 버전의 자막 영상 에이전트를 선택하세요.")
+    descriptor = next(n for n in catalog()["nodes"] if n["id"] == "subtitle_video_agent")
+    allowed = {k: v for k, v in descriptor["options"].items() if k != "transcript_source"}
+    if any(k not in allowed or not isinstance(v, str) or v not in allowed[k]
+           for k, v in selected["options"].items()):
+        raise ValueError("지원되는 자막·영상 출력 설정을 선택하세요.")
+    node = deepcopy(matches[0])
+    node["options"] = {**node.get("options", {}), **selected["options"], "transcript_source": "original"}
+    result = {**deepcopy(public), "inputs": {"transcript": "transcript"}, "nodes": [node], "edges": []}
+    compile_definition(result)
+    return result
+
+
 def compile_definition(public, *, input_language=None, preserve_input_cues=True):
     ordered,parents=_shape(public)
     nodes=[];edges=[];owners={};contexts={};output_contexts={};input_contexts={}

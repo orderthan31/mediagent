@@ -113,6 +113,8 @@ type State = {
     language?: string;
     segments?: number;
     job_id?: string;
+    copy_id?: string;
+    filename?: string;
   }[];
   agent_workflow?: {
     definition: CanvasDefinition;
@@ -433,6 +435,15 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
                 <>
                   {' '}
                   · <a href={`#/jobs/${input.job_id}`}>입력 출처 작업</a>
+                </>
+              )}
+              {input.kind === 'saved_subtitle' && input.copy_id && (
+                <>
+                  {' '}
+                  ·{' '}
+                  <a href={`#/subtitles/saved/${input.copy_id}`}>
+                    저장 자막: {input.filename || '수정본'}
+                  </a>
                 </>
               )}
             </p>

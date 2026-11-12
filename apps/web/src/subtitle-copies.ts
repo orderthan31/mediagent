@@ -32,7 +32,10 @@ export const getSubtitleCopy = async (id: string, signal?: AbortSignal) => {
   if (!identity.test(id)) {
     throw new Error('저장된 자막 주소를 확인하세요.');
   }
-  const value = await request<SubtitleCopy & { srt: string }>(`/subtitle-copies/${id}`, { signal });
+  const value = await request<SubtitleCopy & { srt: string; srt_sha256?: string }>(
+    `/subtitle-copies/${id}`,
+    { signal },
+  );
   metadata(value);
   if (value.id !== id || typeof value.srt !== 'string') {
     throw new Error('저장된 자막 내용이 일치하지 않습니다.');
