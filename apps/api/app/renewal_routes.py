@@ -167,6 +167,20 @@ def mount_runtime(
 
     mount_subtitle_copies(app, runtime.store, session_dependency)
 
+    from .start_queue_routes import mount_start_queue, queue_request
+
+    def dispatch_queued_start(owned, identity):
+        if broker_factory is not None:
+            from mideagent_orchestrator.controller import BrokerController
+
+            return BrokerController(runtime, broker_factory)._dispatch_exact(owned, identity)
+        return runtime.run_local(owned, identity)
+
+    advance_start_queue = mount_start_queue(
+        app, runtime, session_dependency, dispatch_exact=dispatch_queued_start,
+        enabled=local_execution,
+    )
+
     from video_service.content_store import MAX_CONTENT
 
     from .original_finalizations import OriginalFinalizations
@@ -618,7 +632,9 @@ def mount_runtime(
     def admit(identity: str, body: Admit, owned=owner_dependency):
         if not local_execution:
             raise HTTPException(403, "CPU 실행이 비활성입니다.")
-        return runtime.admit(owned, identity, body.consent_id, body.request_id)
+        queue_request(runtime.admit, owned, identity, body.consent_id, body.request_id)
+        advance_start_queue(owned)
+        return runtime.get(owned, identity)
 
     @app.post("/api/renewal/jobs/{identity}/run")
     def run(identity: str, owned=owner_dependency):
@@ -631,15 +647,15 @@ def mount_runtime(
             try:
                 from mideagent_orchestrator.agent_pool import AgentPool
                 AgentPool(runtime).enroll(owned,identity)
-                return BrokerController(runtime, broker_factory).dispatch(
-                    owned, identity
+                return queue_request(
+                    BrokerController(runtime, broker_factory).dispatch, owned, identity
                 )
             except BrokerError:
                 raise HTTPException(
                     503,
                     "브로커 전달을 확인하지 못했습니다. 실행 상태를 다시 확인하세요.",
                 ) from None
-        return runtime.run_local(owned, identity)
+        return queue_request(runtime.run_local, owned, identity)
 
     @app.post("/api/renewal/jobs/{identity}/cancel")
     def cancel(identity: str, body: Revision, owned=owner_dependency):

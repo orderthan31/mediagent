@@ -193,6 +193,87 @@ class ContentStore:
         directory.mkdir(mode=0o700, exist_ok=True)
         return directory
 
+    def _start_queue_directory(self):
+        directory = self.root / 'start-queues'
+        if directory.is_symlink():
+            raise ValueError('Symlink storage denied')
+        directory.mkdir(mode=0o700, exist_ok=True)
+        return directory
+
+    def read_start_queue(self, owner):
+        from .start_queue_policy import identity, MAX_POLICY_BYTES, decode_policy, QueueUnavailable
+        path = self._start_queue_directory() / (identity(owner) + '.json')
+        if path.is_symlink():
+            raise ValueError('Symlink storage denied')
+        try:
+            with path.open('rb') as stream:
+                raw = stream.read(MAX_POLICY_BYTES + 1)
+        except FileNotFoundError:
+            return None, None
+        try:
+            decode_policy(raw, owner)
+        except ValueError:
+            raise QueueUnavailable('대기열 저장 기록을 확인하지 못했습니다.') from None
+        return raw, hashlib.sha256(raw).hexdigest()
+
+    def list_start_queue_owners(self, after=None):
+        import heapq
+        from .start_queue_policy import identity
+        if after is not None:
+            identity(after)
+        with os.scandir(self._start_queue_directory()) as entries:
+            ids = heapq.nsmallest(21, (
+                entry.name[:-5] for entry in entries
+                if re.fullmatch(r'[a-f0-9]{32}\.json', entry.name)
+                and entry.name[:-5] > (after or '')
+            ))
+        return ids[:20], len(ids) > 20
+
+    def write_start_queue(self, owner, raw, token):
+        from .start_queue_policy import identity, decode_policy, QueueConflict
+        decode_policy(raw, identity(owner))
+        directory = self._start_queue_directory()
+        lock_path = directory / (owner + '.lock')
+        if lock_path.is_symlink():
+            raise ValueError('Symlink storage denied')
+        # Local-mode policy CAS is also serialized across local API processes.
+        # S3 overrides both hooks and never falls back to this local authority.
+        with lock_path.open('a+b') as guard:
+            if os.name == 'nt':
+                import msvcrt
+                guard.seek(0)
+                if not guard.read(1):
+                    guard.write(b'0')
+                    guard.flush()
+                guard.seek(0)
+                msvcrt.locking(guard.fileno(), msvcrt.LK_LOCK, 1)
+            else:
+                import fcntl
+                fcntl.flock(guard.fileno(), fcntl.LOCK_EX)
+            try:
+                if self.read_start_queue(owner)[1] != token:
+                    raise QueueConflict('대기열이 바뀌었습니다. 다시 확인하세요.')
+                fd, name = tempfile.mkstemp(prefix='.incoming-', dir=directory)
+                try:
+                    with os.fdopen(fd, 'wb') as stream:
+                        stream.write(raw)
+                        stream.flush()
+                        os.fsync(stream.fileno())
+                    os.replace(name, directory / (owner + '.json'))
+                finally:
+                    if os.path.exists(name):
+                        os.unlink(name)
+            finally:
+                if os.name == 'nt':
+                    guard.seek(0)
+                    msvcrt.locking(guard.fileno(), msvcrt.LK_UNLCK, 1)
+                else:
+                    fcntl.flock(guard.fileno(), fcntl.LOCK_UN)
+        stored, next_token = self.read_start_queue(owner)
+        if stored != raw:
+            raise QueueConflict('대기열 저장 결과가 바뀌었습니다. 다시 확인하세요.')
+        return next_token
+
     def read_subtitle_copy(self, id):
         from .subtitle_copies import identity, MAX_RECEIPT
         path = self._subtitle_copy_directory() / (identity(id) + '.json')

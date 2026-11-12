@@ -1124,7 +1124,13 @@ class Execution(Intake):
         request_id(nonce)
         resource_id(consent_id)
         payload_sha = digest({"job": identity, "consent": consent_id})
+        from .start_queue import StartQueue
+        from video_service.start_queue_policy import claim_digest
+
+        queue = StartQueue(self)
+        queued_sha = claim_digest(identity, consent_id)
         with self.database.connection() as db:
+            queue.lock_in(db, owner)
             job = self._job(db, owner, identity, lock=True)
             previous = db.execute(
                 "SELECT * FROM execution_claims WHERE owner_id=%s AND request_id=%s",
@@ -1133,7 +1139,7 @@ class Execution(Intake):
             if previous:
                 if (
                     previous["job_id"] != identity
-                    or previous["request_sha256"] != payload_sha
+                    or previous["request_sha256"] not in {payload_sha, queued_sha}
                 ):
                     raise Conflict("같은 실행 요청의 대상/내용이 다릅니다.")
                 return self._view(db, job)
@@ -1151,6 +1157,14 @@ class Execution(Intake):
             if not plan["ready"] or plan["token"] != consent["plan_sha256"]:
                 raise Conflict("입력/검수/계획이 바뀌었습니다. 새 확인이 필요합니다.")
             claim = uuid4().hex
+            if not self._runs(db, owner, identity):
+                # A versioned claim digest marks only future validated Starts.
+                # Stable claim identity reconciles an orphan after a lost response;
+                # S3 membership alone can never authorize a reservation.
+                payload_sha = queued_sha
+                claim = digest({'start_queue_claim': 1, 'owner': owner, 'nonce': nonce,
+                                'request_sha256': payload_sha})[:32]
+                queue.enroll_in(db, job, claim)
             db.execute(
                 "INSERT INTO execution_claims(owner_id,job_id,id,consent_id,generation,request_id,request_sha256) VALUES (%s,%s,%s,%s,%s,%s,%s)",
                 (
@@ -1483,7 +1497,21 @@ class Execution(Intake):
                     self.store.path(owner, reference)
                     verified["references"].add(digest(reference))
         with self.database.connection() as db:
+            from .start_queue import StartQueue
+
+            queue = StartQueue(self)
+            queue.lock_in(db, owner)
             job = self._job(db, owner, identity, lock=True)
+            runs = self._runs(db, owner, identity)
+            new_start = False
+            if not runs and job['active_claim_id']:
+                new_start = queue.requires_in(db, job)
+                if not queue.allowed_in(db, job, new_claim=new_start):
+                    return None
+                if new_start and self._queue_start_reasons_in(db, job):
+                    from video_service.start_queue_policy import QueueConflict
+
+                    raise QueueConflict('시작 조건이 바뀌었습니다. 작업 상세에서 모델·자원 상태를 확인하세요.')
             from video_service.postgres.job_processing_review import JobProcessingReview
 
             if JobProcessingReview(self).capture_in(db, job):
@@ -1494,7 +1522,10 @@ class Execution(Intake):
                 or not job["active_claim_id"]
             ):
                 return None
-            runs = self._runs(db, owner, identity)
+            if new_start:
+                from .agent_pool import AgentPool
+
+                AgentPool.enroll_in(db, job)
             if sum(r["status"] in ("running", "waiting") for r in runs) >= 2:
                 return None
             indexed = {r["node_id"]: r for r in runs}
@@ -1762,6 +1793,39 @@ class Execution(Intake):
                         (status, owner, identity),
                     )
             return None
+
+    def _queue_start_reasons_in(self, db, job):
+        snapshot = job['snapshot']
+        return self._execution_reasons(
+            db, snapshot['definition'], snapshot.get('engine_bindings', {}),
+            snapshot['options'], (), snapshot.get('model_bindings', {}),
+        )
+
+    def _queue_start_ready_in(self, db, row):
+        """Read-only priority hint; actual claim still checks capacity and budgets."""
+        from .agent_pool import AgentPool
+
+        job = self._job(db, row['owner_id'], row['id'])
+        if self._queue_start_reasons_in(db, job):
+            return False
+        definition = job['snapshot']['definition']
+        tools = self._ready_agent_tools(job['snapshot'], {})
+        for node in definition['nodes']:
+            if tools is not None and node['id'] not in tools:
+                continue
+            edges = [e for e in definition['edges'] if e['target']['node'] == node['id']]
+            if any(e['source']['node'] != '$input' for e in edges):
+                continue
+            if AgentPool.can_start_in(db, job, node):
+                if (
+                    self.fleet is not None
+                    and node['type'] in CPU_AGENTS
+                    and not self._engine_role(node)
+                    and not self.fleet.can_reserve(db, node['type'])
+                ):
+                    continue
+                return True
+        return False
 
     def execute_command(self, owner, command):
         from video_service.long_audio_budget import validate_command

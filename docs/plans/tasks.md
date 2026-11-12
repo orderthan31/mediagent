@@ -601,3 +601,12 @@ PM1562998217422147606의 b676 검토에서 기존 engine wire2(3필드 agent)를
 - [x] 수정된 SRT는 16MiB/10000cue·literal ID/시각/문구를 서버 검증한 뒤 기존 CAS에 보관한다. 기록은 별도 `subtitle-copies/{id}.json`에 IfNoneMatch 불변 생성하고 SHA·canonical JSON과 CAS bytes를 재확인한다. S3 목록은 20개씩 해당 namespace만 조회하며 기존 owner-CAS는 서버 작성자 감사와 함께 보존한다. 새 table/GRANT/credential/플랫폼을 추가하지 않는다.
 - [x] 첫 서버 수직 검사 11실패·1통과 RED에서 GREEN으로 수정했다. 실제 편집기의 제목/저장 동선 부재 RED도 확인했다. 서버/ASGI·local CAS·fakeS3 관련16건과 프론트 helper2건·production CSS의 오프라인 PC1440/390px 저장/전체 reload/재열기/SRT·SMI 실제 다운로드 브라우저1건이 통과했다. 쓰기 거절/재조회 실패는 성공을 표시하지 않고 같은 요청의 명시 재시도만 같은 ID를 사용한다. 합성 검사는 실제 S3 권한이나 설치 제품 수용이 아니다.
 - [ ] 부모의 설치 후 원래 API 자격으로 실제 immutable PUT/GET·인증 PC/390 저장/목록/재열기·원본 불변 및 정상 USER Git 게시 수용은 별도다. ListBucket 확인만으로 PUT/GET 권한을 주장하지 않는다. 실제403은 그 저장을 차단하고 권한을 바꾸지 않는다. 기존 결과 revision 발행·영상 재렌더와 운영 접근·모델/provider/GPU 실행·commit/push/deploy는 수행하지 않는다.
+
+### 2026-11-12 새 Start 대기열 pause·resume·시작 순서 — 소스 검사, 운영 수용 전
+
+- [x] 기존 configured ContentStore/S3ContentStore에 독립 owner 정책 `start-queues/{owner}.json`의 bounded canonical JSON·SHA/ETag·IfNoneMatch/IfMatch/revision CAS를 연결했다. 1000개 이하 membership과 서버 actor를 사용하고 새 DB/table/GRANT/credential/config를 추가하지 않는다. S3 오류를 local cache로 대체하거나 paused=false/빈 상태로 꾸미지 않는다.
+- [x] 유효한 새 첫 Start 승인에만 버전 있는 claim request digest와 membership을 결속했다. 정책 기록을 PG claim commit 전에 쓰고, 실제 owner/job/claim/generation이 일치하지 않는 orphan은 목록·예약에서 제외한다. 기존 nonce 재조회와 과거 absent-policy claim을 보존하며 초안·과거 admitted runless 작업을 자동 편입하지 않는다.
+- [x] `Execution.claim_next`의 첫 예약을 owner queue lock → job lock → 최신 정책/모델 조건 → 기존 capacity/run/outbox 순서로 보호한다. pause는 검토 캡처·capacity 등록·첫 예약보다 앞에서 막는다. ANY run 이후 후속 단계는 pause/order로 막지 않으며, 자원이 없는 앞 작업의 준비와 다른 가능한 슬롯 사용을 보존한다. 순서는 첫 시작 우선순위다.
+- [x] 실제 인증 GET/PATCH `/api/queue`와 기존 admit/run/controller·결과 수신, 기존 API lifespan wakeup에 연결했다. 별도 daemon이 떠 있다는 가정이나 UI의 자동 Run 반복에 의존하지 않는다. GET은 정책·metadata만 읽고 기존 전달 관측 패널을 유지한다. strict body/CSRF/origin/no-store/maintenance 경계를 유지한다.
+- [x] 실제 renewal 실행 관리에 pause·resume·맨 앞으로/위로/아래로 이동을 연결했다. 409·응답 유실 뒤 GET으로 확인하고 PATCH를 자동 재전송하지 않는다. 조회 실패·이전 revision·미확인은 빈 대기열로 표시하지 않는다. PC1440/390px의 실제 React/production CSS 오프라인 응답 fixture와 source domain/route/첫 예약·저장 adapter 합성 검사를 수행했다. 자막 수정본8a의 기존 검사·다운로드·실제 저장 검증은 반복하지 않았다.
+- [ ] 부모의 독립 원문 대조·코드 검토와 원래 principal의 실제 PG/S3·저장 권한·예약 직렬화·pause/resume/order·정상 자원 준비·PC/390px 제품 수용은 별도다. 합성 검사를 실제 admission 성공으로 부르지 않는다. 기존 #20/21/30/31/32/33·원본·키/모델/이력·응답 불명 시도는 운영에서 접근하거나 변경하지 않았다. 설치·운영·provider/GPU·commit/push/deploy는 부모 범위다.

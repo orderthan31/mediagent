@@ -247,6 +247,19 @@ class Fleet:
                 reasons.append("준비된 실행 인스턴스가 없습니다: " + kind)
         return reasons
 
+    def can_reserve(self, db, agent):
+        """Read-only priority hint; reserve still locks and rechecks the slot."""
+        config = db.execute(
+            "SELECT enabled FROM agent_configurations WHERE agent_id=%s", (agent,)
+        ).fetchone()
+        if not config or not config["enabled"] or self.driver is None:
+            return False
+        row = db.execute(
+            "SELECT id FROM agent_instances WHERE agent_id=%s AND controller_id=%s AND state='ready' AND in_flight=0 ORDER BY last_assigned_at NULLS FIRST,completed,created_at,id LIMIT 1",
+            (agent, self.controller_id),
+        ).fetchone()
+        return row is not None and self.driver.alive(row["id"])
+
     def reserve(self, db, agent):
         config = db.execute(
             "SELECT * FROM agent_configurations WHERE agent_id=%s FOR SHARE", (agent,)

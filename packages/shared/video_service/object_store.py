@@ -113,7 +113,7 @@ class S3ContentStore(ContentStore):
                 "Object write failed; outcome may be unknown"
             ) from None
 
-    def _download(self, key, limit, destination, *, verify_metadata=False):
+    def _download(self, key, limit, destination, *, verify_metadata=False, descriptor=None):
         from botocore.exceptions import BotoCoreError, ClientError
 
         body = None
@@ -135,6 +135,8 @@ class S3ContentStore(ContentStore):
                 'sha256': digest.hexdigest(), 'bytes': str(size)
             }:
                 raise ObjectIntegrityError('Remote receipt digest mismatch')
+            if descriptor is not None:
+                descriptor['etag'] = response.get('ETag')
             return digest.hexdigest(), size
         except ClientError as exc:
             raise _client_failure("Object unavailable or transfer failed", exc) from None
@@ -267,6 +269,86 @@ class S3ContentStore(ContentStore):
         ):
             raise ObjectStoreError("Preservation source or remote bytes changed")
         return reference
+
+    def read_start_queue(self, owner):
+        import io
+        from .start_queue_policy import identity, MAX_POLICY_BYTES, decode_policy
+        stream, descriptor = io.BytesIO(), {}
+        try:
+            self._download(self.prefix + '/start-queues/' + identity(owner) + '.json',
+                           MAX_POLICY_BYTES, stream, verify_metadata=True, descriptor=descriptor)
+        except ObjectStoreError as exc:
+            if exc.status == 404 and exc.code in {'NoSuchKey', 'NotFound'}:
+                return None, None
+            raise
+        raw, token = stream.getvalue(), descriptor.get('etag')
+        try:
+            decode_policy(raw, owner)
+        except ValueError:
+            raise ObjectIntegrityError('Invalid start queue policy') from None
+        if not isinstance(token, str) or not 1 <= len(token) <= 200 or any(ord(c) < 32 for c in token):
+            raise ObjectIntegrityError('Invalid queue object ETag')
+        return raw, token
+
+    def write_start_queue(self, owner, raw, token):
+        from botocore.exceptions import BotoCoreError, ClientError
+        from .start_queue_policy import identity, decode_policy, QueueConflict
+        decode_policy(raw, identity(owner))
+        key = self.prefix + '/start-queues/' + owner + '.json'
+        sha = hashlib.sha256(raw).hexdigest()
+        if token is None:
+            if not self._create(key, raw, sha, len(raw)):
+                raise QueueConflict('대기열이 바뀌었습니다. 다시 확인하세요.')
+        else:
+            if not isinstance(token, str) or not 1 <= len(token) <= 200 or any(ord(c) < 32 for c in token):
+                raise ObjectStoreError('Invalid queue object ETag')
+            try:
+                self.client.put_object(
+                    Bucket=self.bucket, Key=key, Body=raw, ContentLength=len(raw),
+                    ContentType='application/json', IfMatch=token,
+                    ChecksumSHA256=base64.b64encode(bytes.fromhex(sha)).decode(),
+                    Metadata={'sha256': sha, 'bytes': str(len(raw))},
+                )
+            except ClientError as exc:
+                if exc.response.get('ResponseMetadata', {}).get('HTTPStatusCode') in {409, 412}:
+                    raise QueueConflict('대기열이 바뀌었습니다. 다시 확인하세요.') from None
+                raise _client_failure('Queue write failed; outcome may be unknown', exc) from None
+            except BotoCoreError:
+                raise ObjectStoreError('Queue write failed; outcome may be unknown') from None
+        stored, next_token = self.read_start_queue(owner)
+        if stored != raw:
+            raise QueueConflict('대기열 저장 결과가 바뀌었습니다. 다시 확인하세요.')
+        return next_token
+
+    def list_start_queue_owners(self, after=None):
+        from botocore.exceptions import BotoCoreError, ClientError
+        from .start_queue_policy import identity
+        prefix = self.prefix + '/start-queues/'
+        request = dict(Bucket=self.bucket, Prefix=prefix, MaxKeys=20)
+        if after is not None:
+            request['StartAfter'] = prefix + identity(after) + '.json'
+        try:
+            response = self.client.list_objects_v2(**request)
+        except ClientError as exc:
+            raise _client_failure('Start queue index unavailable', exc) from None
+        except BotoCoreError:
+            raise ObjectStoreError('Start queue index unavailable') from None
+        rows = response.get('Contents', [])
+        if not isinstance(rows, list) or len(rows) > 20:
+            raise ObjectIntegrityError('Invalid start queue index page')
+        owners = []
+        for row in rows:
+            key = row.get('Key')
+            if not isinstance(key, str) or not re.fullmatch(re.escape(prefix) + r'[a-f0-9]{32}\.json', key):
+                raise ObjectIntegrityError('Invalid start queue index key')
+            owner = key[len(prefix):-5]
+            if owner <= (after or '') or (owners and owner <= owners[-1]):
+                raise ObjectIntegrityError('Invalid start queue index order')
+            owners.append(owner)
+        more = response.get('IsTruncated', False)
+        if type(more) is not bool or (more and not owners):
+            raise ObjectIntegrityError('Invalid start queue index continuation')
+        return owners, more
 
     def read_subtitle_copy(self, id):
         import io

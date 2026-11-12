@@ -1,0 +1,67 @@
+.start-queue-panel {
+  min-width: 0;
+}
+.start-queue-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+}
+.start-queue-heading h3,
+.start-queue-deliveries h3 {
+  margin: 0;
+  font-size: 16px;
+}
+.start-queue-heading h3 span {
+  color: var(--g-soft);
+  font-weight: 400;
+  margin-left: 8px;
+}
+.start-queue-heading button,
+.start-queue-move button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.start-queue-items {
+  padding: 0;
+  margin-block: 16px;
+  list-style: none;
+}
+.start-queue-items > li {
+  padding-block: 12px;
+  border-top: 1px solid var(--g-line);
+}
+.start-queue-file {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 14px;
+}
+.start-queue-file a {
+  min-width: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+}
+.start-queue-file > span {
+  flex-shrink: 0;
+}
+.start-queue-move {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+}
+.start-queue-move button {
+  min-height: 44px;
+}
+.start-queue-deliveries {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--g-line);
+}
+.start-queue-deliveries h3 {
+  margin-bottom: 12px;
+}

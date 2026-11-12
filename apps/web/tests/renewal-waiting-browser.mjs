@@ -48,6 +48,7 @@ test('renewal execution popover reads genuine phases, reopens and links to exist
         export const base='/api';export const mediaUrl=(path)=>'/api'+path;export class ApiError extends Error{}
         export const request=async(path,init={})=>{const method=init.method||'GET';window.__calls.push({path,method});
           if(method!=='GET')throw new Error('unit forbids mutation');
+          if(path==='/queue')return {revision:0,paused:false,order:[],jobs:[],details:[],progression:'ready'};
           if(path==='/renewal/execution-waiting'){
             if(window.__mode==='error')throw new Error('unit waiting query failed');
             if(window.__mode==='defer')return new Promise((resolve,reject)=>{window.__release=resolve;init.signal?.addEventListener('abort',()=>{window.__aborted=true;reject(new DOMException('aborted','AbortError'));});});
@@ -164,7 +165,8 @@ test('renewal execution popover reads genuine phases, reopens and links to exist
     const calls = await page.evaluate(() => window.__calls);
     assert.ok(calls.length > 0 && calls.every(({ method }) => method === 'GET'));
     assert.ok(calls.some(({ path }) => path === '/renewal/execution-waiting'));
-    assert.ok(!calls.some(({ path }) => path === '/queue' || path.endsWith('/cancel')));
+    assert.ok(calls.some(({ path }) => path === '/queue'));
+    assert.ok(!calls.some(({ path }) => path.endsWith('/cancel')));
     const workspace = fs.readFileSync('src/VideoWorkspace.tsx', 'utf8');
     assert.ok(!workspace.includes('{!renewalBackend && <ExecutionPopover'));
   } finally {

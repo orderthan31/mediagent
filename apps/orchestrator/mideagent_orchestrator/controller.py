@@ -93,6 +93,16 @@ class BrokerController:
         return self.transport.publish_exact(owner, job_id, attempt_id, send)
 
     def dispatch(self, owner, job_id):
+        state = self._dispatch_exact(owner, job_id)
+        self.advance_queue(owner)
+        return state
+
+    def advance_queue(self, owner):
+        from .start_queue_progress import advance_start_queue
+
+        return advance_start_queue(self.runtime, owner, self._dispatch_exact)
+
+    def _dispatch_exact(self, owner, job_id):
         # One explicitly authorized job only, including its previously reserved
         # unpublished attempt after a transport failure. Never scan pending jobs.
         state = self.runtime.get(owner, job_id)

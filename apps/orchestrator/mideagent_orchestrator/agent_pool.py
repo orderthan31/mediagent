@@ -20,10 +20,23 @@ class AgentPool:
  def enroll(self,owner,identity):
   with self.database.connection()as db:
    job=self.runtime._job(db,owner,identity,lock=True)
-   if not self.enabled_in(db):return
-   if job['cancel_requested']or job['status']not in {'waiting','running'}or not job['active_claim_id']:return
-   if db.execute('SELECT 1 FROM node_runs WHERE owner_id=%s AND job_id=%s LIMIT 1',(owner,identity)).fetchone():return
-   db.execute('INSERT INTO agent_pool_jobs(owner_id,job_id,generation,claim_id)VALUES(%s,%s,%s,%s)ON CONFLICT DO NOTHING',(owner,identity,job['generation'],job['active_claim_id']))
+   from .start_queue import StartQueue
+   if job['active_claim_id']and StartQueue(self.runtime).requires_in(db,job):return
+   self.enroll_in(db,job)
+ @staticmethod
+ def enroll_in(db,job):
+  if not AgentPool.enabled_in(db):return
+  if job['cancel_requested']or job['status']not in {'waiting','running'}or not job['active_claim_id']:return
+  if db.execute('SELECT 1 FROM node_runs WHERE owner_id=%s AND job_id=%s LIMIT 1',(job['owner_id'],job['id'])).fetchone():return
+  db.execute('INSERT INTO agent_pool_jobs(owner_id,job_id,generation,claim_id)VALUES(%s,%s,%s,%s)ON CONFLICT DO NOTHING',(job['owner_id'],job['id'],job['generation'],job['active_claim_id']))
+ @staticmethod
+ def can_start_in(db,job,node):
+  role=role_for(node)
+  if role is None or not AgentPool.enabled_in(db):return True
+  if not db.execute('SELECT 1 FROM agent_pool_roles WHERE role=%s AND enabled',(role,)).fetchone():return True
+  live=db.execute("SELECT count(*) n,count(*)FILTER(WHERE phase='ready') ready FROM agent_pool_instances WHERE role=%s AND phase IN('ready','busy')AND observed_at>now()-interval '5 seconds'",(role,)).fetchone()
+  work=db.execute('SELECT inflight FROM agent_pool_capacity WHERE role=%s',(role,)).fetchone()
+  return live['ready']>0 and live['n']>(work['inflight']if work else 0)
  @staticmethod
  def ready_in(db,job,node):
   if not AgentPool.enrolled_in(db,job):return True

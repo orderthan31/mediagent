@@ -8,9 +8,20 @@ import { Pagination, usePagination } from './Pagination';
 import './queue-controls.css';
 import { renewalBackend } from './preview';
 import { RenewalWaitingPanel } from './RenewalWaitingPanel';
+import { StartQueuePanel } from './StartQueuePanel';
 
 export const QueuePanel = ({ jobs, onChanged }: { jobs: Job[]; onChanged: () => Promise<void> }) =>
-  renewalBackend ? <RenewalWaitingPanel /> : <LegacyQueuePanel jobs={jobs} onChanged={onChanged} />;
+  renewalBackend ? (
+    <>
+      <StartQueuePanel onChanged={onChanged} />
+      <div className="start-queue-deliveries">
+        <h3>전달 현황</h3>
+        <RenewalWaitingPanel />
+      </div>
+    </>
+  ) : (
+    <LegacyQueuePanel jobs={jobs} onChanged={onChanged} />
+  );
 
 const LegacyQueuePanel = ({ jobs, onChanged }: { jobs: Job[]; onChanged: () => Promise<void> }) => {
   const [state, setState] = useState<QueueState | null>(null);
