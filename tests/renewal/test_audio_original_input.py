@@ -7,6 +7,7 @@ import hashlib
 import io
 import math
 import os
+import shutil
 from pathlib import Path
 import struct
 import sys
@@ -21,7 +22,8 @@ ROOT = Path(__file__).resolve().parents[2]
 for project in ('packages/shared', 'agents', 'apps/orchestrator', 'tools/media'):
     sys.path.insert(0, str(ROOT / project))
 OWNER, ACTOR = 'a' * 32, 'b' * 32
-TOOLS = Path('C:/Users/skygg/AppData/Local/hermes/tools/ffmpeg-9.0.1-win32-x64/bin')
+FFMPEG = os.environ.get('MIDEAGENT_TEST_FFMPEG') or shutil.which('ffmpeg') or 'ffmpeg'
+FFPROBE = os.environ.get('MIDEAGENT_TEST_FFPROBE') or shutil.which('ffprobe') or 'ffprobe'
 
 
 def pcm():
@@ -41,7 +43,7 @@ def store(tmp_path, monkeypatch):
             if value == 0o400 and path.is_relative_to(tmp_path): return
             return chmod(path, value, *a, **kw)
         monkeypatch.setattr(Path, 'chmod', mode)
-    monkeypatch.setenv('PATH', str(TOOLS) + os.pathsep + os.environ.get('PATH', ''))
+    monkeypatch.setenv('PATH', str(Path(FFMPEG).resolve().parent) + os.pathsep + os.environ.get('PATH', ''))
     return ContentStore(tmp_path)
 
 
@@ -145,7 +147,7 @@ def audio_runtime(mt, store, monkeypatch, request):
     container = fixture_options.get('container', 'mp3')
     source = store.root / ('synthetic.' + container)
     encoding = ['-c:a', 'aac', '-f', 'ipod'] if container == 'm4a' else ['-c:a', 'libmp3lame']
-    subprocess.run([str(TOOLS / 'ffmpeg.exe'), '-v', 'error', '-i', str(raw_wav), *encoding, '-b:a', '64k', str(source)], check=True, capture_output=True, timeout=10)
+    subprocess.run([FFMPEG, '-v', 'error', '-i', str(raw_wav), *encoding, '-b:a', '64k', str(source)], check=True, capture_output=True, timeout=10)
     owner = '8' * 32
     raw = source.read_bytes()
     ref = store.put(owner, [raw], 'audio')
@@ -416,7 +418,7 @@ def test_actual_mp3_registration_uses_content_and_preserves_literal_filename(reg
     state=registration;store=state.runtime.store
     source=store.root/'fixture-source.wav';source.write_bytes(state.raw)
     encoded=store.root/'fixture-only.mp3'
-    subprocess.run([str(TOOLS/'ffmpeg.exe'),'-v','error','-i',str(source),'-c:a','libmp3lame','-b:a','64k',str(encoded)],check=True,capture_output=True,timeout=10)
+    subprocess.run([FFMPEG,'-v','error','-i',str(source),'-c:a','libmp3lame','-b:a','64k',str(encoded)],check=True,capture_output=True,timeout=10)
     raw=encoded.read_bytes();part=store.put(OWNER,[raw],'upload_part')
     state.row.update(filename='literal source name.WAV',expected_size=len(raw),uploaded_bytes=len(raw))
     state.runtime._parts=lambda *a:[part];state.runtime._blocks=lambda *a:[raw]

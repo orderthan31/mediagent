@@ -29,6 +29,7 @@ def hex_id(value, size):
 
 
 def validate(packet, kind, *, expected_role=None):
+    require(type(packet) is dict, "invalid_role_envelope")
     if expected_role is not None:
         require(packet.get("role") == expected_role, "wrong_role_delivery")
     if kind == "cancel_ack":

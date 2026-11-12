@@ -10,7 +10,7 @@ from contextlib import nullcontext, contextmanager
 import sys
 import hashlib
 import pytest
-from test_audio_original_input import ROOT, TOOLS, OWNER, ACTOR, store, registration, intake_methods, mt, state, connected, recovery_runtime, source_execution
+from test_audio_original_input import ROOT, FFMPEG, OWNER, ACTOR, store, registration, intake_methods, mt, state, connected, recovery_runtime, source_execution
 
 
 def png(width=8, height=4):
@@ -24,7 +24,7 @@ def photo(request, store):
     path=store.root/'nonpersonal-pattern.png'; path.write_bytes(png())
     if request.param=='jpeg':
         target=store.root/'nonpersonal-pattern.jpg'
-        subprocess.run([str(TOOLS/'ffmpeg.exe'),'-v','error','-i',str(path),'-frames:v','1','-q:v','3',str(target)],check=True,capture_output=True,timeout=10)
+        subprocess.run([FFMPEG,'-v','error','-i',str(path),'-frames:v','1','-q:v','3',str(target)],check=True,capture_output=True,timeout=10)
         path=target
     return path
 
@@ -148,7 +148,7 @@ def test_photo_exif_orientation_is_validated_without_transposing_raw_bytes(store
     from video_service.image_original import probe,orientation
     raw_png=store.root/'base.png';raw_png.write_bytes(png())
     jpg=store.root/'raw.jpg'
-    subprocess.run([str(TOOLS/'ffmpeg.exe'),'-v','error','-i',str(raw_png),'-frames:v','1',str(jpg)],check=True,capture_output=True,timeout=10)
+    subprocess.run([FFMPEG,'-v','error','-i',str(raw_png),'-frames:v','1',str(jpg)],check=True,capture_output=True,timeout=10)
     tiff=b'II'+struct.pack('<HIH',42,8,1)+struct.pack('<HHI',274,3,1)+struct.pack('<H',6)+b'\0\0'+b'\0'*4
     assert orientation(tiff)==6
     exif=b'Exif\0\0'+tiff;segment=b'\xff\xe1'+struct.pack('>H',len(exif)+2)+exif

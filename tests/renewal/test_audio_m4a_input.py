@@ -8,7 +8,7 @@ import sys
 
 import pytest
 from test_audio_original_input import (
-    ROOT, TOOLS, OWNER, ACTOR, PRIMARY, FALLBACK, LLM, pcm, intake_methods,
+    ROOT, FFMPEG, FFPROBE, OWNER, ACTOR, PRIMARY, FALLBACK, LLM, pcm, intake_methods,
     store, registration, audio_runtime, mt, state, connected, recovery_runtime, source_execution,
 )
 
@@ -18,11 +18,11 @@ def m4a(store):
     wav = store.root / 'generated-sine.wav'
     wav.write_bytes(pcm())
     path = store.root / 'generated.m4a'
-    subprocess.run([str(TOOLS / 'ffmpeg.exe'), '-v', 'error', '-i', str(wav),
+    subprocess.run([FFMPEG, '-v', 'error', '-i', str(wav),
                     '-c:a', 'aac', '-b:a', '64k', '-f', 'ipod', str(path)],
                    check=True, capture_output=True, timeout=10)
     raw_probe = json.loads(subprocess.run([
-        str(TOOLS / 'ffprobe.exe'), '-v', 'error', '-show_format', '-show_streams',
+        FFPROBE, '-v', 'error', '-show_format', '-show_streams',
         '-of', 'json', str(path)], check=True, capture_output=True, timeout=10).stdout)
     assert raw_probe['format']['format_name'] == 'mov,mp4,m4a,3gp,3g2,mj2'
     assert raw_probe['format']['tags']['major_brand'] == 'M4A '
@@ -132,7 +132,7 @@ def test_m4a_bounds_and_existing_policy_values_remain():
 def test_m4a_filename_cannot_make_actual_raw_adts_audio_valid(m4a, store):
     from mideagent_media_tools.operations import probe_original
     raw = store.root / 'false-extension.m4a'
-    subprocess.run([str(TOOLS/'ffmpeg.exe'), '-v', 'error', '-i', str(m4a), '-c:a', 'copy', '-f', 'adts', str(raw)], check=True, capture_output=True, timeout=10)
+    subprocess.run([FFMPEG, '-v', 'error', '-i', str(m4a), '-c:a', 'copy', '-f', 'adts', str(raw)], check=True, capture_output=True, timeout=10)
     with pytest.raises(ValueError): probe_original(raw)
 
 
