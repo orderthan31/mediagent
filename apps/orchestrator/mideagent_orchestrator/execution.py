@@ -461,8 +461,8 @@ class Execution(Intake):
 
     def inspect(self, owner, identity, revision, options=None):
         public_definition = self.job_definition(owner, identity, revision)
-        from mideagent_orchestrator.workflow import compile_definition, render_definition
-        public_definition = render_definition(public_definition, options or {})
+        from mideagent_orchestrator.workflow import compile_definition, selected_definition
+        public_definition = selected_definition(public_definition, options or {})
         agent_plan = compile_definition(public_definition) if public_definition.get("catalog_version")==2 else None
         definition = agent_plan["definition"] if agent_plan else public_definition
         reasons = []
@@ -558,16 +558,19 @@ class Execution(Intake):
             value["summary"]=[{**indexed[CLASSES[n["type"]](n).publication()],
                 "id":n["id"],"type":n["type"],"options":goal_options(n),
                 "runtime_roles":registration(n["type"],node=n)["runtime_roles"]}for n in public_definition["nodes"]]
-        if (options or {}).get("render_goal") is not None:
+        if (options or {}).get("translation_goal") is not None:
+            value["paid_roles"] = ["translation"] if self.translation_runtime and any(
+                self.translation_runtime.requires_paid([pin, *pin.get("fallbacks", [])]) for pin in models.values()) else []
+        if any(key in (options or {}) for key in ("render_goal", "translation_goal")):
             value["agent_definition"] = public_definition
         return value
 
     def normal_input_plan(self, actor, asset_id, definition, options):
         from .normal_inputs import NormalInputs
-        from .workflow import render_definition
+        from .workflow import selected_definition
         with self.database.connection() as db:
             asset = self._shared_asset(db, asset_id)
-            return NormalInputs(self).resolve(db, actor, asset, render_definition(definition, options), options)
+            return NormalInputs(self).resolve(db, actor, asset, selected_definition(definition, options), options)
 
     def input_choices(self, actor, asset_id):
         """Public candidate identities only; byte/manifest validation occurs on selection."""
@@ -621,7 +624,7 @@ class Execution(Intake):
             "video_description",
             "branch_choices",
             "transcript",
-            "subtitle_srt", "input_language", "accepted_inputs", "saved_subtitle", "render_goal",
+            "subtitle_srt", "input_language", "accepted_inputs", "saved_subtitle", "render_goal", "translation_goal",
         }:
             raise ValueError("작업 옵션 오류")
         from video_service.timed_subtitles import MAX_INPUT_OPTIONS_BYTES
@@ -665,8 +668,8 @@ class Execution(Intake):
             from video_service.original_video_budget import resolve_definition
 
             original_definition_sha = digest(definition)
-            from mideagent_orchestrator.workflow import compile_definition, render_definition
-            definition = render_definition(definition, options)
+            from mideagent_orchestrator.workflow import compile_definition, selected_definition
+            definition = selected_definition(definition, options)
             normal_inputs = None
             input_language = None
             if definition.get("catalog_version") == 2:
@@ -772,6 +775,8 @@ class Execution(Intake):
                 "inputs": input_refs,
                 **({"render_selection": {"version": 1, "node_id": options["render_goal"]["node_id"],
                     "source_definition_sha256": original_definition_sha}} if "render_goal" in options else {}),
+                **({"translation_selection": {"version": 1, "node_id": options["translation_goal"]["node_id"],
+                    "source_definition_sha256": original_definition_sha}} if "translation_goal" in options else {}),
                 **({"normal_input_policy": 1, "normal_input_bindings": normal_inputs["bindings"]} if normal_inputs and normal_inputs["bindings"] else {}),
                 "definition": definition,
                 **({"agent_plan_version":1,"agent_output_policy":1,"agent_execution_policy":1,

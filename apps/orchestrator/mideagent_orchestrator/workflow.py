@@ -127,6 +127,42 @@ def render_definition(public, options):
     return result
 
 
+def selected_definition(public, options):
+    """Resolve one explicit saved-copy goal; keep the existing render contract."""
+    if "translation_goal" not in options:
+        return render_definition(public, options)
+    selected = options["translation_goal"]
+    if ("render_goal" in options or "saved_subtitle" not in options or not isinstance(selected, dict)
+            or set(selected) - {"node_id", "options", "model_ref"} or not {"node_id", "options"} <= set(selected)
+            or not isinstance(selected["options"], dict)
+            or set(selected["options"]) - {"target_language", "llm_options"}):
+        raise ValueError("저장 자막과 번역 에이전트 하나를 선택하세요.")
+    _shape(public)
+    matches = [n for n in public["nodes"] if n["id"] == selected["node_id"] and n["type"] == "translation_agent"]
+    if len(matches) != 1:
+        raise ValueError("선택 버전의 번역 에이전트를 선택하세요.")
+    node = deepcopy(matches[0])
+    source_plan = compile_definition(public)
+    source_tool = next(n for n in source_plan["definition"]["nodes"]
+                       if source_plan["owners"][n["id"]] == node["id"] and n["type"] == "translate")
+    # Keep the source revision's resolved batching/media/call budget, including
+    # editor policies inherited from its former ASR branch, without running ASR.
+    node["tool_settings"] = {**node.get("tool_settings", {}), "translate": deepcopy(source_tool["options"])}
+    if not node.get("model_ref"):
+        raise ValueError("이 번역 에이전트에 고정된 등록 모델이 없습니다. 다른 버전을 선택하세요.")
+    candidates = [node["model_ref"], *node.get("fallback_refs", [])]
+    if "model_ref" in selected:
+        reference = valid_reference(selected["model_ref"])
+        if reference not in candidates:
+            raise ValueError("선택 에이전트에 고정된 모델 버전만 선택하세요.")
+        node["model_ref"] = reference
+        node["fallback_refs"] = [deepcopy(p) for p in candidates if p != reference]
+    node["options"] = {**node.get("options", {}), **selected["options"]}
+    result = {**deepcopy(public), "inputs": {"transcript": "transcript"}, "nodes": [node], "edges": []}
+    compile_definition(result)
+    return result
+
+
 def compile_definition(public, *, input_language=None, preserve_input_cues=True):
     ordered,parents=_shape(public)
     nodes=[];edges=[];owners={};contexts={};output_contexts={};input_contexts={}

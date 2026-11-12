@@ -142,7 +142,7 @@ export const VideoWorkspace = () => {
   const settingsView = route === '#/settings' || (renewalBackend && route === '#/settings/storage');
   const startView = route === '#/start';
   const renderCopyId = renewalBackend
-    ? route.match(/^#\/start\/subtitles\/([a-f0-9]{32})$/)?.[1]
+    ? route.match(/^#\/start\/subtitles\/([a-f0-9]{32})(?:\/translate)?$/)?.[1]
     : undefined;
   const productTicketsView = route === '#/work-tickets' || route === '#/recovery-tickets';
   const servingView = route === '#/serving' || route.startsWith('#/serving/');
@@ -546,7 +546,11 @@ export const VideoWorkspace = () => {
         ) : (frontendOnly || renewalBackend) && route.startsWith('#/account') ? (
           <AccountPage key={route} create={route === '#/account/new'} />
         ) : renderCopyId ? (
-          <SavedSubtitleRender key={renderCopyId} copyId={renderCopyId} />
+          <SavedSubtitleRender
+            key={route}
+            copyId={renderCopyId}
+            mode={route.endsWith('/translate') ? 'translation' : 'render'}
+          />
         ) : startView ? (
           <WorkflowStart />
         ) : workflowTicketsView ? (

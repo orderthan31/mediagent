@@ -172,6 +172,8 @@ export const DirectSubtitleEditor = ({ savedId }: { savedId?: string }) => {
       {renderCopyId && (
         <p>
           <a href={`#/start/subtitles/${renderCopyId}`}>영상 작업 준비</a>
+          {' · '}
+          <a href={`#/start/subtitles/${renderCopyId}/translate`}>자막 번역 준비</a>
         </p>
       )}
       {openedAt && (

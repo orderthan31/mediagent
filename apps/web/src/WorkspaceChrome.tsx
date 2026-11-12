@@ -89,7 +89,8 @@ export const WorkspaceChrome = ({
             ? agentLabel || '상세'
             : route === '#/serving/roles'
               ? '역할 설정'
-              : route === '#/start' || /^#\/start\/subtitles\/[a-f0-9]{32}$/.test(route)
+              : route === '#/start' ||
+                  /^#\/start\/subtitles\/[a-f0-9]{32}(?:\/translate)?$/.test(route)
                 ? '추가'
                 : /\/new$/.test(route)
                   ? '추가'

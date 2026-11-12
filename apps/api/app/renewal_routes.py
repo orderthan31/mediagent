@@ -390,10 +390,10 @@ def mount_runtime(
                 "media": source.get("media"),
             },
         }
-        from mideagent_orchestrator.workflow import compile_definition, render_definition
+        from mideagent_orchestrator.workflow import compile_definition, selected_definition
         from mideagent_orchestrator.normal_inputs import public_input_summary
         source_definition_sha = digest(definition)
-        definition = render_definition(definition, selection.options)
+        definition = selected_definition(definition, selection.options)
         normal_inputs = runtime.normal_input_plan(owned, selection.asset_id, definition, selection.options) if definition.get("catalog_version")==2 else None
         compiled = compile_definition(definition, input_language=normal_inputs["language"] if normal_inputs else None) if definition.get("catalog_version")==2 else None
         execution_definition = resolve_definition(original_asset, compiled["definition"] if compiled else definition)
@@ -426,7 +426,7 @@ def mount_runtime(
             runtime.asset_path(owned, selection.asset_id)
         inspection = runtime.inspect(
             owned, selection.definition_id, selection.definition_revision,
-            **({"options": selection.options} if "render_goal" in selection.options else {})
+            **({"options": selection.options} if any(k in selection.options for k in ("render_goal", "translation_goal")) else {})
         )
         if not local_execution or not inspection["supported"]:
             raise Conflict(
@@ -437,7 +437,7 @@ def mount_runtime(
                 {
                     "source": source,
                     "definition": definition,
-                    **({"source_definition_sha256": source_definition_sha} if "render_goal" in selection.options else {}),
+                    **({"source_definition_sha256": source_definition_sha} if any(k in selection.options for k in ("render_goal", "translation_goal")) else {}),
                     "selection": selection.model_dump(),
                     **({"normal_inputs": normal_inputs["bindings"]} if normal_inputs and normal_inputs["bindings"] else {}),
                     **({"cpu_input_policy": cpu_policy} if cpu_policy else {}),
@@ -446,7 +446,7 @@ def mount_runtime(
             **({"input_bindings_sha256": digest(normal_inputs["bindings"]),
                 "selected_inputs": public_input_summary(normal_inputs["bindings"])}
                if normal_inputs and normal_inputs["bindings"] else {}),
-            "paid_roles": [
+            "paid_roles": inspection["paid_roles"] if "translation_goal" in selection.options else [
                 role
                 for stage, role in [
                     ("translate", "translation"),

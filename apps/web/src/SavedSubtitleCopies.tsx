@@ -51,7 +51,10 @@ export const SavedSubtitleCopies = () => {
               <a href={`#/subtitles/saved/${copy.id}`}>{copy.title}</a>
             </h2>
             <p>{copy.filename}</p>
-            <a href={`#/start/subtitles/${copy.id}`}>영상 작업 준비</a>
+            <div className="direct-subtitle-actions">
+              <a href={`#/start/subtitles/${copy.id}`}>영상 작업 준비</a>
+              <a href={`#/start/subtitles/${copy.id}/translate`}>자막 번역 준비</a>
+            </div>
             <p>
               <time dateTime={copy.created_at}>
                 {new Date(copy.created_at).toLocaleString('ko-KR')}

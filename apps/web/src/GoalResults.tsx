@@ -15,7 +15,7 @@ export const GoalResults = ({
   runs = [],
 }: {
   base: string;
-  agents: { id: string; label: string; outputs?: GoalOutput[] }[];
+  agents: { id: string; type?: string; label: string; outputs?: GoalOutput[] }[];
   runs?: SrtFileRun[];
 }) => {
   const available = agents.filter((agent) => agent.outputs?.length);
@@ -38,7 +38,8 @@ export const GoalResults = ({
                     sami: '자막 SAMI',
                     video: '결과 영상',
                     audio: '음성 (16kHz 모노 WAV)',
-                    transcript: '전사문(JSON)',
+                    transcript:
+                      agent.type === 'translation_agent' ? '번역문(JSON)' : '전사문(JSON)',
                     report: '영상 검증 보고서(JSON)',
                   } as Record<string, string>
                 )[output.name] || '결과 파일';

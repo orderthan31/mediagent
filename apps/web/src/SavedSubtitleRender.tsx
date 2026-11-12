@@ -6,6 +6,8 @@ import { startSavedJob } from './job-start.mjs';
 import { PageTitle } from './PageTitle';
 import { Button } from './hangyeol/primitives/button';
 import { Input } from './hangyeol/primitives/input';
+import { Textarea } from './hangyeol/primitives/textarea';
+import type { ModelReference, RegisteredVersion } from './registered-models';
 import { WorkflowCanvas, type CanvasDefinition, type CanvasSpec } from './WorkflowCanvas';
 import { languageLabel } from './language-label';
 import './direct-subtitle.css';
@@ -18,10 +20,14 @@ type Inspection = {
   model_ready: boolean;
   definition_revision: number;
   reasons: { message: string }[];
-  summary: { id: string; options: Record<string, string> }[];
+  summary: { id: string; options: Record<string, string>; model?: RegisteredVersion }[];
   agent_definition: CanvasDefinition;
 };
-type Plan = { token: string; paid_roles: string[] };
+type Plan = {
+  token: string;
+  paid_roles: string[];
+  model_call_budgets?: { role: string; max_calls: number }[];
+};
 const outputLabels: Record<string, string> = {
   format: '별도 자막 형식',
   language: '출력 자막 언어',
@@ -52,7 +58,16 @@ const post = <T,>(path: string, body: unknown, signal: AbortSignal) =>
   });
 
 /** Existing normal preview/Create/Start, explicitly bound to an immutable copy. */
-export const SavedSubtitleRender = ({ copyId }: { copyId: string }) => {
+export const SavedSubtitleRender = ({
+  copyId,
+  mode = 'render',
+}: {
+  copyId: string;
+  mode?: 'render' | 'translation';
+}) => {
+  const translating = mode === 'translation';
+  const goalType = translating ? 'translation_agent' : 'subtitle_video_agent';
+  const goalLabel = translating ? '번역 에이전트' : '자막 영상 에이전트';
   const [copy, setCopy] = useState<SavedCopy | null>(null);
   const [videos, setVideos] = useState<VideoAsset[]>([]);
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
@@ -62,6 +77,7 @@ export const SavedSubtitleRender = ({ copyId }: { copyId: string }) => {
   const [graph, setGraph] = useState<CanvasDefinition | null>(null);
   const [goalId, setGoalId] = useState('');
   const [overrides, setOverrides] = useState<Record<string, string>>({});
+  const [modelRef, setModelRef] = useState<ModelReference>();
   const [language, setLanguage] = useState('auto');
   const [inspection, setInspection] = useState<{ key: string; value: Inspection } | null>(null);
   const [plan, setPlan] = useState<{ key: string; value: Plan } | null>(null);
@@ -77,11 +93,23 @@ export const SavedSubtitleRender = ({ copyId }: { copyId: string }) => {
   const pending = useRef(false);
   const nonce = useRef(crypto.randomUUID());
   const workflow = workflows.find((w) => w.id === workflowId);
-  const goals = graph?.nodes.filter((n) => n.type === 'subtitle_video_agent') || [];
-  const descriptor = catalog.find((n) => n.id === 'subtitle_video_agent');
+  const goals = graph?.nodes.filter((n) => n.type === goalType) || [];
+  const chosenGoal = goals.find((n) => n.id === goalId);
+  const modelChoices = chosenGoal?.model_ref
+    ? [chosenGoal.model_ref, ...(chosenGoal.fallback_refs || [])]
+    : [];
+  const descriptor = catalog.find((n) => n.id === goalType);
   const renderOptions = {
     saved_subtitle: { copy_id: copyId, srt_sha256: copy?.srt_sha256 },
-    render_goal: { node_id: goalId, options: overrides },
+    ...(translating
+      ? {
+          translation_goal: {
+            node_id: goalId,
+            options: overrides,
+            ...(modelRef ? { model_ref: modelRef } : {}),
+          },
+        }
+      : { render_goal: { node_id: goalId, options: overrides } }),
     input_language: language,
   };
   const inspectKey = JSON.stringify({
@@ -91,6 +119,8 @@ export const SavedSubtitleRender = ({ copyId }: { copyId: string }) => {
     overrides,
     copyId,
     sha: copy?.srt_sha256,
+    mode,
+    modelRef,
   });
   const selection = {
     asset_id: assetId,
@@ -110,6 +140,7 @@ export const SavedSubtitleRender = ({ copyId }: { copyId: string }) => {
     !submitted &&
     !pending.current;
   const effective = currentInspection?.summary.find((n) => n.id === goalId)?.options;
+  const effectiveModel = currentInspection?.summary.find((n) => n.id === goalId)?.model;
   const fail = (reason: unknown) =>
     reason instanceof Error ? reason.message : '입력을 확인하지 못했습니다.';
   const changeWorkflow = (value: string) => {
@@ -117,6 +148,7 @@ export const SavedSubtitleRender = ({ copyId }: { copyId: string }) => {
     setGraph(null);
     setGoalId('');
     setOverrides({});
+    setModelRef(undefined);
     setPlan(null);
     setCheckError('');
   };
@@ -132,7 +164,7 @@ export const SavedSubtitleRender = ({ copyId }: { copyId: string }) => {
         ...selection,
         token: currentPlan.token,
         request_id: nonce.current,
-        paid_confirmed: false,
+        paid_confirmed: translating && currentPlan.paid_roles.includes('translation'),
       });
       setCreatedId(job.id);
       try {
@@ -235,7 +267,7 @@ export const SavedSubtitleRender = ({ copyId }: { copyId: string }) => {
           value.agent_definition.nodes.length !== 1 ||
           value.agent_definition.nodes[0].id !== goalId
         ) {
-          throw new Error('자막 영상 구성을 다시 확인하세요.');
+          throw new Error('선택 에이전트 구성을 다시 확인하세요.');
         }
         setInspection({ key: inspectKey, value });
       })
@@ -274,9 +306,9 @@ export const SavedSubtitleRender = ({ copyId }: { copyId: string }) => {
           if (
             !/^[a-f0-9]{64}$/.test(value.token) ||
             !Array.isArray(value.paid_roles) ||
-            value.paid_roles.length
+            value.paid_roles.some((role) => !translating || role !== 'translation')
           ) {
-            throw new Error('자막 영상의 입력·실행 구성을 다시 확인하세요.');
+            throw new Error('자막 입력·실행 구성을 다시 확인하세요.');
           }
           setPlan({ key: selectionKey, value });
         })
@@ -299,9 +331,18 @@ export const SavedSubtitleRender = ({ copyId }: { copyId: string }) => {
   }, [selectionKey, currentInspection, submitted]);
   return (
     <main className="video-main direct-subtitle-page saved-subtitle-render">
-      <PageTitle>자막 영상 작업 준비</PageTitle>
+      <PageTitle>{translating ? '자막 번역 준비' : '자막 영상 작업 준비'}</PageTitle>
       <a href={`#/subtitles/saved/${copyId}`}>저장 자막 열기</a>
-      <p>저장한 자막과 선택한 영상으로 별도 MP4 작업을 준비합니다.</p>
+      <p>
+        {translating
+          ? '저장한 자막으로 별도 번역 작업을 준비합니다. 전사·영상 제작은 실행하지 않습니다.'
+          : '저장한 자막과 선택한 영상으로 별도 MP4 작업을 준비합니다.'}
+      </p>
+      {translating && (
+        <p>
+          작업 기록에 연결할 원본 영상이 필요합니다. 자막 시각이 해당 영상 길이 안에 있어야 합니다.
+        </p>
+      )}
       {loading && <p role="status">저장 자막과 원본 목록 불러오는 중</p>}
       {error && (
         <>
@@ -356,23 +397,25 @@ export const SavedSubtitleRender = ({ copyId }: { copyId: string }) => {
         {graphLoading && <p role="status">워크플로우 불러오는 중</p>}
         {graphError && <p role="alert">{graphError}</p>}
         {graph && !goals.length && (
-          <p>이 버전에는 자막 영상 에이전트가 없습니다. 다른 워크플로우를 선택하세요.</p>
+          <p>이 버전에는 {goalLabel}가 없습니다. 다른 워크플로우를 선택하세요.</p>
         )}
         <label>
-          자막 영상 에이전트
+          {goalLabel}
           <select
-            aria-label="자막 영상 에이전트"
+            aria-label={goalLabel}
             value={goalId}
             disabled={!goals.length || submitted}
             onChange={(e) => {
               setGoalId(e.target.value);
               setOverrides({});
+              setModelRef(undefined);
             }}
           >
             <option value="">에이전트 선택</option>
-            {goals.map((n) => (
+            {goals.map((n, index) => (
               <option key={n.id} value={n.id}>
-                {descriptor?.label || '자막 영상'} · {n.id}
+                {descriptor?.label || goalLabel}
+                {goals.length > 1 ? ` ${index + 1}` : ''}
               </option>
             ))}
           </select>
@@ -386,7 +429,78 @@ export const SavedSubtitleRender = ({ copyId }: { copyId: string }) => {
             onChange={(e) => setLanguage(e.target.value)}
           />
         </label>
-        {effective &&
+        {translating && chosenGoal && (
+          <>
+            <label>
+              번역할 언어
+              <Input
+                aria-label="번역할 언어"
+                value={
+                  overrides.target_language ??
+                  effective?.target_language ??
+                  chosenGoal.options.target_language ??
+                  ''
+                }
+                disabled={submitted}
+                placeholder="ko, en, pt-BR"
+                onChange={(e) =>
+                  setOverrides((previous) => ({ ...previous, target_language: e.target.value }))
+                }
+              />
+              <span>
+                {languageLabel(
+                  overrides.target_language ??
+                    effective?.target_language ??
+                    chosenGoal.options.target_language,
+                )}
+              </span>
+            </label>
+            <label>
+              번역 모델
+              <select
+                aria-label="번역 모델"
+                disabled={submitted || !modelChoices.length}
+                value={JSON.stringify(modelRef || chosenGoal.model_ref) || ''}
+                onChange={(e) => setModelRef(JSON.parse(e.target.value) as ModelReference)}
+              >
+                {!modelChoices.length && <option value="">고정된 등록 모델 없음</option>}
+                {modelChoices.map((ref, index) => (
+                  <option key={JSON.stringify(ref)} value={JSON.stringify(ref)}>
+                    {index === 0 ? '저장 모델' : `대체 모델 ${index}`} · {ref.model_id} · v
+                    {ref.revision}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {effectiveModel && (
+              <p>
+                {effectiveModel.name} · {effectiveModel.provider} · v{effectiveModel.revision}
+              </p>
+            )}
+            <p>
+              이 에이전트에 저장된 모델 버전 중 선택합니다. 나머지 후보는 대체 모델로 유지합니다.
+            </p>
+            <label>
+              모델 요청 옵션 (JSON)
+              <Textarea
+                aria-label="모델 요청 옵션 (JSON)"
+                value={
+                  overrides.llm_options ??
+                  effective?.llm_options ??
+                  chosenGoal.options.llm_options ??
+                  ''
+                }
+                disabled={submitted}
+                maxLength={2048}
+                onChange={(e) =>
+                  setOverrides((previous) => ({ ...previous, llm_options: e.target.value }))
+                }
+              />
+            </label>
+          </>
+        )}
+        {!translating &&
+          effective &&
           descriptor &&
           Object.entries(outputLabels).map(([key, label]) => (
             <label key={key}>
@@ -422,6 +536,20 @@ export const SavedSubtitleRender = ({ copyId }: { copyId: string }) => {
       {checkError && <p role="alert">{checkError}</p>}
       {currentPlan && (
         <p role="status">입력을 확인했습니다. 새 작업으로 만들고 시작할 수 있습니다.</p>
+      )}
+      {translating && currentPlan && (
+        <>
+          {currentPlan.model_call_budgets?.map((budget, index) => (
+            <p key={index}>번역 · 최대 {budget.max_calls}회 (기본·대체 모델 합계)</p>
+          ))}
+          {!!currentPlan.paid_roles.length && (
+            <p>
+              선택한 모델의 API 비용이 발생할 수 있습니다. 금액은 미산정이며, 작업 시작을 누르면
+              표시된 모델·호출 범위로 실행합니다.
+            </p>
+          )}
+          <p>이 화면의 확인만으로 모델을 호출하지 않습니다.</p>
+        </>
       )}
       {submitted && <p role="status">생성 요청을 보냈습니다. 작업 목록에서 상태를 확인하세요.</p>}
       <div className="direct-subtitle-actions">

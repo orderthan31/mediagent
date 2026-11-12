@@ -1,5 +1,13 @@
 # 현재 구현 태스크
 
+## 저장 자막 → 번역 전용 준비 — source/offline 범위
+
+- [x] 이미 연결된 일반 SRT/완료 transcript·동일 영상 WAV 입력은 유지하고, 독립 저장 copy를 선택 번역 에이전트 하나에 연결한다. explicit translation_goal과 별도 frozen translation_selection을 사용하며 기존 render_goal/영상 준비 기록을 바꾸지 않는다.
+- [x] 실제 접근 가능한 workflow revision의 모델/후보/옵션·해석된 분할/media/호출 budget을 보존한다. 모델 선택은 그 goal에 이미 고정된 등록 ID/revision으로 제한하고 credential namespace/권한을 넓히지 않는다. source-owner binding으로 paid metadata를 계산하며 미래의 명시적 시작은 기존 비용 동의·Start/queue 조건을 따른다.
+- [x] 공용 준비 화면의 번역 mode·저장 목록/상세 진입·언어/모델/옵션·호출 범위·오류·preview 무효화·전체 reload를 연결했다. 영상 준비의 불필요한 DISPLAY node ID suffix만 제거했고 실제 ID/value/canvas는 유지한다. 기존 번역 transcript JSON 결과 읽기/받기를 재사용한다.
+- [x] 새 연결만 production resolver/route/Create/실제 preflight·_plan/SDK pin·첫 translate 명령·role envelope를 fake DB/registry와 임시 CAS로 검증하고, React/AuthGate/production CSS PC1440/390을 오프라인 fixture로 확인한다. 과거 전체 suite/운영 여정은 반복하지 않는다.
+- [ ] 부모 독립 검토·설치 후 GET/inspect/preview 제품 수용은 별도다. 실제 새 job/Start/번역/provider/GPU/렌더는 이 source writer가 수행하지 않으며 성공을 주장하지 않는다.
+
 ## 저장 수정본 → 별도 자막 영상 준비 — 소스 범위
 
 - [x] copy ID/SRT SHA만 받는 server-resolved 입력을 기존 NormalInputs에 연결했다. 실제 custodian·receipt·원문 SHA·변환 transcript SHA를 고정하며 accepted job/run 출처를 만들지 않는다. 미리보기는 CAS를 쓰지 않고 영상 길이·native 자막 소비 한도를 확인한다.

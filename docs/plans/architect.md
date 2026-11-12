@@ -24,6 +24,8 @@
 
 ## 각 역할은 어떻게 일하는가
 
+저장 자막의 번역 전용 준비는 같은 work-entry와 준비 화면 mode를 재사용하되 `translation_goal`을 영상 selector와 분리한다. 실제 저장 workflow의 translation_agent와 고정 모델 후보만 선택하며 원래 revision/FK·정의 해시와 별도 effective graph/translation_selection을 보존한다. 원래 graph에서 해석된 MT 분할/media/호출 budget도 유지하고 ASR·encode는 실행 정의에 포함하지 않는다. source copy custodian, 모델 workflow owner, 새 job actor/output owner는 각각 기존 reference_origin·model binding 계약으로 해석한다. 모델 registry 관리자 API를 일반 준비에 열거나 credential/client namespace를 추가하지 않는다. 현재 원본 영상 context/FK와 e13의 실제 _plan 입력/pin 검증·normal Start queue 경로를 유지하며 별도 번역 플랫폼/asset-free schema를 만들지 않는다.
+
 저장 자막의 영상 작업 준비도 기존 work-entry inspect/preview/Create와 NormalInputs를 사용한다. 서버가 독립 수정본의 ID/SHA를 해석해 원래 custodian·원문 receipt/reference와 변환 transcript digest를 고정한다. 실제 저장 workflow revision에서 명시 선택한 자막 영상 에이전트만 effective graph로 컴파일하며 원본 정의 해시와 선택 출처를 snapshot에 구분한다. 전사·번역이나 새 renderer 플랫폼을 추가하지 않는다. 읽기·미리보기에는 CAS 쓰기가 없고, 이후 명시적 새 Create에서만 cue-preserving transcript를 실제 custodian 아래에 materialize한다. 기존 reference_origin과 native caption→encode 연결이 입력 출처를 유지한다. 기존 workflow/수정본/작업 snapshot을 고치거나 GET에서 작업을 만들지 않는다.
 
 직접 자막 파일 편집은 기존 로그인·shell 안에서 파일 읽기·문구/시각 draft·별도 SRT/SMI 다운로드를 제공한다. 독립 수정본 저장은 작업·검토·모델과 분리된 인증 API를 사용한다. 수정 SRT bytes는 실제 runtime ContentStore의 불변 CAS에, 작은 canonical JSON 기록은 configured S3 prefix의 `subtitle-copies/{id}.json`에 조건부 생성한다. 공유 목록은 이 namespace만 매번 유한 페이지로 조회하며 로컬 cache를 권위로 삼지 않는다. 명시적 local ContentStore fallback도 같은 불변 기록 계약을 쓴다. 작성자는 서버 감사 주체로 보존하고 새 DB·권한·사용자별 자료 분리를 만들지 않는다. 기존 accepted 파일 읽기의 job/run/포트·인증 결속은 유지하며, 제품의 실제 PUT/GET 권한·저장 수용은 부모 검증 범위다.
