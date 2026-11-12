@@ -11,6 +11,12 @@ class ArtifactReference(BaseModel):
     source_owner_id:str|None=None
 
 _DATA=[
+ ('face.analyze_source','face_analyze_source','사진 인물 분석',{'source':'원본 사진','video':'대상 영상'},{'analysis':'사진 인물'},[]),
+ ('face.analyze_reference','face_analyze_reference','영상 인물 분석',{'source':'원본 사진','video':'대상 영상'},{'analysis':'영상 인물'},[]),
+ ('face.select','face_select','합성할 인물 선택',{'source_analysis':'사진 인물','reference_analysis':'영상 인물'},{'session':'인물 선택'},[]),
+ ('face.preview','face_preview','합성 미리보기',{'source':'원본 사진','video':'대상 영상','session':'인물 선택'},{'preview':'합성 미리보기'},[]),
+ ('face.confirm_preview','face_confirm_preview','미리보기 확인',{'preview':'미리보기','session':'인물 선택'},{'approval':'미리보기 확인'},[]),
+ ('face.render','face_render','얼굴 합성',{'source':'원본 사진','video':'대상 영상','session':'인물 선택','approval':'미리보기 확인'},{'video':'합성 영상'},['합성 품질','영상 형식']),
  ('media.analyze','analyze','영상 분석',{'video':'영상'},{'metadata':'영상 정보'},[]),
  ('media.extract_audio','extract_audio','음성 추출',{'video':'영상'},{'audio':'PCM 오디오'},[]),
  ('media.preprocess_audio','preprocess_audio','음성 전처리',{'audio':'PCM 오디오','regions':'선택 음성 구간'},{'audio':'전처리 오디오','timeline':'원본 시각'},['음성 필터','음성 구간']),

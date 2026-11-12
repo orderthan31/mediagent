@@ -183,7 +183,17 @@ NODES = [
 
 from .decision_conditions import OPTIONS as DECISION_OPTIONS
 
+NODES.extend([
+    node("face_analyze_source","사진 인물 분석",{"source":"image","video":"video"},{"analysis":"face_analysis"},role="faceswap"),
+    node("face_analyze_reference","영상 인물 분석",{"source":"image","video":"video"},{"analysis":"face_analysis"},role="faceswap"),
+    node("face_select","합성할 인물 선택",{"source_analysis":"face_analysis","reference_analysis":"face_analysis"},{"session":"face_session"},role="control"),
+    node("face_preview","합성 미리보기",{"source":"image","video":"video","session":"face_session"},{"preview":"face_preview"},role="faceswap"),
+    node("face_confirm_preview","미리보기 확인",{"preview":"face_preview","session":"face_session"},{"approval":"face_approval"},role="control"),
+    node("face_render","얼굴 합성",{"source":"image","video":"video","session":"face_session","approval":"face_approval"},{"video":"video"},role="faceswap",choices={"preset":["fast","balanced","quality"],"video_codec":["h264","hevc"]}),
+])
+
 VALUE_TYPES = [
+    "image", "face_analysis", "face_session", "face_preview", "face_approval",
     "subtitle_tracks",
     "video",
     "audio",

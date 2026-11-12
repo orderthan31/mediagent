@@ -28,12 +28,12 @@ class EngineRabbitClient(RabbitClient):
 
     def publish(self, delivery):
         self._owner()
-        result = delivery.message_type == RESULT
+        result = delivery.message_type in {RESULT, "agent.engine.result.v3"}
         value = decode(delivery, result=result)
         try:
             self.channel.basic_publish(
                 exchange=self.config.results if result else self.config.commands,
-                routing_key="result" if result else value["command"]["agent"]["id"],
+                routing_key="result" if result else (value["command"]["runtime"]["role"] if value["command"]["protocol_version"] == 3 else value["command"]["agent"]["id"]),
                 body=delivery.body,
                 mandatory=True,
                 properties=self.sdk.BasicProperties(

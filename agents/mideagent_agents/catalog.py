@@ -6,9 +6,10 @@ from .subtitle_video.agent import SubtitleVideoAgent
 from .audio_extraction import AudioExtractionAgent
 from .subtitle_file import SubtitleFileAgent
 from .video_conversion import VideoConversionAgent
+from .faceswap import FaceSwapAgent
 from video_service.renewal_contracts import spec
 
-CLASSES = {c.kind:c for c in (TranscriptionAgent,TranslationAgent,SubtitleVideoAgent,AudioExtractionAgent,SubtitleFileAgent,VideoConversionAgent)}
+CLASSES = {c.kind:c for c in (TranscriptionAgent,TranslationAgent,SubtitleVideoAgent,AudioExtractionAgent,SubtitleFileAgent,VideoConversionAgent,FaceSwapAgent)}
 ROLE_KEYS = {kind:cls.primary for kind,cls in CLASSES.items()}
 
 def catalog():
@@ -18,6 +19,8 @@ def catalog():
         native=spec(role,{})
         options={k:deepcopy(v)for k,v in native["options"].items()if k in (
             ("source_language","llm_options") if role=="transcribe" else ("target_language","llm_options") if role=="translate" else ("resolution","quality_profile","video_codec"))}
+        if role == "face_render":
+            options = {k: deepcopy(native["options"][k]) for k in ("preset", "video_codec")}
         if role == "transcribe":
             options["audio_source"] = ["video", "selected_audio", "audio_file_v1"]
         if issubclass(cls, SubtitleFileAgent):

@@ -156,7 +156,7 @@ export const VideoWorkspace = () => {
     ? route.match(/^#\/start\/audio\/([a-f0-9]{32})$/)?.[1]
     : undefined;
   const faceInputsView = renewalBackend && /^#\/start\/faceswap(?:\?.*)?$/.test(route);
-  const startView = route === '#/start';
+  const startView = /^#\/start(?:\?.*)?$/.test(route);
   const renderCopyId = renewalBackend
     ? route.match(/^#\/start\/subtitles\/([a-f0-9]{32})(?:\/translate)?$/)?.[1]
     : undefined;

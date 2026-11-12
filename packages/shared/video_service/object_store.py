@@ -418,6 +418,24 @@ class S3ContentStore(ContentStore):
             raise ObjectStoreError("Attempt receipt differs")
         return result
 
+    def read_attempt_result(self, owner, command):
+        """Read an existing immutable claim/result. Never reserve or write."""
+        from .canonical import digest
+        from .engine_protocol import envelope
+
+        envelope(owner, command)
+        attempt = command["attempt_id"]
+        claim = self._attempt_json(owner, attempt, "claim.json")
+        if claim != {"request_sha256": digest(command)}:
+            raise ObjectStoreError("Attempt identity collision")
+        result = self._attempt_json(owner, attempt, "result.json")
+        envelope(owner, command, result)
+        if result["status"] != "completed":
+            raise ObjectStoreError("Accepted predecessor result required")
+        for ref in result["outputs"].values():
+            self.path(owner, ref)
+        return result
+
     def _attempt_json(self, owner, attempt, name):
         import io
 

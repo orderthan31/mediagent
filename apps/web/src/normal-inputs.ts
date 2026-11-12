@@ -4,7 +4,15 @@ export type InputSelector = { job_id: string; run_id: string; port: string };
 export type InputChoice = InputSelector & { label: string };
 export const inputChoiceKey = (choice: InputSelector) =>
   `${choice.job_id}:${choice.run_id}:${choice.port}`;
+export type FaceInput = {
+  photo_asset_id: string;
+  engine_revision: number | null;
+  engine_sha256: string | null;
+  settings_revision: 1;
+  reference_frame: number;
+};
 export type NormalInputValue = {
+  face_input?: FaceInput;
   subtitle_srt?: string;
   input_language?: string;
   accepted_inputs?: Partial<Record<'transcript' | 'audio', InputSelector>>;
@@ -36,6 +44,20 @@ export const normalInputReady = (
 ) => {
   if (definition?.catalog_version !== 2) {
     return true;
+  }
+  if (definition.input_profile === 'face_workflow_v1') {
+    const selected = value.face_input;
+    return (
+      !!selected &&
+      /^[a-f0-9]{32}$/.test(selected.photo_asset_id) &&
+      Number.isInteger(selected.engine_revision) &&
+      Number(selected.engine_revision) > 0 &&
+      /^[a-f0-9]{64}$/.test(selected.engine_sha256 || '') &&
+      selected.settings_revision === 1 &&
+      Number.isInteger(selected.reference_frame) &&
+      selected.reference_frame >= 1 &&
+      selected.reference_frame <= 3600
+    );
   }
   return (
     (!definition.inputs.transcript ||

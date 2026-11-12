@@ -42,6 +42,15 @@ for identity, label, goal, roles, module, classname in (
                         "runtime_roles": roles, "allowed_tools": ["media." + role for role in roles],
                         "model_driven_selection": False}
     ALIASES[identity + "_agent"] = identity
+AGENTS["faceswap"] = {"id":"faceswap","name":"얼굴 합성 에이전트",
+    "goal":"사진과 영상의 인물을 선택하고 미리보기를 확인한 뒤 합성 영상을 완성합니다.",
+    "role":"faceswap","workflow_type":"faceswap_agent",
+    "entrypoint":"mideagent_agents.faceswap:FaceSwapAgent.advance",
+    "runtime_roles":["face_analyze_source","face_analyze_reference","face_select","face_preview","face_confirm_preview","face_render","validate_video"],
+    "allowed_tools":["face.analyze_source","face.analyze_reference","face.select","face.preview","face.confirm_preview","face.render","media.validate_video"],
+    "model_driven_selection":False}
+ALIASES["faceswap_agent"]="faceswap"
+
 def registration(identity, *, node=None):
  value=AGENTS.get(ALIASES.get(identity,identity))
  if value is None:return None

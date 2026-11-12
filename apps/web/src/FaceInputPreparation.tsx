@@ -297,6 +297,11 @@ export const FaceInputPreparation = () => {
           ))}
         </section>
       )}
+      <a
+        href={`#/start?photo=${encodeURIComponent(photoId)}&target=${encodeURIComponent(targetId)}`}
+      >
+        저장된 얼굴 합성 워크플로우 선택
+      </a>
       <div className="direct-subtitle-actions">
         <Button disabled={!canCheck} onClick={() => void inspect()}>
           입력 확인

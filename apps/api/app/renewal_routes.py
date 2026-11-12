@@ -33,7 +33,7 @@ class Definition(Body):
     inputs: dict
     nodes: list = Field(max_length=100)
     edges: list = Field(max_length=300)
-    input_profile: Literal["audio_file_v1"] | None = None
+    input_profile: Literal["audio_file_v1", "face_workflow_v1"] | None = None
 
 
 class SourceRevision(Body):
@@ -695,6 +695,11 @@ def mount_runtime(
             body.request_id,
             acknowledge_duplicate_risk=body.acknowledge_duplicate_risk,
         )
+
+    @app.get("/api/renewal/reviews/{identity}/face-image/{group}/{index}")
+    def face_review_image(identity: str, group: str, index: int, owned=owner_dependency):
+        from mideagent_orchestrator.face_workflow import FaceWorkflow
+        return FileResponse(FaceWorkflow(runtime).image(owned,identity,group,index),media_type="image/png")
 
     @app.get("/api/renewal/reviews/{identity}/source")
     def review_source(identity: str, owned=owner_dependency):

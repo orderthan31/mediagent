@@ -2,6 +2,7 @@ import { startSavedJob } from './job-start.mjs';
 import { frozenGoalLanguages } from './goal-languages';
 import { languageLabel } from './language-label';
 import { WorkflowInputs } from './WorkflowInputs';
+import { FaceWorkflowInputs } from './FaceWorkflowInputs';
 import { normalInputReady, type InputChoice, type NormalInputValue } from './normal-inputs';
 import { useEffect, useRef, useState } from 'react';
 import { PageTitle } from './PageTitle';
@@ -65,7 +66,9 @@ export const WorkflowStart = () => {
     [],
   );
   const [catalog, setCatalog] = useState<CanvasSpec[]>([]);
-  const [assetId, setAssetId] = useState('');
+  const [assetId, setAssetId] = useState(
+    () => new URLSearchParams(location.hash.split('?')[1] || '').get('target') || '',
+  );
   const [definitionId, setDefinitionId] = useState('');
   const [definition, setDefinition] = useState<CanvasDefinition | null>(null);
   const [selected, setSelected] = useState('');
@@ -76,7 +79,20 @@ export const WorkflowStart = () => {
   const [sourceLanguage, setSourceLanguage] = useState('auto');
   const [targetLanguage, setTargetLanguage] = useState('ko');
   const [transcript, setTranscript] = useState('');
-  const [normalInput, setNormalInput] = useState<NormalInputValue>({});
+  const [normalInput, setNormalInput] = useState<NormalInputValue>(() => {
+    const photo = new URLSearchParams(location.hash.split('?')[1] || '').get('photo');
+    return photo
+      ? {
+          face_input: {
+            photo_asset_id: photo,
+            engine_revision: null,
+            engine_sha256: null,
+            settings_revision: 1,
+            reference_frame: 1,
+          },
+        }
+      : {};
+  });
   const [inputChoices, setInputChoices] = useState<InputChoice[]>([]);
   const [inputChoicesFor, setInputChoicesFor] = useState('');
   const [inputLoading, setInputLoading] = useState(false);
@@ -108,9 +124,18 @@ export const WorkflowStart = () => {
           renewalBackend ? '/work-entry/catalog' : '/settings/node-catalog',
         ),
       ]);
-      setAssets(videos.videos.filter((v) => v.media_kind !== 'image'));
+      setAssets(videos.videos);
       setDefinitions(workflows.definitions);
       setCatalog(nodes.nodes);
+      const initialWorkflow = new URLSearchParams(location.hash.split('?')[1] || '').get(
+        'workflow',
+      );
+      if (initialWorkflow && workflows.definitions.some((row) => row.id === initialWorkflow)) {
+        await inspect(
+          initialWorkflow,
+          workflows.definitions.find((row) => row.id === initialWorkflow),
+        );
+      }
       setListError('');
     } catch (e) {
       setListError(e instanceof Error ? e.message : '목록을 불러오지 못했습니다.');
@@ -118,7 +143,10 @@ export const WorkflowStart = () => {
       setLoading(false);
     }
   };
-  const inspect = async (identity: string) => {
+  const inspect = async (
+    identity: string,
+    known?: { id: string; name: string; revision: number },
+  ) => {
     const current = ++generation.current;
     setDefinitionId(identity);
     setInspection(null);
@@ -130,7 +158,7 @@ export const WorkflowStart = () => {
     if (!identity) {
       return;
     }
-    const saved = definitions.find((row) => row.id === identity);
+    const saved = known || definitions.find((row) => row.id === identity);
     if (!saved) {
       return;
     }
@@ -153,6 +181,18 @@ export const WorkflowStart = () => {
       if (generation.current === current) {
         setInspection(result);
         setDefinition(graph);
+        if (graph.input_profile === 'face_workflow_v1') {
+          setNormalInput({
+            face_input: {
+              photo_asset_id:
+                new URLSearchParams(location.hash.split('?')[1] || '').get('photo') || '',
+              engine_revision: null,
+              engine_sha256: null,
+              settings_revision: 1,
+              reference_frame: 1,
+            },
+          });
+        }
         const speech = graph.nodes.find((n) =>
           ['transcribe', 'transcription_agent'].includes(n.type),
         );
@@ -313,6 +353,21 @@ export const WorkflowStart = () => {
     return () => controller.abort();
   }, [assetId, definition, inputAttempt]);
   useEffect(() => {
+    if (definition?.input_profile === 'face_workflow_v1') {
+      const query = new URLSearchParams();
+      if (assetId) {
+        query.set('target', assetId);
+      }
+      if (normalInput.face_input?.photo_asset_id) {
+        query.set('photo', normalInput.face_input.photo_asset_id);
+      }
+      if (definitionId) {
+        query.set('workflow', definitionId);
+      }
+      history.replaceState(null, '', '#/start?' + query.toString());
+    }
+  }, [assetId, definitionId, definition?.input_profile, normalInput.face_input?.photo_asset_id]);
+  useEffect(() => {
     void load();
     return () => {
       ++generation.current;
@@ -393,6 +448,18 @@ export const WorkflowStart = () => {
                 </label>
               </>
             )}
+            {definition?.input_profile === 'face_workflow_v1' && (
+              <FaceWorkflowInputs
+                assets={assets}
+                value={normalInput}
+                disabled={busy}
+                onChange={(value) => {
+                  setNormalInput(value);
+                  setError('');
+                  invalidate();
+                }}
+              />
+            )}
             {definition?.catalog_version === 2 &&
               definition.input_profile !== 'audio_file_v1' &&
               (definition.inputs.transcript || definition.inputs.audio) && (
@@ -448,18 +515,25 @@ export const WorkflowStart = () => {
                   }}
                 >
                   <option value="">원본 선택</option>
-                  {assets.map((row) => (
-                    <option
-                      key={row.asset_id}
-                      value={row.asset_id}
-                      disabled={row.processing_supported === false}
-                    >
-                      {row.original_filename}
-                      {row.processing_supported === false
-                        ? ' · 현재 처리 한도 초과(보관 원본)'
-                        : ''}
-                    </option>
-                  ))}
+                  {assets
+                    .filter(
+                      (row) =>
+                        row.media_kind !== 'image' &&
+                        (definition?.input_profile !== 'face_workflow_v1' ||
+                          row.media_kind !== 'audio'),
+                    )
+                    .map((row) => (
+                      <option
+                        key={row.asset_id}
+                        value={row.asset_id}
+                        disabled={row.processing_supported === false}
+                      >
+                        {row.original_filename}
+                        {row.processing_supported === false
+                          ? ' · 현재 처리 한도 초과(보관 원본)'
+                          : ''}
+                      </option>
+                    ))}
                 </select>
                 {!assetId && (
                   <small id="entry-source-required" className="field-validation">
@@ -627,7 +701,11 @@ export const WorkflowStart = () => {
           <div className="work-entry-actions page-actions">
             {plan?.selected_inputs?.map((input) => (
               <p key={input.input}>
-                {input.input === 'audio' ? '같은 영상의 추출 WAV' : '선택 시간 자막'}
+                {input.input === 'photo'
+                  ? '선택 사진 원본'
+                  : input.input === 'audio'
+                    ? '같은 영상의 추출 WAV'
+                    : '선택 시간 자막'}
                 {input.segments !== undefined && ` · ${input.segments}구간`}
                 {input.language &&
                   ` · 원문 언어: ${input.language === 'auto' ? '미지정' : languageLabel(input.language)}`}

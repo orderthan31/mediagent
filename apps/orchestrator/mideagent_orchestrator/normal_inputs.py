@@ -200,6 +200,11 @@ class NormalInputs:
         from video_service.image_original import asset_media as image_media
         if image_media(asset) is not None:
             raise ValueError('사진은 독립 입력입니다. 작업의 대상 영상을 선택하세요.')
+        if definition.get("input_profile") == "face_workflow_v1":
+            from .face_workflow import FaceWorkflow
+            return FaceWorkflow(self.runtime).resolve(db, actor, asset, definition, options)
+        if "face_input" in options:
+            raise ValueError("사진 입력에는 얼굴 합성 구성을 선택하세요.")
         audio_media = asset_media(asset)
         if definition.get("input_profile") == PROFILE:
             if len(canonical(options)) > 20000:

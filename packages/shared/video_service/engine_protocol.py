@@ -20,6 +20,12 @@ SHA = re.compile(r"[a-f0-9]{64}")
 
 
 def validate_runtime(value):
+    if isinstance(value, dict) and "face_protocol" in value:
+        base = {k: v for k, v in value.items() if k != "face_protocol"}
+        if type(value["face_protocol"]) is not int or value["face_protocol"] != 3 or base.get("role") != "faceswap":
+            raise ValueError("invalid_face_runtime_descriptor")
+        validate_runtime(base)
+        return value
     if not isinstance(value, dict) or set(value) != {
         "role",
         "family",
@@ -69,6 +75,9 @@ def reference(value, *, input_origin=False):
 
 
 def validate_command(command):
+    if isinstance(command, dict) and command.get("protocol_version") == 3:
+        from .face_protocol import validate_command as validate_face_command
+        return validate_face_command(command)
     if not isinstance(command, dict) or set(command) != {
         "protocol_version",
         "run_id",
@@ -93,6 +102,8 @@ def validate_command(command):
     ):
         raise ValueError("invalid_engine_identity")
     runtime = validate_runtime(command["runtime"])
+    if "face_protocol" in runtime:
+        raise ValueError("v3_runtime_requires_v3_command")
     role = runtime["role"]
     if command["agent"] != {
         "id": role,
@@ -117,8 +128,9 @@ def validate_command(command):
 
 
 def make_command(role, *, run_id, attempt_id, generation, inputs, options, runtime):
+    from .face_protocol import OPERATIONS
     command = {
-        "protocol_version": 2,
+        "protocol_version": 3 if role in OPERATIONS else 2,
         "run_id": run_id,
         "attempt_id": attempt_id,
         "generation": generation,
@@ -136,6 +148,14 @@ def envelope(owner, command, result=None):
         if not isinstance(owner, str) or not ID.fullmatch(owner):
             raise ValueError
         validate_command(command)
+        if command["protocol_version"] == 3:
+            from .content_store import reference_origin
+            ctx = command["options"]["context"]
+            if owner != ctx["output_owner_id"]:
+                raise ValueError("face_output_owner_changed")
+            for port, key in (("source", "source_owner_id"), ("video", "target_owner_id")):
+                if reference_origin(owner, command["inputs"][port])[0] != ctx[key]:
+                    raise ValueError("face_input_custodian_changed")
         value = {"version": 1, "owner": owner, "command": command}
         if result is not None:
             required = {
@@ -177,9 +197,9 @@ def envelope(owner, command, result=None):
             ):
                 raise ValueError
             if result["status"] == "completed":
-                expected = node_spec(command["agent"]["id"], command["options"])[
-                    "outputs"
-                ]
+                from .face_protocol import OUTPUTS
+                expected = (OUTPUTS[command["agent"]["id"]] if command["protocol_version"] == 3
+                            else node_spec(command["agent"]["id"], command["options"])["outputs"])
                 if "error" in result or set(result["outputs"]) != set(expected):
                     raise ValueError
                 for port, ref in result["outputs"].items():
@@ -205,7 +225,8 @@ def envelope(owner, command, result=None):
             raise ValueError
         return Delivery(
             body,
-            RESULT if result is not None else COMMAND,
+            ("agent.engine.result.v3" if result is not None else "agent.engine.command.v3")
+            if command["protocol_version"] == 3 else (RESULT if result is not None else COMMAND),
             command["attempt_id"],
             command["run_id"],
         )
@@ -217,7 +238,7 @@ def decode(delivery, *, result=False, role=None):
     try:
         if (
             len(delivery.body) > MAX_MESSAGE
-            or delivery.message_type != (RESULT if result else COMMAND)
+            or delivery.message_type not in ((RESULT, "agent.engine.result.v3") if result else (COMMAND, "agent.engine.command.v3"))
             or delivery.content_type != "application/json"
             or delivery.content_encoding != "utf-8"
         ):
@@ -232,10 +253,11 @@ def decode(delivery, *, result=False, role=None):
             raise ValueError
         expected = envelope(value["owner"], value["command"], value.get("result"))
         if (
-            expected.message_id != delivery.message_id
+            expected.message_type != delivery.message_type
+            or expected.message_id != delivery.message_id
             or expected.correlation_id != delivery.correlation_id
             or role is not None
-            and value["command"]["agent"]["id"] != role
+            and (value["command"]["runtime"]["role"] if value["command"]["protocol_version"] == 3 else value["command"]["agent"]["id"]) != role
         ):
             raise ValueError
         return value

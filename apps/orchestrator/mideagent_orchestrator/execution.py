@@ -24,6 +24,8 @@ from video_service.postgres.registry import resource_id
 
 CONTROL = frozenset(
     {
+        "face_select",
+        "face_confirm_preview",
         "select",
         "join",
         "review",
@@ -73,6 +75,9 @@ class Execution(Intake):
 
     @staticmethod
     def _engine_role(node):
+        from video_service.face_protocol import OPERATIONS
+        if node["type"] in OPERATIONS:
+            return "faceswap"
         if node["type"] in {"translate", "transcribe", "vocalize"} and (
             node.get("model_ref")
             or node.get("options", {}).get("model_source") == "registered_api"
@@ -91,11 +96,9 @@ class Execution(Intake):
         from video_service.postgres.engine_runtimes import EngineRuntimes
 
         bindings = {}
-        if not self.engine_runtime_enabled:
-            return bindings
         for node in definition["nodes"]:
             role = self._engine_role(node)
-            if role:
+            if role and (self.engine_runtime_enabled or node["type"].startswith("face_")):
                 try:
                     row = EngineRuntimes.resolve_in(db, role)
                 except ValueError:
@@ -160,6 +163,9 @@ class Execution(Intake):
                     reasons.append("engine runtime pin/가용성 변경: " + node["id"])
                     continue
                 descriptor = pin["descriptor"]
+                from video_service.face_protocol import OPERATIONS
+                if node["type"] in OPERATIONS and descriptor.get("face_protocol") != 3:
+                    reasons.append("단계별 얼굴 합성을 지원하는 실행기 버전이 필요합니다: " + node["id"])
                 if (
                     options is not None
                     and descriptor["source_language"] is not None
@@ -486,6 +492,8 @@ class Execution(Intake):
         supported_inputs = definition["inputs"] in ({"video": "video"}, {"transcript": "transcript"})
         if agent_plan:
             supported_inputs = bool(definition["inputs"]) and all(k in {"video", "transcript", "audio"} and v == k for k, v in definition["inputs"].items())
+            if public_definition.get("input_profile") == "face_workflow_v1":
+                supported_inputs = definition["inputs"] == {"video":"video","photo":"image"}
         if not supported_inputs:
             reasons.append(
                 {
@@ -626,7 +634,7 @@ class Execution(Intake):
             "video_description",
             "branch_choices",
             "transcript",
-            "subtitle_srt", "input_language", "accepted_inputs", "saved_subtitle", "render_goal", "translation_goal", "audio_goal",
+            "subtitle_srt", "input_language", "accepted_inputs", "saved_subtitle", "render_goal", "translation_goal", "audio_goal", "face_input",
         }:
             raise ValueError("작업 옵션 오류")
         from video_service.timed_subtitles import MAX_INPUT_OPTIONS_BYTES
@@ -826,6 +834,11 @@ class Execution(Intake):
                     "parent_id": parent_id,
                     "snapshot_sha256": parent["snapshot_sha256"],
                 }
+            from .face_workflow import selected as face_selected, frozen as frozen_face
+            if face_selected(snapshot):
+                from video_service.face_protocol import policy as face_policy
+                snapshot["face_operation_policy"] = face_policy()
+                frozen_face(snapshot, owner)
             # Serialize duplicate creation IDs without depending on a unique-error fallback.
             db.execute(
                 "SELECT pg_advisory_xact_lock(hashtextextended(%s,0))",
@@ -866,6 +879,7 @@ class Execution(Intake):
             if not (
                 job["snapshot"].get("cpu_input_policy")
                 or job["snapshot"].get("audio_pipeline_policy")
+                or job["snapshot"].get("agent_definition", {}).get("input_profile") == "face_workflow_v1"
             ):
                 return None
             references = list(job["snapshot"]["inputs"].values())
@@ -901,7 +915,10 @@ class Execution(Intake):
                 audio_contracts[digest(ref)] = contract_for(
                     self.store, owner, ref, kind="audio_regions_long_v5"
                 )
+        from .face_workflow import FaceWorkflow
+        face_stage = FaceWorkflow(self).preflight(owner, identity)
         return {
+            "face": face_stage,
             "audio_review_contracts": audio_contracts,
             "snapshot_sha256": snapshot_sha,
             "references": {digest(ref) for ref in references},
@@ -910,7 +927,7 @@ class Execution(Intake):
     def _checked_input(self, owner, job, reference, verified):
         if job["snapshot"].get("cpu_input_policy") or job["snapshot"].get(
             "audio_pipeline_policy"
-        ):
+        ) or job["snapshot"].get("agent_definition", {}).get("input_profile") == "face_workflow_v1":
             if (
                 not verified
                 or verified["snapshot_sha256"] != job["snapshot_sha256"]
@@ -956,6 +973,14 @@ class Execution(Intake):
                 reasons.append("장문 보컬은 독립 보컬 실행을 먼저 선택해야 합니다.")
         if not job["recovery_ready"]:
             reasons.append("복구 receipt 검증이 끝나지 않았습니다.")
+        from .face_workflow import selected as face_selected, frozen as frozen_face, FaceWorkflow
+        if face_selected(job["snapshot"]):
+            try:
+                frozen_face(job["snapshot"], job["owner_id"])
+                FaceWorkflow.check_stage(job, runs, (verified or {}).get("face"))
+                reasons += FaceWorkflow.plan_reasons(job, runs, (verified or {}).get("face"))
+            except ValueError:
+                reasons.append("얼굴 합성의 사진·영상·설정·선행 결과를 다시 확인하세요.")
         agent_definition = job["snapshot"].get("agent_definition", {})
         if (job["snapshot"].get("agent_execution_policy") == 1
                 and agent_definition.get("catalog_version") == 2):
@@ -1267,7 +1292,7 @@ class Execution(Intake):
             (message_id or uuid4().hex, owner, identity, kind, Jsonb(payload)),
         )
 
-    def _insert_run(self, db, job, node, inputs, status):
+    def _insert_run(self, db, job, node, inputs, status, *, face_stage=None):
         from mideagent_orchestrator.dispatch_queue import DispatchQueue
         from mideagent_orchestrator.agent_pool import AgentPool
 
@@ -1424,6 +1449,9 @@ class Execution(Intake):
                     command[kind]["max_model_calls"]
                 )
         elif self._engine_role(node) and status == "running":
+            from .face_workflow import selected as face_selected, FaceWorkflow
+            if node["type"].startswith("face_") and (not face_selected(job["snapshot"]) or not face_stage):
+                raise Conflict("고정 얼굴 합성 입력과 선행 결과가 필요합니다.")
             from video_service.engine_protocol import make_command
 
             if not self.engine_runtime_enabled:
@@ -1433,7 +1461,7 @@ class Execution(Intake):
 
             try:
                 current = EngineRuntimes.resolve_in(
-                    db, node["type"], sha256=pin["sha256"]
+                    db, self._engine_role(node), sha256=pin["sha256"]
                 )
                 if current["revision"] != pin["revision"]:
                     raise ValueError("engine_revision_changed")
@@ -1446,7 +1474,8 @@ class Execution(Intake):
                 attempt_id=identity,
                 generation=job["generation"],
                 inputs=inputs,
-                options=node["options"],
+                options=(FaceWorkflow.command_options(job, node, face_stage)
+                         if node["type"].startswith("face_") else node["options"]),
                 runtime=descriptor,
             )
         row = db.execute(
@@ -1566,6 +1595,10 @@ class Execution(Intake):
             queue.lock_in(db, owner)
             job = self._job(db, owner, identity, lock=True)
             runs = self._runs(db, owner, identity)
+            from .face_workflow import FaceWorkflow, selected as face_selected
+            face_stage = (verified or {}).get("face")
+            if face_selected(job["snapshot"]):
+                FaceWorkflow.check_stage(job, runs, face_stage)
             new_start = False
             if not runs and job['active_claim_id']:
                 new_start = queue.requires_in(db, job)
@@ -1653,7 +1686,8 @@ class Execution(Intake):
                     if identity != node["id"]:
                         raise Conflict("agent_tool_selection_changed")
                     return self._insert_run(db, job, node, inputs,
-                        "review_required" if node["type"] == "review" else "running")
+                        "review_required" if node["type"] in {"review", "face_select", "face_confirm_preview"} else "running",
+                        **({"face_stage":face_stage} if node["type"].startswith("face_") else {}))
                 if scope:
                     from mideagent_agents.catalog import CLASSES
                     agent_node=next(n for n in scope["definition"]["nodes"] if n["id"]==scope["owners"][node["id"]])
@@ -1671,6 +1705,18 @@ class Execution(Intake):
                         "UPDATE node_runs SET agent_instance_id=%s WHERE owner_id=%s AND job_id=%s AND id=%s",
                         (instance, owner, identity, row["id"]),
                     )
+                if node["type"] in {"face_select", "face_confirm_preview"}:
+                    try:
+                        contract, draft = FaceWorkflow.review_contract(node, face_stage)
+                    except ValueError:
+                        db.execute("UPDATE node_runs SET status='failed',error_code='face_candidates_missing',completed_at=now() WHERE owner_id=%s AND job_id=%s AND id=%s",(owner,identity,row["id"]))
+                        indexed[node["id"]] = {**row,"status":"failed"}
+                        continue
+                    review_id=uuid4().hex
+                    db.execute("INSERT INTO review_tasks(owner_id,job_id,node_run_id,id,revision,contract,draft,status) VALUES (%s,%s,%s,%s,1,%s,%s,'draft')",(owner,identity,row["id"],review_id,Jsonb(contract),Jsonb(draft)))
+                    db.execute("INSERT INTO review_revisions VALUES (%s,%s,1,%s,%s,now())",(owner,review_id,Jsonb(draft),digest(draft)))
+                    indexed[node["id"]]=row
+                    continue
                 if node["type"] == "review":
                     review_id = uuid4().hex
                     contract = {
@@ -1809,8 +1855,8 @@ class Execution(Intake):
                 ):
                     raise Conflict("비활성 실행 경로")
                 message_type = (
-                    "agent.engine.command.v2"
-                    if command["protocol_version"] == 2
+                    "agent.engine.command.v" + str(command["protocol_version"])
+                    if command["protocol_version"] in (2, 3)
                     else "agent.command.v1"
                 )
                 if (
@@ -1999,7 +2045,7 @@ class Execution(Intake):
                 result = self.agent_executor(owner, command)
                 expected_transport = (
                     "s3_engine"
-                    if command.get("protocol_version") == 2
+                    if command.get("protocol_version") in (2, 3)
                     else "s3_subprocess"
                 )
                 if result.get("transport") != expected_transport:
@@ -2098,8 +2144,12 @@ class Execution(Intake):
             )
         return result
 
-    def _import_outputs(self, owner, command, result):
-        if command.get("protocol_version") == 2:
+    def _import_outputs(self, owner, command, result, *, face_verified=None):
+        if command.get("protocol_version") == 3:
+            if face_verified != {"request_sha256":digest(command),"result_sha256":digest(result)}:
+                raise ValueError("face_result_preflight_required")
+            return result["outputs"]
+        if command.get("protocol_version") in (2, 3):
             from video_service.engine_protocol import envelope
 
             envelope(owner, command, result)
@@ -2205,6 +2255,9 @@ class Execution(Intake):
 
     def accept(self, owner, command, result):
         verified = self._preflight_cpu_inputs(owner, command["run_id"], command)
+        from .face_workflow import FaceWorkflow
+        face_verified = FaceWorkflow(self).result_preflight(owner, command, result) if command.get("protocol_version") == 3 else None
+        face_result_stage = FaceWorkflow(self).stage_result(owner, command, result) if face_verified else None
         response_sha = digest(result)
         identity, run_id = command["run_id"], command["attempt_id"]
         with self.database.connection() as db:
@@ -2294,7 +2347,11 @@ class Execution(Intake):
                     status = result.get("status")
                     if status != "completed":
                         raise ValueError("Agent did not complete")
-                    outputs = self._import_outputs(owner, command, result)
+                    if face_verified:
+                        from .face_workflow import command_context
+                        if command["options"]["context"] != command_context(job):
+                            raise ValueError("face_result_context_changed")
+                    outputs = self._import_outputs(owner, command, result, **({"face_verified":face_verified} if face_verified else {}))
                     # Preserve transport/attempt evidence but replace machine paths with CAS refs.
                     receipt = {
                         k: v
@@ -2319,7 +2376,11 @@ class Execution(Intake):
                     }
                     receipt["outputs"] = outputs
                     receipt["previews"] = {}
-                    receipt = self.ticket_artifacts.capture(db, job, run, receipt)
+                    if face_verified:
+                        FaceWorkflow.check_stage(job, self._runs(db, owner, identity), face_result_stage)
+                        receipt = face_result_stage["receipt"]
+                    else:
+                        receipt = self.ticket_artifacts.capture(db, job, run, receipt)
                     db.execute(
                         "UPDATE node_runs SET status='completed',result=%s,completed_at=now(),lease_owner=NULL,lease_expires_at=NULL WHERE owner_id=%s AND job_id=%s AND id=%s",
                         (Jsonb(receipt), owner, identity, run_id),
@@ -2437,6 +2498,9 @@ class Execution(Intake):
         if acknowledge_duplicate_risk is not True:
             raise ValueError("미확정 실행의 중복 처리 위험을 별도로 확인하세요.")
         original = self.get(owner, identity)
+        from .face_workflow import selected as face_selected
+        if face_selected(original["snapshot"]):
+            raise Conflict("얼굴 합성의 인물 선택·미리보기는 다른 작업으로 재사용하지 않습니다. 새 작업에서 입력을 선택하세요.")
         if original["status"] not in ("failed", "cancelled"):
             raise Conflict("종료된 실패/취소 작업만 새 복구 작업을 만들 수 있습니다.")
         definition = original["snapshot"]["definition"]
@@ -2582,6 +2646,10 @@ class Execution(Intake):
         return self.store.path(row["owner_id"], row["contract"]["source"])
 
     def review_save(self, owner, identity, revision, draft):
+        from .face_workflow import FaceWorkflow
+        faces = FaceWorkflow(self)
+        if faces.handles(owner, identity):
+            return public(faces.save_review(owner, identity, revision, draft))
         with self.database.connection() as db:
             # All review/cancel/admission writes take the job lock before review lock.
             hint = self._review(db, owner, identity)
@@ -2628,6 +2696,9 @@ class Execution(Intake):
     def review_confirm(self, owner, identity, revision):
         with self.database.connection() as read_db:
             hint = self._review(read_db, owner, identity)
+        if hint["contract"].get("kind") in {"face_select", "face_confirm_preview"}:
+            from .face_workflow import FaceWorkflow
+            return FaceWorkflow(self).confirm_review(owner, identity, revision)
         if hint["contract"].get("kind") == "subtitle_tracks_v1":
             from video_service.postgres.subtitle_tracks import SubtitleTracks
 

@@ -31,7 +31,7 @@ class DurableTransport:
             if row["published_at"]:
                 return False
 
-            if row["message_type"] in {"agent.command.v1", "agent.engine.command.v2", "registered.command.v1"}:
+            if row["message_type"] in {"agent.command.v1", "agent.engine.command.v2", "agent.engine.command.v3", "registered.command.v1"}:
                 run = db.execute(
                     "SELECT *,lease_expires_at>now() AS lease_valid FROM node_runs WHERE owner_id=%s AND job_id=%s AND id=%s",
                     (owner, job_id, message_id),
@@ -52,13 +52,13 @@ class DurableTransport:
                     job['status'] not in {'waiting', 'running'} or job['active_claim_id'] != run['claim_id']
                 ):
                     raise Conflict('등록 모델 전달의 실행 claim이 일치하지 않습니다.')
-                if row["message_type"] == "agent.engine.command.v2":
+                if row["message_type"] in {"agent.engine.command.v2", "agent.engine.command.v3"}:
                     from .postgres.engine_runtimes import EngineRuntimes
 
                     try:
                         pin = job["snapshot"]["engine_bindings"][run["node_id"]]
                         current = EngineRuntimes.resolve_in(
-                            db, run["node_type"], sha256=pin["sha256"], lock=True
+                            db, row["payload"]["runtime"]["role"] if row["payload"].get("protocol_version") == 3 else run["node_type"], sha256=pin["sha256"], lock=True
                         )
                         if (
                             current["revision"] != pin["revision"]

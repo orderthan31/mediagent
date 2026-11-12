@@ -1,0 +1,76 @@
+.face-workflow-fields {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  margin-block: 12px 24px;
+}
+.face-workflow-fields label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.face-workflow-fields select,
+.face-workflow-fields input {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+.face-workflow-fields p,
+.face-workflow-review p {
+  overflow-wrap: anywhere;
+}
+.face-workflow-review {
+  min-width: 0;
+  padding: 12px 0 30px;
+}
+.face-workflow-review fieldset {
+  min-width: 0;
+}
+.face-candidates {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.face-candidates label {
+  display: grid;
+  gap: 6px;
+  width: 128px;
+  max-width: 100%;
+}
+.face-candidates img {
+  width: 128px;
+  height: 128px;
+  object-fit: contain;
+  background: var(--surface-muted, #eee);
+}
+.face-candidates span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.face-confirm-image {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  max-height: 480px;
+  object-fit: contain;
+}
+.face-review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+.face-workflow-review input[type='radio'],
+.face-workflow-review input[type='checkbox'] {
+  width: auto;
+  flex-shrink: 0;
+}
+@media (max-width: 600px) {
+  .face-review-actions > * {
+    min-height: 40px;
+  }
+  .face-workflow-fields {
+    margin-bottom: 32px;
+  }
+}

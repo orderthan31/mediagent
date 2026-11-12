@@ -654,3 +654,15 @@ PM1562998217422147606의 b676 검토에서 기존 engine wire2(3필드 agent)를
 - [x] 새 backend 42건, photo helper1건 + offline browser1건, 관련 lint/format·TypeScript·renewal build·syntax/CR-at-EOL 검사를 수행했다. 기존 audio34/M4A21/MT/render/SMI/GB/queue 전체 suite와 운영 여정은 반복하지 않았다. valid synthetic draft를 이용한 shared _plan/_checked_input 호환 검사는 사진 유형/실행 guard 확인에 한정했다.
 - [ ] 실제 face goal/agent canvas·저장 workflow·Create/Start 연결은 보류한다. native consumer는 실제 session/approved preview와 target/settings/engine provenance가 필요하고 nested image ref는 cross-custodian origin을 받지 않는다. 이 입력 검사를 승인 미리보기로 포장하지 않고 기존 native/protocol/worker를 변경하지 않았다. source_workflow는 연결되지 않았으며 실제 job/FK를 만들지 않았다.
 - [ ] 부모의 독립 검토·패키징/설치 후 신규 labelled nonpersonal photo의 원본 등록·PC390 INPUT 확인은 별도다. 실제 engine 등록/관측·Linux image codec·PG/S3·GPU/얼굴 분석·preview/render/다운로드는 미검증이다. writer는 운영 API/DB/S3/사용자 미디어·키/설정·실제 업로드/작업/Start·서비스·TLS·권한·commit/push/deploy에 접근/변경하지 않았다.
+
+
+### 얼굴 합성 agent-owned workflow / trusted producer — SOURCE·OFFLINE 진행
+
+- [x] 얼굴 전용 v3 exact wire/문서 schema·공유 operation-role map·read-only predecessor proof accessor와 실제 CLI staging/parse adapter를 TDD로 구현한다. 기존 v2 wire/combined-render는 보존한다.
+- [x] 실제 FaceSwapAgent/owned tools/typed compiler/profile와 save/reopen/Create/_plan/frontier를 연결한다. 계획/조회에는 Put·명령·예약·probe·모델 초기화가 없다. 현재 v2-only runtime은 명시적으로 held다.
+- [x] 기존 accepted node_runs/immutable worker result/TicketArtifacts와 review CAS를 사용해 두 내부 선택/확인 대기 단계를 구현한다. face-select/confirm type을 구분하고 source/target 후보·context·server acceptance time/finite expiry를 검증한다.
+- [x] 기존 normal editor/start/job details에 source 선택·분석 후보·실제 preview·확인·대기/오류를 연결한다. GET/mount/selection/lost reply에 자동 실행 POST가 없다. 공개 canvas는 실제 얼굴 에이전트만 표시한다.
+- [x] 새 focused offline tracer가 실제 compile/agent/invoker/adapter/normal plan/accepted synthetic result/명시 선택/preview 확인/render-only/validate/publication을 통과한다. 아울러 v2 호환·ordinary failclosed·PC1440/390 offline UI와 관련 standard gate를 확인한다. 기존 수용 suite를 새 gate로 반복하지 않는다.
+- [ ] 실제 PG/S3 writer 신뢰/권한·v3 runtime descriptor/host/slot/image·GPU/FaceFusion/preview/render 및 설치 제품 수용은 별도 미검증/held다. writer는 operating session/job/Start·서비스·키/권한·schema/GRANT·commit/push/deploy를 수행하지 않는다.
+
+- 소스 검증: 신규 face backend 27 + 기존 순수 v2 wire 2 = 29 passed(ASGI subtests 3 포함 별도 표시), 신규 frontend unit/browser 2 passed(PC1440/390 OFFLINE), 변경 lint/줄바꿈 보존 format/TypeScript/renewal build 통과. 실제 PG/S3/GPU/제품 job·preview·render는 실행하지 않았다.

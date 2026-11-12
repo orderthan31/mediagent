@@ -89,6 +89,8 @@ def catalog():
                 "select",
                 "join",
                 "review",
+                "face_select",
+                "face_confirm_preview",
                 "decision",
             )
             else "agent"
@@ -105,6 +107,8 @@ def catalog():
                 "select",
                 "join",
                 "review",
+                "face_select",
+                "face_confirm_preview",
                 "control_if",
                 "control_switch",
             )

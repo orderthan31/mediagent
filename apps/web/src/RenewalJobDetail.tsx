@@ -1,3 +1,4 @@
+import { FaceWorkflowReview } from './FaceWorkflowReview';
 import { publicAgentGraph } from './job-graphs';
 import type { GoalOutput } from './GoalResults';
 import { JobFiles, outputLabel } from './JobFiles';
@@ -227,7 +228,15 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
       setBusy(false);
     }
   };
-  const agentDefinition = publicAgentGraph(job);
+  const faceDefinition = job?.agent_workflow?.definition;
+  const agentDefinition =
+    publicAgentGraph(job) ||
+    (faceDefinition?.catalog_version === 2 &&
+    faceDefinition.input_profile === 'face_workflow_v1' &&
+    faceDefinition.nodes.length === 1 &&
+    faceDefinition.nodes[0].type === 'faceswap_agent'
+      ? faceDefinition
+      : null);
   const canManage = job?.access?.can_manage === true;
   const currentAgent = job?.agent_workflow?.nodes.find((item) => item.id === selected);
   const tool =
@@ -427,7 +436,11 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
           />
           {job.selected_inputs?.map((input) => (
             <p key={input.input}>
-              {input.input === 'audio' ? '같은 영상의 추출 WAV' : '선택 시간 자막'}
+              {input.input === 'photo'
+                ? '선택 사진 원본'
+                : input.input === 'audio'
+                  ? '같은 영상의 추출 WAV'
+                  : '선택 시간 자막'}
               {input.segments !== undefined && ` · ${input.segments}구간`}
               {input.language &&
                 ` · 원문 언어: ${input.language === 'auto' ? '미지정' : languageLabel(input.language)}`}
@@ -748,107 +761,133 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
                             }}
                           />
                         )}
-                        {review && review.contract.kind !== 'subtitle_tracks_v1' && !canManage && (
-                          <section className="execution-review" aria-label="검수 내용 읽기 전용">
-                            <h4>검수 내용 · 읽기 전용</h4>
-                            <pre>{JSON.stringify(review.draft, null, 2)}</pre>
-                          </section>
-                        )}
-                        {review && review.contract.kind !== 'subtitle_tracks_v1' && canManage && (
-                          <section
-                            aria-label="공통 검수"
-                            className={
-                              ['audio_regions_v1', 'audio_regions_long_v5'].includes(
-                                review.contract.kind || '',
-                              )
-                                ? 'audio-region-review'
-                                : undefined
-                            }
-                          >
-                            <h4>
-                              {['audio_regions_v1', 'audio_regions_long_v5'].includes(
-                                review.contract.kind || '',
-                              )
-                                ? '음성 보호·제거 구간 검수'
-                                : '자료 확인'}
-                            </h4>
-                            {['audio_regions_v1', 'audio_regions_long_v5'].includes(
-                              review.contract.kind || '',
-                            ) && (
-                              <>
-                                <audio
-                                  controls
-                                  preload="none"
-                                  src={mediaUrl('/renewal/reviews/' + review.id + '/source')}
-                                />
-                                <p>
-                                  원본 오디오의 초 단위 구간입니다. 보호 구간은 적용 시 앞뒤 0.3초를
-                                  더 보호하며, 겹친 제거 제안은 전체 취소합니다.
-                                </p>
-                                <p>
-                                  후속 음성 필터가 off면 보호·제거 결정은 적용하지 않습니다. NVIDIA
-                                  VAD를 선택하면 마지막에 VAD 유지 구간과 겹치는 부분만 남습니다.
-                                </p>
-                                <p>
-                                  직접 지정한 결정입니다. 자동 보컬 탐지·확인 결과가 아닙니다.
-                                  저장·확정만으로 실행하지 않습니다.
-                                </p>
-                                <p>
-                                  원본 길이 {review.contract.audio?.duration_seconds.toFixed(3)}초 ·
-                                  각 목록 최대 1,024개
-                                </p>
-                              </>
-                            )}
-                            <DataForm
-                              schema={reviewFields!}
-                              value={drafts[review.id] ?? review.draft}
-                              disabled={busy || review.status === 'confirmed'}
-                              onChange={(value) => {
-                                if (value && typeof value === 'object' && !Array.isArray(value)) {
-                                  setDrafts((previous) => ({ ...previous, [review.id]: value }));
-                                }
+                        {review &&
+                          ['face_select', 'face_confirm_preview'].includes(
+                            review.contract.kind || '',
+                          ) && (
+                            <FaceWorkflowReview
+                              key={review.id}
+                              initial={review}
+                              jobId={job.id}
+                              canManage={canManage}
+                              active={job.status === 'review_required'}
+                              changed={async () => {
+                                setPlan(null);
+                                setConsent(null);
+                                await reload();
                               }}
                             />
-                            <Button
-                              variant="secondary"
-                              disabled={busy || review.status === 'confirmed'}
-                              onClick={() =>
-                                void action(async () => {
-                                  await jsonPost('/renewal/reviews/' + review.id + '/save', {
-                                    revision: review.revision,
-                                    draft: drafts[review.id] ?? review.draft,
-                                  });
-                                  setDrafts((previous) => {
-                                    const next = { ...previous };
-                                    delete next[review.id];
-                                    return next;
-                                  });
-                                  setPlan(null);
-                                  setConsent(null);
-                                })
+                          )}
+                        {review &&
+                          !['subtitle_tracks_v1', 'face_select', 'face_confirm_preview'].includes(
+                            review.contract.kind || '',
+                          ) &&
+                          !canManage && (
+                            <section className="execution-review" aria-label="검수 내용 읽기 전용">
+                              <h4>검수 내용 · 읽기 전용</h4>
+                              <pre>{JSON.stringify(review.draft, null, 2)}</pre>
+                            </section>
+                          )}
+                        {review &&
+                          !['subtitle_tracks_v1', 'face_select', 'face_confirm_preview'].includes(
+                            review.contract.kind || '',
+                          ) &&
+                          canManage && (
+                            <section
+                              aria-label="공통 검수"
+                              className={
+                                ['audio_regions_v1', 'audio_regions_long_v5'].includes(
+                                  review.contract.kind || '',
+                                )
+                                  ? 'audio-region-review'
+                                  : undefined
                               }
                             >
-                              검수 저장
-                            </Button>
-                            <Button
-                              disabled={
-                                busy || review.status === 'confirmed' || review.id in drafts
-                              }
-                              onClick={() =>
-                                void action(async () => {
-                                  await jsonPost('/renewal/reviews/' + review.id + '/confirm', {
-                                    revision: review.revision,
-                                  });
-                                  setPlan(null);
-                                  setConsent(null);
-                                })
-                              }
-                            >
-                              검수 확정
-                            </Button>
-                            <p>확정은 실행이 아닙니다. 새 계획 확인 뒤 별도로 이어 실행합니다.</p>
-                          </section>
-                        )}
+                              <h4>
+                                {['audio_regions_v1', 'audio_regions_long_v5'].includes(
+                                  review.contract.kind || '',
+                                )
+                                  ? '음성 보호·제거 구간 검수'
+                                  : '자료 확인'}
+                              </h4>
+                              {['audio_regions_v1', 'audio_regions_long_v5'].includes(
+                                review.contract.kind || '',
+                              ) && (
+                                <>
+                                  <audio
+                                    controls
+                                    preload="none"
+                                    src={mediaUrl('/renewal/reviews/' + review.id + '/source')}
+                                  />
+                                  <p>
+                                    원본 오디오의 초 단위 구간입니다. 보호 구간은 적용 시 앞뒤
+                                    0.3초를 더 보호하며, 겹친 제거 제안은 전체 취소합니다.
+                                  </p>
+                                  <p>
+                                    후속 음성 필터가 off면 보호·제거 결정은 적용하지 않습니다.
+                                    NVIDIA VAD를 선택하면 마지막에 VAD 유지 구간과 겹치는 부분만
+                                    남습니다.
+                                  </p>
+                                  <p>
+                                    직접 지정한 결정입니다. 자동 보컬 탐지·확인 결과가 아닙니다.
+                                    저장·확정만으로 실행하지 않습니다.
+                                  </p>
+                                  <p>
+                                    원본 길이 {review.contract.audio?.duration_seconds.toFixed(3)}초
+                                    · 각 목록 최대 1,024개
+                                  </p>
+                                </>
+                              )}
+                              <DataForm
+                                schema={reviewFields!}
+                                value={drafts[review.id] ?? review.draft}
+                                disabled={busy || review.status === 'confirmed'}
+                                onChange={(value) => {
+                                  if (value && typeof value === 'object' && !Array.isArray(value)) {
+                                    setDrafts((previous) => ({ ...previous, [review.id]: value }));
+                                  }
+                                }}
+                              />
+                              <Button
+                                variant="secondary"
+                                disabled={busy || review.status === 'confirmed'}
+                                onClick={() =>
+                                  void action(async () => {
+                                    await jsonPost('/renewal/reviews/' + review.id + '/save', {
+                                      revision: review.revision,
+                                      draft: drafts[review.id] ?? review.draft,
+                                    });
+                                    setDrafts((previous) => {
+                                      const next = { ...previous };
+                                      delete next[review.id];
+                                      return next;
+                                    });
+                                    setPlan(null);
+                                    setConsent(null);
+                                  })
+                                }
+                              >
+                                검수 저장
+                              </Button>
+                              <Button
+                                disabled={
+                                  busy || review.status === 'confirmed' || review.id in drafts
+                                }
+                                onClick={() =>
+                                  void action(async () => {
+                                    await jsonPost('/renewal/reviews/' + review.id + '/confirm', {
+                                      revision: review.revision,
+                                    });
+                                    setPlan(null);
+                                    setConsent(null);
+                                  })
+                                }
+                              >
+                                검수 확정
+                              </Button>
+                              <p>확정은 실행이 아닙니다. 새 계획 확인 뒤 별도로 이어 실행합니다.</p>
+                            </section>
+                          )}
                       </TaskResultTabs>
                     </section>
                   ) : (

@@ -11,7 +11,7 @@ SHA = re.compile(r'[a-f0-9]{64}\Z')
 EXECUTION_REASONS = [
     '원본·대상 인물 선택이 아직 확인되지 않았습니다.',
     '같은 사진·영상·설정·실행기에 연결된 승인 미리보기가 없습니다.',
-    '사진 입력을 얼굴 합성 실행으로 연결하는 절차가 아직 제공되지 않습니다.',
+    '얼굴 합성 워크플로우에서 인물 분석·선택·미리보기 확인이 필요합니다.',
     '실행기의 실제 준비 상태는 확인하지 않았습니다.',
 ]
 
@@ -38,7 +38,7 @@ class FaceInputs:
 
     @staticmethod
     def public_engine(row):
-        return {k: row[k] for k in ('role','revision','sha256')} | {'engine': row['descriptor']['engine']}
+        return {k: row[k] for k in ('role','revision','sha256')} | {'engine': row['descriptor']['engine'], 'face_protocol': row['descriptor'].get('face_protocol', 2)}
 
     def inspect(self, actor, selection):
         if (set(selection) != {'photo_asset_id','target_asset_id','engine_revision','engine_sha256','settings_revision','preset','video_codec'}

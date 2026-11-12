@@ -201,6 +201,9 @@ def execute(store, owner, command, config):
     work = root / command["attempt_id"]
     work.mkdir(mode=0o700, exist_ok=False)
     role = command["runtime"]["role"]
+    if role == "faceswap" and command.get("protocol_version") == 3:
+        from .face_operations import execute as face_operation
+        return face_operation(store, owner, command, config, work, child=child)
     if role == "faceswap":
         return face_execute(store, owner, command, config, work)
     if role != "preprocess_audio":

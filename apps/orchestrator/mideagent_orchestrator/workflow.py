@@ -30,15 +30,21 @@ def _shape(value):
     if not isinstance(value.get("name"),str)or not 1<=len(value["name"].strip())<=100:
         raise ValueError("워크플로우 이름과 입력 설정을 확인하세요.")
     inputs = value.get("inputs")
-    if not isinstance(inputs, dict) or any(k not in {"video", "audio", "transcript"} or v != k for k, v in inputs.items()):
+    if not isinstance(inputs, dict) or any(k not in {"video", "audio", "transcript", "photo"} or v != ("image" if k == "photo" else k) for k, v in inputs.items()):
         raise ValueError("영상·시간 자막·동일 영상의 추출 음성 입력을 확인하세요.")
     nodes=value.get("nodes");edges=value.get("edges")
     audio_file = value.get("input_profile") == "audio_file_v1"
-    if value.get("input_profile") not in (None, "audio_file_v1") or audio_file and (
+    if value.get("input_profile") not in (None, "audio_file_v1", "face_workflow_v1") or audio_file and (
             inputs != {"audio": "audio"} or not isinstance(nodes, list) or len(nodes) != 1
             or nodes[0].get("type") != "transcription_agent"
             or nodes[0].get("options", {}).get("audio_source") != "audio_file_v1" or edges != []):
         raise ValueError("음성 원본 profile은 전사 에이전트 하나와 audio 입력을 사용합니다.")
+    face = value.get("input_profile") == "face_workflow_v1"
+    if face and (inputs != {"photo":"image"} or not isinstance(nodes,list) or len(nodes)!=1
+                 or not isinstance(nodes[0],dict) or nodes[0].get("type")!="faceswap_agent" or edges!=[]):
+        raise ValueError("얼굴 합성은 사진 입력과 얼굴 합성 에이전트 하나를 사용합니다.")
+    if ("photo" in inputs or any(isinstance(n,dict) and n.get("type")=="faceswap_agent" for n in (nodes if isinstance(nodes,list) else []))) and not face:
+        raise ValueError("얼굴 합성 입력 profile을 확인하세요.")
     if not isinstance(nodes,list)or not 1<=len(nodes)<=24 or not isinstance(edges,list)or len(edges)>48:
         raise ValueError("에이전트 연결을 확인하세요.")
     ids=set();specs={n["id"]:n for n in catalog()["nodes"]}
@@ -223,6 +229,8 @@ def compile_definition(public, *, input_language=None, preserve_input_cues=True)
                 edges.append({"id":"tool_edge_"+str(len(edges)),"source":{"node":source[0],"port":source[1]},"target":{"node":tool["id"],"port":port}})
         context=contexts[parents[node["id"]][0]]if parents[node["id"]]else ({} if public.get("input_profile") == "audio_file_v1" else {"video":("$input","video")})
         if not parents[node["id"]]:
+            if "photo" in public["inputs"]:
+                context["photo"] = ("$input", "photo")
             if "audio" in public["inputs"]:
                 context["audio"] = ("$input", "audio")
             if "transcript" in public["inputs"] and agent.requires_parent:

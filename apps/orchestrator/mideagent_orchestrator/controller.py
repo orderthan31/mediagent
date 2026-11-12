@@ -46,7 +46,7 @@ class BrokerController:
                 envelope as engine_envelope,
             )
 
-            if message_type == ENGINE_COMMAND:
+            if message_type in {ENGINE_COMMAND, "agent.engine.command.v3"}:
                 if self.engine_client_factory is None:
                     raise BrokerError("engine_transport_not_configured")
                 factory, encode = self.engine_client_factory, engine_envelope
@@ -133,7 +133,7 @@ class BrokerController:
         from video_service.engine_protocol import RESULT as ENGINE_RESULT
         from video_service.engine_protocol import decode as engine_decode
 
-        decoder = engine_decode if delivery.message_type == ENGINE_RESULT else decode
+        decoder = engine_decode if delivery.message_type in {ENGINE_RESULT, "agent.engine.result.v3"} else decode
         value = decoder(delivery, result=True)
         # accept() commits before this returns. serve() ACKs only after this whole
         # handler finishes; a repeated result is fenced by the durable inbox.

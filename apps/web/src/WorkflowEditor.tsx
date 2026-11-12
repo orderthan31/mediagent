@@ -293,6 +293,7 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
                           vad_mode: '음성 구간 처리',
                           subtitle_mode: '자막 표시',
                           video_codec: '영상 형식',
+                          preset: '합성 품질',
                           quality_profile: '화질',
                           resolution: '해상도',
                           format: '자막 형식',
@@ -319,6 +320,7 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
                                 vad_mode: '음성 구간 처리',
                                 subtitle_mode: '자막 표시',
                                 video_codec: '영상 형식',
+                                preset: '합성 품질',
                                 quality_profile: '화질',
                                 resolution: '해상도',
                                 format: '자막 형식',
@@ -349,6 +351,7 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
                                 vad_mode: '음성 구간 처리',
                                 subtitle_mode: '자막 표시',
                                 video_codec: '영상 형식',
+                                preset: '합성 품질',
                                 quality_profile: '화질',
                                 resolution: '해상도',
                                 format: '자막 형식',
@@ -479,6 +482,37 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
             기존 전체 작업 만들기
           </Button>
         )}
+        {!initialId && (
+          <Button
+            variant="secondary"
+            disabled={!!busy}
+            onClick={() => {
+              if (
+                dirty &&
+                !window.confirm('저장하지 않은 편집이 있습니다. 얼굴 합성 초안으로 바꿀까요?')
+              ) {
+                return;
+              }
+              change({
+                ...createAgentWorkflow(),
+                name: '얼굴 합성',
+                input_profile: 'face_workflow_v1',
+                inputs: { photo: 'image' },
+                nodes: [
+                  { id: 'face', type: 'faceswap_agent', position: { x: 0, y: 80 }, options: {} },
+                ],
+                edges: [],
+              });
+              setSelected('');
+              setError('');
+              setTemplateNotice(
+                '사진·영상의 인물 분석과 미리보기 확인을 거쳐 합성합니다. 단계별 실행기를 선택해야 시작할 수 있습니다.',
+              );
+            }}
+          >
+            얼굴 합성 작업 만들기
+          </Button>
+        )}
         {doc.revision > 0 && (
           <Button variant="quiet" onClick={() => setHistory((previous) => !previous)}>
             이력
@@ -497,7 +531,7 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
           {templateNotice}
         </p>
       )}
-      {doc.catalog_version === 2 && (
+      {doc.catalog_version === 2 && doc.input_profile !== 'face_workflow_v1' && (
         <fieldset disabled={!!busy} aria-label="워크플로우 선택 입력 설정">
           <legend>작업 시작 시 선택할 입력</legend>
           <label>
@@ -540,7 +574,26 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
           definition={doc}
           catalog={catalog}
           disabled={!!busy || !catalog.length}
-          onChange={(next) => change({ ...doc, nodes: next.nodes, edges: next.edges })}
+          onChange={(next) => {
+            const face = next.nodes.some((n) => n.type === 'faceswap_agent');
+            if (face && (next.nodes.length !== 1 || next.edges.length)) {
+              setError('얼굴 합성은 독립된 얼굴 합성 작업으로 만드세요.');
+              return;
+            }
+            const { input_profile: profile, ...base } = doc;
+            change({
+              ...base,
+              ...(face
+                ? { input_profile: 'face_workflow_v1' as const, inputs: { photo: 'image' } }
+                : profile === 'face_workflow_v1'
+                  ? { inputs: {} }
+                  : profile
+                    ? { input_profile: profile }
+                    : {}),
+              nodes: next.nodes,
+              edges: next.edges,
+            });
+          }}
           onSelect={setSelected}
           details={panel}
         />

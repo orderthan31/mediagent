@@ -73,13 +73,16 @@ def project_agents(job,runs,demands,instances,execution_observations=None):
             dispatch_phase=(run.get("dispatch")or{}).get("phase")if run else None
             if run and run["status"]not in {"completed","cancelled"}and dispatch_phase in {"held","failed","unknown"}:
                 state="failed";reason="실행 요청 전달을 확인하지 못했습니다. 자동으로 다시 보내지 않습니다."
+            if run and run.get("error_code")=="face_candidates_missing":reason="선택할 인물이 없습니다. 사진과 영상 기준 프레임을 확인하세요."
             if state=="failed"and not reason:reason=spec(role,native[identity]["options"])["label"]+"에 실패했습니다."
             tools.append({"node_id":identity,"role":role,"label":{"transcribe":"구간 전사 처리","translate":"구간 번역 처리"}.get(role,spec(role,native[identity]["options"])["label"]),
                           "state":state,"reason":reason,"run_id":run["id"]if run else None})
         failed=next((t for t in tools if t["state"]in {"failed","blocked"}),None)
+        face_wait=next((t for t in tools if t["role"] in {"face_select","face_confirm_preview"} and t["state"]=="review_required"),None)
         active=next((t for t in tools if t["state"]in {"running","preparing"}),None)
         completed=[t for t in tools if t["state"]=="completed"]
         if failed:state="failed";reason=failed["reason"]
+        elif face_wait:state="review_required";reason="사진과 영상의 인물을 선택하세요." if face_wait["role"]=="face_select" else "생성된 합성 미리보기를 확인하세요."
         elif len(completed)==len(tools):state="completed";reason=""
         elif active:state="running"if completed else active["state"];reason=""
         elif job["status"]in {"cancelled","cancelling"}or any(t["state"]=="cancelled"for t in tools):state="cancelled";reason=""
@@ -89,9 +92,9 @@ def project_agents(job,runs,demands,instances,execution_observations=None):
         if decision["state"]=="failed" or state=="completed" and decision["state"]!="completed":
             state="failed";reason=decision.get("reason")or"처리 결과를 확인할 수 없습니다."
         primary=next((t for t in tools if t["role"]==cls.primary and t["run_id"]),None)
-        selected=failed or active or primary or (completed[-1]if completed else tools[0])
+        selected=failed or face_wait or active or primary or (completed[-1]if completed else tools[0])
         result.append({"id":node["id"],"type":node["type"],"label":cls.label,"state":state,
-                       "status_label":LABELS.get(state,"상태 확인 필요"),"reason":reason,
+                       "status_label":("인물 선택 대기" if face_wait["role"]=="face_select" else "미리보기 확인 대기") if face_wait and state=="review_required" else LABELS.get(state,"상태 확인 필요"),"reason":reason,
                        "selected_tool_id":selected["node_id"],"tools":tools,
                        "outputs":goal_outputs(job["snapshot"],node,scope,runs,native) if state=="completed" else []})
     # No fixed timer, guessed readiness or spinner during an agent's internal tools.
