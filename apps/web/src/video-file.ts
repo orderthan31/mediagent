@@ -10,4 +10,4 @@ export const isVideoFile = (file: Pick<File, 'name' | 'type'>): boolean => {
 };
 
 export const isOriginalFile = (file: Pick<File, 'name' | 'type'>): boolean =>
-  isVideoFile(file) || /\.(wav|mp3|m4a)$/i.test(file.name);
+  isVideoFile(file) || /\.(wav|mp3|m4a|jpg|jpeg|png)$/i.test(file.name);

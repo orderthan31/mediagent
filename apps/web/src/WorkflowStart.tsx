@@ -108,7 +108,7 @@ export const WorkflowStart = () => {
           renewalBackend ? '/work-entry/catalog' : '/settings/node-catalog',
         ),
       ]);
-      setAssets(videos.videos);
+      setAssets(videos.videos.filter((v) => v.media_kind !== 'image'));
       setDefinitions(workflows.definitions);
       setCatalog(nodes.nodes);
       setListError('');
@@ -324,6 +324,7 @@ export const WorkflowStart = () => {
   return (
     <main className="serving-page workflow-start">
       <PageTitle>작업 추가</PageTitle>
+      {renewalBackend && <a href="#/start/faceswap">얼굴 합성 입력 준비</a>}
       {listError && (
         <p role="alert" className="alert">
           {listError}

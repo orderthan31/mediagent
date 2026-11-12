@@ -214,6 +214,10 @@ def probe(path):
 
 def probe_original(path):
     """Classify bytes for new registration; old video probe stays unchanged."""
+    from video_service.image_original import probe as photo_probe
+    photo = photo_probe(path)
+    if photo is not None:
+        return photo
     raw = process(['ffprobe', '-v', 'error', '-protocol_whitelist', 'file,pipe',
                    '-format_whitelist', 'mov,matroska,webm,wav,mp3,ogg', '-show_entries',
                    'format=format_name,duration:format_tags=major_brand:stream=codec_type,codec_name,sample_rate,channels:stream_disposition=attached_pic',

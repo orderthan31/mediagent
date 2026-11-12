@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   ArrowLeft,
   FileAudio,
+  FileImage,
   FileVideo,
   FolderOpen,
   Plus,
@@ -29,6 +30,7 @@ import { SavedSubtitleCopies } from './SavedSubtitleCopies';
 import { ModelRegistryPage } from './ModelRegistryPage';
 import { ProviderConnections } from './ProviderConnections';
 import { ServingPage } from './ServingPage';
+import { FaceInputPreparation } from './FaceInputPreparation';
 import { WorkflowStart } from './WorkflowStart';
 import { SavedSubtitleRender } from './SavedSubtitleRender';
 import { WorkflowEditor } from './WorkflowEditor';
@@ -153,6 +155,7 @@ export const VideoWorkspace = () => {
   const audioAssetId = renewalBackend
     ? route.match(/^#\/start\/audio\/([a-f0-9]{32})$/)?.[1]
     : undefined;
+  const faceInputsView = renewalBackend && /^#\/start\/faceswap(?:\?.*)?$/.test(route);
   const startView = route === '#/start';
   const renderCopyId = renewalBackend
     ? route.match(/^#\/start\/subtitles\/([a-f0-9]{32})(?:\/translate)?$/)?.[1]
@@ -252,7 +255,7 @@ export const VideoWorkspace = () => {
       queue.add(file, {});
     }
     if (rejected.length) {
-      setError(`영상 또는 WAV·MP3·M4A(AAC) 파일을 선택하세요: ${rejected.join(', ')}`);
+      setError(`영상·음성 또는 JPEG·PNG 사진을 선택하세요: ${rejected.join(', ')}`);
     }
   };
   const chooseResume = (id: string, legacy = false) => {
@@ -566,6 +569,8 @@ export const VideoWorkspace = () => {
           />
         ) : audioAssetId ? (
           <SavedSubtitleRender key={route} mode="audio" audioAssetId={audioAssetId} />
+        ) : faceInputsView ? (
+          <FaceInputPreparation key={route} />
         ) : startView ? (
           <WorkflowStart />
         ) : workflowTicketsView ? (
@@ -697,7 +702,9 @@ export const VideoWorkspace = () => {
                           key={v.asset_id}
                           video={v}
                           thumbnail={
-                            v.media_kind === 'audio' ? (
+                            v.media_kind === 'image' ? (
+                              <FileImage aria-label="사진 원본" />
+                            ) : v.media_kind === 'audio' ? (
                               <FileAudio aria-label="음성 원본" />
                             ) : (
                               <Thumbnail assetId={v.asset_id} />

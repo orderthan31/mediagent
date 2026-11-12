@@ -644,3 +644,13 @@ PM1562998217422147606의 b676 검토에서 기존 engine wire2(3필드 agent)를
 - [x] 실제 tiny synthetic AAC/M4A의 probe·업로드 완료·CAS와 source custody, 실제 Create→_plan→preprocess v5 정규화→같은 producer WAV/timeline의 ASR 명령·역할 envelope를 fake SQL/registry/queue와 임시 CAS로 확인했다. 선택 fixture의 모델/언어/옵션·호출 상한1을 보존했으며 모델은 호출하지 않았다.
 - [x] M4A 전용 backend 21건 및 변경 uploader helper 1건 RED→GREEN, 변경 프론트 lint/format·TypeScript·renewal 빌드를 통과했다. 원래 음성34건/기존 MT·render·GB·SMI·queue 전체 suite와 완료된 WAV/MP3 운영 여정은 반복하지 않았다.
 - [ ] 부모의 독립 검토·기존 개발 패키징/설치 후 실제 M4A 등록·입력 준비 확인은 별도다. Windows 합성 AAC 디코드는 설치 Linux 이미지의 codec/PG/S3/native/ASR/provider/다운로드 성공 증거가 아니다. writer는 실제 API·DB·S3·업로드·jobs/Start·provider/GPU·서비스·권한·Git ref/commit/push/deploy를 변경하지 않았다.
+
+
+### 2026-11-13 JPEG/PNG + 기존 영상 얼굴 합성 입력 확인 — 소스 완료 부분 / 실행 연결 보류
+
+- [x] 기존 generic upload/CAS/assets에 JPEG·PNG 한 장의 10MiB/2400만 화소·framing/손상/회전 정보/실제 CPU decode 검증을 연결했다. 원본 bytes/SHA/파일명/custodian을 보존하고 duration/영상 thumbnail/preview를 만들지 않는다. Pillow가 없는 기존 의존성 환경에서 stdlib framing과 기존 CPU media decoder만 사용했다.
+- [x] 기존 work-entry 안에 사진·target의 실제 참조/custodian/SHA와 등록 engine revision/descriptor digest, 현재 지원 preset/codec/settings revision을 묶는 읽기 전용 입력 검사와 token을 연결했다. metadata 조회·검사에는 session/preview/job/CAS staging/engine probe가 없다. 실제 사진 decode/CAS I/O는 DB·scheduling lock 밖에서 하고 metadata를 다시 확인한다.
+- [x] 원본 상세와 작업 추가에서 입력 화면을 연다. source/target 재선택·재열기, 실제 등록 engine 선택/부재, 입력 상태와 실행 불가 이유, stale/403 오류를 처리한다. 실제 AuthGate/CSS의 PC1440/390 오프라인 fixture에서 선택/mount가 실행 POST를 발생시키지 않음과 disabled Start를 확인했다.
+- [x] 새 backend 42건, photo helper1건 + offline browser1건, 관련 lint/format·TypeScript·renewal build·syntax/CR-at-EOL 검사를 수행했다. 기존 audio34/M4A21/MT/render/SMI/GB/queue 전체 suite와 운영 여정은 반복하지 않았다. valid synthetic draft를 이용한 shared _plan/_checked_input 호환 검사는 사진 유형/실행 guard 확인에 한정했다.
+- [ ] 실제 face goal/agent canvas·저장 workflow·Create/Start 연결은 보류한다. native consumer는 실제 session/approved preview와 target/settings/engine provenance가 필요하고 nested image ref는 cross-custodian origin을 받지 않는다. 이 입력 검사를 승인 미리보기로 포장하지 않고 기존 native/protocol/worker를 변경하지 않았다. source_workflow는 연결되지 않았으며 실제 job/FK를 만들지 않았다.
+- [ ] 부모의 독립 검토·패키징/설치 후 신규 labelled nonpersonal photo의 원본 등록·PC390 INPUT 확인은 별도다. 실제 engine 등록/관측·Linux image codec·PG/S3·GPU/얼굴 분석·preview/render/다운로드는 미검증이다. writer는 운영 API/DB/S3/사용자 미디어·키/설정·실제 업로드/작업/Start·서비스·TLS·권한·commit/push/deploy에 접근/변경하지 않았다.

@@ -7,6 +7,9 @@ import { FullVideoPreview } from './FullVideoPreview';
 import { renewalBackend } from './preview';
 
 const videoDuration = (video: VideoAsset) => {
+  if (video.media_kind === 'image') {
+    return `${video.media?.width} × ${video.media?.height}`;
+  }
   const duration = video.media?.duration;
   return duration !== undefined && Number.isFinite(duration) && duration >= 0
     ? durationLabel(duration)
@@ -28,9 +31,11 @@ export const StorageAssetRow = ({
           ? '결과에서 등록'
           : video.provenance.kind === 'preserved_legacy'
             ? '원본'
-            : video.media_kind === 'audio'
-              ? '음성 원본'
-              : '원본'}
+            : video.media_kind === 'image'
+              ? '사진 원본'
+              : video.media_kind === 'audio'
+                ? '음성 원본'
+                : '원본'}
       </Badge>
       <h2 className="ui02-list-title">{video.original_filename}</h2>
       <ul className="storage-metadata" aria-label="원본 정보">
@@ -44,7 +49,11 @@ export const StorageAssetRow = ({
       </ul>
     </div>
     <span className="storage-open">
-      {video.media_kind === 'audio' ? '음성 열기' : '영상 열기'}{' '}
+      {video.media_kind === 'image'
+        ? '사진 열기'
+        : video.media_kind === 'audio'
+          ? '음성 열기'
+          : '영상 열기'}{' '}
       <ArrowRight size={17} aria-hidden="true" />
     </span>
   </a>
@@ -53,7 +62,7 @@ export const StorageAssetRow = ({
 export const StorageVideoInfo = ({ video, assetId }: { video: VideoAsset; assetId: string }) => (
   <section className="storage-video-info" aria-label="원본 정보">
     <div className="storage-preview">
-      {video.media_kind !== 'audio' &&
+      {!video.media_kind &&
         (video.web_preview && video.web_preview.status !== 'ready' ? (
           !renewalBackend ? (
             <p role="status">미리보기를 준비하고 있습니다.</p>
@@ -73,21 +82,34 @@ export const StorageVideoInfo = ({ video, assetId }: { video: VideoAsset; assetI
           사용하세요.
         </p>
       )}
-      {renewalBackend && video.media_kind !== 'audio' && (
+      {renewalBackend && !video.media_kind && (
         <FullVideoPreview resource={`/videos/${assetId}/preview/full`} />
       )}
     </div>
     <div className="storage-info">
-      <h2>{video.media_kind === 'audio' ? '음성 정보' : '영상 정보'}</h2>
+      <h2>
+        {video.media_kind === 'image'
+          ? '사진 정보'
+          : video.media_kind === 'audio'
+            ? '음성 정보'
+            : '영상 정보'}
+      </h2>
       {video.media_kind === 'audio' && <a href={`#/start/audio/${assetId}`}>음성 전사 준비</a>}
+      {renewalBackend && video.media_kind !== 'audio' && (
+        <a
+          href={`#/start/faceswap?${video.media_kind === 'image' ? 'photo' : 'target'}=${assetId}`}
+        >
+          얼굴 합성 입력 준비
+        </a>
+      )}
       <dl>
         <div>
           <dt>원본 업로더</dt>
           <dd style={{ overflowWrap: 'anywhere' }}>{video.uploaded_by || '기록 없음'}</dd>
         </div>
         <div>
-          <dt>재생시간</dt>
-          <dd>{videoDuration(video)}</dd>
+          <dt>{video.media_kind === 'image' ? '사진 형식' : '재생시간'}</dt>
+          <dd>{video.media_kind === 'image' ? video.media_type : videoDuration(video)}</dd>
         </div>
         <div>
           <dt>용량</dt>
@@ -125,7 +147,7 @@ export const StorageVideoInfo = ({ video, assetId }: { video: VideoAsset; assetI
           </dd>
         </div>
       </dl>
-      {(video.web_preview || video.media_kind === 'audio') && (
+      {(video.web_preview || !!video.media_kind) && (
         <nav className="storage-downloads" aria-label="원본 다운로드">
           <a href={mediaUrl(`/videos/${assetId}/download`)} download>
             원본 받기

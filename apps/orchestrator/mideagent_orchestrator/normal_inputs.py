@@ -197,6 +197,9 @@ class NormalInputs:
 
     def resolve(self, db, actor, asset, definition, options):
         from video_service.audio_original import PROFILE, asset_media, policy
+        from video_service.image_original import asset_media as image_media
+        if image_media(asset) is not None:
+            raise ValueError('사진은 독립 입력입니다. 작업의 대상 영상을 선택하세요.')
         audio_media = asset_media(asset)
         if definition.get("input_profile") == PROFILE:
             if len(canonical(options)) > 20000:

@@ -158,6 +158,9 @@ def mount_runtime(
         return value["user"]["id"]
 
     owner_dependency = Depends(owner)
+    from .face_input_routes import mount_face_inputs
+
+    mount_face_inputs(app, runtime, owner_dependency)
     from .projection_recovery_routes import mount_projection_recoveries
 
     mount_projection_recoveries(app, runtime, owner_dependency)

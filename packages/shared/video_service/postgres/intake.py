@@ -44,6 +44,8 @@ def public_upload(row):
 def public_asset(row):
     from ..audio_original import asset_media
     audio = asset_media(row)
+    from ..image_original import asset_media as image_media
+    image = image_media(row)
     legacy = row["metadata"].get("legacy_origin")
     large_policy = None
     if row["bytes"] > MAX_CONTENT:
@@ -106,6 +108,9 @@ def public_asset(row):
         value.update(media_kind='audio', media_type=row['metadata']['media_type'],
                      processing_roles=['preprocess_audio', 'transcribe'], audio_original_policy=row['metadata']['audio_original_policy'])
         value.pop('web_preview', None)
+    if image:
+        value.update(media_kind='image', media_type=row['metadata']['media_type'], image_original_policy=row['metadata']['image_original_policy'], processing_supported=False, processing_roles=[])
+        value.pop('web_preview', None)
     return value
 
 
@@ -140,11 +145,12 @@ class Intake:
         ):
             raise ValueError("실제 콘텐츠 검증이 끝난 원본이 필요합니다.")
         from ..audio_original import asset_media
+        from ..image_original import asset_media as image_media
         return {
             "storage_key": "blobs/" + row["sha256"],
             "sha256": row["sha256"],
             "bytes": row["bytes"],
-            "type": "audio" if asset_media(row) else "video",
+            "type": "image" if image_media(row) else "audio" if asset_media(row) else "video",
         }
 
     def asset(self, owner, identity):
@@ -188,6 +194,9 @@ class Intake:
         with self.database.connection() as db:
             row = self._shared_asset(db, identity)
             from ..audio_original import asset_media
+            from ..image_original import asset_media as image_media
+            if image_media(row):
+                raise Missing("사진 원본은 원본 받기를 사용하세요.")
             if asset_media(row):
                 raise Missing("음성 원본에는 영상 썸네일이 없습니다.")
             reference = row["metadata"].get("thumbnail")
@@ -208,6 +217,9 @@ class Intake:
         with self.database.connection() as db:
             row = self._shared_asset(db, identity)
             from ..audio_original import asset_media
+            from ..image_original import asset_media as image_media
+            if image_media(row):
+                raise Missing("사진 원본은 원본 받기를 사용하세요.")
             if asset_media(row):
                 raise Missing("음성 원본은 원본 받기를 사용하세요.")
             state = row["metadata"].get("web_preview", {})
@@ -454,7 +466,7 @@ class Intake:
             from mideagent_media_tools.operations import probe_original
             media = probe_original(source)
             thumbnail = None
-            if media.get('kind') != 'audio':
+            if media.get('kind') not in {'audio', 'image'}:
                 try:
                     with tempfile.TemporaryDirectory(prefix="mideagent-thumb-") as work:
                         target = Path(work) / "thumbnail.jpg"
@@ -481,7 +493,7 @@ class Intake:
                 "registration_state": "verified",
                 "media": media,
                 "media_type": "video/mp4",
-                "duration_seconds": media["duration"],
+                **({"duration_seconds": media["duration"]} if media.get("kind") != "image" else {}),
                 "thumbnail": thumbnail,
                 "web_preview": {
                     "status": "unavailable",
@@ -491,6 +503,11 @@ class Intake:
             if media.get('kind') == 'audio':
                 from ..audio_original import policy
                 metadata.update(media_type={'wav': 'audio/wav', 'mp3': 'audio/mpeg', 'm4a': 'audio/mp4'}[media['format']], audio_original_policy=policy())
+                metadata.pop('thumbnail', None)
+                metadata.pop('web_preview', None)
+            if media.get('kind') == 'image':
+                from ..image_original import policy as image_policy
+                metadata.update(media_type={'jpeg': 'image/jpeg', 'png': 'image/png'}[media['format']], image_original_policy=image_policy())
                 metadata.pop('thumbnail', None)
                 metadata.pop('web_preview', None)
             with guard.transaction():
@@ -533,7 +550,7 @@ class Intake:
                     ),
                 )
                 # The unactivated020 hook is opt-in; normal original registration never needs it.
-                if media.get('kind') != 'audio' and getattr(self, "full_previews_enabled", False):
+                if media.get('kind') not in {'audio', 'image'} and getattr(self, "full_previews_enabled", False):
                     from .video_previews import VideoPreviews
 
                     previews = VideoPreviews(self)

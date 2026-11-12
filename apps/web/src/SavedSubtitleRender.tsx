@@ -217,9 +217,7 @@ export const SavedSubtitleRender = ({
         }
         setCopy(saved);
         setVideos(
-          originals.videos.filter((v) =>
-            audio ? v.media_kind === 'audio' : v.media_kind !== 'audio',
-          ),
+          originals.videos.filter((v) => (audio ? v.media_kind === 'audio' : !v.media_kind)),
         );
         setWorkflows(definitions.definitions);
         setCatalog(nodes.nodes);

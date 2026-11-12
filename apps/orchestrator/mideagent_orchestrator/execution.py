@@ -714,6 +714,8 @@ class Execution(Intake):
             if cpu_policy and getattr(self.store, "storage_kind", None) != "s3":
                 raise ValueError("Large CPU input requires independent S3 transport")
             reference = self.asset_reference(asset)
+            if reference["type"] == "image":
+                raise ValueError("사진은 독립 입력입니다. 작업의 대상 영상을 선택하세요.")
             if reference["type"] == "audio" and (not agent_plan or agent_plan["agent_definition"].get("input_profile") != "audio_file_v1"):
                 raise ValueError("음성 원본에는 음성 전용 전사 구성이 필요합니다.")
             if asset["owner_id"] != owner:
