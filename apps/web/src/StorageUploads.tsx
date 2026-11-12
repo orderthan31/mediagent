@@ -10,12 +10,6 @@ const uploadLabel = (item: UploadItem) =>
     : { waiting: '대기', uploading: '업로드 중', paused: '일시정지', error: '실패', done: '완료' }[
         item.state
       ];
-const uploadSize = (value: number) =>
-  value < 1024
-    ? `${value} B`
-    : value < 1024 ** 2
-      ? `${(value / 1024).toFixed(1)} KB`
-      : sizeLabel(value);
 type Props = {
   uploads: UploadItem[];
   sessions: VideoUpload[];
@@ -91,7 +85,7 @@ export const StorageUploads = ({
         <div className="upload-strip-progress">
           <div>
             <span>
-              {uploadSize(value)} / {uploadSize(max)}
+              {sizeLabel(value)} / {sizeLabel(max)}
             </span>
             <strong>{percent === null ? '—' : `${percent}%`}</strong>
           </div>

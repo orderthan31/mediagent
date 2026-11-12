@@ -15,7 +15,7 @@ test('storage menu and independent read states fit PC and 390px without mutation
       contents: `import React from 'react';import{createRoot}from'react-dom/client';
         import{AuthGate}from'./src/AuthGate';import{VideoWorkspace}from'./src/VideoWorkspace';import{PageTitleProvider}from'./src/PageTitle';
         window.__calls=[];window.__modes={totals:'defer',resources:'defer'};window.__release={};
-        window.__totals={originals:{count:'2',bytes:'3072'},observed_at:'2026-01-01T00:00:00+00:00'};
+        window.__totals={originals:{count:'23',bytes:'34212632653'},observed_at:'2026-01-01T00:00:00+00:00'};
         window.__resources={status:'connected',observed_at:'2026-01-01T00:00:00Z',storage:[
           {name:'C:',source:'Host physical disk',status:'connected',total:10737418240,free:3221225472},
           {name:'Object storage',source:'Connected object volume',status:'connected',total:21474836480,free:4294967296},
@@ -91,28 +91,33 @@ test('storage menu and independent read states fit PC and 390px without mutation
       await expect(originals).toContainText('확인 중');
       await expect(resources).toContainText('확인 중');
       assert.equal(await originals.getByText('0개', { exact: true }).count(), 0);
+      assert.equal(await originals.getByText('0.00 GB', { exact: true }).count(), 0);
       await page.evaluate(() =>
         window.__release.totals({ ...window.__totals, originals: { count: '0', bytes: '0' } }),
       );
       await expect(originals).toContainText('0개');
-      await expect(originals).toContainText('0 bytes');
+      await expect(originals).toContainText('0.00 GB');
       await expect(resources).toContainText('확인 중');
       await page.evaluate(() =>
         window.__release.resources({ status: 'unavailable', nodes: [], storage: [] }),
       );
       await expect(resources).toContainText('관측 없음');
+      assert.equal(await resources.locator('dd').count(), 0);
       await expect(originals).toContainText('0개');
       await page.evaluate(() => {
         window.__modes = { totals: 'success', resources: 'success' };
       });
       await originals.getByRole('button', { name: '다시 확인', exact: true }).click();
       await resources.getByRole('button', { name: '다시 확인', exact: true }).click();
-      await expect(originals).toContainText('2개');
-      await expect(originals).toContainText('3,072 bytes');
+      await expect(originals).toContainText('23개');
+      await expect(originals).toContainText('34.21 GB');
       await expect(originals).toContainText('논리 용량');
-      await expect(resources).toContainText('10.0 GiB');
-      await expect(resources).toContainText('3.0 GiB');
-      await expect(resources).toContainText('20.0 GiB');
+      const disks = resources.locator('.storage-measurement');
+      await expect(disks.nth(0).locator('dd')).toHaveText(['10.74 GB', '7.52 GB', '3.22 GB']);
+      await expect(disks.nth(1).locator('dd')).toHaveText(['21.47 GB', '17.18 GB', '4.29 GB']);
+      assert.equal(await disks.nth(2).locator('dd').count(), 0);
+      await expect(resources).not.toContainText('GiB');
+      await expect(originals).not.toContainText('bytes');
       await expect(resources).toContainText('미확인');
       await expect(resources).toContainText('관측 시각');
       // Section headings are document content, not the global sticky application header.
@@ -133,7 +138,7 @@ test('storage menu and independent read states fit PC and 390px without mutation
       await resources.getByRole('button', { name: '다시 확인', exact: true }).click();
       await expect(originals).toContainText('조회 실패');
       await expect(originals).toContainText('이전 확인값');
-      await expect(originals).toContainText('3,072 bytes');
+      await expect(originals).toContainText('34.21 GB');
       await expect(resources).toContainText('조회 실패');
       await expect(resources).toContainText('이전 관측값');
       await expect(page.locator('main.settings-page')).not.toContainText('PRIVATE');
@@ -144,7 +149,7 @@ test('storage menu and independent read states fit PC and 390px without mutation
       await resources.getByRole('button', { name: '다시 확인', exact: true }).click();
       await expect(resources).toContainText('관측이 오래됨');
       await expect(resources).toContainText('2025');
-      await expect(resources).not.toContainText('10.0 GiB');
+      await expect(resources).not.toContainText('10.74 GB');
       for (const element of [
         originals,
         resources,
@@ -180,7 +185,8 @@ test('storage menu and independent read states fit PC and 390px without mutation
       });
       await originals.getByRole('button', { name: '다시 확인', exact: true }).click();
       await resources.getByRole('button', { name: '다시 확인', exact: true }).click();
-      await expect(originals).toContainText('9,007,199,254,740,993 bytes');
+      await expect(originals).toContainText('9007199.25 GB');
+      await expect(originals).toContainText('2개');
       await expect(resources).toContainText('수집된 저장 공간 없음');
       await expect(resources).toContainText('관측 시각 미확인');
       await page.close();

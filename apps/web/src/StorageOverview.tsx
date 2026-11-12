@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { request } from './api';
+import { formatStorageGB } from './capacity-format';
+export { formatStorageGB } from './capacity-format';
 import { Button } from './hangyeol/primitives/button';
 import './storage-overview.css';
 
@@ -89,7 +91,6 @@ const useRead = <T,>(path: string, parse: (value: unknown) => T) => {
   return { ...state, reload };
 };
 const exact = (value: string) => BigInt(value).toLocaleString('ko-KR');
-const gib = (value: number) => `${(value / 1024 ** 3).toFixed(1)} GiB`;
 const ObservedAt = ({ value, label }: { value?: string; label: string }) =>
   value ? (
     <p className="storage-observed-at">
@@ -130,7 +131,7 @@ export const StorageOverview = () => {
               </div>
               <div>
                 <dt>등록 논리 용량</dt>
-                <dd>{exact(registered.data.originals.bytes)} bytes</dd>
+                <dd>{formatStorageGB(registered.data.originals.bytes)}</dd>
               </div>
             </dl>
             <ObservedAt label="확인 시각" value={registered.data.observed_at} />
@@ -173,15 +174,15 @@ export const StorageOverview = () => {
                   <dl>
                     <div>
                       <dt>전체</dt>
-                      <dd>{gib(disk.total)}</dd>
+                      <dd>{formatStorageGB(disk.total)}</dd>
                     </div>
                     <div>
                       <dt>사용</dt>
-                      <dd>{gib(disk.total - disk.free)}</dd>
+                      <dd>{formatStorageGB(disk.total - disk.free)}</dd>
                     </div>
                     <div>
                       <dt>여유</dt>
-                      <dd>{gib(disk.free)}</dd>
+                      <dd>{formatStorageGB(disk.free)}</dd>
                     </div>
                   </dl>
                 ) : (
@@ -192,8 +193,8 @@ export const StorageOverview = () => {
           </>
         )}
         <p>
-          수집된 호스트·오브젝트 볼륨 기준이며 원본 외의 데이터도 포함합니다. GiB는 1,073,741,824
-          bytes입니다.
+          수집된 호스트·오브젝트 볼륨 기준이며 원본 외의 데이터도 포함합니다. GB는 10억
+          바이트입니다.
         </p>
       </section>
     </div>

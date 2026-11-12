@@ -1,4 +1,5 @@
 import { Job, request } from './api';
+import { formatStorageGB } from './capacity-format';
 export type VideoAsset = {
   web_preview?: {
     status: 'ready' | 'failed' | 'unavailable' | 'deferred';
@@ -101,7 +102,7 @@ export const statusLabels: Record<string, string> = {
   CANCELLED: '중단됨',
 };
 export const sizeLabel = (n: number) =>
-  n >= 1024 ** 3 ? `${(n / 1024 ** 3).toFixed(2)} GB` : `${(n / 1024 ** 2).toFixed(1)} MB`;
+  Number.isSafeInteger(n) && n >= 0 ? formatStorageGB(n) : '미확인';
 export const durationLabel = (n?: number) =>
   n === undefined ? '' : `${Math.floor(n / 60)}분 ${Math.floor(n % 60)}초`;
 export const jsonPost = <T>(path: string, body: unknown) =>
