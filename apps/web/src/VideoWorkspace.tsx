@@ -133,7 +133,7 @@ export const VideoWorkspace = () => {
   const assetId = route.match(/^#\/videos\/([a-f0-9]{32})$/)?.[1],
     jobId = route.match(/^#\/jobs\/([a-f0-9]{32})$/)?.[1];
   const jobsView = route === '#/jobs';
-  const settingsView = route === '#/settings';
+  const settingsView = route === '#/settings' || (renewalBackend && route === '#/settings/storage');
   const startView = route === '#/start';
   const productTicketsView = route === '#/work-tickets' || route === '#/recovery-tickets';
   const servingView = route === '#/serving' || route.startsWith('#/serving/');
@@ -593,7 +593,7 @@ export const VideoWorkspace = () => {
           )
         ) : settingsView ? (
           renewalBackend ? (
-            <SystemSettings />
+            <SystemSettings storage={route === '#/settings/storage'} />
           ) : (
             <SettingsPage />
           )

@@ -248,6 +248,10 @@ def mount_runtime(
     def videos(owned=owner_dependency):
         return {"videos": runtime.assets(owned)}
 
+    @app.get("/api/renewal/storage-overview")
+    def storage_overview(owned=owner_dependency):
+        return runtime.storage_overview(owned)
+
     @app.get("/api/videos/{identity}")
     def video(identity: str, owned=owner_dependency):
         # Original details intentionally contain no jobs/subtitle/faceswap controls.

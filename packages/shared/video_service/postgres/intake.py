@@ -152,6 +152,24 @@ class Intake:
                 raise Conflict("원본 식별자가 중복되어 공용 조회할 수 없습니다.")
             return [public_asset(r) for r in rows]
 
+    def storage_overview(self, owner):
+        """Logical registrations in the same shared scope as assets(); no media I/O."""
+        from datetime import datetime, timezone
+
+        with self.database.connection() as db:
+            db.execute("SET TRANSACTION READ ONLY")
+            row = db.execute(
+                "SELECT count(*) AS count, count(DISTINCT id) AS identities, "
+                "COALESCE(sum(bytes),0) AS bytes FROM assets WHERE library_removed_at IS NULL"
+            ).fetchone()
+            if row["count"] != row["identities"]:
+                raise Conflict("원본 식별자가 중복되어 공용 조회할 수 없습니다.")
+            # PostgreSQL sum(bigint) is numeric. Decimal strings also preserve JS precision.
+            return {
+                "originals": {"count": str(row["count"]), "bytes": str(row["bytes"])},
+                "observed_at": datetime.now(timezone.utc).isoformat(),
+            }
+
     def asset_path(self, owner, identity):
         with self.database.connection() as db:
             row = self._shared_asset(db, identity)

@@ -566,3 +566,11 @@ PM1562998217422147606의 b676 검토에서 기존 engine wire2(3필드 agent)를
 - 취소는 기존 작업 상세 링크에서 최신 권한/revision으로 확인한다. 새 취소 계약·일괄 취소·pause/reorder·replica 제어는 없다. loading/조회 실패/마지막 확인값/확정 빈 목록과 보낸 뒤 수신 대기/실제 처리를 구분한다. legacy 큐 경로와 기존 normal-input/cue/custodian/UI 보정을 보존했다.
 - 소스 검사: 실제 handler/auth 의존성과 실제 SELECT의 메모리 SQL23개, 기존 popover/detail의 오프라인 PC/390px 포함 대상 웹10개, TypeScript/build·변경 파일 lint/format 통과. 독립 검토에서 발견한 sent/received 확정 실패의 잘못된 대기 집계를 보정하고 한정 재검토를 통과했다. 부모가 보정 SELECT를 기존 API의 원래 PostgreSQL 계정·DSN으로 읽기 전용 실행했으며0행·쓰기0을 확인했다. 이는 소스 조회 구문/기존 권한 확인이고 설치된 신규 HTTP 경로·실제 화면/전달·취소·배포 수용은 아니다. native binding42501은 해당 바인딩만 보류한다. Git 게시에는 기존 Windows 사용자 인증만 사용하며 App 전환·새 인증·전역 설정 변경·force-push는 하지 않는다.
 - 이후 부모가 이 소스를 검토/반영하고 기존 화면을 읽어 확인한다. 전체 큐 pause/reorder, 완료 자막 편집, CAS 정리, 얼굴 합성 및 실제 유료/GPU 실행은 위 미완료 경계 그대로다.
+
+### 2026-11-12 저장소 현황 — 읽기 전용 소스 구현, 운영 미반영
+- [x] 기존 시스템 설정의 공급자·모델·워크플로우 링크를 유지하고 저장소 현황 하위 화면을 연결했다. 인증된 `GET /api/renewal/storage-overview`는 원본 목록과 같은 공유/목록 제거 조건으로 count와 bytes만 집계한다. 원본 ID 중복의 기존 조회 충돌을 보존하며 CAS 중복 등록을 임의로 합치지 않는다. 큰 수는 십진 문자열로 전달한다.
+- [x] 등록 논리 용량과 기존 `/api/system/resources` 수집 관측의 호스트·오브젝트 볼륨 용량을 구분한다. 두 조회의 로딩·실패·확정0·이전값·오래된/없는 관측을 독립 표시하고 각각 다시 확인한다. 새 화면에 수집기의 원시 이름/경로나 소유자·저장 locator를 노출하지 않는다. 기존 자원 DTO 전체를 개편하거나 기존 노출을 모두 제거했다는 뜻은 아니다.
+- [x] 독립 검토의 구역 제목 충돌을 보정했다. 저장소 구역 제목은 일반 흐름 요소로 두어 전역 sticky header 규칙을 상속하지 않는다. 실제 전역 CSS의 computed position/z-index RED→GREEN과 PC1440/390px 재조회 버튼의 포인터 접근을 오프라인으로 확인했다.
+- [x] 실제 handler/aggregate/auth의 메모리 SQL·ASGI12건, 기존 접근/PM UI 회귀8건, 실제 AuthGate/VideoWorkspace의 오프라인 PC1440·390px 메뉴/재진입/재조회 검사 통과. TypeScript/Vite build·변경 웹 lint/Prettier·Python syntax를 확인했다. 실제 PostgreSQL/기존 principal의 새 집계 권한·운영 수집기·배포 화면은 이번 검사에 포함하지 않았다.
+- [x] 부모가 원래 API 계정·DSN으로 새 집계를 PostgreSQL READ ONLY에서 직접 실행해 등록 원본23개·34212632653 논리 bytes·쓰기0을 확인했다. 보정 후 대상 웹9건도 직접 통과했다. 별도 오프라인 실제 브라우저 비교에서 동결된 수정 전 소스는 스크롤254에서 sticky 제목이 상단 메뉴와 겹쳐 실패했고, 수정 후 소스는 PC1440/390px 실제 비영점 스크롤·재조회 버튼 hit·각66개 수치/시각 접근을 통과했다. 이 테스트는 합성 관측이며 실제 배포 화면을 대신하지 않는다. 전체 소스 검토와 header 차단의 한정 재검토를 통과했다.
+- [ ] 기존 개발계 반영/실제 화면 확인은 별도다. 기준 대기 목록 f1dd230의 배포/실제 빈 목록 확인은 완료했다. 이번에는 읽기 기능만 추가했으며 정리/삭제·완료 자막 편집·pause/reorder·얼굴 합성은 계속 별도 미완료다. Git 게시에는 기존 Windows 사용자 인증만 사용하고 App 전환·새 인증·전역 설정·force는 금지한다. native42501 바인딩은 해당 부분만 보류한다.
