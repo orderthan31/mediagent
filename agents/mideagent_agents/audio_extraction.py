@@ -8,7 +8,7 @@ class AudioExtractionAgent(GoalAgent):
     tool_order = ("analyze", "extract_audio")
     primary = "extract_audio"
     requires_parent = False
-    output_ports = {"audio": "audio"}
+    output_ports = {"audio": "audio", "metadata": "metadata"}
 
     def plan(self, media, add):
         if "video" not in media:

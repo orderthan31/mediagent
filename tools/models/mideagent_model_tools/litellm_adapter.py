@@ -287,9 +287,21 @@ class LiteLLMAdapter:
             code = "outcome_unknown" if self._guard.calls else "unavailable"
             raise EndpointFailure("선택 모델의 SDK 요청·응답 계약을 확인하세요. 자동 재호출하지 않습니다.", code=code) from None
 
-    @staticmethod
-    def _schema(name, schema):
-        return {"type": "json_schema", "json_schema": {"name": name, "strict": True, "schema": schema}}
+    def _schema(self, name, schema):
+        strict = True
+        if self.protocol == "gemini" and self.operation == "structured_audio":
+            # The bounded strict nested audio schema was rejected by the live
+            # provider. Keep required fields/types on the wire and enforce
+            # counts, text, timestamps and the envelope locally as before.
+            def portable(value):
+                if isinstance(value, dict):
+                    return {key: portable(item) for key, item in value.items()
+                            if key not in {"additionalProperties", "maxItems"}}
+                if isinstance(value, list):
+                    return [portable(item) for item in value]
+                return value
+            schema, strict = portable(schema), False
+        return {"type": "json_schema", "json_schema": {"name": name, "strict": strict, "schema": schema}}
 
     @staticmethod
     def _object_response(response):

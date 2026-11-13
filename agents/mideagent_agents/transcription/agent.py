@@ -25,7 +25,7 @@ class TranscriptionAgent(GoalAgent):
         if audio_file:
             prepare["options"].setdefault("media_budget", "audio_long_v5")
             prepare["options"].setdefault("processing_profile", "regions_long_v5")
-            for key, value in {"media_budget": "audio_long_v5", "clock_policy": "packed_projection_v5", "batch_policy": "bounded_60s_v1"}.items():
+            for key, value in {"media_budget": "audio_long_v5", "clock_policy": "packed_projection_v5", "batch_policy": "bounded_60s_v1", "max_model_calls": "128"}.items():
                 speech["options"].setdefault(key, value)
         if not audio_file:
             add(analyze, {"video":media["video"]})

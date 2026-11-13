@@ -86,6 +86,9 @@ test('node touch movement changes only position and preserves options, model pin
     definition,
     nodeDrag: { current: { pointerId: 7, id: 'translated', x: 100, y: 200, px: 10, py: 20 } },
     view: { scale: 2 },
+    suppressTap: { current: false },
+    viewRef: { current: { scale: 2 } },
+    gesture: { current: null },
     disabled: false,
     onChange: (value) => {
       changed = value;
@@ -123,6 +126,10 @@ test('lost capture clears only its own pan/node/wire and cancels unfinished wire
     wireDrag = { current: { pointerId: 7 } };
   const sources = [];
   const lost = viewportHandler('onLostPointerCapture', {
+    viewport: { current: null },
+    touches: { current: new Map() },
+    gesture: { current: null },
+    viewRef: { current: { x: 0, y: 0, scale: 1 } },
     pan,
     nodeDrag,
     wireDrag,

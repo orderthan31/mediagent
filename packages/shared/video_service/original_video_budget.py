@@ -20,6 +20,8 @@ CONTROLS = frozenset(
         "subtitle_track",
         "select",
         "join",
+        "control_if",
+        "control_switch",
     }
 )
 
@@ -72,7 +74,8 @@ def policy():
 
 def selected(asset, definition):
     from .audio_original import asset_media
-    if asset_media(asset) is not None:
+    from .subtitle_original import asset_media as subtitle_media
+    if asset_media(asset) is not None or subtitle_media(asset) is not None:
         return False
     nodes = definition.get("nodes", [])
     if any(n.get("options", {}).get("media_budget") == ID for n in nodes):

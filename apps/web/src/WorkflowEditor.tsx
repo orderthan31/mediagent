@@ -15,7 +15,11 @@ import { NodeConfiguration } from './NodeConfiguration';
 import { DefinitionHistory } from './DefinitionHistory';
 import { frontendOnly } from './preview';
 import { isControlNode, controlFieldLabels, controlValueLabels } from './workflow-controls';
-import { createAgentWorkflow } from './workflow-templates';
+import {
+  createAgentWorkflow,
+  createSubtitleWorkflow,
+  createReviewedAgentWorkflow,
+} from './workflow-templates';
 import './workflow-editor.css';
 
 type Definition = CanvasDefinition & { catalog_version: number };
@@ -69,7 +73,7 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
     node?.options,
     node?.tool_settings,
   );
-  const inputTypes = [...new Set(catalog.flatMap((item) => Object.values(item.inputs)))];
+  const inputTypes = ['video', 'audio', 'transcript'];
   const change = (next: Definition) => {
     setDoc(next);
     setDirty(true);
@@ -287,6 +291,7 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
                           audio_source: '전사 음성 출처',
                           target_language: '대상 언어',
                           transcript_source: '자막에 사용할 전사문',
+                          subtitle_source: '자막 출처',
                           language: '자막 언어',
                           llm_options: '모델 요청 옵션 (JSON)',
                           video_description: '번역 참고 설명',
@@ -370,6 +375,7 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
                                 resolution: '해상도',
                                 format: '자막 형식',
                                 transcript_source: '자막에 사용할 전사문',
+                                subtitle_source: '자막 출처',
                                 language: '자막 언어',
                                 audio_source: '전사 음성 출처',
                               } as Record<string, string>
@@ -392,7 +398,11 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
                                       current: '연결된 전사·번역 결과',
                                       original: '원문 전사',
                                       translated: '번역 전사',
-                                      from_transcript: '선택한 전사문 언어 (자동 감지는 미지정)',
+                                      from_transcript:
+                                        key === 'subtitle_source'
+                                          ? '전사·번역 결과에서 제작'
+                                          : '입력 자막 언어',
+                                      selected_subtitles: '연결한 자막 파일',
                                       und: '언어 미지정',
                                       burn: '번인',
                                       soft: '소프트 자막',
@@ -488,9 +498,7 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
               change(createAgentWorkflow());
               setSelected('');
               setError('');
-              setTemplateNotice(
-                '얼굴합성 제외 초안입니다. 전사·번역 모델을 선택하고 저장하세요. 모델과 언어를 선택하고 저장하세요.',
-              );
+              setTemplateNotice('전사·번역 모델을 선택하고 저장하세요.');
             }}
           >
             기존 전체 작업 만들기
@@ -527,6 +535,42 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
             얼굴 합성 작업 만들기
           </Button>
         )}
+        {!initialId && (
+          <Button
+            variant="secondary"
+            disabled={!!busy}
+            onClick={() => {
+              if (dirty && !window.confirm('저장하지 않은 편집을 바꿀까요?')) {
+                return;
+              }
+              change(createReviewedAgentWorkflow());
+              setSelected('');
+              setError('');
+              setTemplateNotice('전사·번역 모델을 선택하고 저장하세요.');
+            }}
+          >
+            검수 포함 영상 작업 만들기
+          </Button>
+        )}
+        {!initialId &&
+          [false, true].map((translate) => (
+            <Button
+              key={String(translate)}
+              variant="secondary"
+              disabled={!!busy}
+              onClick={() => {
+                if (dirty && !window.confirm('저장하지 않은 편집을 바꿀까요?')) {
+                  return;
+                }
+                change(createSubtitleWorkflow(translate));
+                setSelected('');
+                setError('');
+                setTemplateNotice('');
+              }}
+            >
+              {translate ? '자막 번역 만들기' : '자막 파일 변환 만들기'}
+            </Button>
+          ))}
         {doc.revision > 0 && (
           <Button variant="quiet" onClick={() => setHistory((previous) => !previous)}>
             이력
@@ -545,29 +589,31 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
           {templateNotice}
         </p>
       )}
-      {doc.catalog_version === 2 && doc.input_profile !== 'face_workflow_v1' && (
-        <fieldset disabled={!!busy} aria-label="워크플로우 선택 입력 설정">
-          <legend>작업 시작 시 선택할 입력</legend>
-          <label>
-            <input
-              type="checkbox"
-              checked={doc.inputs.transcript === 'transcript'}
-              onChange={(event) =>
-                change(setWorkflowInput(doc, 'transcript', event.target.checked))
-              }
-            />
-            SRT 또는 완료된 전사문 선택
-          </label>
-          <label>
-            <input
-              type="checkbox"
-              checked={doc.inputs.audio === 'audio'}
-              onChange={(event) => change(setWorkflowInput(doc, 'audio', event.target.checked))}
-            />
-            같은 영상의 추출 WAV 재사용 (전사 목표에서 재추출 생략)
-          </label>
-        </fieldset>
-      )}
+      {doc.catalog_version === 2 &&
+        doc.input_profile !== 'face_workflow_v1' &&
+        doc.input_profile !== 'subtitle_file_v1' && (
+          <fieldset disabled={!!busy} aria-label="워크플로우 선택 입력 설정">
+            <legend>작업 시작 시 선택할 입력</legend>
+            <label>
+              <input
+                type="checkbox"
+                checked={doc.inputs.transcript === 'transcript'}
+                onChange={(event) =>
+                  change(setWorkflowInput(doc, 'transcript', event.target.checked))
+                }
+              />
+              SRT 또는 완료된 전사문 선택
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={doc.inputs.audio === 'audio'}
+                onChange={(event) => change(setWorkflowInput(doc, 'audio', event.target.checked))}
+              />
+              같은 영상의 추출 WAV 재사용 (전사 목표에서 재추출 생략)
+            </label>
+          </fieldset>
+        )}
       {error && (
         <p role="alert" className="alert">
           {error}

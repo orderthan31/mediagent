@@ -1,9 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-const edit = await import('../src/workflow-connections.ts').catch((error) => {
-  if (error.code === 'ERR_MODULE_NOT_FOUND') return {};
-  throw error;
-});
+import { buildSync } from 'esbuild';
+const compiled = buildSync({
+  entryPoints: ['src/workflow-connections.ts'],
+  bundle: true,
+  write: false,
+  format: 'esm',
+}).outputFiles[0].text;
+const edit = await import(
+  'data:text/javascript;base64,' + Buffer.from(compiled).toString('base64')
+);
 const boxes = [
   { id: '$input', inputs: {}, outputs: { video: 'video' } },
   { id: 'first', type: 'analyze', inputs: { video: 'video' }, outputs: { value: 'video' } },

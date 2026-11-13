@@ -1,4 +1,4 @@
-"""Original-only upload policy. Disposable PG only; explicitly exclude020."""
+"""Original-only upload policy; exclude preview tables and their dependent migration."""
 
 import hashlib
 import os
@@ -33,7 +33,7 @@ def db():
             "CREATE TABLE schema_migrations(name text PRIMARY KEY,sha256 text NOT NULL,applied_at timestamptz NOT NULL DEFAULT now())"
         )
         for path in sorted((Path(pg.__file__).parent / "migrations").glob("*.sql")):
-            if path.name.startswith("020_"):
+            if path.name.startswith(("020_", "025_")):
                 continue
             raw = path.read_bytes()
             c.execute(raw.decode())
@@ -366,7 +366,7 @@ def test_lost_original_guard_cannot_publish_but_same_upload_can_explicitly_retry
 
     monkeypatch.setattr(runtime.store, "put", gated)
     monkeypatch.setattr(
-        intake_module, "probe", lambda p: {"duration": 1.0, "width": 16, "height": 16}
+        "mideagent_media_tools.operations.probe_original", lambda p: {"kind": "video", "format": "avi", "duration": 1.0, "width": 16, "height": 16}
     )
     monkeypatch.setattr(
         intake_module,
@@ -421,7 +421,7 @@ def test_original_completion_storage_does_not_hold_upload_row_lock(
 
     monkeypatch.setattr(runtime.store, "put", gated)
     monkeypatch.setattr(
-        intake_module, "probe", lambda p: {"duration": 1.0, "width": 16, "height": 16}
+        "mideagent_media_tools.operations.probe_original", lambda p: {"kind": "video", "format": "avi", "duration": 1.0, "width": 16, "height": 16}
     )
     monkeypatch.setattr(
         intake_module,

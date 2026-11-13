@@ -142,6 +142,7 @@ type State = {
   parent_id: string | null;
   snapshot: {
     asset: { asset_id: string; original_filename: string; uploaded_by?: string };
+    inputs?: Record<string, { type: string }>;
     definition: CanvasDefinition;
     tool_definition?: CanvasDefinition;
     options?: { source_language?: string; target_language?: string };
@@ -516,7 +517,11 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
                 }}
                 edgeStates={job.agent_workflow?.edges || {}}
                 inputLabel={job.snapshot.asset.original_filename}
-                inputThumbnail={mediaUrl('/videos/' + job.snapshot.asset.asset_id + '/thumbnail')}
+                inputThumbnail={
+                  job.snapshot.inputs?.video?.type === 'video'
+                    ? mediaUrl('/videos/' + job.snapshot.asset.asset_id + '/thumbnail')
+                    : undefined
+                }
                 nodeStates={
                   job.agent_workflow
                     ? Object.fromEntries(

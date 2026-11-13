@@ -6,7 +6,7 @@ export type VideoAsset = {
     excerpt_seconds?: number;
     coverage?: 'full';
   };
-  media_kind?: 'audio' | 'image';
+  media_kind?: 'audio' | 'image' | 'subtitle';
   media_type?: string;
   asset_id: string;
   original_filename: string;
@@ -16,6 +16,8 @@ export type VideoAsset = {
   created_at: string;
   media?: {
     duration?: number;
+    segments?: number;
+    format?: string;
     width?: number;
     height?: number;
     has_audio?: boolean;

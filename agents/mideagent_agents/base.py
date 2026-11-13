@@ -6,7 +6,7 @@ from video_service.object_store import validate_reference
 class GoalAgent:
     kind = ""
     label = ""
-    tool_order = ()
+    tool_order: tuple[str, ...] = ()
     primary = ""
     requires_parent = True
     option_roles = None

@@ -46,6 +46,8 @@ def public_asset(row):
     audio = asset_media(row)
     from ..image_original import asset_media as image_media
     image = image_media(row)
+    from ..subtitle_original import asset_media as subtitle_media
+    subtitle = subtitle_media(row)
     legacy = row["metadata"].get("legacy_origin")
     large_policy = None
     if row["bytes"] > MAX_CONTENT:
@@ -111,6 +113,11 @@ def public_asset(row):
     if image:
         value.update(media_kind='image', media_type=row['metadata']['media_type'], image_original_policy=row['metadata']['image_original_policy'], processing_supported=False, processing_roles=[])
         value.pop('web_preview', None)
+    if subtitle:
+        value.update(media_kind="subtitle", media_type=row["metadata"]["media_type"],
+                     processing_roles=["translate", "generate_subtitle"],
+                     subtitle_original_policy=row["metadata"]["subtitle_original_policy"])
+        value.pop("web_preview", None)
     return value
 
 
@@ -146,11 +153,12 @@ class Intake:
             raise ValueError("실제 콘텐츠 검증이 끝난 원본이 필요합니다.")
         from ..audio_original import asset_media
         from ..image_original import asset_media as image_media
+        from ..subtitle_original import asset_media as subtitle_media
         return {
             "storage_key": "blobs/" + row["sha256"],
             "sha256": row["sha256"],
             "bytes": row["bytes"],
-            "type": "image" if image_media(row) else "audio" if asset_media(row) else "video",
+            "type": "subtitle" if subtitle_media(row) else "image" if image_media(row) else "audio" if asset_media(row) else "video",
         }
 
     def asset(self, owner, identity):
@@ -241,6 +249,9 @@ class Intake:
     def upload_create(self, owner, filename, size, nonce):
         request_id(nonce)
         text(filename, 255)
+        from ..subtitle_original import source_format, MAX_TEXT
+        if source_format(filename) and type(size) is int and size > MAX_TEXT:
+            raise ValueError(f"자막 원본은 UTF-8 {MAX_TEXT // 1024}KiB 이내여야 합니다.")
         if (
             "/" in filename
             or "\\" in filename
@@ -464,9 +475,10 @@ class Intake:
             # put verified the full remote SHA; reuse that local immutable CAS file.
             source = ContentStore.path(self.store, owner, reference)
             from mideagent_media_tools.operations import probe_original
-            media = probe_original(source)
+            from ..subtitle_original import source_format, probe as subtitle_probe
+            media = subtitle_probe(source, row["filename"]) if source_format(row["filename"]) else probe_original(source)
             thumbnail = None
-            if media.get('kind') not in {'audio', 'image'}:
+            if media.get('kind') not in {'audio', 'image', 'subtitle'}:
                 try:
                     with tempfile.TemporaryDirectory(prefix="mideagent-thumb-") as work:
                         target = Path(work) / "thumbnail.jpg"
@@ -510,6 +522,11 @@ class Intake:
                 metadata.update(media_type={'jpeg': 'image/jpeg', 'png': 'image/png'}[media['format']], image_original_policy=image_policy())
                 metadata.pop('thumbnail', None)
                 metadata.pop('web_preview', None)
+            if media.get("kind") == "subtitle":
+                from ..subtitle_original import policy as subtitle_policy, MIME
+                metadata.update(media_type=MIME[media["format"]], subtitle_original_policy=subtitle_policy())
+                metadata.pop("thumbnail", None)
+                metadata.pop("web_preview", None)
             with guard.transaction():
                 guard.execute("SET LOCAL statement_timeout='15s'")
                 guard.execute("SET LOCAL lock_timeout='5s'")
@@ -550,7 +567,7 @@ class Intake:
                     ),
                 )
                 # The unactivated020 hook is opt-in; normal original registration never needs it.
-                if media.get('kind') not in {'audio', 'image'} and getattr(self, "full_previews_enabled", False):
+                if media.get('kind') not in {'audio', 'image', 'subtitle'} and getattr(self, "full_previews_enabled", False):
                     from .video_previews import VideoPreviews
 
                     previews = VideoPreviews(self)

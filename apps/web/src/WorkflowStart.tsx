@@ -139,7 +139,9 @@ export const WorkflowStart = () => {
     assetId,
     translationContexts,
   });
-  const inputReady = normalInputReady(definition, normalInput);
+  const subtitleOriginal =
+    definition?.input_profile === 'subtitle_file_v1' && asset?.media_kind === 'subtitle';
+  const inputReady = normalInputReady(definition, normalInput, asset);
   const invalidate = () => {
     setPlan(null);
     setRequestId(crypto.randomUUID());
@@ -414,6 +416,7 @@ export const WorkflowStart = () => {
       !assetId ||
       definition?.catalog_version !== 2 ||
       definition.input_profile === 'audio_file_v1' ||
+      subtitleOriginal ||
       (!definition.inputs.transcript && !definition.inputs.audio)
     ) {
       setInputChoices([]);
@@ -449,7 +452,7 @@ export const WorkflowStart = () => {
         }
       });
     return () => controller.abort();
-  }, [assetId, definition, inputAttempt]);
+  }, [assetId, definition, inputAttempt, subtitleOriginal]);
   useEffect(() => {
     if (definition?.input_profile === 'face_workflow_v1') {
       const query = new URLSearchParams();
@@ -594,6 +597,7 @@ export const WorkflowStart = () => {
             )}
             {definition?.catalog_version === 2 &&
               definition.input_profile !== 'audio_file_v1' &&
+              !subtitleOriginal &&
               (definition.inputs.transcript || definition.inputs.audio) && (
                 <WorkflowInputs
                   key={`${assetId}:${definition.id}:${definition.revision}`}
@@ -611,6 +615,28 @@ export const WorkflowStart = () => {
                   }}
                 />
               )}
+            {subtitleOriginal && (
+              <label className="form-row">
+                <span>자막 언어</span>
+                <select
+                  aria-label="자막 언어"
+                  value={normalInput.input_language ?? 'auto'}
+                  disabled={busy}
+                  onChange={(event) => {
+                    setNormalInput({ input_language: event.target.value });
+                    invalidate();
+                  }}
+                >
+                  {['auto', 'en', 'ko', 'ja', 'zh', 'de', 'fr', 'es', 'vi', 'th', 'id'].map(
+                    (code) => (
+                      <option key={code} value={code}>
+                        {languageLabel(code)}
+                      </option>
+                    ),
+                  )}
+                </select>
+              </label>
+            )}
             {definition?.catalog_version !== 2 &&
               definition?.inputs.transcript === 'transcript' && (
                 <label className="form-row">
@@ -659,8 +685,12 @@ export const WorkflowStart = () => {
                     .filter(
                       (row) =>
                         row.media_kind !== 'image' &&
-                        (definition?.input_profile !== 'face_workflow_v1' ||
-                          row.media_kind !== 'audio'),
+                        (!definition ||
+                          (definition.input_profile === 'subtitle_file_v1'
+                            ? row.media_kind === 'subtitle'
+                            : definition.input_profile === 'audio_file_v1'
+                              ? row.media_kind === 'audio'
+                              : !row.media_kind)),
                     )
                     .map((row) => (
                       <option
@@ -749,7 +779,7 @@ export const WorkflowStart = () => {
                 catalog={catalog}
                 inputLabel={asset?.original_filename || '입력 미디어 선택 전'}
                 inputThumbnail={
-                  asset && asset.media_kind !== 'audio'
+                  asset && !asset.media_kind
                     ? mediaUrl(`/videos/${asset.asset_id}/thumbnail`)
                     : undefined
                 }
@@ -757,14 +787,26 @@ export const WorkflowStart = () => {
                 detailsLabel="선택한 노드 정보"
                 details={
                   selected === '$input' && asset ? (
-                    <video
-                      controls
-                      playsInline
-                      preload="none"
-                      className="entry-media-preview"
-                      poster={mediaUrl(`/videos/${asset.asset_id}/thumbnail`)}
-                      src={mediaUrl(`/videos/${asset.asset_id}/stream`)}
-                    />
+                    asset.media_kind === 'subtitle' ? (
+                      <a href={mediaUrl(`/videos/${asset.asset_id}/download`)} download>
+                        원본 자막 받기
+                      </a>
+                    ) : asset.media_kind === 'audio' ? (
+                      <audio
+                        controls
+                        preload="none"
+                        src={mediaUrl(`/videos/${asset.asset_id}/download`)}
+                      />
+                    ) : (
+                      <video
+                        controls
+                        playsInline
+                        preload="none"
+                        className="entry-media-preview"
+                        poster={mediaUrl(`/videos/${asset.asset_id}/thumbnail`)}
+                        src={mediaUrl(`/videos/${asset.asset_id}/stream`)}
+                      />
+                    )
                   ) : selectedNode ? (
                     <div className="entry-node-info">
                       {selectedNode.model_required && <p>등록 API 모델 필수</p>}

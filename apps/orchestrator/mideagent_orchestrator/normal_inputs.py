@@ -20,35 +20,9 @@ from video_service.timed_subtitles import (MAX_TRANSCRIPT_BYTES, MAX_INPUT_OPTIO
 
 MAX_TEXT = MAX_TRANSCRIPT_BYTES
 ID = re.compile(r"[a-f0-9]{32}\Z")
-STAMP = r"(\d{2,5}):([0-5]\d):([0-5]\d),(\d{3})"
 
 
-def timed_segments(rows, *, maximum=MAX_TEXT):
-    validate_timed(rows, maximum=maximum)
-    return deepcopy(rows)
-
-
-def parse_srt(text, *, maximum=MAX_TEXT):
-    """Strict bounded SRT reader; shared native segment validators own the timeline."""
-    if not isinstance(text, str) or not 1 <= len(text.encode("utf-8")) <= maximum:
-        raise ValueError(f"SRT 파일은 UTF-8 {maximum // 1024}KiB 이내여야 합니다. 자막을 나누거나 출력 설정을 변경하세요.")
-    normalized = text.removeprefix("\ufeff").replace("\r\n", "\n").replace("\r", "\n")
-    rows = []
-    for block in re.split(r"\n[ \t]*\n", normalized.rstrip("\n")):
-        lines = block.split("\n")
-        if len(lines) < 3 or not re.fullmatch(r"\d{1,128}", lines[0]):
-            raise ValueError("번호·시각·문구가 있는 SRT 파일을 선택하세요.")
-        clock = re.fullmatch(STAMP + r" --> " + STAMP, lines[1])
-        if not clock:
-            raise ValueError("SRT 시각은 HH:MM:SS,mmm 형식이어야 합니다.")
-        if any(re.fullmatch(STAMP + r" --> " + STAMP, line) for line in lines[2:]):
-            raise ValueError("SRT 구간 사이에는 빈 줄이 필요합니다.")
-        values = list(map(int, clock.groups()))
-        seconds = lambda v: v[0] * 3600 + v[1] * 60 + v[2] + v[3] / 1000
-        rows.append({"id": lines[0], "start": seconds(values[:4]), "end": seconds(values[4:]), "text": "\n".join(lines[2:])})
-        if len(rows) > 10000:
-            raise ValueError("선택 자막은 10000구간 이내로 나눈 뒤 다시 선택하세요.")
-    return timed_segments(rows, maximum=maximum)
+from video_service.subtitle_import import timed_segments, parse_srt
 
 
 def verify_raw_wav(path):
@@ -79,10 +53,11 @@ def transcript_consumers(native):
         prior = len(consumers)
         for edge in native["edges"]:
             source, target = edge["source"], edge["target"]
-            if (source["node"], source["port"]) in sources and target["port"] == "transcript":
+            target_node = nodes[target["node"]]
+            contract = spec(target_node["type"], target_node["options"])
+            if (source["node"], source["port"]) in sources and contract["inputs"].get(target["port"]) == "transcript":
                 consumers.add(target["node"])
-                if nodes[target["node"]]["type"] == "translate":
-                    sources.add((target["node"], "transcript"))
+                sources.update((target["node"], p) for p, kind in contract["outputs"].items() if kind == "transcript")
         if len(consumers) == prior:
             return [n for n in native["nodes"] if n["id"] in consumers]
 
@@ -91,7 +66,7 @@ class NormalInputs:
     def __init__(self, runtime):
         self.runtime = runtime
 
-    def saved(self, actor, asset, selector, selected_language, *, maximum):
+    def saved(self, actor, asset, selector, selected_language, *, maximum, video_required=True):
         from video_service.subtitle_copies import SubtitleCopies, validate_srt
         if (not isinstance(selector, dict) or set(selector) != {"copy_id", "srt_sha256"}
                 or not isinstance(selector.get("copy_id"), str) or not ID.fullmatch(selector["copy_id"])
@@ -109,9 +84,9 @@ class NormalInputs:
         _, rows = validate_srt(text, include_segments=True)
         rows = timed_segments(rows, maximum=maximum)
         duration = (asset.get("metadata", {}).get("media") or {}).get("duration")
-        if type(duration) not in (int, float) or not math.isfinite(duration) or duration <= 0:
+        if video_required and (type(duration) not in (int, float) or not math.isfinite(duration) or duration <= 0):
             raise ValueError("길이가 확인된 원본 영상을 선택하세요.")
-        if any(row["end"] > duration for row in rows):
+        if video_required and any(row["end"] > duration for row in rows):
             raise ValueError("자막 종료 시각이 선택한 영상 길이를 초과합니다. 수정본 또는 영상을 다시 선택하세요.")
         raw = canonical(rows)
         sha = digest(rows)
@@ -219,6 +194,11 @@ class NormalInputs:
             return {"references": {"audio": bound}, "bindings": {"audio": pin}, "segments": None, "language": None}
         if audio_media is not None:
             raise ValueError("음성 원본에는 음성 전용 전사 구성을 선택하세요.")
+        from video_service.subtitle_original import asset_media as subtitle_media, PROFILE as SUBTITLE_PROFILE
+        subtitle = subtitle_media(asset)
+        text_only = definition.get("input_profile") == SUBTITLE_PROFILE
+        if subtitle is not None and not text_only:
+            raise ValueError("자막 원본에는 자막 파일 입력 구성을 선택하세요.")
         declared = definition.get("inputs", {})
         if len(canonical(options)) > (MAX_INPUT_OPTIONS_BYTES if "transcript" in declared else 20000):
             raise ValueError("작업 입력 크기를 초과했습니다. 자막을 나눈 뒤 다시 선택하세요.")
@@ -240,6 +220,20 @@ class NormalInputs:
             if port not in declared:
                 continue
             inline = [k for k in ("subtitle_srt", "transcript", "saved_subtitle") if k in options] if port == "transcript" else []
+            original = port == "transcript" and subtitle is not None and not inline and port not in accepted
+            if original:
+                from video_service.subtitle_original import read_rows
+                reference = self.runtime.asset_reference(asset)
+                owner = asset["owner_id"]
+                rows = read_rows(self.runtime.store.path(owner, reference), asset["filename"], maximum=maximum)
+                input_language = language(options.get("input_language", options.get("source_language", "auto")), auto=True)
+                raw = canonical(rows)
+                refs[port] = {"type": "transcript", "bytes": len(raw), "sha256": digest(rows), "storage_key": "blobs/" + digest(rows)}
+                bindings[port] = {"kind": "subtitle_original", "asset_id": asset["id"],
+                    "source_custodian_id": owner, "source_reference": reference,
+                    "source_sha256": reference["sha256"], "content_sha256": digest(rows),
+                    "custodian_id": actor, "language": input_language, "segments": len(rows)}
+                continue
             if (port in accepted) + len(inline) != 1:
                 raise ValueError("필요한 자막 파일 또는 완료 입력 하나를 선택하세요.")
             if port in accepted:
@@ -253,7 +247,7 @@ class NormalInputs:
                 kind = inline[0]
                 input_language = language(options.get("input_language", options.get("source_language", "auto")), auto=True)
                 if kind == "saved_subtitle":
-                    refs[port], bindings[port], rows = self.saved(actor, asset, options[kind], input_language, maximum=maximum)
+                    refs[port], bindings[port], rows = self.saved(actor, asset, options[kind], input_language, maximum=maximum, video_required="video" in native["inputs"])
                     continue
                 rows = parse_srt(options[kind], maximum=maximum) if kind == "subtitle_srt" else timed_segments(options[kind], maximum=maximum)
                 raw = canonical(rows)
@@ -277,7 +271,7 @@ class NormalInputs:
     def materialize(self, actor, resolved):
         refs = deepcopy(resolved["references"])
         pin = resolved["bindings"].get("transcript", {})
-        if pin.get("kind") in {"subtitle_srt", "transcript", "saved_subtitle"}:
+        if pin.get("kind") in {"subtitle_srt", "transcript", "saved_subtitle", "subtitle_original"}:
             owner = pin["custodian_id"] if pin["kind"] == "saved_subtitle" else actor
             reference = self.runtime.store.put(owner, [canonical(resolved["segments"])], "transcript")
             bound = {**reference, **({"source_owner_id": owner} if owner != actor else {})}

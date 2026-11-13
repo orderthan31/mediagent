@@ -2,7 +2,10 @@ import type { CanvasSpec } from './WorkflowCanvas';
 
 // Publishing-only controls. These descriptors do not register an execution engine.
 export const isControlNode = (type: string) =>
-  type.startsWith('control_') || ['select', 'join', 'subtitle_track'].includes(type);
+  type.startsWith('control_') ||
+  ['select', 'join', 'review', 'subtitle_tracks', 'subtitle_outputs', 'subtitle_track'].includes(
+    type,
+  );
 const dataTypes = [
   'video',
   'audio',

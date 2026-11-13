@@ -22,7 +22,43 @@ def default_definition(name="영상 전사·한국어 자막 번인"):
             "edges":[{"id":"agent_flow_"+str(i),"source":{"node":nodes[i]["id"],"port":"media"},
                       "target":{"node":nodes[i+1]["id"],"port":"media"}}for i in range(2)]}
 
+def validate_agent_node(node, specs):
+    if not isinstance(node,dict)or set(node)-{"id","type","position","options","model_ref","fallback_refs","tool_settings"}:
+        raise ValueError("에이전트 설정 형식을 확인하세요.")
+    identity=node.get("id");kind=node.get("type")
+    if not isinstance(identity,str)or not re.fullmatch(r"[A-Za-z0-9_-]{1,40}",identity)or kind not in CLASSES:
+        raise ValueError("워크플로우에는 업무 에이전트만 연결하세요.")
+    if not isinstance(node.get("position"),dict)or set(node["position"])!={"x","y"}or any(type(v)not in(int,float)or not -100000<=v<=100000 for v in node["position"].values()):
+        raise ValueError("에이전트 위치를 확인하세요.")
+    options=node.get("options",{})
+    if not isinstance(options,dict)or any(k not in specs[kind]["options"]or not isinstance(v,str)or k not in {"llm_options", "target_language", "video_description"} and v not in specs[kind]["options"][k]for k,v in options.items()):
+        raise ValueError("에이전트 처리 설정을 확인하세요.")
+    if "video_description" in options:
+        from video_service.translation_context import description
+        description(options["video_description"])
+    if "target_language" in options:
+        from video_service.subtitle_tracks import language
+        language(options["target_language"])
+    if "llm_options" in options:
+        from video_service.llm_contract import parse_options
+        parse_options(options["llm_options"])
+    cls=CLASSES[kind];settings=node.get("tool_settings",{})
+    if not isinstance(settings,dict)or set(settings)-set(cls.tool_order)or any(not isinstance(v,dict)or any(not isinstance(k,str)or not isinstance(x,str)for k,x in v.items())for v in settings.values()):
+        raise ValueError("에이전트 내부 도구 설정을 확인하세요.")
+    if node.get("model_ref"):
+        valid_reference(node["model_ref"])
+    if node.get("fallback_refs"):
+        if kind not in {"transcription_agent","translation_agent"}or not isinstance(node["fallback_refs"],list)or len(node["fallback_refs"])>3:
+            raise ValueError("대체 모델 설정을 확인하세요.")
+        for pin in node["fallback_refs"]:valid_reference(pin)
+    if kind not in {"transcription_agent","translation_agent"}and node.get("model_ref"):
+        raise ValueError("이 업무에는 모델을 추가하지 않습니다.")
+    return identity
+
 def _shape(value):
+    from .workflow_controls import extended, shape
+    if extended(value):
+        return shape(value)
     if not isinstance(value,dict) or set(value)-_FIELDS or value.get("catalog_version")!=2:
         raise ValueError("에이전트 워크플로우 형식을 확인하세요.")
     if type(value.get("revision"))is not int or value["revision"]<0:
@@ -49,37 +85,10 @@ def _shape(value):
         raise ValueError("에이전트 연결을 확인하세요.")
     ids=set();specs={n["id"]:n for n in catalog()["nodes"]}
     for node in nodes:
-        if not isinstance(node,dict)or set(node)-{"id","type","position","options","model_ref","fallback_refs","tool_settings"}:
-            raise ValueError("에이전트 설정 형식을 확인하세요.")
-        identity=node.get("id");kind=node.get("type")
-        if not isinstance(identity,str)or not re.fullmatch(r"[A-Za-z0-9_-]{1,40}",identity)or identity in ids or kind not in CLASSES:
-            raise ValueError("워크플로우에는 업무 에이전트만 연결하세요.")
+        identity = validate_agent_node(node, specs)
+        if identity in ids:
+            raise ValueError("에이전트 식별자가 중복됩니다.")
         ids.add(identity)
-        if not isinstance(node.get("position"),dict)or set(node["position"])!={"x","y"}or any(type(v)not in(int,float)or not -100000<=v<=100000 for v in node["position"].values()):
-            raise ValueError("에이전트 위치를 확인하세요.")
-        options=node.get("options",{})
-        if not isinstance(options,dict)or any(k not in specs[kind]["options"]or not isinstance(v,str)or k not in {"llm_options", "target_language", "video_description"} and v not in specs[kind]["options"][k]for k,v in options.items()):
-            raise ValueError("에이전트 처리 설정을 확인하세요.")
-        if "video_description" in options:
-            from video_service.translation_context import description
-            description(options["video_description"])
-        if "target_language" in options:
-            from video_service.subtitle_tracks import language
-            language(options["target_language"])
-        if "llm_options" in options:
-            from video_service.llm_contract import parse_options
-            parse_options(options["llm_options"])
-        cls=CLASSES[kind];settings=node.get("tool_settings",{})
-        if not isinstance(settings,dict)or set(settings)-set(cls.tool_order)or any(not isinstance(v,dict)or any(not isinstance(k,str)or not isinstance(x,str)for k,x in v.items())for v in settings.values()):
-            raise ValueError("에이전트 내부 도구 설정을 확인하세요.")
-        if node.get("model_ref"):
-            valid_reference(node["model_ref"])
-        if node.get("fallback_refs"):
-            if kind not in {"transcription_agent","translation_agent"}or not isinstance(node["fallback_refs"],list)or len(node["fallback_refs"])>3:
-                raise ValueError("대체 모델 설정을 확인하세요.")
-            for pin in node["fallback_refs"]:valid_reference(pin)
-        if kind not in {"transcription_agent","translation_agent"}and node.get("model_ref"):
-            raise ValueError("이 업무에는 모델을 추가하지 않습니다.")
     seen=set();parents={n["id"]:[]for n in nodes}
     for edge in edges:
         if not isinstance(edge,dict)or set(edge)!={"id","source","target"}or not isinstance(edge["id"],str)or not re.fullmatch(r"[A-Za-z0-9_-]{1,64}",edge["id"])or edge["id"]in seen:
@@ -229,6 +238,9 @@ def audio_definition(public, options):
 
 
 def compile_definition(public, *, input_language=None, preserve_input_cues=True):
+    from .workflow_controls import extended, compile_graph
+    if extended(public):
+        return compile_graph(public, input_language=input_language, preserve_input_cues=preserve_input_cues)
     ordered,parents=_shape(public)
     nodes=[];edges=[];owners={};contexts={};output_contexts={};input_contexts={}
     for node in ordered:
@@ -347,6 +359,13 @@ def scope_snapshot(snapshot):
     bindings={};owners={}
     original={n["type"]:n["id"]for n in snapshot["definition"]["nodes"]}
     for node in public["nodes"]:
+        if node["type"] not in CLASSES:
+            native = next((n for n in snapshot["definition"]["nodes"] if n["id"] == node["id"]), None)
+            if native is None or native["type"] != node["type"]:
+                raise ValueError("제어 노드 소유권이 실행 정의와 다릅니다.")
+            bindings[node["id"]] = {node["type"]: node["id"]}
+            owners[node["id"]] = node["id"]
+            continue
         cls=CLASSES[node["type"]]
         bindings[node["id"]]={role:original[role]if legacy else node["id"]+"__"+role for role in cls.roles(node)}
         owners.update({identity:node["id"]for identity in bindings[node["id"]].values()})
@@ -354,15 +373,44 @@ def scope_snapshot(snapshot):
         raise ValueError("에이전트 도구 소유권이 실행 정의와 다릅니다.")
     return {"definition":public,"owners":owners,"bindings":bindings,"legacy_projection":legacy}
 
+def node_decision(snapshot, scope, node, indexed):
+    if node["type"] in CLASSES:
+        return CLASSES[node["type"]](node, tool_bindings=scope["bindings"][node["id"]],
+                verify_references=snapshot.get("agent_output_policy") == 1).next_tool(indexed, snapshot["definition"])
+    from .workflow_controls import control_decision
+    return control_decision(node, indexed, snapshot["definition"])
+
+
+def terminal_source_state(snapshot, indexed, identity):
+    """Project an unreachable owned output without creating a fictitious run."""
+    from .workflow_controls import extended
+    public = snapshot.get("agent_definition")
+    if not extended(public):
+        return None
+    scope = scope_snapshot(snapshot)
+    owner = scope["owners"].get(identity)
+    node = next((n for n in public["nodes"] if n["id"] == owner), None)
+    if node is None or node["type"] not in CLASSES:
+        return None
+    state = node_decision(snapshot, scope, node, indexed)["state"]
+    return "blocked" if state == "failed" else "skipped" if state == "skipped" else None
+
+
 def ready_tool_ids(snapshot,indexed):
     """Outer orchestrator chooses eligible agents; agents choose their own tools."""
     scope=scope_snapshot(snapshot)
     if scope is None:return None
     public=scope["definition"];ordered,parents=_shape(public);done=set();ready=set()
+    from .workflow_controls import extended
+    typed = extended(public)
     for node in ordered:
-        if not set(parents[node["id"]])<=done:continue
-        decision=CLASSES[node["type"]](node,tool_bindings=scope["bindings"][node["id"]],
-                                    verify_references=snapshot.get("agent_output_policy")==1).next_tool(indexed,snapshot["definition"])
+        if not typed and not set(parents[node["id"]]) <= done:
+            continue
+        if typed:
+            from .workflow_controls import public_input_state
+            if public_input_state(snapshot, scope, node, indexed) == "waiting":
+                continue
+        decision = node_decision(snapshot, scope, node, indexed)
         if decision["state"]=="completed":done.add(node["id"])
         elif decision["tool"] is not None:ready.add(decision["tool"])
     return ready
@@ -388,11 +436,12 @@ def goal_settlement(snapshot, indexed):
     scope = scope_snapshot(snapshot)
     if scope is None or ready_tool_ids(snapshot, indexed):
         return None
-    decisions = [CLASSES[node["type"]](node, tool_bindings=scope["bindings"][node["id"]],
-                    verify_references=snapshot.get("agent_output_policy")==1).next_tool(indexed, snapshot["definition"])
-                 for node in scope["definition"]["nodes"]]
+    decisions = [node_decision(snapshot, scope, node, indexed) for node in scope["definition"]["nodes"]]
     if any(decision["state"] == "failed" for decision in decisions):
         return "failed"
-    if set(indexed) == set(scope["owners"]) and all(decision["state"] == "completed" for decision in decisions):
+    from .workflow_controls import extended
+    complete = all(d["state"] in {"completed", "skipped"} for d in decisions) if extended(scope["definition"]) else (
+        set(indexed) == set(scope["owners"]) and all(d["state"] == "completed" for d in decisions))
+    if complete:
         return "completed"
     return None

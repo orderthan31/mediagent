@@ -7,6 +7,11 @@ import { FullVideoPreview } from './FullVideoPreview';
 import { renewalBackend } from './preview';
 
 const videoDuration = (video: VideoAsset) => {
+  if (video.media_kind === 'subtitle') {
+    return typeof video.media?.segments === 'number'
+      ? `${video.media.segments}구간`
+      : '구간 수 미확인';
+  }
   if (video.media_kind === 'image') {
     return `${video.media?.width} × ${video.media?.height}`;
   }
@@ -35,7 +40,9 @@ export const StorageAssetRow = ({
               ? '사진 원본'
               : video.media_kind === 'audio'
                 ? '음성 원본'
-                : '원본'}
+                : video.media_kind === 'subtitle'
+                  ? '자막 원본'
+                  : '원본'}
       </Badge>
       <h2 className="ui02-list-title">{video.original_filename}</h2>
       <ul className="storage-metadata" aria-label="원본 정보">
@@ -53,7 +60,9 @@ export const StorageAssetRow = ({
         ? '사진 열기'
         : video.media_kind === 'audio'
           ? '음성 열기'
-          : '영상 열기'}{' '}
+          : video.media_kind === 'subtitle'
+            ? '자막 열기'
+            : '영상 열기'}{' '}
       <ArrowRight size={17} aria-hidden="true" />
     </span>
   </a>
@@ -92,10 +101,15 @@ export const StorageVideoInfo = ({ video, assetId }: { video: VideoAsset; assetI
           ? '사진 정보'
           : video.media_kind === 'audio'
             ? '음성 정보'
-            : '영상 정보'}
+            : video.media_kind === 'subtitle'
+              ? '자막 정보'
+              : '영상 정보'}
       </h2>
       {video.media_kind === 'audio' && <a href={`#/start/audio/${assetId}`}>음성 전사 준비</a>}
-      {renewalBackend && video.media_kind !== 'audio' && (
+      {video.media_kind === 'subtitle' && (
+        <a href={`#/start?target=${assetId}`}>자막 작업 만들기</a>
+      )}
+      {renewalBackend && video.media_kind !== 'audio' && video.media_kind !== 'subtitle' && (
         <a
           href={`#/start/faceswap?${video.media_kind === 'image' ? 'photo' : 'target'}=${assetId}`}
         >
@@ -108,7 +122,13 @@ export const StorageVideoInfo = ({ video, assetId }: { video: VideoAsset; assetI
           <dd style={{ overflowWrap: 'anywhere' }}>{video.uploaded_by || '기록 없음'}</dd>
         </div>
         <div>
-          <dt>{video.media_kind === 'image' ? '사진 형식' : '재생시간'}</dt>
+          <dt>
+            {video.media_kind === 'image'
+              ? '사진 형식'
+              : video.media_kind === 'subtitle'
+                ? '자막 구간'
+                : '재생시간'}
+          </dt>
           <dd>{video.media_kind === 'image' ? video.media_type : videoDuration(video)}</dd>
         </div>
         <div>
@@ -116,13 +136,21 @@ export const StorageVideoInfo = ({ video, assetId }: { video: VideoAsset; assetI
           <dd>{sizeLabel(video.size_bytes)}</dd>
         </div>
         <div>
-          <dt>{video.media_kind === 'audio' ? '음성 형식' : '해상도'}</dt>
-          <dd>
+          <dt>
             {video.media_kind === 'audio'
-              ? `${video.media?.codec} · ${video.media?.sample_rate}Hz · ${video.media?.channels}채널`
-              : video.media && (video.media.width || 0) > 0 && (video.media.height || 0) > 0
-                ? `${video.media.width} × ${video.media.height}`
-                : '미확인'}
+              ? '음성 형식'
+              : video.media_kind === 'subtitle'
+                ? '자막 형식'
+                : '해상도'}
+          </dt>
+          <dd>
+            {video.media_kind === 'subtitle'
+              ? video.media?.format?.toUpperCase()
+              : video.media_kind === 'audio'
+                ? `${video.media?.codec} · ${video.media?.sample_rate}Hz · ${video.media?.channels}채널`
+                : video.media && (video.media.width || 0) > 0 && (video.media.height || 0) > 0
+                  ? `${video.media.width} × ${video.media.height}`
+                  : '미확인'}
           </dd>
         </div>
         <div>

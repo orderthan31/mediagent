@@ -105,7 +105,7 @@ def definition_policy(definition):
             and options.get("media_budget", "legacy") == "legacy"
         ):
             continue
-        if role in {"subtitle_tracks", "subtitle_outputs", "subtitle_track"}:
+        if role in {"subtitle_tracks", "subtitle_outputs", "subtitle_track", "select", "join", "control_if", "control_switch"}:
             continue
         if (
             role == "vocalize"

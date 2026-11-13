@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   FileAudio,
   FileImage,
+  FileText,
   FileVideo,
   FolderOpen,
   Plus,
@@ -702,7 +703,9 @@ export const VideoWorkspace = () => {
                           key={v.asset_id}
                           video={v}
                           thumbnail={
-                            v.media_kind === 'image' ? (
+                            v.media_kind === 'subtitle' ? (
+                              <FileText aria-label="자막 원본" />
+                            ) : v.media_kind === 'image' ? (
                               <FileImage aria-label="사진 원본" />
                             ) : v.media_kind === 'audio' ? (
                               <FileAudio aria-label="음성 원본" />

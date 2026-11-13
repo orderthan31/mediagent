@@ -2,7 +2,7 @@
 from mideagent_agents.catalog import CLASSES
 from video_service.renewal_contracts import spec
 from video_service.object_store import validate_reference
-from .workflow import scope_snapshot
+from .workflow import scope_snapshot, node_decision
 
 LABELS={"waiting":"대기","preparing":"준비 중","running":"처리 중","completed":"완료","failed":"오류","cancelled":"취소됨","blocked":"선행 오류","skipped":"미선택"}
 
@@ -14,10 +14,10 @@ def goal_outputs(snapshot, node, scope, runs, native):
     storage keys, model pins, receipts or credentials. No historical inference.
     """
     bindings = snapshot.get("agent_output_bindings", {}).get(node["id"], {})
-    cls = CLASSES[node["type"]]
+    ports = CLASSES[node["type"]].output_ports if node["type"] in CLASSES else spec(node["type"], node["options"])["outputs"]
     values = []
     for name, binding in bindings.items():
-        if name not in cls.output_ports or not isinstance(binding, dict) or set(binding) != {"node", "port"}:
+        if name not in ports or not isinstance(binding, dict) or set(binding) != {"node", "port"}:
             continue
         identity, port = binding["node"], binding["port"]
         if scope["owners"].get(identity) != node["id"] or identity not in native:
@@ -50,6 +50,18 @@ def project_agents(job,runs,demands,instances,execution_observations=None):
     pending={d["node_id"]:d for d in demands if d.get("node_run_id")is None} if job["status"]not in {"cancelled","cancelling","completed","failed"}else{}
     observations=execution_observations or {}
     for node in public["nodes"]:
+        if node["type"] not in CLASSES:
+            selected = spec(node["type"], node["options"])
+            decision = node_decision(job["snapshot"], scope, node, indexed)
+            state = "waiting" if decision["state"] == "ready" else decision["state"]
+            run = indexed.get(node["id"])
+            tool = {"node_id": node["id"], "role": node["type"], "label": selected["label"],
+                    "state": state, "reason": decision.get("reason") or "", "run_id": run["id"] if run else None}
+            result.append({"id": node["id"], "type": node["type"], "label": selected["label"],
+                "state": state, "status_label": "검수 대기" if state == "review_required" else LABELS.get(state, "상태 확인 필요"),
+                "reason": tool["reason"], "selected_tool_id": node["id"], "tools": [tool],
+                "outputs": goal_outputs(job["snapshot"], node, scope, runs, native) if state == "completed" else []})
+            continue
         cls=CLASSES[node["type"]];agent=cls(node,tool_bindings=scope["bindings"][node["id"]],
                                          verify_references=job["snapshot"].get("agent_output_policy")==1);tools=[]
         for role in agent.tool_order:
@@ -91,6 +103,9 @@ def project_agents(job,runs,demands,instances,execution_observations=None):
         decision=agent.next_tool(indexed,job["snapshot"]["definition"])
         if decision["state"]=="failed" or state=="completed" and decision["state"]!="completed":
             state="failed";reason=decision.get("reason")or"처리 결과를 확인할 수 없습니다."
+        if decision["state"] == "skipped":
+            state, reason = "skipped", "선택되지 않은 분기입니다."
+            tools = [{**t, "state": "skipped", "reason": reason} if t["run_id"] is None else t for t in tools]
         primary=next((t for t in tools if t["role"]==cls.primary and t["run_id"]),None)
         selected=failed or face_wait or active or primary or (completed[-1]if completed else tools[0])
         result.append({"id":node["id"],"type":node["type"],"label":cls.label,"state":state,
@@ -100,7 +115,9 @@ def project_agents(job,runs,demands,instances,execution_observations=None):
     # No fixed timer, guessed readiness or spinner during an agent's internal tools.
     by_id={n["id"]:n for n in result};edges={}
     for edge in public["edges"]:
-        parent=by_id[edge["source"]["node"]];target=by_id[edge["target"]["node"]]
+        parent=by_id.get(edge["source"]["node"]);target=by_id[edge["target"]["node"]]
+        if parent is None:
+            continue
         if parent["state"]=="completed"and target["state"]=="preparing":
             edges[edge["id"]]={"state":"preparing","label":"다음 단계 준비 중"}
         elif parent["state"]=="completed"and target["state"]=="failed":

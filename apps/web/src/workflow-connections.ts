@@ -1,3 +1,5 @@
+import { compatiblePortTypes } from './workflow-spec';
+
 export type ConnectionEndpoint = { node: string; port: string };
 export type CanvasEdge = { id: string; source: ConnectionEndpoint; target: ConnectionEndpoint };
 export type ConnectionBox = {
@@ -58,7 +60,9 @@ export const reconnectEdge = (
   ) {
     throw new Error('연결할 포트를 다시 확인하세요.');
   }
-  if (source.outputs[changed.source.port] !== target.inputs[changed.target.port]) {
+  if (
+    !compatiblePortTypes(source.outputs[changed.source.port], target.inputs[changed.target.port])
+  ) {
     throw new Error('서로 다른 자료 유형은 연결할 수 없습니다.');
   }
   if (

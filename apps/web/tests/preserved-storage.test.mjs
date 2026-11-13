@@ -16,7 +16,10 @@ test('preserved originals disclose unknown uploader and bounded excerpt', () => 
       size_bytes:340261063,created_at:'2026-10-21T00:00:00Z',media:{duration:1000,width:1280,height:720,has_audio:true},
       provenance:{kind:'preserved_legacy'},web_preview:{status:'ready',excerpt_seconds:30}};
     const html=renderToStaticMarkup(<><StorageAssetRow video={video} thumbnail={null}/><StorageVideoInfo video={video} assetId={video.asset_id}/></>);
-    assert.ok(html.includes('보존 이관 원본'));
+    assert.ok(html.includes('>원본<'));
+    assert.ok(!html.includes('보존 이관 원본'));
+    assert.equal(video.uploaded_by, null);
+    assert.equal(video.provenance.kind, 'preserved_legacy');
     assert.ok(html.includes('기록 없음'));
     assert.ok(html.includes('앞부분 30초'));
     assert.ok(!html.includes('파일 업로드'));

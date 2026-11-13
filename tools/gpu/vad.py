@@ -10,6 +10,35 @@ import wave
 from pathlib import Path
 
 
+def digital_silence_windows(pcm):
+    """Exact-zero windows in the same 16 kHz mono PCM16 clock as inference."""
+    if not isinstance(pcm, bytes) or not pcm or len(pcm) % 2:
+        raise ValueError("complete_nonempty_pcm16_required")
+    frames = len(pcm) // 2
+    return [
+        not pcm[max(0, center - 5040) * 2 : min(frames, center + 5040) * 2].strip(b"\x00")
+        for center in range(0, frames, 1280)
+    ]
+
+
+def apply_digital_silence(probabilities, silence):
+    """Keep neural scores separate; only exact digital zero ends speech hysteresis."""
+    if (
+        not isinstance(probabilities, list)
+        or not isinstance(silence, list)
+        or len(probabilities) != len(silence)
+        or any(type(value) is not bool for value in silence)
+        or any(
+            type(value) not in (int, float)
+            or not math.isfinite(value)
+            or not 0 <= value <= 1
+            for value in probabilities
+        )
+    ):
+        raise ValueError("invalid_digital_silence_probabilities")
+    return [0.0 if silent else value for value, silent in zip(probabilities, silence)]
+
+
 def retained_intervals(probabilities, duration, hop=0.08):
     if (
         not math.isfinite(duration)
@@ -102,6 +131,7 @@ def main():
     model_load_seconds = time.monotonic() - started
     inference_started = time.monotonic()
     probabilities = []
+    silence = []
     with wave.open(str(args.audio), "rb") as audio:
         if audio.getframerate() != 16000 or audio.getsampwidth() != 2:
             raise ValueError("NVIDIA VAD requires 16 kHz signed PCM16 audio")
@@ -127,6 +157,7 @@ def main():
                     begin = int(position) - window // 2
                     a, b = max(begin, left), min(begin + window, right)
                     batch[index, a - begin : b - begin] = samples[a - left : b - left]
+                silence.extend(not bool(row.any()) for row in batch)
                 logits = model(
                     input_signal=torch.from_numpy(batch).to(device),
                     input_signal_length=torch.full(
@@ -142,6 +173,8 @@ def main():
     if device == "cuda":
         torch.cuda.synchronize()
     inference_seconds = time.monotonic() - inference_started
+    raw_probabilities = probabilities
+    probabilities = apply_digital_silence(raw_probabilities, silence)
     intervals = retained_intervals(probabilities, duration)
     report = {
         "version": 2,
@@ -170,6 +203,9 @@ def main():
         "elapsed_seconds": time.monotonic() - started,
         "intervals": intervals,
         "probabilities": probabilities,
+        "probability_policy": "neural_exact_zero_v1",
+        "raw_probabilities": raw_probabilities,
+        "digital_silence_windows": sum(silence),
     }
     temporary = args.output.with_suffix(".tmp")
     temporary.write_text(json.dumps(report), encoding="utf-8")

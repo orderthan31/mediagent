@@ -567,9 +567,13 @@ class Execution(Intake):
             from mideagent_agents.catalog import CLASSES, goal_options
             from mideagent_agents.registry import registration
             indexed={n["id"]:n for n in value["summary"]}
-            value["summary"]=[{**indexed[CLASSES[n["type"]](n).publication()],
-                "id":n["id"],"type":n["type"],"options":goal_options(n),
-                "runtime_roles":registration(n["type"],node=n)["runtime_roles"]}for n in public_definition["nodes"]]
+            value["summary"] = []
+            for n in public_definition["nodes"]:
+                business = n["type"] in CLASSES
+                native_id = CLASSES[n["type"]](n).publication() if business else n["id"]
+                value["summary"].append({**indexed[native_id], "id": n["id"], "type": n["type"],
+                    "options": goal_options(n) if business else n.get("options", {}),
+                    "runtime_roles": registration(n["type"], node=n)["runtime_roles"] if business else []})
         if public_definition.get("input_profile") == "audio_file_v1" or any(key in (options or {}) for key in ("translation_goal", "audio_goal")):
             role = "transcription" if public_definition.get("input_profile") == "audio_file_v1" else "translation"
             executor = getattr(self, role + "_runtime")
@@ -728,6 +732,8 @@ class Execution(Intake):
             reference = self.asset_reference(asset)
             if reference["type"] == "image":
                 raise ValueError("사진은 독립 입력입니다. 작업의 대상 영상을 선택하세요.")
+            if reference["type"] == "subtitle" and (not agent_plan or agent_plan["agent_definition"].get("input_profile") != "subtitle_file_v1"):
+                raise ValueError("자막 원본에는 자막 파일 입력 구성을 선택하세요.")
             if reference["type"] == "audio" and (not agent_plan or agent_plan["agent_definition"].get("input_profile") != "audio_file_v1"):
                 raise ValueError("음성 원본에는 음성 전용 전사 구성이 필요합니다.")
             if asset["owner_id"] != owner:
@@ -741,11 +747,12 @@ class Execution(Intake):
                     verify_path(source_path, asset["metadata"]["media"], reference["bytes"])
             bindings = self._bindings(db, workflow_owner, definition, active=False, sdk=True)
             engine_bindings = self._engine_bindings(db, definition)
-            input_refs = {"audio" if reference["type"] == "audio" else "video": reference}
+            root_port = {"audio": "audio", "subtitle": "subtitle"}.get(reference["type"], "video")
+            input_refs = {root_port: reference}
             if normal_inputs and normal_inputs["bindings"]:
                 from .normal_inputs import NormalInputs
                 input_refs.update(NormalInputs(self).materialize(owner, normal_inputs))
-            if definition["inputs"] == {"transcript": "transcript"}:
+            if not agent_plan and definition["inputs"] == {"transcript": "transcript"}:
                 from video_service.postgres.translation import segments
 
                 text = segments(options.get("transcript"))
@@ -806,6 +813,7 @@ class Execution(Intake):
                 "definition": definition,
                 **({"agent_plan_version":1,"agent_output_policy":1,"agent_execution_policy":1,
                     "agent_input_contexts":agent_plan["input_contexts"],"agent_definition":agent_plan["agent_definition"],
+                    **({"agent_control_policy": 1} if agent_plan.get("control_policy") == 1 else {}),
                     "agent_tool_owners":agent_plan["owners"],
                     "agent_output_bindings":agent_plan["outputs"]} if agent_plan else {}),
                 "options": options,
@@ -998,8 +1006,15 @@ class Execution(Intake):
             from video_service.audio_original import frozen_origin
             if audio_file and frozen_origin(job["snapshot"]) is None:
                 reasons.append("고정 음성 원본 입력이 필요합니다.")
+            expected_inputs = ({} if audio_file else {"video": "video"}) | agent_definition["inputs"]
+            if job["snapshot"].get("agent_control_policy") == 1:
+                from .workflow import compile_definition
+                try:
+                    expected_inputs = compile_definition(agent_definition)["definition"]["inputs"]
+                except (ValueError, KeyError, TypeError):
+                    expected_inputs = None
             if (not validate(agent_definition)["valid"] or not validate(definition)["valid"]
-                    or definition["inputs"] != (({} if audio_file else {"video": "video"}) | agent_definition["inputs"])):
+                    or definition["inputs"] != expected_inputs):
                 reasons.append("고정 에이전트의 입력 선언과 실행 정의를 확인하세요.")
             else:
                 for port, kind in definition["inputs"].items():
@@ -1280,12 +1295,22 @@ class Execution(Intake):
             return self._view(db, job)
 
     def _result_for(self, job, indexed, edge):
+        if job["snapshot"].get("agent_control_policy") == 1:
+            from .workflow import scope_snapshot
+            from .workflow_controls import public_input_state
+            scope = scope_snapshot(job["snapshot"])
+            owner = scope["owners"][edge["target"]["node"]]
+            node = next(n for n in scope["definition"]["nodes"] if n["id"] == owner)
+            state = public_input_state(job["snapshot"], scope, node, indexed)
+            if state != "completed":
+                return state, None
         source = edge["source"]
         if source["node"] == "$input":
             return "completed", job["snapshot"]["inputs"].get(source["port"])
         run = indexed.get(source["node"])
         if run is None:
-            return "waiting", None
+            from .workflow import terminal_source_state
+            return terminal_source_state(job["snapshot"], indexed, source["node"]) or "waiting", None
         return run["status"], (run["result"] or {}).get("outputs", {}).get(
             source["port"]
         )
@@ -1640,6 +1665,8 @@ class Execution(Intake):
             definition = job["snapshot"]["definition"]
             eligible_tools = self._ready_agent_tools(job["snapshot"], indexed)
             for node in definition["nodes"]:
+                if job["snapshot"].get("agent_control_policy") == 1:
+                    eligible_tools = self._ready_agent_tools(job["snapshot"], indexed)
                 if eligible_tools is not None and node["id"] not in eligible_tools:
                     continue
                 if node["id"] in indexed:
@@ -1658,7 +1685,11 @@ class Execution(Intake):
                 selected = spec(node["type"], node["options"])
                 required = set(selected["inputs"]) - set(selected["optional_inputs"])
                 missing = required - set(inputs)
-                if missing and not (node["type"] == "join" and inputs):
+                strict_join_failure = (
+                    node["type"] == "join" and job["snapshot"].get("agent_control_policy") == 1
+                    and any(state in {"failed", "blocked", "cancelled", "quarantined"} for _, state, _ in states)
+                )
+                if missing and not (node["type"] == "join" and inputs and not strict_join_failure):
                     status = (
                         "blocked"
                         if any(
@@ -1700,7 +1731,7 @@ class Execution(Intake):
                     return self._insert_run(db, job, node, inputs,
                         "review_required" if node["type"] in {"review", "face_select", "face_confirm_preview"} else "running",
                         **({"face_stage":face_stage} if node["type"].startswith("face_") else {}))
-                if scope:
+                if scope and node["type"] not in CONTROL:
                     from mideagent_agents.catalog import CLASSES
                     agent_node=next(n for n in scope["definition"]["nodes"] if n["id"]==scope["owners"][node["id"]])
                     agent=CLASSES[agent_node["type"]](agent_node,tool_bindings=scope["bindings"][agent_node["id"]],

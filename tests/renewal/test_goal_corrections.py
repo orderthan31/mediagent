@@ -126,6 +126,8 @@ def source_execution(monkeypatch):
                            assigned_in=lambda *args: None)
     leaves = {
         "mideagent_orchestrator.agent_pool": {"AgentPool": pool},
+        "mideagent_orchestrator.start_queue": {"StartQueue": lambda runtime: SimpleNamespace(
+            lock_in=lambda *args: None, requires_in=lambda *args: False, allowed_in=lambda *args, **kwargs: True)},
         "mideagent_orchestrator.dispatch_queue": {"DispatchQueue": SimpleNamespace(managed_in=lambda *args: False)},
         "video_service.postgres.subtitle_tracks": {"SubtitleTracks": lambda runtime: SimpleNamespace(preflight=lambda *args: None)},
         "video_service.postgres.job_processing_review": {"JobProcessingReview": lambda runtime: SimpleNamespace(capture_in=lambda *args: runtime.review_block)},

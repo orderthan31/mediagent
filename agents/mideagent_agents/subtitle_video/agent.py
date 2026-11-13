@@ -10,8 +10,16 @@ class SubtitleVideoAgent(SubtitleFileAgent):
                     **{key: "encode" for key in ("video_codec", "subtitle_mode", "resolution", "quality_profile")}}
     output_ports = {**SubtitleFileAgent.output_ports, "video": "video", "report": "report"}
 
+    @classmethod
+    def roles(cls, node):
+        return ("encode", "validate_video") if node.get("options", {}).get("subtitle_source") == "selected_subtitles" else cls.tool_order
+
     def plan(self, media, add):
-        media = self.subtitle(media, add)
+        if self.node.get("options", {}).get("subtitle_source") == "selected_subtitles":
+            if "subtitles" not in media:
+                raise ValueError("영상에 넣을 검수·제작된 자막 파일을 연결하세요.")
+        else:
+            media = self.subtitle(media, add)
         encode = self.tool("encode", {"video_codec":"h264","subtitle_mode":"burn","resolution":"original","quality_profile":"balanced"})
         check = self.tool("validate_video")
         add(encode, {"video":media["video"],"subtitles":media["subtitles"]})

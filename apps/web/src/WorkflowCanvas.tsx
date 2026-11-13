@@ -35,7 +35,7 @@ export type CanvasDefinition = {
   name: string;
   revision: number;
   catalog_version?: number;
-  input_profile?: 'audio_file_v1' | 'face_workflow_v1';
+  input_profile?: 'audio_file_v1' | 'subtitle_file_v1' | 'face_workflow_v1';
   inputs: Record<string, string>;
   nodes: {
     id: string;
@@ -98,6 +98,14 @@ export const WorkflowCanvas = ({
       ? (
           {
             media: '작업 자료',
+            gate: '실행 조건',
+            value: '자료',
+            metadata: '미디어 정보',
+            true: '조건 일치',
+            false: '조건 불일치',
+            left: '첫 번째 결과',
+            right: '두 번째 결과',
+            manifest: '결과 목록',
             video: '영상',
             subtitles: '자막 SRT',
             sami: '자막 SAMI',
@@ -579,7 +587,9 @@ export const WorkflowCanvas = ({
                 key,
                 spec.option_defaults?.[key] ??
                   (key === 'audio_source' && definition.inputs.audio
-                    ? 'selected_audio'
+                    ? definition.input_profile === 'audio_file_v1'
+                      ? 'audio_file_v1'
+                      : 'selected_audio'
                     : key === 'subtitle_mode' && values.includes('none')
                       ? 'none'
                       : values[0]),
@@ -1248,30 +1258,28 @@ export const WorkflowCanvas = ({
         </div>
         {onChange && (
           <div className="workflow-agent-picker">
-            {(['agent', 'control', 'review'] as const)
-              .filter((kind) => !agentOnly || kind === 'agent')
-              .map((kind) => (
-                <button
-                  type="button"
-                  className={kind === 'agent' ? 'ui02-primary' : 'workflow-control-add'}
-                  key={kind}
-                  disabled={disabled || definition.nodes.length >= 100}
-                  aria-expanded={adding === kind}
-                  aria-controls={`${marker}-nodes`}
-                  onClick={() => {
-                    cancelConnection();
-                    setEdgeId('');
-                    setAdding((previous) => (previous === kind ? null : kind));
-                  }}
-                >
-                  <Plus size={17} />
-                  {
-                    { agent: '에이전트 추가', control: '제어 노드 추가', review: '사람 검수 추가' }[
-                      kind
-                    ]
-                  }
-                </button>
-              ))}
+            {(['agent', 'control', 'review'] as const).map((kind) => (
+              <button
+                type="button"
+                className={kind === 'agent' ? 'ui02-primary' : 'workflow-control-add'}
+                key={kind}
+                disabled={disabled || definition.nodes.length >= 100}
+                aria-expanded={adding === kind}
+                aria-controls={`${marker}-nodes`}
+                onClick={() => {
+                  cancelConnection();
+                  setEdgeId('');
+                  setAdding((previous) => (previous === kind ? null : kind));
+                }}
+              >
+                <Plus size={17} />
+                {
+                  { agent: '에이전트 추가', control: '제어 노드 추가', review: '사람 검수 추가' }[
+                    kind
+                  ]
+                }
+              </button>
+            ))}
             {adding && (
               <div
                 id={`${marker}-nodes`}

@@ -41,9 +41,13 @@ export const readSrtFile = async (file: Pick<File, 'name' | 'size' | 'arrayBuffe
 export const normalInputReady = (
   definition: Pick<CanvasDefinition, 'inputs' | 'catalog_version' | 'input_profile'> | null,
   value: NormalInputValue,
+  source?: { media_kind?: string },
 ) => {
   if (definition?.catalog_version !== 2) {
     return true;
+  }
+  if (definition.input_profile === 'subtitle_file_v1' && source?.media_kind === 'subtitle') {
+    return !value.subtitle_srt && !value.accepted_inputs?.transcript && value.input_language !== '';
   }
   if (definition.input_profile === 'face_workflow_v1') {
     const selected = value.face_input;
@@ -133,14 +137,6 @@ export const setAudioSource = <
   nodeId: string,
   value: string,
 ): T => {
-  if (
-    value === 'audio_file_v1' &&
-    (definition.nodes.length !== 1 ||
-      definition.nodes[0].id !== nodeId ||
-      definition.nodes[0].type !== 'transcription_agent')
-  ) {
-    throw new Error('음성 원본 입력은 전사 에이전트 하나인 워크플로우에서 선택하세요.');
-  }
   const { input_profile: _profile, ...base } = definition;
   const inputs = { ...definition.inputs };
   if (value === 'video') {

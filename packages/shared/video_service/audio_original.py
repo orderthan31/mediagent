@@ -66,6 +66,38 @@ def verify_path(path, expected, byte_count):
         raise ValueError('고정 음성 원본의 실제 내용·분류가 다릅니다.')
 
 
+def _normalization_wiring(snapshot):
+    nodes = snapshot["definition"]["nodes"]
+    edges = {(e["source"]["node"], e["source"]["port"], e["target"]["node"], e["target"]["port"]) for e in snapshot["definition"]["edges"]}
+    if snapshot.get("agent_control_policy") != 1:
+        if [n["type"] for n in nodes] != ["preprocess_audio", "transcribe"]:
+            return False
+        prepare, speech = nodes
+        return edges == {("$input", "audio", prepare["id"], "audio"), (prepare["id"], "audio", speech["id"], "audio"), (prepare["id"], "timeline", speech["id"], "timeline")}
+    owners = snapshot.get("agent_tool_owners", {})
+    public = {n["id"]: n for n in snapshot["agent_definition"]["nodes"]}
+    prepares = [n for n in nodes if n["type"] == "preprocess_audio"]
+    if not prepares:
+        return False
+    paired = set()
+    for prepare in prepares:
+        identity = owners.get(prepare["id"])
+        goal = public.get(identity, {})
+        speeches = [n for n in nodes if n["type"] == "transcribe" and owners.get(n["id"]) == identity]
+        if (goal.get("type") != "transcription_agent" or goal.get("options", {}).get("audio_source") != PROFILE
+                or len(speeches) != 1
+                or {n["type"] for n in nodes if owners.get(n["id"]) == identity} != {"preprocess_audio", "transcribe"}):
+            return False
+        speech = speeches[0]
+        expected = {("$input", "audio", prepare["id"], "audio"),
+                    (prepare["id"], "audio", speech["id"], "audio"), (prepare["id"], "timeline", speech["id"], "timeline")}
+        if {e for e in edges if e[2] in {prepare["id"], speech["id"]}} != expected:
+            return False
+        paired.add(speech["id"])
+    return (paired == {n["id"] for n in nodes if n["type"] == "transcribe"}
+            and {e[2] for e in edges if e[:2] == ("$input", "audio")} == {n["id"] for n in prepares})
+
+
 def frozen_origin(snapshot):
     """Only an exact newly frozen audio asset can be the encoded preprocess input."""
     origin = snapshot.get('audio_origin_policy')
@@ -78,7 +110,7 @@ def frozen_origin(snapshot):
             or origin['version'] != 1 or public.get('input_profile') != PROFILE
             or snapshot.get('agent_execution_policy') != 1
             or snapshot['definition']['inputs'] != {'audio': 'audio'}
-            or [n['type'] for n in snapshot['definition']['nodes']] != ['preprocess_audio', 'transcribe']
+            or not _normalization_wiring(snapshot)
             or snapshot['inputs'] != {'audio': origin['reference']}
             or not re.fullmatch('[a-f0-9]{32}', origin['asset_id'])):
         raise ValueError('고정 음성 원본 입력 계약이 다릅니다.')
@@ -94,10 +126,5 @@ def frozen_origin(snapshot):
             or pin.get('reference') != ref or pin.get('media') != origin['media']
             or pin.get('policy') != policy() or asset.get('audio_original_policy') != policy()):
         raise ValueError('음성 원본 custodian이 다릅니다.')
-    prepare, speech = snapshot['definition']['nodes']
-    wiring = {(e['source']['node'], e['source']['port'], e['target']['node'], e['target']['port']) for e in snapshot['definition']['edges']}
-    if wiring != {('$input', 'audio', prepare['id'], 'audio'), (prepare['id'], 'audio', speech['id'], 'audio'),
-                  (prepare['id'], 'timeline', speech['id'], 'timeline')}:
-        raise ValueError('전사 음성과 시간 정보는 같은 정규화 결과여야 합니다.')
     validate_media(origin['media'], ref['bytes'])
     return origin

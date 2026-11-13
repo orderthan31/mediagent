@@ -39,13 +39,12 @@ test('editor audio-file profile and root input agree without shrinking a broader
   assert.equal(m.normalInputReady(legacy, {}), false);
   const video = m.setAudioSource(selected, 'asr', 'video');
   assert.deepEqual(video.inputs, {});
-  assert.throws(() =>
-    m.setAudioSource(
-      { ...d, nodes: [...d.nodes, { id: 'mt', type: 'translation_agent', options: {} }] },
-      'asr',
-      'audio_file_v1',
-    ),
-  );
+  const chain = { ...d, nodes: [...d.nodes, { id: 'mt', type: 'translation_agent', options: {} }] };
+  const joined = m.setAudioSource(chain, 'asr', 'audio_file_v1');
+  assert.equal(joined.input_profile, 'audio_file_v1');
+  assert.deepEqual(joined.nodes[1], chain.nodes[1]);
+  assert.equal(joined.nodes.length, 2);
+  assert.equal(chain.nodes[0].options.audio_source, undefined);
   assert.deepEqual(d.inputs, {});
 });
 

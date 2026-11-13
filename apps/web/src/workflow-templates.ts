@@ -40,6 +40,97 @@ export const createAgentWorkflow = (): EditableWorkflow => {
   };
 };
 
+/** Real business goals with the existing human track-review contract. */
+export const createReviewedAgentWorkflow = (): EditableWorkflow => {
+  const doc = createAgentWorkflow();
+  doc.name = '자막 검수·영상 제작';
+  const render = doc.nodes.find((node) => node.id === 'subtitle_video')!;
+  render.options = { subtitle_source: 'selected_subtitles' };
+  doc.nodes.push(
+    {
+      id: 'tracks',
+      type: 'subtitle_tracks',
+      position: { x: 580, y: 80 },
+      options: { original_language: 'auto', translated_language: 'ko' },
+    },
+    {
+      id: 'review',
+      type: 'review',
+      position: { x: 870, y: 80 },
+      options: { data_type: 'subtitle_tracks', review_kind: 'subtitle_tracks_v1' },
+    },
+    {
+      id: 'files',
+      type: 'subtitle_outputs',
+      position: { x: 1160, y: 80 },
+      options: { format: 'srt_smi' },
+    },
+  );
+  render.position = { x: 1450, y: 80 };
+  const link = (source: string, port: string, target: string, input: string) => ({
+    id: identity(),
+    source: { node: source, port },
+    target: { node: target, port: input },
+  });
+  doc.edges = [
+    link('transcription', 'media', 'translation', 'media'),
+    link('transcription', 'transcript', 'tracks', 'original'),
+    link('translation', 'transcript', 'tracks', 'translated'),
+    link('tracks', 'tracks', 'review', 'value'),
+    link('review', 'value', 'files', 'tracks'),
+    link('files', 'subtitles', 'subtitle_video', 'subtitles'),
+  ];
+  return doc;
+};
+
+/** Timed subtitle input with optional translation; no video or implicit ASR. */
+export const createSubtitleWorkflow = (translate = false): EditableWorkflow => {
+  const nodes: CanvasDefinition['nodes'] = [
+    ...(translate
+      ? [
+          {
+            id: 'translation',
+            type: 'translation_agent',
+            position: { x: 280, y: 80 },
+            options: { target_language: 'ko' },
+          },
+        ]
+      : []),
+    {
+      id: 'subtitle_files',
+      type: 'subtitle_file_agent',
+      position: { x: translate ? 580 : 280, y: 80 },
+      options: { format: 'srt_smi' },
+    },
+  ];
+  const first = nodes[0].id;
+  return {
+    id: identity(),
+    catalog_version: 2,
+    revision: 0,
+    name: translate ? '자막 번역' : '자막 파일 변환',
+    input_profile: 'subtitle_file_v1',
+    inputs: { transcript: 'transcript' },
+    nodes,
+    edges: [
+      {
+        id: identity(),
+        source: { node: '$input', port: 'transcript' },
+        target: { node: first, port: 'transcript' },
+      },
+      ...(translate
+        ? [
+            {
+              id: identity(),
+              source: { node: 'translation', port: 'transcript' },
+              target: { node: 'subtitle_files', port: 'transcript' },
+            },
+          ]
+        : []),
+    ],
+  };
+};
+
 /** An editable draft, not a saved workflow, ticket, cost consent, or execution. */
 export const createLegacyWorkflow = ({
   review = true,

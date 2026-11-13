@@ -5,7 +5,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { buildSync } from 'esbuild';
 
-const scratch = 'C:/Users/skygg/AppData/Local/hermes/cache/scratch/mediagent-5178-parity';
+const scratch = process.env.MIDEAGENT_TEST_SCRATCH || process.env.TMPDIR || process.env.TEMP;
 const id = '1'.repeat(32),
   runId = '2'.repeat(32);
 const run = {

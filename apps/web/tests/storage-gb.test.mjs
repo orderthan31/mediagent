@@ -42,7 +42,7 @@ test('shared original/file/upload formatter uses fixed decimal GB for sub-GB and
 });
 
 test('real original cards/detail and upload counters use GB while filenames, raw progress and limits stay unchanged', () => {
-  const scratch = 'C:/Users/skygg/AppData/Local/hermes/cache/scratch/mediagent-5178-parity';
+  const scratch = process.env.MIDEAGENT_TEST_SCRATCH || process.env.TMPDIR || process.env.TEMP;
   const directory = fs.mkdtempSync(path.join(scratch, 'storage-gb-render-'));
   const outfile = path.join(directory, 'render.cjs');
   try {

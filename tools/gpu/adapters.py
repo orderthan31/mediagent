@@ -301,6 +301,22 @@ def execute(store, owner, command, config):
         or not report["intervals"]
     ):
         raise ValueError("actual_cuda_vad_required")
+    policy = report.get("probability_policy")
+    if policy is not None:
+        from .vad import apply_digital_silence, digital_silence_windows
+
+        if policy != "neural_exact_zero_v1":
+            raise ValueError("unsupported_vad_probability_policy")
+        silence = digital_silence_windows(frames)
+        if (
+            type(report.get("digital_silence_windows")) is not int
+            or report["digital_silence_windows"] != sum(silence)
+            or report.get("probabilities")
+            != apply_digital_silence(report.get("raw_probabilities"), silence)
+        ):
+            raise ValueError("vad_digital_silence_probability_mismatch")
+    elif "raw_probabilities" in report or "digital_silence_windows" in report:
+        raise ValueError("explicit_vad_probability_policy_required")
     intervals = report["intervals"]
     if region_profile:
         from .vad import retained_intervals

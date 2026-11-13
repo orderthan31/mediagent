@@ -61,4 +61,5 @@ def registration(identity, *, node=None):
   roles=CLASSES[node["type"]].roles(node)
   value["runtime_roles"]=[{"transcribe":"transcription","translate":"translation"}.get(role,role)for role in roles]
   if "extract_audio"not in roles:value["allowed_tools"]=[tool for tool in value["allowed_tools"]if tool!="media.extract_audio"]
+  if "generate_subtitle" not in roles:value["allowed_tools"]=[tool for tool in value["allowed_tools"]if tool!="media.generate_subtitle"]
  return value
