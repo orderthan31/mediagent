@@ -21,7 +21,11 @@ class ModelCallBudgetExceeded(ValueError):
 class ModelBatchLedger:
     def __init__(self, database, owner, command, *, max_calls):
         resource_id(owner)
-        if type(max_calls) is not int or not 1 <= max_calls <= 4096:
+        from ..model_call_budget import automatic, frozen_cap
+        if automatic(command):
+            if type(max_calls) is not int or max_calls != frozen_cap(command):
+                raise ValueError("invalid_model_call_budget")
+        elif type(max_calls) is not int or not 1 <= max_calls <= 4096:
             raise ValueError("invalid_model_call_budget")
         self.database, self.owner, self.command = database, owner, deepcopy(command)
         self.job, self.attempt = command["run_id"], command["attempt_id"]
@@ -61,10 +65,18 @@ class ModelBatchLedger:
             self.original_sha = (original.get("video") or original["transcript"])[
                 "sha256"
             ]
-            db.execute(
-                "INSERT INTO model_call_budgets(owner_id,job_id,node_run_id,command_sha256,max_calls) VALUES(%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING",
-                (owner, self.job, self.attempt, self.command_sha, max_calls),
-            )
+            if automatic(command):
+                plan = frozen["model_call_plan"]
+                db.execute(
+                    "INSERT INTO model_call_budgets(owner_id,job_id,node_run_id,command_sha256,max_calls,planned_units,candidate_count) VALUES(%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING",
+                    (owner, self.job, self.attempt, self.command_sha, max_calls,
+                     plan["planned_units"], plan["candidate_count"]),
+                )
+            else:
+                db.execute(
+                    "INSERT INTO model_call_budgets(owner_id,job_id,node_run_id,command_sha256,max_calls) VALUES(%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING",
+                    (owner, self.job, self.attempt, self.command_sha, max_calls),
+                )
             budget = db.execute(
                 "SELECT command_sha256,max_calls FROM model_call_budgets WHERE owner_id=%s AND job_id=%s AND node_run_id=%s",
                 (owner, self.job, self.attempt),

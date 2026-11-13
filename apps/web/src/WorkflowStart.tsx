@@ -1,3 +1,4 @@
+import { modelCallBudgetLabel, type ModelCallBudget } from './model-call-budget';
 import { startSavedJob } from './job-start.mjs';
 import { frozenGoalLanguages } from './goal-languages';
 import { languageLabel } from './language-label';
@@ -36,12 +37,11 @@ type Inspection = {
 type StartPlan = {
   token: string;
   paid_roles: string[];
-  model_call_budgets?: {
+  model_call_budgets?: (ModelCallBudget & {
     node_id: string;
     role: string;
-    max_calls: number;
-    minimum_audio_calls: number | null;
-  }[];
+    minimum_audio_calls?: number | null;
+  })[];
   vocal_source_policy?: {
     id: string;
     max_source_seconds: number;
@@ -904,8 +904,10 @@ export const WorkflowStart = () => {
                         : item.role === 'transcribe'
                           ? '전사'
                           : '번역'}{' '}
-                      · {item.node_id}: 최대 {item.max_calls}회
-                      {item.minimum_audio_calls !== null
+                      · {item.node_id}: {modelCallBudgetLabel(item)}
+                      {typeof item.minimum_audio_calls === 'number' &&
+                      Number.isSafeInteger(item.minimum_audio_calls) &&
+                      item.minimum_audio_calls >= 0
                         ? ` · 원본 길이 기준 ${item.minimum_audio_calls}개 ${item.role === 'vocalize' ? '탐지 구간 예상 · 후보 재확인도 같은 상한 사용' : '오디오 구간 예상'}`
                         : ''}
                     </li>

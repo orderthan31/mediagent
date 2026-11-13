@@ -1408,7 +1408,9 @@ class Execution(Intake):
 
             if not audio_policy:
                 raise Conflict("long_audio_snapshot_budget_missing")
-            command["resource_budget"] = command_budget(node["type"], node["options"])
+            from video_service.model_call_budget import automatic
+            if not automatic(command):
+                command["resource_budget"] = command_budget(node["type"], node["options"])
             if node["type"] in CPU_ROLES:
                 command["agent"]["revision"] = "5"
         if (
@@ -1477,13 +1479,28 @@ class Execution(Intake):
                 if batch_policy != expected:
                     raise Conflict("지원하지 않는 분할 실행 정책입니다.")
                 command[kind]["batch_policy"] = batch_policy
-                command[kind]["max_model_calls"] = int(
-                    node["options"].get("max_model_calls", "128")
-                )
+                from video_service.model_call_budget import automatic, resolve
+                if automatic(command):
+                    from video_service.role_policy import snapshot_version
+                    command[kind].update(resolve(
+                        self.store, job["owner_id"], command,
+                        policy_version=snapshot_version(job["snapshot"]),
+                    ))
+                    if node["options"].get("media_budget") == "audio_long_v5":
+                        from video_service.long_audio_budget import command_budget
+                        command["resource_budget"] = command_budget(
+                            node["type"], node["options"],
+                            resolved_cap=command[kind]["max_model_calls"],
+                        )
+                else:
+                    # Old frozen numeric commands retain their exact cap.
+                    command[kind]["max_model_calls"] = int(
+                        node["options"].get("max_model_calls", "128")
+                    )
                 from video_service.cpu_input_policy import model_runtime_seconds
 
                 command[kind]["max_runtime_seconds"] = model_runtime_seconds(
-                    command[kind]["max_model_calls"]
+                    command[kind]["max_model_calls"], input_derived=automatic(command)
                 )
         elif self._engine_role(node) and status == "running":
             from .face_workflow import selected as face_selected, FaceWorkflow

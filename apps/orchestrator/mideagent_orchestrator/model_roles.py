@@ -10,6 +10,37 @@ from mideagent_orchestrator.model_delivery import RoleResultHeld as RoleResultHe
 from video_service.postgres import Conflict
 from video_service.postgres.model_roles import ModelRoles
 from video_service.rabbitmq_transport import InvalidMessage
+from video_service.model_reference import valid_reference
+from video_service.role_policy import snapshot_version
+
+
+def _supported_transcription(snapshot, node):
+    if (
+        not node.get("model_ref")
+        or node["options"].get("clock_policy") != "packed_projection_v5"
+        or node["options"].get("batch_policy") != "bounded_60s_v1"
+    ):
+        return False
+    if snapshot_version(snapshot) == 1:
+        return not node.get("fallback_refs")
+    # Admission uses only the selected frozen chain, never the live registry.
+    # ModelRoles.enroll remains authoritative for the complete command pins.
+    fallbacks = node.get("fallback_refs", [])
+    if type(fallbacks) is not list or len(fallbacks) > 3:
+        return False
+    try:
+        refs = [valid_reference(ref) for ref in [node["model_ref"], *fallbacks]]
+        binding = snapshot.get("model_bindings", {}).get(node["id"], {})
+        frozen_fallbacks = binding.get("fallbacks", [])
+        if type(frozen_fallbacks) is not list:
+            return False
+        pins = [
+            valid_reference({"model_id": pin["model_id"], "revision": pin["revision"]})
+            for pin in [binding, *frozen_fallbacks]
+        ]
+    except (KeyError, TypeError, ValueError, AttributeError):
+        return False
+    return len({ref["model_id"] for ref in refs}) == len(refs) and refs == pins
 
 
 class ModelRoleCoordinator:
@@ -51,10 +82,7 @@ class ModelRoleCoordinator:
             if role not in self.role_factories or not nodes:
                 continue
             if role == "transcription" and any(
-                n.get("fallback_refs")
-                or n["options"].get("clock_policy") != "packed_projection_v5"
-                or n["options"].get("batch_policy") != "bounded_60s_v1"
-                for n in nodes
+                not _supported_transcription(job["snapshot"], n) for n in nodes
             ):
                 continue
             if all(n.get("model_ref") for n in nodes):
@@ -111,11 +139,7 @@ class ModelRoleCoordinator:
             if "transcription" in selected and (
                 not nodes
                 or any(
-                    not n.get("model_ref")
-                    or n["options"].get("clock_policy") != "packed_projection_v5"
-                    or n["options"].get("batch_policy") != "bounded_60s_v1"
-                    or n.get("fallback_refs")
-                    for n in nodes
+                    not _supported_transcription(job["snapshot"], n) for n in nodes
                 )
             ):
                 raise Conflict(

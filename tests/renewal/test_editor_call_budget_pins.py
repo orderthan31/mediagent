@@ -26,7 +26,7 @@ def test_missing_batch_policy_preserves_explicit_call_budget(role, maximum):
 
 @pytest.mark.parametrize(
     ("role", "maximum"),
-    [("transcribe", "128"), ("translate", "128"), ("vocalize", "4096")],
+    [("transcribe", "auto"), ("translate", "auto"), ("vocalize", "4096")],
 )
 def test_unselected_call_budget_keeps_existing_execution_default(role, maximum):
     definition = {"nodes": [{"id": "selected", "type": role, "options": {}}]}

@@ -228,7 +228,7 @@ def validate_translation_task(task):
     )
     require(
         type(task["max_calls"]) is int
-        and task["max_calls"] > 0
+        and task["max_calls"] >= (0 if v2 else 1)
         and task["batch_policy"] in {"single_100x16k_v1", "bounded_100x16k_v1"},
         "invalid_translation_budget",
     )

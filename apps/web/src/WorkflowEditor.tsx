@@ -1,3 +1,4 @@
+import { modelCallOptionLabel } from './model-call-budget';
 import { useEffect, useState } from 'react';
 import { request } from './api';
 import { PageTitle } from './PageTitle';
@@ -244,7 +245,6 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
               'translation_profile',
               'model_source',
               'video_budget',
-              'max_model_calls',
               'review_policy',
             ]);
             const render = () =>
@@ -253,8 +253,9 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
                   ([key]) =>
                     !internal.has(key) &&
                     (node.type !== 'transcribe' ||
-                      ['source_language', 'llm_options'].includes(key)) &&
-                    (node.type !== 'translate' || ['target_language', 'llm_options'].includes(key)),
+                      ['source_language', 'llm_options', 'max_model_calls'].includes(key)) &&
+                    (node.type !== 'translate' ||
+                      ['target_language', 'llm_options', 'max_model_calls'].includes(key)),
                 )
                 .map(([key, values]) => {
                   const selectedValue = savedGoalOption(node, spec, key, values[0]);
@@ -388,32 +389,36 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
                         >
                           {values.map((value) => (
                             <option value={value} key={value}>
-                              {['source_language', 'target_language', 'language'].includes(key) &&
-                              !['from_transcript', 'und'].includes(value)
-                                ? languageLabel(value)
-                                : (
-                                    {
-                                      streamed_vocalization_v2: '장문 분할 판정 (원본 최대 6시간)',
-                                      bounded_vocalization_v1: '기존 단기 판정 (원본 최대 300초)',
-                                      current: '연결된 전사·번역 결과',
-                                      original: '원문 전사',
-                                      translated: '번역 전사',
-                                      from_transcript:
-                                        key === 'subtitle_source'
-                                          ? '전사·번역 결과에서 제작'
-                                          : '입력 자막 언어',
-                                      selected_subtitles: '연결한 자막 파일',
-                                      und: '언어 미지정',
-                                      burn: '번인',
-                                      soft: '소프트 자막',
-                                      srt_smi: 'SRT + SAMI',
-                                      video: '선택 영상에서 새로 추출',
-                                      audio_file_v1: '음성 원본 파일',
-                                      selected_audio: '같은 영상의 완료된 추출 WAV 재사용',
-                                    } as Record<string, string>
-                                  )[value] ||
-                                  controlValueLabels[value] ||
-                                  value}
+                              {key === 'max_model_calls'
+                                ? modelCallOptionLabel(value)
+                                : ['source_language', 'target_language', 'language'].includes(
+                                      key,
+                                    ) && !['from_transcript', 'und'].includes(value)
+                                  ? languageLabel(value)
+                                  : (
+                                      {
+                                        streamed_vocalization_v2:
+                                          '장문 분할 판정 (원본 최대 6시간)',
+                                        bounded_vocalization_v1: '기존 단기 판정 (원본 최대 300초)',
+                                        current: '연결된 전사·번역 결과',
+                                        original: '원문 전사',
+                                        translated: '번역 전사',
+                                        from_transcript:
+                                          key === 'subtitle_source'
+                                            ? '전사·번역 결과에서 제작'
+                                            : '입력 자막 언어',
+                                        selected_subtitles: '연결한 자막 파일',
+                                        und: '언어 미지정',
+                                        burn: '번인',
+                                        soft: '소프트 자막',
+                                        srt_smi: 'SRT + SAMI',
+                                        video: '선택 영상에서 새로 추출',
+                                        audio_file_v1: '음성 원본 파일',
+                                        selected_audio: '같은 영상의 완료된 추출 WAV 재사용',
+                                      } as Record<string, string>
+                                    )[value] ||
+                                    controlValueLabels[value] ||
+                                    value}
                             </option>
                           ))}
                         </select>

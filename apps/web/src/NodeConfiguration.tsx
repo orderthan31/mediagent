@@ -1,3 +1,4 @@
+import { modelCallOptionLabel } from './model-call-budget';
 import { useState } from 'react';
 import { DataForm } from './DataForm';
 import {
@@ -115,7 +116,21 @@ export const NodeConfiguration = ({
             const properties = Object.fromEntries(
               Object.entries(schema.properties || {})
                 .filter(([key]) => internal.has(key) === advanced)
-                .map(([key, value]) => [key, { ...value, title: labels[key] || value.title }]),
+                .map(([key, value]) => [
+                  key,
+                  {
+                    ...value,
+                    title: labels[key] || value.title,
+                    ...(key === 'max_model_calls'
+                      ? {
+                          choices: value.choices?.map((choice) => ({
+                            ...choice,
+                            label: modelCallOptionLabel(choice.value),
+                          })),
+                        }
+                      : {}),
+                  },
+                ]),
             );
             if (!Object.keys(properties).length) {
               return null;

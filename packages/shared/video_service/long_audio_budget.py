@@ -165,16 +165,21 @@ def definition_policy(definition):
     return policy()
 
 
-def command_budget(role, options):
+def command_budget(role, options, *, resolved_cap=None):
     result = role_budget(role)
     if role in {"transcribe", "translate"}:
         from .cpu_input_policy import model_runtime_seconds
 
         value = options.get("max_model_calls")
-        if not isinstance(value, str) or not value.isdecimal():
-            raise ValueError("explicit_model_call_cap_required")
-        cap = int(value)
-        deadline = model_runtime_seconds(cap)
+        if value == "auto":
+            if type(resolved_cap) is not int or resolved_cap < (1 if role == "transcribe" else 0):
+                raise ValueError("automatic_model_budget_requires_actual_input")
+            cap = resolved_cap
+        else:
+            if not isinstance(value, str) or not value.isdecimal():
+                raise ValueError("explicit_model_call_cap_required")
+            cap = int(value)
+        deadline = model_runtime_seconds(cap, input_derived=value == "auto")
         result.update(
             max_model_calls=cap,
             process_seconds=deadline,
@@ -202,7 +207,11 @@ def validate_command(command):
         return None
     if command.get("protocol_version", 1) != 1:
         raise ValueError("cpu_long_budget_cannot_authorize_engine_protocol")
-    expected = command_budget(role, command["options"])
+    from .model_call_budget import automatic, frozen_cap
+    expected = command_budget(
+        role, command["options"],
+        resolved_cap=frozen_cap(command) if automatic(command) else None,
+    )
     if command.get("resource_budget") != expected or (
         role in CPU_ROLES and command["agent"].get("revision") != "5"
     ):

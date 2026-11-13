@@ -21,12 +21,16 @@ def resolve_editor_contracts(payload):
                 clock_policy="packed_projection_v5",
                 media_budget="audio_long_v5",
             )
-            options.setdefault("max_model_calls", "128")
+            options.setdefault("max_model_calls", "auto")
         if role == "translate" and "batch_policy" not in options:
             options.update(batch_policy="bounded_100x16k_v1")
-            options.setdefault("max_model_calls", "128")
+            options.setdefault("max_model_calls", "auto")
             if long_mode:
                 options.setdefault("media_budget", "audio_long_v5")
+        if role in {"transcribe", "translate"}:
+            from .model_call_budget import POLICIES
+            if options.get("batch_policy") == POLICIES[role]:
+                options.setdefault("max_model_calls", "auto")
         if role == "translate" and "target_language" in options:
             options.setdefault("translation_profile", "language_target_v1")
         if role == "vocalize" and "batch_policy" not in options:

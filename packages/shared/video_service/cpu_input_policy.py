@@ -102,8 +102,8 @@ def command_timeout(command):
     return LARGE_COMMAND_SECONDS if agent["revision"] == "2" else 90
 
 
-def model_runtime_seconds(max_calls):
-    if type(max_calls) is not int or not 1 <= max_calls <= 4096:
+def model_runtime_seconds(max_calls, *, input_derived=False):
+    if type(max_calls) is not int or (max_calls < 0 if input_derived else not 1 <= max_calls <= 4096):
         raise ValueError("Invalid bounded model call count")
     return min(2 * 60 * 60, max_calls * 45 + 120)
 
@@ -125,7 +125,12 @@ def lease_seconds(command):
             in {"bounded_vocalization_v1", "streamed_vocalization_v2"}
             else "bounded_vocalization_v1",
         }[kind]
-        expected = model_runtime_seconds(config.get("max_model_calls"))
+        from .model_call_budget import automatic, frozen_cap
+        derived = automatic(command)
+        expected = model_runtime_seconds(
+            frozen_cap(command) if derived else config.get("max_model_calls"),
+            input_derived=derived,
+        )
         if (
             config.get("batch_policy") != expected_policy
             or config.get("max_runtime_seconds") != expected

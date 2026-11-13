@@ -148,13 +148,13 @@ export const createLegacyWorkflow = ({
       id: 'transcribe',
       type: 'transcribe',
       position: { x: 940, y: 40 },
-      options: { batch_policy: 'bounded_60s_v1', max_model_calls: '128' },
+      options: { batch_policy: 'bounded_60s_v1', max_model_calls: 'auto' },
     },
     {
       id: 'translate',
       type: 'translate',
       position: { x: 1240, y: 40 },
-      options: { batch_policy: 'bounded_100x16k_v1', max_model_calls: '128' },
+      options: { batch_policy: 'bounded_100x16k_v1', max_model_calls: 'auto' },
     },
     {
       id: 'original_subtitles',
@@ -265,7 +265,7 @@ export const createSubtitleReviewWorkflow = ({
     translation_profile: 'language_target_v1',
     target_language: code,
     batch_policy: 'bounded_100x16k_v1',
-    max_model_calls: '128',
+    max_model_calls: 'auto',
   });
   doc.nodes.find((node) => node.id === 'translate')!.options = translation(targetLanguage);
   const options: Record<string, string> = {

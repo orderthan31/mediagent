@@ -338,7 +338,9 @@ class TranslationRuntime:
         from .model_batches import ModelCallBudgetExceeded
 
         languages(source_language, target_language)
-        validate_source(source)
+        from ..model_call_budget import automatic
+        budget_policy_version = 2 if automatic(ledger.command) else 1
+        validate_source(source, policy_version=budget_policy_version)
         source_sha = hashlib.sha256(canonical(source)).hexdigest()
         if (
             pins != ledger.command["translation"]["candidates"]
@@ -363,7 +365,7 @@ class TranslationRuntime:
                 "input_error": error,
             }
 
-        for batch in split_transcript(source):
+        for batch in split_transcript(source, policy_version=budget_policy_version):
             if cancelled():
                 return result("cancelled")
             if batch.start != previous_end:
@@ -519,7 +521,7 @@ class TranslationRuntime:
                 record(deepcopy(receipts))
                 combined.extend(translated)
                 validate_source(combined)
-        return result("completed")
+        return result("cancelled" if not source and cancelled() else "completed")
 
 
 def execute_translation(runtime, owner, command):
@@ -764,7 +766,10 @@ def execute_translation(runtime, owner, command):
             if audio_budget:
                 from ..transcript_batches import split_transcript
 
-                required_calls = sum(1 for _ in split_transcript(source))
+                from ..model_call_budget import automatic
+                required_calls = sum(1 for _ in split_transcript(
+                    source, policy_version=2 if automatic(command) else 1,
+                ))
                 input_info.update(
                     required_model_calls=required_calls,
                     canonical_source_bytes=len(canonical(source)),

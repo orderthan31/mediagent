@@ -1,3 +1,4 @@
+import { modelCallOptionLabel } from './model-call-budget';
 import { FaceWorkflowReview } from './FaceWorkflowReview';
 import { publicAgentGraph } from './job-graphs';
 import type { GoalOutput } from './GoalResults';
@@ -407,7 +408,7 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
                 )
                 .map(
                   (n) =>
-                    `${n.type === 'transcribe' ? '전사' : n.type === 'translate' ? '번역' : '보컬'} 최대 ${n.options.max_model_calls || '설정된 한도'}회`,
+                    `${n.type === 'transcribe' ? '전사' : n.type === 'translate' ? '번역' : '보컬'} ${modelCallOptionLabel(n.options.max_model_calls)}`,
                 )
                 .join(' · ')}
               {' · 외부 모델 API 비용은 선택한 공급자 요금이 적용됩니다.'}

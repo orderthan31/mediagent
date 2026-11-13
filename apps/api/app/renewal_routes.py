@@ -479,12 +479,12 @@ def mount_runtime(
                 {
                     "node_id": n["id"],
                     "role": n["type"],
-                    "max_calls": int(n["options"].get("max_model_calls", "128")),
+                    **__import__("video_service.model_call_budget", fromlist=["preview"]).preview(n),
                     "minimum_audio_calls": __import__("math").ceil(
                         (source.get("media") or {}).get("duration", 0)
                         / (30 if n["type"] == "vocalize" else 60)
                     )
-                    if n["type"] in {"transcribe", "vocalize"}
+                    if n["type"] == "vocalize"
                     else None,
                 }
                 for n in execution_definition["nodes"]

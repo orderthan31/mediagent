@@ -75,9 +75,8 @@ class ModelRoles:
                 raise Conflict("independent_role_candidate_chain_not_connected")
             if version == 2 and not 1 <= len(pins) <= 4:
                 raise Conflict("invalid_role_candidates")
-            cap = config["max_model_calls"]
-            if type(cap) is not int or cap < 1:
-                raise Conflict("invalid_role_frozen_call_budget")
+            from ..model_call_budget import verify
+            cap = verify(runtime.store, owner, command, policy_version=version)
             runtime._preflight_cpu_inputs(owner, command["run_id"], command)
             from ..long_audio_budget import read_clock
 
@@ -502,8 +501,10 @@ class ModelRoles:
             if version != 2:
                 raise Conflict("translation_reference_requires_role_policy_v2")
             context_fields["translation_context"] = deepcopy(validate(config["translation_context"]))
-        cap = config.get("max_model_calls", len(pins))
-        if type(cap) is not int or cap < 1:
+        from ..model_call_budget import automatic, verify
+        cap = (verify(self.runtime.store, owner, command, policy_version=version)
+               if automatic(command) else config.get("max_model_calls", len(pins)))
+        if type(cap) is not int or cap < (0 if automatic(command) else 1):
             raise Conflict("invalid_role_frozen_call_budget")
         from ..content_store import reference_origin
         source_owner, source_reference = reference_origin(owner, reference)

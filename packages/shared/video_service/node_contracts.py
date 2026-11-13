@@ -88,7 +88,7 @@ NODES = [
         choices={
             "source_language": ["auto", "ko", "en", "ja", "zh", "de", "fr", "es"],
             "batch_policy": ["single", "bounded_60s_v1"],
-            "max_model_calls": MODEL_CALL_LIMITS,
+            "max_model_calls": ["auto", *MODEL_CALL_LIMITS],
             "clock_policy": [
                 "legacy_envelope_v1",
                 "packed_projection_v2",
@@ -115,7 +115,7 @@ NODES = [
             "video_description": [""],
             "translation_context_profile": ["reference_v1"],
             "target_language": [""],
-            "max_model_calls": MODEL_CALL_LIMITS,
+            "max_model_calls": ["auto", *MODEL_CALL_LIMITS],
         },
     ),
     node(
@@ -458,6 +458,10 @@ def validate_node(payload):
         for k, v in options.items() if k not in {"llm_options", "video_description"}
     ):
         raise ValueError("지원하지 않는 처리 옵션 조합입니다.")
+    if options.get("max_model_calls") == "auto":
+        from .model_call_budget import POLICIES
+        if options.get("batch_policy") != POLICIES.get(selected["id"]):
+            raise ValueError("automatic_budget_requires_batched_policy")
     if selected["id"] == "subtitle_tracks":
         from .subtitle_tracks import names
 
