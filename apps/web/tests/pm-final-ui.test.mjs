@@ -114,7 +114,7 @@ test('external failure selection opens actual canvas detail and logs tab', () =>
   );
   assert.match(html, /workflow-node-settings/);
   assert.match(html, /aria-selected="true"[^>]*>로그/);
-  assert.match(html, /보존된 콘솔 로그가 없습니다/);
+  assert.match(html, /수집된 에이전트·툴 원본 로그가 없습니다/);
 });
 
 test('required timed input has an accessible field-linked marker and settings are single links', () => {

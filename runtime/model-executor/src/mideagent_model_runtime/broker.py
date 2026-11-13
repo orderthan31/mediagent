@@ -131,6 +131,34 @@ class RoleReceiver:
         }
 
     def deliver(self, packet, *, kind="result", artifact_attempts=3):
+        import time
+        from mideagent_agents.tool_events import emit, result_state, task_capture
+
+        # Validate before assigning a console identity; never log raw envelopes.
+        if type(artifact_attempts) is not int or artifact_attempts < 1:
+            raise ValueError("positive_artifact_attempts_required")
+        packet = validate(
+            packet, kind, expected_role=getattr(self.agent, "role", "transcription")
+        )
+        task = packet["task_id"] if kind == "cancel_ack" else packet["task"]["task_id"]
+        with task_capture(task):
+            started = time.monotonic()
+            emit('mideagent.delivery.v1', packet['role'], 'received', kind=kind)
+            try:
+                result = self._deliver(packet, kind=kind, artifact_attempts=artifact_attempts)
+            except DeliveryHeld as error:
+                emit('mideagent.delivery.v1', packet['role'], 'held', kind=kind,
+                     started=started, error=error, error_code='delivery_held')
+                raise
+            except BaseException as error:
+                emit('mideagent.delivery.v1', packet['role'], 'error', kind=kind,
+                     started=started, error=error, error_code='delivery_exception')
+                raise
+            emit('mideagent.delivery.v1', packet['role'], result_state(result),
+                 kind=kind, started=started)
+            return result
+
+    def _deliver(self, packet, *, kind="result", artifact_attempts=3):
         if type(artifact_attempts) is not int or artifact_attempts < 1:
             raise ValueError("positive_artifact_attempts_required")
         packet = validate(

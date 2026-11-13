@@ -6,8 +6,11 @@ import json
 import signal
 import ssl
 import threading
-import sys,traceback,re
+import contextvars
+import re
+from video_service import task_console
 from video_service.task_console import capture_console
+from video_service.private_task_console import private_capture
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -19,6 +22,49 @@ from video_service.postgres.model_roles import ModelRoles
 
 from mideagent_orchestrator.bootstrap import runtime_components
 from video_service.bootstrap import load_bootstrap
+
+
+_emission = contextvars.ContextVar('private_bridge_emission', default=None)
+
+
+def _emit_boundary(role, operation, state, error=None):
+    if (role not in {'transcription', 'translation', 'vocalization'}
+            or operation not in {'invoke', 'storage_lease'}
+            or state not in {'received', 'completed', 'failed'}):
+        return
+    row = {'event': 'mideagent.tool_transport.v1', 'role': role,
+           'operation': operation, 'state': state}
+    if error is not None:
+        allowed = {ValueError, TypeError, RuntimeError, TimeoutError, OSError, EOFError}
+        row.update(error_type=type(error).__name__ if type(error) in allowed else 'Exception',
+                   error_code='transport_exception')
+    capability = _emission.get()
+    if capability is not None:
+        capability(json.dumps(row, separators=(',', ':')))
+
+
+def _invoke_observed(identity, token, role, operation, invoke):
+    """Actual HTTP transport return/raise only, never provider-execution proof."""
+    task_console._identity(identity)
+    with private_capture(identity, secrets=(token,), legacy_capture=capture_console) as capability:
+        previous = _emission.set(capability)
+        try:
+            def emit(state, error=None):
+                try:
+                    _emit_boundary(role, operation, state, error)
+                except BaseException:
+                    pass
+
+            emit('received')
+            try:
+                reply = invoke()
+            except BaseException as error:
+                emit('failed', error)
+                raise
+            emit('completed')
+            return reply
+        finally:
+            _emission.reset(previous)
 
 
 class ToolServer(ThreadingHTTPServer):
@@ -59,20 +105,15 @@ class ToolServer(ThreadingHTTPServer):
                     identity=payload.get('task_id')
                     if not isinstance(identity,str) or not re.fullmatch('[a-f0-9]{32}',identity):
                         raise ValueError('invalid_task_identity')
-                    with capture_console(identity,secrets=(token,)):
-                        try:
-                            if self.path == route + "/storage-lease":
-                                from video_service.role_storage_leases import RoleStorageLeases
-                                reply = RoleStorageLeases(bridge.roles, role).grant(payload)
-                            else:
-                                reply = invoke(payload)
-                        except Exception as error:
-                            status=getattr(error,'http_status',None)
-                            if status is not None:print('HTTP '+str(status),file=sys.stderr)
-                            detail=getattr(error,'upstream_detail',None)
-                            if detail:print(detail,file=sys.stderr)
-                            traceback.print_exc()
-                            raise
+                    if self.path == route + "/storage-lease":
+                        def call():
+                            from video_service.role_storage_leases import RoleStorageLeases
+                            return RoleStorageLeases(bridge.roles, role).grant(payload)
+                        operation = 'storage_lease'
+                    else:
+                        call = lambda: invoke(payload)
+                        operation = 'invoke'
+                    reply = _invoke_observed(identity, token, role, operation, call)
                 except Exception:
                     body = b'{"error":"scoped_call_held"}'
                     status = 409

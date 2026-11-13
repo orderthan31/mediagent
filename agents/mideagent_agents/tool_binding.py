@@ -15,7 +15,9 @@ def invoke(agent, task, identity, execute, *, index=0):
     def bound(source):
         return registered(source)
     tool = standard_tools('agent:'+agent.registration['id'], {identity: bound})[0]
-    result = tool.invoke({'source': source})
+    from mideagent_agents.tool_events import invoke_observed
+    result = invoke_observed(tool, source, task_id=task['task_id'],
+                             role=agent.registration['role'], identity=identity, index=index)
     schema = tool.get_input_schema().model_json_schema()
     sha = hashlib.sha256(json.dumps(schema, sort_keys=True).encode()).hexdigest()
     with agent.state.connect() as db:

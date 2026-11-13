@@ -41,18 +41,63 @@ class PoolHost:
   mount={'Type':'bind','Source':self.config['engine_status_root'].rstrip('/')+'/'+item['id'],'Target':'/run/pool-status','ReadOnly':False}
   body['HostConfig'].setdefault('Mounts',[]).append(mount)
   return body
+ def archive_progress(self,item,folder,destination):
+  # Only typed sidecars from this role's private instance directory are trusted.
+  # Stdout JSONL bodies are deliberately never consulted for plan metadata.
+  import os
+  from video_service.postgres.task_logs import read_recorded_plan,_plan_directory
+  directory=None
+  try:
+   directory=_plan_directory(destination)
+   for path in folder.glob('*.progress.json'):
+    task_id=path.name.removesuffix('.progress.json')
+    row=read_recorded_plan(task_id,item.get('role'),root=folder)
+    if row is None:continue
+    temporary='.'+uuid.uuid4().hex+'.progress.tmp'
+    try:
+     fd=os.open(temporary,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o644,dir_fd=directory)
+     with os.fdopen(fd,'wb')as stream:stream.write(json.dumps(row,separators=(',',':')).encode('utf8'))
+     # First recorded plan wins; never follow/overwrite an existing target.
+     os.link(temporary,task_id+'.progress.json',src_dir_fd=directory,dst_dir_fd=directory,follow_symlinks=False)
+    except OSError:pass
+    finally:
+     try:os.unlink(temporary,dir_fd=directory)
+     except OSError:pass
+  except (OSError,ValueError,TypeError):pass
+  finally:
+   if directory is not None:os.close(directory)
  def archive_console(self,item):
+  import os,stat
+  from video_service import task_console
   from video_service.task_console import read_console
+  from video_service.postgres.task_logs import _plan_directory
   folder=self.root/item['id']/'console';destination=self.root/'console'
-  if not folder.exists():return
-  destination.mkdir(exist_ok=True)
+  try:
+   # Reject directory symlinks as well as individual sidecar symlinks.
+   fd=_plan_directory(folder);os.close(fd)
+   destination.mkdir(exist_ok=True)
+   fd=_plan_directory(destination);os.close(fd)
+  except OSError:return
+  self.archive_progress(item,folder,destination)
   for path in folder.glob('*.jsonl'):
    if path.is_symlink():continue
-   try:records=read_console(path.stem,root=folder)
-   except ValueError:continue
-   if not records['lines']:continue
-   raw=''.join(json.dumps({'task_id':path.stem,**line},ensure_ascii=False)+'\n'for line in records['lines'])
-   temp=destination/(path.stem+'.tmp');temp.write_text(raw);temp.replace(destination/(path.stem+'.jsonl'))
+   try:
+    if item.get('role') in {'transcription','translation','vocalization'}:
+     # Private archival is a bounded byte copy, not a public projection. Preserve
+     # collector provenance AND unmarked historical bodies without minting trust
+     # or rewriting their spelling. TaskLogs independently withholds old bodies.
+     task_console._identity(path.stem)
+     source=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
+     with os.fdopen(source,'rb')as stream:
+      if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):continue
+      raw=stream.read(task_console._LIMIT)
+    else:
+     records=read_console(path.stem,root=folder)
+     if not records['lines']:continue
+     raw=''.join(json.dumps({'task_id':path.stem,**line},ensure_ascii=False)+'\n'for line in records['lines']).encode('utf8')
+   except (OSError,ValueError):continue
+   if not raw:continue
+   temp=destination/(path.stem+'.tmp');temp.write_bytes(raw);temp.replace(destination/(path.stem+'.jsonl'))
  def observe(self,item):
   try:actual=self.inspect(item)
   except Exception:

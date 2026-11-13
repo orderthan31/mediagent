@@ -1,6 +1,26 @@
 .task-result-tabs {
   min-width: 0;
 }
+.task-chunk-progress {
+  padding: 12px 0;
+  border-bottom: 1px solid #e4e4e7;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.task-chunk-progress h3 {
+  font-size: 1rem;
+  margin: 0 0 8px;
+}
+.task-chunk-progress progress {
+  display: block;
+  width: 100%;
+  height: 10px;
+  margin-top: 10px;
+  accent-color: var(--color-primary, #4f46e5);
+}
+.task-chunk-progress p {
+  margin: 8px 0 0;
+}
 .task-result-tablist {
   display: flex;
   gap: 4px;
@@ -63,6 +83,38 @@
 .task-log-list [data-level='error'] p {
   color: #b45309;
 }
+.task-log-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  font-weight: 600;
+}
+.task-log-issues {
+  padding: 12px 0;
+  border-block: 1px solid #d4d4d8;
+}
+.task-log-issues ul {
+  margin: 8px 0 0;
+  padding-left: 20px;
+}
+.task-log-issues li {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.task-log-issues [data-level='warning'] {
+  color: #92400e;
+}
+.task-log-issues [data-level='error'],
+.task-log-list [data-level='error'] p {
+  color: #b91c1c;
+}
+.task-log-latest {
+  overflow-wrap: anywhere;
+}
+.task-console-heading {
+  font-size: 1rem;
+  margin: 16px 0 8px;
+}
 @media (max-width: 640px) {
   .task-result-tab-panel {
     max-height: 55dvh;
@@ -70,6 +122,8 @@
 }
 
 .task-console-text {
+  max-height: 320px;
+  overflow: auto;
   margin: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
