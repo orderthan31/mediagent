@@ -47,6 +47,7 @@ export const ModelRegistryPage = ({
 }) => {
   const [addingConnection, setAddingConnection] = useState(false);
   const [models, setModels] = useState<RegisteredModel[]>([]);
+  const [includeInactive, setIncludeInactive] = useState(false);
   const [connections, setConnections] = useState<ServingConnection[]>([]);
   const [connectionId, setConnectionId] = useState('');
   const [connectionRevision, setConnectionRevision] = useState(0);
@@ -259,12 +260,13 @@ export const ModelRegistryPage = ({
   const shown = models.filter(
     (row) =>
       (!identity || row.id === identity) &&
+      (identity || includeInactive || row.active !== false) &&
       (identity ||
         row.versions[String(row.current_revision)].name
           .toLocaleLowerCase()
           .includes(query.toLocaleLowerCase())),
   );
-  const page = usePagination(shown, query);
+  const page = usePagination(shown, JSON.stringify([query, includeInactive]));
   useEffect(() => {
     if (!addingConnection) {
       return;
@@ -436,11 +438,13 @@ export const ModelRegistryPage = ({
                       }}
                     >
                       <option value="">연결 선택</option>
-                      {connections.map((row) => (
-                        <option key={row.id} value={row.id}>
-                          {row.name}
-                        </option>
-                      ))}
+                      {connections
+                        .filter((row) => row.active !== false || row.id === original?.connection_id)
+                        .map((row) => (
+                          <option key={row.id} value={row.id}>
+                            {row.name}
+                          </option>
+                        ))}
                     </select>
                   ) : (
                     <select
@@ -626,6 +630,17 @@ export const ModelRegistryPage = ({
       )}
       {!form && !identity && (
         <>
+          <label className="serving-check serving-list-filter">
+            <input
+              type="checkbox"
+              checked={includeInactive}
+              onChange={(event) => {
+                page.onPage(1);
+                setIncludeInactive(event.target.checked);
+              }}
+            />
+            사용 중지 포함
+          </label>
           <section className="ui02-list" aria-label="등록 모델">
             {loading && !listConfirmed ? (
               <LoadingSkeleton layout="list" label="모델 목록 불러오는 중" />

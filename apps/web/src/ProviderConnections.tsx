@@ -34,6 +34,7 @@ export const ProviderConnections = ({
   onSaved?: (connection: ServingConnection) => void;
 }) => {
   const [rows, setRows] = useState<ServingConnection[]>([]);
+  const [includeInactive, setIncludeInactive] = useState(false);
   const [providers, setProviders] = useState<Record<string, string>>({});
   const [name, setName] = useState('');
   const [provider, setProvider] = useState('openai');
@@ -48,12 +49,14 @@ export const ProviderConnections = ({
   const identity = route.match(/^#\/serving\/connections\/([a-f0-9]{32})(?:\/edit)?$/)?.[1];
   const form = route.endsWith('/edit') || route === '#/serving/connections/new';
   const selected = rows.find((row) => row.id === identity);
-  const shown = rows.filter((row) =>
-    `${row.name} ${providers[row.provider] || row.provider}`
-      .toLocaleLowerCase()
-      .includes(query.toLocaleLowerCase()),
+  const shown = rows.filter(
+    (row) =>
+      (includeInactive || row.active !== false) &&
+      `${row.name} ${providers[row.provider] || row.provider}`
+        .toLocaleLowerCase()
+        .includes(query.toLocaleLowerCase()),
   );
-  const page = usePagination(shown, query);
+  const page = usePagination(shown, JSON.stringify([query, includeInactive]));
   const save = async () => {
     if (!provider || busy) {
       return;
@@ -168,6 +171,19 @@ export const ProviderConnections = ({
             : '공급자'}
       </PageTitle>
       {!form && !identity && <ServingTabs connections />}
+      {!form && !identity && (
+        <label className="serving-check serving-list-filter">
+          <input
+            type="checkbox"
+            checked={includeInactive}
+            onChange={(event) => {
+              page.onPage(1);
+              setIncludeInactive(event.target.checked);
+            }}
+          />
+          사용 중지 포함
+        </label>
+      )}
       {error && (
         <p className="alert" role="alert">
           {error}

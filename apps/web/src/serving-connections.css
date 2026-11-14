@@ -17,6 +17,21 @@
   border-color: var(--g-action);
   font-weight: 600;
 }
+.ui02-workspace .serving-page .serving-list-filter {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--m-space-8);
+  min-height: 44px;
+}
+.ui02-workspace .serving-list-filter input[type='checkbox'] {
+  flex: 0 0 16px;
+  width: 16px;
+  min-width: 16px;
+  height: 16px;
+  min-height: 16px;
+  margin: 0;
+}
 .connection-form {
   max-width: 620px;
 }
