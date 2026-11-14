@@ -251,6 +251,7 @@ def classify(provider, item, protocol, *, catalog_items=None):
             "openai_compatible",
             "gemini",
             "anthropic",
+            "vertex_ai",
         ):
             runtime.append("translation")
         if supports_transcription(profile, protocol, model):
@@ -356,8 +357,21 @@ def _rows(value, field, *, optional=False):
     return rows
 
 
-def fetch_catalog(provider, secret, *, transport=None):
-    protocol, endpoint = FRONTIER_CONNECTIONS[provider]
+def fetch_catalog(provider, secret, *, transport=None, approved_origins=frozenset()):
+    if provider == 'vertex_ai':
+        if transport is None or not {'https://aiplatform.googleapis.com', 'https://oauth2.googleapis.com'} <= set(approved_origins):
+            raise CatalogFailure('model_catalog_origin_denied')
+        from mideagent_model_tools.vertex_auth import acquire_token
+        class Borrowed(httpx.BaseTransport):
+            def handle_request(self, request):
+                return transport.handle_request(request)
+        try:
+            secret = acquire_token(secret, transport=Borrowed(), approved_origins=approved_origins, timeout=30)
+        except Exception:
+            raise CatalogFailure('Vertex catalog authentication failed') from None
+        protocol, endpoint = 'vertex_ai', 'https://aiplatform.googleapis.com/v1beta1/publishers/google'
+    else:
+        protocol, endpoint = FRONTIER_CONNECTIONS[provider]
     headers = (
         {"x-goog-api-key": secret}
         if provider == "gemini"
@@ -380,16 +394,18 @@ def fetch_catalog(provider, secret, *, transport=None):
         for _ in range(10):
             params = (
                 {"pageSize": 100, **({"pageToken": cursor} if cursor else {})}
-                if provider == "gemini"
+                if provider in {"gemini", "vertex_ai"}
                 else {"limit": 100, **({"after_id": cursor} if cursor else {})}
                 if provider == "anthropic"
                 else None
             )
+            if provider == 'vertex_ai':
+                params['listAllVersions'] = 'true'
             value = _get(client, endpoint + path, secret, deadline, params=params)
             page = _rows(
                 value,
-                "models" if provider == "gemini" else "data",
-                optional=provider == "gemini",
+                "publisherModels" if provider == 'vertex_ai' else "models" if provider == "gemini" else "data",
+                optional=provider in {"gemini", "vertex_ai"},
             )
             for row in page:
                 if not isinstance(row, dict):
@@ -409,10 +425,16 @@ def fetch_catalog(provider, secret, *, transport=None):
                     if not isinstance(name, str) or not name.startswith("models/"):
                         raise CatalogFailure("model_catalog_invalid_model_id")
                     row = {**row, "id": name[7:]}
+                if provider == 'vertex_ai':
+                    name = row.get('name')
+                    prefix = 'publishers/google/models/'
+                    if not isinstance(name, str) or not name.startswith(prefix) or '/' in name[len(prefix):]:
+                        raise CatalogFailure('model_catalog_invalid_model_id')
+                    row = {'id': name[len(prefix):]}
                 rows.append(row)
             if len(rows) > 1000:
                 raise CatalogFailure("model_catalog_model_limit")
-            if provider == "gemini":
+            if provider in {"gemini", "vertex_ai"}:
                 next_cursor = value.get("nextPageToken")
                 if next_cursor is not None and not isinstance(next_cursor, str):
                     raise CatalogFailure("model_catalog_invalid_pagination")
@@ -486,10 +508,15 @@ def fetch_catalog(provider, secret, *, transport=None):
 
 
 class ModelCatalog:
-    def __init__(self, registry, credentials, *, transport=None):
+    def __init__(
+        self, registry, credentials, *, transport=None,
+        approved_origins=frozenset(), vertex_transport_factory=None,
+    ):
         self.registry = registry
         self.credentials = credentials
         self.transport = transport
+        self.vertex_transport_factory = vertex_transport_factory
+        self.approved_origins = approved_origins or getattr(getattr(transport, 'policy', None), 'approved_origins', frozenset())
 
     def query(self, owner, connection_id, revision):
         resource_id(owner)
@@ -498,18 +525,36 @@ class ModelCatalog:
             parent, row = self.registry._connection(db, owner, connection_id)
         if not parent["active"] or row["revision"] != revision:
             raise Conflict("공급자 연결이 변경됐습니다. 최신 연결을 다시 선택하세요.")
-        if row["provider"] not in FRONTIER_CONNECTIONS:
+        if row["provider"] not in FRONTIER_CONNECTIONS and row['provider'] != 'vertex_ai':
             raise CatalogFailure(
                 "Custom 연결은 수동 모델 등록을 유지합니다. 임의 주소로 키를 전송하지 않습니다."
             )
-        if (row["protocol"], row["endpoint"]) != FRONTIER_CONNECTIONS[row["provider"]]:
+        if row['provider'] == 'vertex_ai':
+            from .vertex_config import vertex_endpoint
+            expected = ('vertex_ai', vertex_endpoint(row.get('vertex_project'), row.get('vertex_location')))
+        else:
+            expected = FRONTIER_CONNECTIONS[row['provider']]
+        if (row["protocol"], row["endpoint"]) != expected:
             raise CatalogFailure(
                 "기존 별도 주소를 보존했습니다. 공식 조회에는 새 공식 공급자 연결을 등록하세요."
             )
         if not row["credential_ref"]:
             raise CatalogFailure("공급자 연결에 저장된 API 키가 없습니다.")
         secret = self.credentials.resolve(owner, connection_id, row["credential_ref"])
-        models = fetch_catalog(row["provider"], secret, transport=self.transport)
+        transport, approved_origins = self.transport, self.approved_origins
+        if (
+            row["provider"] == "vertex_ai"
+            and transport is None
+            and self.vertex_transport_factory is not None
+        ):
+            transport = self.vertex_transport_factory()
+            approved_origins = getattr(
+                getattr(transport, "policy", None), "approved_origins", frozenset()
+            )
+        models = fetch_catalog(
+            row["provider"], secret, transport=transport,
+            approved_origins=approved_origins,
+        )
         del secret
         with self.registry.database.connection() as db:
             latest, current = self.registry._connection(db, owner, connection_id)

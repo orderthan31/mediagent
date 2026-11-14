@@ -12,6 +12,7 @@ from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from ..model_endpoints import canonical_hash
+from ..vertex_config import parse_service_account, vertex_metadata
 from . import Conflict, Missing
 from .registry import Registry, resource_id
 
@@ -38,12 +39,6 @@ class CredentialStore:
     def save(self, owner, connection_id, *, revision, secret):
         resource_id(owner)
         resource_id(connection_id)
-        if secret is not None and (
-            not isinstance(secret, str)
-            or not 1 <= len(secret) <= 4096
-            or any(ord(c) < 32 or ord(c) > 126 for c in secret)
-        ):
-            raise ValueError("invalid_credential")
         registry = Registry(self.database)
         with self.database.connection() as db:
             actor = db.execute(
@@ -59,6 +54,12 @@ class CredentialStore:
             parent, row = registry._connection(db, owner, connection_id)
             if parent["state_revision"] != revision:
                 raise Conflict("connection_revision_conflict")
+            if secret is not None:
+                if row["provider"] == "vertex_ai":
+                    parse_service_account(secret)
+                elif (not isinstance(secret, str) or not 1 <= len(secret) <= 4096
+                      or any(ord(c) < 32 or ord(c) > 126 for c in secret)):
+                    raise ValueError("invalid_credential")
             ref = None
             if secret is not None:
                 identity = uuid4().hex
@@ -78,9 +79,10 @@ class CredentialStore:
                     (owner, connection_id),
                 )
             data = {k: row[k] for k in ("name", "provider", "protocol", "endpoint")}
+            data.update(vertex_metadata(row))
             data["credential_ref"] = ref
             db.execute(
-                "INSERT INTO connection_revisions(owner_id,connection_id,revision,name,provider,protocol,endpoint,credential_ref,sha256) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                "INSERT INTO connection_revisions(owner_id,connection_id,revision,name,provider,protocol,endpoint,credential_ref,sha256,vertex_project,vertex_location) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                 (
                     owner,
                     connection_id,
@@ -91,6 +93,8 @@ class CredentialStore:
                     row["endpoint"],
                     ref,
                     canonical_hash(data),
+                    data.get("vertex_project"),
+                    data.get("vertex_location"),
                 ),
             )
             db.execute(
@@ -129,7 +133,7 @@ class CredentialStore:
             raise ValueError("invalid_model_revision")
         with self.database.connection() as db:
             row = db.execute(
-                "SELECT mr.*,cr.endpoint,cr.protocol,cr.provider,cr.credential_ref FROM model_revisions mr JOIN registered_models m ON m.owner_id=mr.owner_id AND m.id=mr.model_id JOIN serving_connections c ON c.owner_id=mr.owner_id AND c.id=mr.connection_id JOIN connection_revisions cr ON cr.owner_id=mr.owner_id AND cr.connection_id=mr.connection_id AND cr.revision=mr.connection_revision WHERE mr.owner_id=%s AND mr.model_id=%s AND mr.revision=%s AND m.active AND c.active AND EXISTS (SELECT 1 FROM accounts a WHERE a.id=mr.owner_id AND a.active AND a.role='admin')",
+                "SELECT mr.*,cr.endpoint,cr.protocol,cr.provider,cr.credential_ref,cr.vertex_project,cr.vertex_location FROM model_revisions mr JOIN registered_models m ON m.owner_id=mr.owner_id AND m.id=mr.model_id JOIN serving_connections c ON c.owner_id=mr.owner_id AND c.id=mr.connection_id JOIN connection_revisions cr ON cr.owner_id=mr.owner_id AND cr.connection_id=mr.connection_id AND cr.revision=mr.connection_revision WHERE mr.owner_id=%s AND mr.model_id=%s AND mr.revision=%s AND m.active AND c.active AND EXISTS (SELECT 1 FROM accounts a WHERE a.id=mr.owner_id AND a.active AND a.role='admin')",
                 (owner, model_id, revision),
             ).fetchone()
         if not row:

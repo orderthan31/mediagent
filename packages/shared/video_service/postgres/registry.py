@@ -15,6 +15,7 @@ from ..model_profile import (
     supports_vocalization,
     validate_profile,
 )
+from ..vertex_config import vertex_metadata
 from . import Conflict, Missing
 
 
@@ -85,7 +86,7 @@ class Registry:
             "provider": row["provider"],
             "protocol": row["protocol"],
             "address_mode": "official"
-            if official
+            if official or row["provider"] == "vertex_ai"
             else "legacy_preserved"
             if named
             else "custom",
@@ -99,6 +100,7 @@ class Registry:
             else "not_set",
             "sha256": row["sha256"],
             "connection_verified": False,
+            **vertex_metadata(row),
         }
 
     def connections(self, owner):
@@ -119,7 +121,7 @@ class Registry:
             )
 
     def save_connection(
-        self, owner, identity, *, revision, name, provider, protocol=None, endpoint=None
+        self, owner, identity, *, revision, name, provider, protocol=None, endpoint=None, vertex_project=None, vertex_location=None
     ):
         resource_id(identity)
         text(name, 80)
@@ -129,7 +131,7 @@ class Registry:
                 self._connection(db, owner, identity)[1] if parent["revision"] else None
             )
             protocol, endpoint = connection_contract(
-                provider, protocol, endpoint, previous=previous
+                provider, protocol, endpoint, previous=previous, vertex_project=vertex_project, vertex_location=vertex_location
             )
             config = {
                 "name": name,
@@ -137,6 +139,7 @@ class Registry:
                 "protocol": protocol,
                 "endpoint": endpoint,
             }
+            config.update(vertex_metadata({**config, "vertex_project": vertex_project, "vertex_location": vertex_location}))
             reference = (
                 previous["credential_ref"]
                 if previous
@@ -153,7 +156,7 @@ class Registry:
             config["credential_ref"] = reference
             next_revision = parent["revision"] + 1
             db.execute(
-                "INSERT INTO connection_revisions(owner_id,connection_id,revision,name,provider,protocol,endpoint,credential_ref,sha256) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                "INSERT INTO connection_revisions(owner_id,connection_id,revision,name,provider,protocol,endpoint,credential_ref,sha256,vertex_project,vertex_location) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                 (
                     owner,
                     identity,
@@ -164,6 +167,8 @@ class Registry:
                     endpoint,
                     reference,
                     canonical_hash(config),
+                    config.get("vertex_project"),
+                    config.get("vertex_location"),
                 ),
             )
             db.execute(
@@ -190,7 +195,7 @@ class Registry:
                 "capabilities": sorted(CAPABILITIES),
                 "verified": False,
                 "adapter_capabilities": ["text_generation"]
-                if row["protocol"] in ("openai", "openai_compatible", "gemini", "anthropic")
+                if row["protocol"] in ("openai", "openai_compatible", "gemini", "anthropic", "vertex_ai")
                 else [],
                 "reason": "등록 가능한 메타데이터입니다. 모델 능력·실제 연결은 확인하지 않았습니다.",
             }
@@ -227,7 +232,7 @@ class Registry:
                 if supports_transcription(row, row["protocol"], row["remote_model"])
                 else None,
                 "translation_supported": row["protocol"]
-                in ("openai", "openai_compatible", "gemini", "anthropic")
+                in ("openai", "openai_compatible", "gemini", "anthropic", "vertex_ai")
                 and "text_generation" in row["capabilities"],
                 "connection_id": row["connection_id"],
                 "connection_revision": row["connection_revision"],
@@ -298,7 +303,7 @@ class Registry:
             if not connection["active"]:
                 raise Conflict("사용 중지된 공급자 연결입니다.")
             parent = self._lock(db, "registered_models", owner, identity, revision)
-            if config["provider"] in FRONTIER_CONNECTIONS:
+            if config["provider"] in FRONTIER_CONNECTIONS or config["provider"] == "vertex_ai":
                 if catalog_binding is not None:
                     if (
                         connection["revision"] != config["revision"]

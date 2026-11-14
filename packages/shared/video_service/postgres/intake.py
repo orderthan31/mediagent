@@ -664,7 +664,7 @@ class Intake:
                 continue
             model_id = resource_id(ref["model_id"])
             row = db.execute(
-                "SELECT mr.*,m.active AS model_active,c.active AS connection_active,cr.endpoint,cr.protocol,cr.provider,cr.credential_ref FROM model_revisions mr JOIN registered_models m ON m.owner_id=mr.owner_id AND m.id=mr.model_id JOIN serving_connections c ON c.owner_id=mr.owner_id AND c.id=mr.connection_id JOIN connection_revisions cr ON cr.owner_id=mr.owner_id AND cr.connection_id=mr.connection_id AND cr.revision=mr.connection_revision WHERE mr.owner_id=%s AND mr.model_id=%s AND mr.revision=%s FOR SHARE OF m,c",
+                "SELECT mr.*,m.active AS model_active,c.active AS connection_active,cr.endpoint,cr.protocol,cr.provider,cr.credential_ref,cr.vertex_project,cr.vertex_location FROM model_revisions mr JOIN registered_models m ON m.owner_id=mr.owner_id AND m.id=mr.model_id JOIN serving_connections c ON c.owner_id=mr.owner_id AND c.id=mr.connection_id JOIN connection_revisions cr ON cr.owner_id=mr.owner_id AND cr.connection_id=mr.connection_id AND cr.revision=mr.connection_revision WHERE mr.owner_id=%s AND mr.model_id=%s AND mr.revision=%s FOR SHARE OF m,c",
                 (owner, model_id, ref["revision"]),
             ).fetchone()
             if not row:
@@ -689,6 +689,8 @@ class Intake:
                     "capabilities",
                 )
             }
+            from ..vertex_config import vertex_metadata
+            bindings[node["id"]].update(vertex_metadata(row))
             if sdk and node.get("type") in {"transcribe", "translate", "transcription_agent", "translation_agent"}:
                 from ..llm_contract import freeze_inference
                 bindings[node["id"]]["provider"] = row["provider"]

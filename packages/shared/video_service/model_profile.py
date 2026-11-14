@@ -121,7 +121,8 @@ def supports_transcription(profile, protocol, model):
         supports_role(profile, "transcription")
         and isinstance(model, str)
         and 1 <= len(model) <= 200
-        and protocol in {"gemini", "openai", "openai_compatible"}
+        and protocol in {"gemini", "openai", "openai_compatible", "vertex_ai"}
+        and (protocol != "vertex_ai" or {"text_generation", "structured_output"} <= set(profile.get("capabilities", [])))
     )
 
 

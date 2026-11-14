@@ -9,7 +9,7 @@ import math
 
 from .model_profile import supports_role
 
-SDK_PROTOCOLS = {"openai": "openai", "openai_compatible": "openai", "gemini": "gemini", "anthropic": "anthropic"}
+SDK_PROTOCOLS = {"openai": "openai", "openai_compatible": "openai", "gemini": "gemini", "anthropic": "anthropic", "vertex_ai": "vertex_ai"}
 ROLES = {"transcribe": "transcription", "transcription_agent": "transcription", "translate": "translation", "translation_agent": "translation", "vocalize": "vocalization"}
 
 
@@ -61,6 +61,8 @@ def freeze_inference(row, role, raw_options=""):
         operation = options.get("audio_api") or ("structured_audio" if {"text_generation", "structured_output"} <= set(row["capabilities"]) else "audio_transcription")
         if operation == "structured_audio" and "structured_output" not in row["capabilities"]:
             raise ValueError("음성 JSON 전사에는 구조화 응답 기능이 필요합니다.")
+        if protocol == "vertex_ai" and operation != "structured_audio":
+            raise ValueError("vertex_audio_requires_structured_audio")
         if protocol == "anthropic":
             raise ValueError("현재 SDK의 이 공급자 경로는 음성 입력·시간 정보 전사를 지원하지 않습니다.")
     elif role == "translation":
@@ -70,7 +72,8 @@ def freeze_inference(row, role, raw_options=""):
     else:
         raise ValueError("이 업무의 SDK 호출 계약은 아직 연결되지 않았습니다.")
     validate_operation_options(operation, options)
-    return {"version": 1, "adapter": "litellm", "provider": SDK_PROTOCOLS[protocol], "connection_provider": row.get("provider", protocol), "model": model,
+    from .vertex_config import vertex_metadata
+    return {**vertex_metadata(row), "version": 1, "adapter": "litellm", "provider": SDK_PROTOCOLS[protocol], "connection_provider": row.get("provider", protocol), "model": model,
             "model_id": row["model_id"], "revision": row["revision"], "role": role, "operation": operation, "options": deepcopy(options)}
 
 

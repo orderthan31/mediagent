@@ -10,6 +10,8 @@ export type ServingConnection = {
   revision: number;
   current_revision?: number;
   protocol?: string;
+  vertex_project?: string | null;
+  vertex_location?: string | null;
   address_mode?: 'official' | 'legacy_preserved' | 'custom';
   active?: boolean;
   credential: 'not_set' | 'reference_set';
@@ -24,9 +26,10 @@ export const connectionDefaults: Record<string, { endpoint: string; protocol: st
   },
   anthropic: { endpoint: 'https://api.anthropic.com', protocol: 'anthropic' },
   xai: { endpoint: 'https://api.x.ai/v1', protocol: 'openai' },
+  vertex_ai: { endpoint: '', protocol: 'vertex_ai' },
 };
 export const isFrontierProvider = (provider: string) =>
-  ['openai', 'gemini', 'anthropic', 'xai'].includes(provider);
+  ['openai', 'gemini', 'anthropic', 'xai', 'vertex_ai'].includes(provider);
 export const seedConnections = (): ServingConnection[] => [
   {
     id: '00000000000000000000000000000385',

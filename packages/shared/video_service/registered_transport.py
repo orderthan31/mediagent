@@ -140,20 +140,32 @@ class RegisteredPolicy:
     def transport(self):
         return PinnedModelTransport(self)
 
+    def vertex_catalog_transport(self):
+        return PinnedModelTransport(self, vertex_catalog=True)
+
 
 class PinnedModelTransport(httpx.BaseTransport):
-    def __init__(self, policy):
+    def __init__(self, policy, *, vertex_catalog=False):
         self.policy = policy
+        self.vertex_catalog = vertex_catalog
 
     def handle_request(self, request):
         key = origin_key(request.url)
         addresses = dict(self.policy.targets).get(key)
+        catalog_get = (self.vertex_catalog and request.method == 'GET'
+            and key == ('https', 'aiplatform.googleapis.com', 443)
+            and request.url.path == '/v1beta1/publishers/google/models'
+            and set(request.url.params) <= {'pageSize', 'listAllVersions', 'pageToken'}
+            and request.url.params.get('pageSize') == '100'
+            and request.url.params.get('listAllVersions') == 'true'
+            and len(request.url.params.multi_items()) == len(set(request.url.params))
+            and all(len(v) <= 2048 and not any(ord(c) < 32 for c in v) for _, v in request.url.params.multi_items()))
         if (
             not addresses
-            or request.method != "POST"
+            or (request.method != "POST" and not catalog_get)
             or request.url.username
             or request.url.password
-            or request.url.query
+            or (request.url.query and not catalog_get)
             or request.url.fragment
             or request.headers.get("host") != request.url.netloc.decode("ascii")
         ):
@@ -192,7 +204,7 @@ class PinnedModelTransport(httpx.BaseTransport):
             }
             headers.update({"Accept-Encoding": "identity", "Connection": "close"})
             connection.request(
-                "POST", request.url.raw_path.decode("ascii"), bytes(body), headers
+                request.method, request.url.raw_path.decode("ascii"), bytes(body), headers
             )
             response = connection.getresponse()
             if response.getheader("Content-Encoding", "identity").lower() != "identity":
@@ -232,6 +244,10 @@ class WithNonpaidPolicy:
 
     def transport(self):
         return _CombinedTransport(self)
+
+    def vertex_catalog_transport(self):
+        # Catalog access must not inherit the additional internal TLS origins.
+        return self.base.vertex_catalog_transport()
 
 
 class _CombinedTransport(httpx.BaseTransport):

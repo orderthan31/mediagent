@@ -20,14 +20,15 @@ def model_info(provider, model):
     data = capability_map()
     for key in (provider + "/" + model, model):
         info = data.get(key)
-        if isinstance(info, dict) and info.get("litellm_provider") == provider:
+        namespaces = {provider, 'vertex_ai-language-models'} if provider == 'vertex_ai' else {provider}
+        if isinstance(info, dict) and info.get("litellm_provider") in namespaces:
             return info
     return None
 
 
 def sdk_profile(provider, model):
     info = model_info(provider, model)
-    if not info or info.get("mode") not in {"chat", "completion", "audio_transcription"}:
+    if not info or info.get("mode") not in ({"chat", "completion"} if provider == 'vertex_ai' else {"chat", "completion", "audio_transcription"}):
         return None
     source = info.get("source")
     evidence = ["https://github.com/BerriAI/litellm/blob/v1.106.6/model_prices_and_context_window.json"]
@@ -43,7 +44,8 @@ def sdk_profile(provider, model):
         if info.get("supports_response_schema"):
             features.append("structured_output")
         profile = {"model_types": types, "input_modalities": inputs, "output_modalities": ["text"], "capabilities": features}
-        if info.get("supports_audio_input") and info.get("supports_response_schema"):
+        audio_input = info.get("supports_audio_input") is True or (provider == 'vertex_ai' and isinstance(info.get('supported_modalities'), list) and 'audio' in info['supported_modalities'])
+        if audio_input and info.get("supports_response_schema"):
             variant = {"model_types": sorted(set(types + ["multimodal"])), "input_modalities": sorted(set(inputs + ["audio"])),
                        "output_modalities": ["text"], "capabilities": sorted(set(features + ["speech_recognition"]))}
             audio_evidence = evidence + (["https://ai.google.dev/gemini-api/docs/generate-content/audio"] if provider == "gemini" else [])

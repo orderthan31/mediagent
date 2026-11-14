@@ -64,6 +64,7 @@ class _GuardedTransport(httpx.BaseTransport):
         self.inner, self.expected, self.key = inner, httpx.URL(endpoint + path), key
         self.model = model
         self.options, self.schema = options, None
+        self.vertex = '/publishers/google/models/' in self.expected.path
         self.calls, self.failure, self.lock = 0, None, Lock()
 
     def _fail(self, message, code="request_rejected", *, capacity_exceeded=False):
@@ -108,6 +109,8 @@ class _GuardedTransport(httpx.BaseTransport):
                         self._fail("선택 모델의 전사 temperature 옵션을 SDK가 보존하지 못했습니다.", "unavailable")
             if self.schema is not None:
                 self._validate_schema_and_options(json.loads(content))
+            if self.vertex and (request.headers.get('authorization') != 'Bearer ' + self.key or any(request.headers.get(k) for k in ('x-api-key', 'x-goog-api-key', 'x-goog-user-project'))):
+                self._fail("Vertex 요청별 인증 헤더를 확인하세요.")
             request.extensions["mideagent_timeout_seconds"] = self.options.get("timeout", 60)
             self.calls += 1
         request.headers["accept-encoding"] = "identity"
@@ -127,7 +130,7 @@ class _GuardedTransport(httpx.BaseTransport):
         except httpx.HTTPError as error:
             definite = isinstance(error, (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout))
             failure = EndpointFailure("모델 서버 연결 실패 · 자동 재시도하지 않습니다." if definite else "모델 서버 통신 결과 불명 · 자동 재시도하지 않습니다.", code="connection_failed" if definite else "outcome_unknown")
-            failure.upstream_detail = redact(type(error).__name__ + ": " + str(error), (self.key,))
+            failure.upstream_detail = "Vertex transport failed" if self.vertex else redact(type(error).__name__ + ": " + str(error), (self.key,))
             self.failure = failure
             raise failure from None
         try:
@@ -147,7 +150,7 @@ class _GuardedTransport(httpx.BaseTransport):
                 code = "rate_limited" if status == 429 else "upstream_failure" if status >= 500 else "authentication_failed" if status in (401, 403) else "request_rejected"
                 failure = EndpointFailure("모델 서버 요청 실패 · 자동 재시도하지 않습니다.", code=code)
                 failure.http_status = status
-                failure.upstream_detail = redact(body.decode("utf8", errors="replace"), (self.key,))
+                failure.upstream_detail = "Vertex request failed" if self.vertex else redact(body.decode("utf8", errors="replace"), (self.key,))
                 self.failure = failure
                 raise failure
             try:
@@ -166,6 +169,35 @@ class _GuardedTransport(httpx.BaseTransport):
                         stack.extend((v, depth + 1) for v in item)
             except (ValueError, TypeError, RecursionError, UnicodeError):
                 self._fail("모델 응답 구조·인증정보 검증에 실패했습니다.", "invalid_response")
+            if self.vertex:
+                # Bound and type-check before SDK serializers can warn with raw
+                # provider values; only the implemented text response enters SDK.
+                try:
+                    candidates = value['candidates']
+                    if not isinstance(candidates, list) or len(candidates) != 1:
+                        raise ValueError()
+                    candidate = candidates[0]
+                    parts = candidate['content']['parts']
+                    if candidate.get('finishReason') != 'STOP' or not isinstance(parts, list) or not 1 <= len(parts) <= 100:
+                        raise ValueError()
+                    clean_parts = []
+                    for part in parts:
+                        if not isinstance(part, dict) or not isinstance(part.get('text'), str) or type(part.get('thought', False)) is not bool:
+                            raise ValueError()
+                        clean_parts.append({'text': part['text'], **({'thought': True} if part.get('thought') else {})})
+                    usage = value.get('usageMetadata', {})
+                    if not isinstance(usage, dict):
+                        raise ValueError()
+                    counts = {}
+                    for key in ('promptTokenCount', 'candidatesTokenCount', 'totalTokenCount', 'thoughtsTokenCount', 'cachedContentTokenCount'):
+                        if key in usage:
+                            if type(usage[key]) is not int or usage[key] < 0:
+                                raise ValueError()
+                            counts[key] = usage[key]
+                    value = {'candidates': [{'content': {'role': 'model', 'parts': clean_parts}, 'finishReason': 'STOP', 'index': 0}], 'usageMetadata': counts}
+                    body = json.dumps(value, allow_nan=False).encode()
+                except (ValueError, TypeError, KeyError):
+                    self._fail('Vertex 구조화 응답 형식 오류', 'invalid_response')
             return httpx.Response(response.status_code, headers=response.headers, content=bytes(body), extensions=response.extensions)
         finally:
             response.close()
@@ -234,10 +266,17 @@ class LiteLLMAdapter:
         url = urlsplit(self.endpoint)
         if f"{url.scheme}://{url.netloc}" not in approved_origins or transport is None or protocol not in SDK_PROTOCOLS:
             raise ValueError("승인된 공급자 transport와 origin이 필요합니다.")
-        if api_key is not None and (not isinstance(api_key, str) or not 1 <= len(api_key) <= 4096 or any(ord(c) < 32 for c in api_key)):
+        if protocol != 'vertex_ai' and api_key is not None and (not isinstance(api_key, str) or not 1 <= len(api_key) <= 4096 or any(ord(c) < 32 for c in api_key)):
             raise ValueError("인증정보 형식 오류")
         if not isinstance(contract, dict) or contract.get("version") != 1 or contract.get("adapter") != "litellm" or contract.get("provider") != SDK_PROTOCOLS[protocol]:
             raise ValueError("고정된 SDK 호출 계약을 확인하세요.")
+        if protocol == 'vertex_ai':
+            from video_service.vertex_config import parse_service_account, vertex_endpoint
+            parse_service_account(api_key)
+            if self.endpoint != vertex_endpoint(contract.get('vertex_project'), contract.get('vertex_location')) or 'https://oauth2.googleapis.com' not in approved_origins:
+                raise ValueError('승인된 Vertex 프로젝트·위치·OAuth origin이 필요합니다.')
+        self._auth_transport, self._approved_origins = transport, approved_origins
+        self._invocation_lock, self._invoked = Lock(), False
         self.contract = deepcopy(contract)
         self.options = parse_options(json.dumps(contract["options"], allow_nan=False))
         self.protocol, self._key, self.model = protocol, api_key, contract["model"]
@@ -252,7 +291,7 @@ class LiteLLMAdapter:
                 raise ValueError("이 공급자의 시간 정보 전사 API는 연결되지 않았습니다.")
             path = "/interactions" if protocol == "gemini" else "/audio/transcriptions"
         else:
-            path = "/models/" + self.model + ":generateContent" if protocol == "gemini" else "/v1/messages" if protocol == "anthropic" else "/chat/completions"
+            path = "/models/" + self.model + ":generateContent" if protocol in {"gemini", "vertex_ai"} else "/v1/messages" if protocol == "anthropic" else "/chat/completions"
         self._guard = _GuardedTransport(transport, self.endpoint, path, api_key, self.model, self.options)
         self._client = httpx.Client(transport=self._guard, trust_env=False, follow_redirects=False, timeout=self.options.get("timeout", 60))
 
@@ -273,10 +312,31 @@ class LiteLLMAdapter:
         args = dict(model=model, custom_llm_provider=self.contract["provider"], api_base=self.endpoint, api_key=self._key or "mideagent-keyless", client=client,
                     max_retries=0, num_retries=0, caching=False, cache={"no-cache": True, "no-store": True}, timeout=self._client.timeout,
                     **{"no-log": True}, **options)
+        if self.protocol == 'vertex_ai':
+            from .vertex_auth import acquire_token
+            # Client ownership stays with this adapter; OAuth's short-lived client
+            # must not close the shared pinned transport before inference.
+            class Borrowed(httpx.BaseTransport):
+                def handle_request(_, request):
+                    return self._auth_transport.handle_request(request)
+            token = acquire_token(self._key, transport=Borrowed(), approved_origins=self._approved_origins, timeout=self.options.get('timeout', 60))
+            self._guard.key = token
+            args.update(api_key=token, vertex_project=self.contract['vertex_project'], vertex_location=self.contract['vertex_location'])
         return sdk, args
+
+    def _completion(self, sdk, args, **kwargs):
+        if self.protocol == 'vertex_ai':
+            from .vertex_driver import completion
+            return completion(sdk, args, **kwargs)
+        return sdk.completion(**args, **kwargs)
 
     def _run(self, model, invoke):
         try:
+            if self.protocol == 'vertex_ai':
+                with self._invocation_lock:
+                    if self._invoked:
+                        raise EndpointFailure('Vertex 자동 재호출을 차단했습니다.', code='outcome_unknown')
+                    self._invoked = True
             sdk, args = self._arguments(model)
             return invoke(sdk, args)
         except EndpointFailure:
@@ -289,7 +349,7 @@ class LiteLLMAdapter:
 
     def _schema(self, name, schema):
         strict = True
-        if self.protocol == "gemini" and self.operation == "structured_audio":
+        if self.protocol in {"gemini", "vertex_ai"} and self.operation == "structured_audio":
             # The bounded strict nested audio schema was rejected by the live
             # provider. Keep required fields/types on the wire and enforce
             # counts, text, timestamps and the envelope locally as before.
@@ -329,9 +389,11 @@ class LiteLLMAdapter:
         def send(sdk, args):
             self._guard.schema = schema
             args.setdefault("max_tokens", 4096)
-            result = self._object_response(sdk.completion(**args, messages=outgoing, response_format=self._schema("translation", schema), stream=False))
+            result = self._object_response(self._completion(sdk, args, messages=outgoing, response_format=self._schema("translation", schema), stream=False))
             if set(result) != {"translations"} or not isinstance(result["translations"], list) or any(not isinstance(x, str) for x in result["translations"]):
                 raise EndpointFailure("번역 JSON 배열 응답 형식 오류")
+            if self.protocol == 'vertex_ai' and (len(result['translations']) > 100 or any(len(x) > 16000 for x in result['translations'])):
+                raise EndpointFailure('번역 JSON 배열 응답 크기 초과', code='invalid_response')
             return json.dumps(result["translations"], ensure_ascii=False, allow_nan=False)
         return self._run(model, send)
 
@@ -348,7 +410,7 @@ class LiteLLMAdapter:
             def send(sdk, args):
                 self._guard.schema = schema
                 args.setdefault("max_tokens", 4096)
-                value = self._object_response(sdk.completion(**args, messages=messages, response_format=self._schema("timed_audio", schema), stream=False))
+                value = self._object_response(self._completion(sdk, args, messages=messages, response_format=self._schema("timed_audio", schema), stream=False))
                 if set(value) != {"segments"}:
                     raise EndpointFailure("시간 정보 전사 JSON 형식 오류")
                 return value["segments"]

@@ -79,6 +79,10 @@ def runtime_components(
             config["registered_broker_config_file"]
         )
         factory.registered_policy_sha256 = policy.sha256
+        # Bind lazily: catalog requests, not startup, own the transport.
+        factory.vertex_catalog_transport_factory = getattr(
+            policy, "vertex_catalog_transport", None
+        )
         for role, runtime_type in (
             ("translation", TranslationRuntime),
             ("transcription", TranscriptionRuntime),

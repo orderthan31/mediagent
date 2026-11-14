@@ -13,10 +13,11 @@ from ..model_endpoints import EndpointFailure, GeminiTextAdapter, OpenAITextAdap
 from ..model_profile import supports_role
 from ..transcript_input import parse_segments
 from ..translation_languages import languages
+from ..vertex_config import vertex_metadata
 from . import Missing
 from .credentials import CredentialUnavailable
 
-PROTOCOLS = frozenset({"gemini", "openai", "openai_compatible", "anthropic"})
+PROTOCOLS = frozenset({"gemini", "openai", "openai_compatible", "anthropic", "vertex_ai"})
 ADVANCE = frozenset(
     {"rate_limited", "upstream_failure", "invalid_response", "unavailable"}
 )
@@ -147,6 +148,8 @@ class TranslationRuntime:
             )
             if (
                 any(row[k] != pin[k] for k in PIN_FIELDS)
+                or vertex_metadata(row) != vertex_metadata(pin)
+                or row["protocol"] == "vertex_ai" and "inference" not in pin
                 or not supports_role(row, self.role)
                 or row["protocol"] not in PROTOCOLS
             ):

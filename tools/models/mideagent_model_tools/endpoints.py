@@ -13,7 +13,7 @@ from urllib.parse import urlsplit
 import httpx
 
 PROVIDERS = {'openai_compatible': 'Custom OpenAI-compatible · 로컬/사설', 'openai': 'OpenAI',
-             'gemini': 'Google Gemini', 'anthropic': 'Anthropic Claude', 'xai': 'Grok (xAI)'}
+             'vertex_ai': 'Google Vertex AI', 'gemini': 'Google Gemini', 'anthropic': 'Anthropic Claude', 'xai': 'Grok (xAI)'}
 FRONTIER_CONNECTIONS = {
     'openai': ('openai', 'https://api.openai.com/v1'),
     'gemini': ('gemini', 'https://generativelanguage.googleapis.com/v1beta'),
@@ -22,7 +22,7 @@ FRONTIER_CONNECTIONS = {
 }
 # Implemented adapter capabilities, not a model-name heuristic or a live probe.
 PROTOCOL_USES = {'openai_compatible': ['translation', 'transcription'], 'openai': ['translation', 'transcription'],
-                 'gemini': ['translation', 'transcription'], 'anthropic': ['translation']}
+                 'vertex_ai': ['translation', 'transcription'], 'gemini': ['translation', 'transcription'], 'anthropic': ['translation']}
 
 
 def validate_endpoint(value):
@@ -62,8 +62,16 @@ def canonical_hash(value):
                                      separators=(',', ':'), allow_nan=False).encode()).hexdigest()
 
 
-def connection_contract(provider, protocol=None, endpoint=None, *, previous=None):
+def connection_contract(provider, protocol=None, endpoint=None, *, previous=None, vertex_project=None, vertex_location=None):
     """Pin new named connections server-side; never rewrite a stored legacy tuple."""
+    if provider == 'vertex_ai':
+        from video_service.vertex_config import vertex_endpoint
+        fixed = vertex_endpoint(vertex_project, vertex_location)
+        if protocol not in (None, 'vertex_ai') or endpoint not in (None, fixed):
+            raise ValueError('invalid_vertex_configuration')
+        return 'vertex_ai', fixed
+    if vertex_project is not None or vertex_location is not None or protocol == 'vertex_ai':
+        raise ValueError('invalid_vertex_configuration')
     if provider not in PROVIDERS:
         raise ValueError('지원하는 공급자를 선택하세요.')
     if previous and previous['provider'] == provider and (

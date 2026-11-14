@@ -38,6 +38,8 @@ class Connection(Body):
     provider: str = Field(min_length=1, max_length=80)
     protocol: str | None = Field(default=None, min_length=1, max_length=80)
     endpoint: str | None = Field(default=None, min_length=1, max_length=2048)
+    vertex_project: str | None = Field(default=None, min_length=6, max_length=30)
+    vertex_location: str | None = Field(default=None, min_length=1, max_length=63)
 
 
 class ProviderCredential(Body):
@@ -319,6 +321,9 @@ def create_app(
         lifespan=lifespan,
     )
     app.state.agent_fleet = fleet
+    app.state.vertex_catalog_transport_factory = getattr(
+        broker_factory, "vertex_catalog_transport_factory", None
+    )
     app.add_middleware(
         TrustedHostMiddleware,
         allowed_hosts=list({urlsplit(value).hostname for value in origins}),
@@ -611,6 +616,7 @@ def create_app(
             registry,
             credential_store,
             transport=getattr(app.state, "model_catalog_transport", None),
+            vertex_transport_factory=app.state.vertex_catalog_transport_factory,
         ).query(value["user"]["id"], identity, body.connection_revision)
 
     @app.post("/api/settings/registered-models/compatibility")

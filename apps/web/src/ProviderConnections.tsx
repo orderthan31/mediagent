@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { PageTitle } from './PageTitle';
 import { LoadingSkeleton } from './LoadingSkeleton';
 import { Pagination, usePagination } from './Pagination';
@@ -46,6 +46,75 @@ export const ProviderConnections = ({
   const [createdIdentity, setCreatedIdentity] = useState('');
   const [busy, setBusy] = useState('load');
   const [error, setError] = useState('');
+  const [vertexProject, setVertexProject] = useState('');
+  const [vertexLocation, setVertexLocation] = useState('global');
+  const [pendingFileRead, setPendingFileRead] = useState(false);
+  const owner = useRef(0);
+  const fileGeneration = useRef(0);
+  const pendingRead = useRef(false);
+  const saving = useRef(false);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const resetCredential = () => {
+    fileGeneration.current++;
+    pendingRead.current = false;
+    setPendingFileRead(false);
+    setSecret('');
+    setRemoveSecret(false);
+    if (fileInput.current) {
+      fileInput.current.value = '';
+    }
+  };
+  const readCredential = async (file?: File) => {
+    const visit = owner.current;
+    const generation = ++fileGeneration.current;
+    const owns = () => owner.current === visit && fileGeneration.current === generation;
+    setSecret('');
+    setRemoveSecret(false);
+    setError('');
+    pendingRead.current = !!file;
+    setPendingFileRead(!!file);
+    try {
+      if (!file) {
+        return;
+      }
+      if (file.size > 32768) {
+        throw new Error();
+      }
+      const text = await file.text();
+      if (!owns()) {
+        return;
+      }
+      if (new TextEncoder().encode(text).length > 32768) {
+        throw new Error();
+      }
+      const value = JSON.parse(text);
+      if (
+        !value ||
+        typeof value !== 'object' ||
+        Array.isArray(value) ||
+        value.type !== 'service_account' ||
+        !['project_id', 'client_email', 'private_key'].every(
+          (key) => typeof value[key] === 'string' && value[key].trim(),
+        ) ||
+        value.token_uri !== 'https://oauth2.googleapis.com/token'
+      ) {
+        throw new Error();
+      }
+      setSecret(text);
+    } catch {
+      if (owns()) {
+        setError('서비스 계정 JSON 파일을 확인하세요. 최대 32768 UTF-8 바이트입니다.');
+      }
+    } finally {
+      if (owns()) {
+        pendingRead.current = false;
+        setPendingFileRead(false);
+        if (fileInput.current) {
+          fileInput.current.value = '';
+        }
+      }
+    }
+  };
   const identity = route.match(/^#\/serving\/connections\/([a-f0-9]{32})(?:\/edit)?$/)?.[1];
   const form = route.endsWith('/edit') || route === '#/serving/connections/new';
   const selected = rows.find((row) => row.id === identity);
@@ -58,9 +127,12 @@ export const ProviderConnections = ({
   );
   const page = usePagination(shown, JSON.stringify([query, includeInactive]));
   const save = async () => {
-    if (!provider || busy) {
+    if (!provider || busy || saving.current || pendingRead.current) {
       return;
     }
+    saving.current = true;
+    const visit = owner.current;
+    const owns = () => owner.current === visit;
     setBusy('save');
     setError('');
     try {
@@ -75,49 +147,76 @@ export const ProviderConnections = ({
             ? { endpoint: endpoint.trim() }
             : {}),
           revision,
+          ...(provider === 'vertex_ai'
+            ? { vertex_project: vertexProject.trim(), vertex_location: vertexLocation.trim() }
+            : {}),
           ...(renewalBackend && !isFrontierProvider(provider) ? { protocol } : {}),
         }),
       });
+      if (!owns()) {
+        return;
+      }
       setRevision(saved.revision);
       setCreatedIdentity(id);
       if (renewalBackend && (secret || removeSecret)) {
         try {
-          await request<ServingConnection>(connectionsEndpoint + '/' + id + '/credential', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              revision: saved.revision,
-              secret: removeSecret ? null : secret,
-            }),
-          });
+          const credential = await request<ServingConnection>(
+            connectionsEndpoint + '/' + id + '/credential',
+            {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                revision: saved.revision,
+                secret: removeSecret ? null : secret,
+              }),
+            },
+          );
+          if (!owns()) {
+            return;
+          }
+          setRevision(credential.revision);
         } catch {
           throw new Error(
-            '공급자 정보는 저장했지만 API 키는 저장하지 못했습니다. 최신 공급자에서 다시 시도하세요.',
+            '공급자 정보는 저장했지만 인증 정보는 저장하지 못했습니다. 저장된 공급자에서 인증 정보를 다시 선택하거나 지운 뒤 저장하세요.',
           );
         }
       }
-      setSecret('');
+      if (!owns()) {
+        return;
+      }
+      resetCredential();
       if (onSaved) {
         const list = await request<{ connections: ServingConnection[] }>(connectionsEndpoint);
         const current = list.connections.find((item) => item.id === id);
         if (!current) {
           throw new Error('저장한 공급자를 다시 읽지 못했습니다.');
         }
-        await onSaved(current);
+        if (owns()) {
+          await onSaved(current);
+        }
       } else {
         location.hash = '/serving/connections/' + id;
       }
     } catch (value) {
-      setError(value instanceof Error ? value.message : '저장하지 못했습니다.');
+      if (owns()) {
+        setError(value instanceof Error ? value.message : '저장하지 못했습니다.');
+      }
     } finally {
-      setBusy('');
+      if (owns()) {
+        saving.current = false;
+        setBusy('');
+      }
     }
   };
   useEffect(() => {
+    owner.current++;
+    saving.current = false;
+    resetCredential();
+    setError('');
     setBusy('load');
     setCreatedIdentity('');
-    setSecret('');
-    setRemoveSecret(false);
+    setVertexProject('');
+    setVertexLocation('global');
     if (!identity) {
       setName('');
       setEndpoint('');
@@ -146,6 +245,8 @@ export const ProviderConnections = ({
           setProtocol(selected.protocol || 'openai_compatible');
           setEndpoint(selected.endpoint);
           setRevision(selected.revision);
+          setVertexProject(selected.vertex_project || '');
+          setVertexLocation(selected.vertex_location || 'global');
         }
       })
       .catch((value) => {
@@ -158,7 +259,11 @@ export const ProviderConnections = ({
           setBusy('');
         }
       });
-    return () => controller.abort();
+    return () => {
+      controller.abort();
+      owner.current++;
+      fileGeneration.current++;
+    };
   }, [identity, route]);
   return (
     <main className="serving-page">
@@ -214,9 +319,15 @@ export const ProviderConnections = ({
             <label>
               공급자
               <select
+                aria-label="공급자"
                 value={provider}
                 onChange={(event) => {
                   const next = event.target.value;
+                  owner.current++;
+                  resetCredential();
+                  setError('');
+                  setVertexProject('');
+                  setVertexLocation('global');
                   setProvider(next);
                   if (renewalBackend) {
                     const defaults = connectionDefaults[next];
@@ -269,29 +380,85 @@ export const ProviderConnections = ({
                   : '공식 주소·인증 방식은 서버에서 지정합니다. URL 입력은 필요 없습니다.'}
               </p>
             )}
-            <label>
-              API 키
-              <Input
-                type="password"
-                disabled={!renewalBackend || removeSecret}
-                value={secret}
-                maxLength={4096}
-                onChange={(event) => setSecret(event.target.value)}
-                placeholder={
-                  renewalBackend
-                    ? identity
-                      ? '변경할 때만 새 API 키 입력'
-                      : '공급자에서 발급받은 API 키 입력'
-                    : '목업 · 입력 불가'
-                }
-                autoComplete="off"
-              />
-            </label>
-            {renewalBackend && identity && (
+            {renewalBackend && provider === 'vertex_ai' && (
+              <>
+                <label>
+                  프로젝트 ID
+                  <Input
+                    required
+                    value={vertexProject}
+                    maxLength={128}
+                    onChange={(event) => setVertexProject(event.target.value)}
+                  />
+                </label>
+                <label>
+                  리전
+                  <Input
+                    required
+                    value={vertexLocation}
+                    maxLength={64}
+                    placeholder="global 또는 us-central1"
+                    onChange={(event) => setVertexLocation(event.target.value)}
+                  />
+                </label>
+                <label>
+                  서비스 계정 JSON 파일
+                  <input
+                    ref={fileInput}
+                    type="file"
+                    disabled={removeSecret}
+                    onChange={(event) => {
+                      void readCredential(event.target.files?.[0]);
+                    }}
+                  />
+                </label>
+                <p role="status">
+                  {pendingFileRead
+                    ? 'JSON 파일 읽는 중'
+                    : secret
+                      ? 'JSON 파일 선택됨 · 저장 전'
+                      : '변경할 때만 JSON 파일을 선택하세요.'}
+                </p>
+                <Button
+                  type="button"
+                  style={{ minHeight: 44 }}
+                  disabled={pendingFileRead}
+                  onClick={resetCredential}
+                >
+                  선택 지우기
+                </Button>
+                <p>
+                  서비스 계정 JSON만 지원합니다. 파일 형식은 로컬에서 확인하며 클라우드 인증 확인은
+                  하지 않습니다. 키 검증은 저장 시 서버에서 수행합니다.
+                </p>
+              </>
+            )}
+            {provider !== 'vertex_ai' && (
+              <label>
+                API 키
+                <Input
+                  type="password"
+                  disabled={!renewalBackend || removeSecret}
+                  value={secret}
+                  maxLength={4096}
+                  onChange={(event) => setSecret(event.target.value)}
+                  placeholder={
+                    renewalBackend
+                      ? identity
+                        ? '변경할 때만 새 API 키 입력'
+                        : '공급자에서 발급받은 API 키 입력'
+                      : '목업 · 입력 불가'
+                  }
+                  autoComplete="off"
+                />
+              </label>
+            )}
+            {renewalBackend && (identity || createdIdentity) && (
               <label>
                 <input
                   type="checkbox"
                   checked={removeSecret}
+                  disabled={pendingFileRead}
                   onChange={(event) => {
                     setRemoveSecret(event.target.checked);
                     setSecret('');
@@ -305,7 +472,8 @@ export const ProviderConnections = ({
           <div className="page-actions">
             <Button
               type="submit"
-              disabled={!provider || !!busy || (!!identity && revision === 0)}
+              style={renewalBackend && provider === 'vertex_ai' ? { minHeight: 44 } : undefined}
+              disabled={!provider || !!busy || pendingFileRead || (!!identity && revision === 0)}
               loading={busy === 'save'}
             >
               저장
@@ -329,6 +497,18 @@ export const ProviderConnections = ({
                   <dt>API 프로토콜</dt>
                   <dd>{selected.protocol || '미설정'}</dd>
                 </div>
+              )}
+              {selected.provider === 'vertex_ai' && (
+                <>
+                  <div>
+                    <dt>프로젝트 ID</dt>
+                    <dd>{selected.vertex_project}</dd>
+                  </div>
+                  <div>
+                    <dt>리전</dt>
+                    <dd>{selected.vertex_location}</dd>
+                  </div>
+                </>
               )}
               <div>
                 <dt>API 키</dt>
