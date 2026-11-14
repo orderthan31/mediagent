@@ -164,6 +164,25 @@ def mount_runtime(
     from .projection_recovery_routes import mount_projection_recoveries
 
     mount_projection_recoveries(app, runtime, owner_dependency)
+    from .unit_recovery_routes import mount_unit_recovery_routes
+
+    retry_executor = getattr(runtime, "execute_role_recovery_attempt", None)
+    if retry_executor is None and broker_factory is not None:
+        retry_executor = getattr(broker_factory, "unit_recovery_executor", None)
+
+    def continue_unit_recovery(owned, identity):
+        # Called only by the explicit recovery Continue POST, never draft save/GET.
+        if broker_factory is None:
+            return runtime.get(owned, identity)
+        from mideagent_orchestrator.controller import BrokerController
+        from mideagent_orchestrator.agent_pool import AgentPool
+
+        AgentPool(runtime).enroll(owned, identity)
+        return BrokerController(runtime, broker_factory).dispatch(owned, identity)
+
+    mount_unit_recovery_routes(app, runtime, owner_dependency,
+        executor=retry_executor, continue_job=continue_unit_recovery,
+        execution_enabled=local_execution)
     from .subtitle_track_routes import mount_subtitle_tracks
 
     mount_subtitle_tracks(app, runtime, owner_dependency)

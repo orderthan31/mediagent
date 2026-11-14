@@ -1,0 +1,79 @@
+.unit-recovery {
+  min-width: 0;
+  max-width: 100%;
+  padding: 12px;
+  border: 1px solid #94a3b8;
+  border-radius: 8px;
+  margin-block: 12px;
+  overflow-wrap: anywhere;
+}
+.unit-recovery * {
+  box-sizing: border-box;
+  min-width: 0;
+}
+.unit-recovery article,
+.unit-recovery-preview {
+  border-top: 1px solid #94a3b8;
+  padding-block: 12px;
+}
+.unit-recovery fieldset {
+  border: 0;
+  padding: 0;
+  margin: 8px 0;
+}
+.unit-recovery label {
+  display: block;
+  margin-block: 8px;
+}
+.unit-recovery select,
+.unit-recovery textarea {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  margin-top: 6px;
+  font: inherit;
+}
+.unit-recovery input[type='number'] {
+  width: 100%;
+  min-height: 44px;
+  font: inherit;
+}
+.unit-recovery .unit-recovery-row {
+  border-left: 2px solid #94a3b8;
+  padding-left: 10px;
+  margin-block: 12px;
+}
+.unit-recovery textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+.unit-recovery button,
+.unit-recovery select,
+.unit-recovery summary {
+  min-height: 44px;
+}
+.unit-recovery button {
+  max-width: 100%;
+  white-space: normal;
+  padding: 8px 12px;
+}
+.unit-recovery pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+  font-size: 12px;
+}
+.unit-recovery button:disabled,
+.unit-recovery fieldset:disabled {
+  opacity: 0.65;
+}
+.unit-recovery input[type='checkbox'] {
+  width: 20px;
+  height: 20px;
+  vertical-align: middle;
+  margin-right: 8px;
+}
+.unit-recovery :focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}

@@ -13,6 +13,8 @@ FIELDS = {
 }
 
 OPTIONAL_FIELDS = {
+    "unit_recovery_transcription_tool_config_file",
+    "unit_recovery_translation_tool_config_file",
     "vocal_role_broker_config_file",
     "vocal_role_result_config_file",
     "translation_role_broker_config_file",

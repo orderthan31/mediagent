@@ -84,15 +84,16 @@ class ToolServer(ThreadingHTTPServer):
         if not isinstance(token, str) or len(token) < 32:
             raise ValueError("scoped_tool_token_required")
 
+        allowed_routes = {route, route + "/storage-lease"}
+        if role in {"transcription", "translation"}:
+            allowed_routes.add(route + "/unit-recovery")
+
         class Handler(BaseHTTPRequestHandler):
             def log_message(self, *_args):
                 pass
 
             def do_POST(self):
-                if self.path not in {
-                    route,
-                    route + "/storage-lease",
-                } or not hmac.compare_digest(
+                if self.path not in allowed_routes or not hmac.compare_digest(
                     self.headers.get("Authorization", ""), "Bearer " + token
                 ):
                     self.send_error(403)
@@ -102,10 +103,17 @@ class ToolServer(ThreadingHTTPServer):
                     if not 0 < size <= 3 * 1024 * 1024:
                         raise ValueError()
                     payload = json.loads(self.rfile.read(size))
-                    identity=payload.get('task_id')
+                    is_recovery = self.path == route + "/unit-recovery"
+                    identity = payload.get('attempt_id' if is_recovery else 'task_id')
                     if not isinstance(identity,str) or not re.fullmatch('[a-f0-9]{32}',identity):
                         raise ValueError('invalid_task_identity')
-                    if self.path == route + "/storage-lease":
+                    if is_recovery:
+                        def call():
+                            from mideagent_model_tools.unit_recovery import UnitRecoveryToolBridge
+                            with bridge.slots:
+                                return UnitRecoveryToolBridge(bridge.roles.runtime, role).invoke(payload)
+                        operation = 'invoke'
+                    elif self.path == route + "/storage-lease":
                         def call():
                             from video_service.role_storage_leases import RoleStorageLeases
                             return RoleStorageLeases(bridge.roles, role).grant(payload)

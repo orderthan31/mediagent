@@ -1,5 +1,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode, type KeyboardEvent } from 'react';
 import { request } from './api';
+import { UnitRecoveryPanel } from './UnitRecoveryPanel';
+
 import { taskLogForRun } from './task-log-scope.mjs';
 import './task-result-tabs.css';
 
@@ -61,6 +63,9 @@ export const TaskResultTabs = ({
   initialTab = 'output',
   activeTab,
   onTabChange,
+  canManage = false,
+  unitRecoveryEnabled = false,
+  onChanged,
 }: {
   jobId: string;
   runId?: string;
@@ -70,6 +75,9 @@ export const TaskResultTabs = ({
   initialTab?: 'output' | 'logs';
   activeTab?: 'output' | 'logs';
   onTabChange?: (tab: 'output' | 'logs') => void;
+  canManage?: boolean;
+  unitRecoveryEnabled?: boolean;
+  onChanged?: () => void | Promise<void>;
 }) => {
   const [localActive, setLocalActive] = useState<'output' | 'logs'>(initialTab);
   const active = activeTab ?? localActive;
@@ -229,6 +237,14 @@ export const TaskResultTabs = ({
         ))}
       </div>
       {toolbar}
+      {unitRecoveryEnabled && runId && (
+        <UnitRecoveryPanel
+          jobId={jobId}
+          runId={runId}
+          canManage={canManage}
+          onChanged={onChanged}
+        />
+      )}
       <div
         role="tabpanel"
         id={`${prefix}-output-panel`}

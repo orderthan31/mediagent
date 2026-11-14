@@ -2313,6 +2313,12 @@ class Execution(Intake):
             "웹 전용 WebM이 준비되지 않았습니다. 원본은 다운로드할 수 있습니다."
         )
 
+    def accept_role_recovery(self, owner, identity, run_id, request_id):
+        """Adopt an explicitly approved unit resolution, never an old worker lease."""
+        from .unit_recovery import accept_role_recovery
+
+        return accept_role_recovery(self, owner, identity, run_id, request_id)
+
     def accept(self, owner, command, result):
         verified = self._preflight_cpu_inputs(owner, command["run_id"], command)
         from .face_workflow import FaceWorkflow

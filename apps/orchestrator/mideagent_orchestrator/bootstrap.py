@@ -8,6 +8,11 @@ def runtime_components(
     allow_controlled_models=False,
     enable_nonpaid=False,
 ):
+    if any(key in config for key in (
+        "unit_recovery_transcription_tool_config_file",
+        "unit_recovery_translation_tool_config_file",
+    )) and not (enable_registered and enable_broker):
+        raise ValueError("unit_recovery_requires_registered_private_transports")
     if enable_nonpaid and (
         not enable_registered or "nonpaid_model_config_file" not in config
     ):
@@ -145,4 +150,35 @@ def runtime_components(
         factory.model_role_result_stores["vocalization"] = object_store(
             config["vocal_role_result_config_file"]
         )
+    recovery_tools = {
+        role: config[key]
+        for role, key in (
+            ("transcription", "unit_recovery_transcription_tool_config_file"),
+            ("translation", "unit_recovery_translation_tool_config_file"),
+        )
+        if key in config
+    }
+    if recovery_tools:
+        if not enable_registered or factory is None:
+            raise ValueError("unit_recovery_requires_registered_private_transports")
+
+        def retry_approved_unit(attempt_id, context_sha256):
+            # Lazy: no token/CA/model/input resolution or network at startup.
+            from mideagent_orchestrator.execution import Execution
+            from video_service.postgres.unit_recovery import RoleUnitRecovery
+            from video_service.unit_recovery_transport import PrivateUnitRecoveryClient
+
+            recovery_runtime = Execution(database, store,
+                transcription_runtime=factory.transcription_runtime,
+                translation_runtime=factory.translation_runtime,
+                vocalization_runtime=factory.vocalization_runtime)
+            grant = RoleUnitRecovery(recovery_runtime).load_retry_attempt(attempt_id, context_sha256)
+            path = recovery_tools.get(grant["role"])
+            if path is None:
+                from video_service.postgres import Conflict
+                raise Conflict("unit_retry_private_role_transport_unavailable")
+            return PrivateUnitRecoveryClient(path, grant["role"])(attempt_id, context_sha256)
+
+        factory.unit_recovery_executor = retry_approved_unit
+        factory.unit_recovery_roles = frozenset(recovery_tools)
     return store, credentials, factory

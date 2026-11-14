@@ -16,6 +16,7 @@ import { JobProcessingReview } from './JobProcessingReview';
 import { ProjectionRecoveryPanel } from './ProjectionRecoveryPanel';
 import { ModelRolePanel } from './ModelRolePanel';
 import { TaskResultTabs } from './TaskResultTabs';
+import { renewalBackend } from './preview';
 import { SrtCopyAction } from './SrtCopyEditor';
 import { artifactSrtSource } from './srt-copy';
 import { SubtitleTrackReview, SubtitleOutputs } from './SubtitleTracksPanel';
@@ -581,6 +582,11 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
                         key={`${id}:${selected}`}
                         jobId={id}
                         runId={run?.id}
+                        canManage={canManage}
+                        unitRecoveryEnabled={renewalBackend}
+                        onChanged={async () => {
+                          await reload();
+                        }}
                         activeTab={resultsTab}
                         onTabChange={setResultsTab}
                         initialState={
