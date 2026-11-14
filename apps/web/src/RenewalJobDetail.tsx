@@ -6,8 +6,8 @@ import { JobFiles, outputLabel } from './JobFiles';
 import { jobStateLabel } from './job-display';
 import { languageLabel } from './language-label';
 import { frozenGoalLanguages } from './goal-languages';
-import { startSavedJob } from './job-start.mjs';
-import { useEffect, useRef, useState } from 'react';
+import { getJobStartState, startTrackedJob, subscribeJobStarts } from './job-start.mjs';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { request, mediaUrl } from './api';
 import { jsonPost } from './video-api';
 import { FullVideoPreview } from './FullVideoPreview';
@@ -186,6 +186,7 @@ const labels: Record<string, string> = {
 };
 
 export const RenewalJobDetail = ({ id }: { id: string }) => {
+  const start = useSyncExternalStore(subscribeJobStarts, () => getJobStartState(id));
   const [job, setJob] = useState<State | null>(null);
   const [catalog, setCatalog] = useState<CanvasSpec[]>([]);
   const [modelRolesEnabled, setModelRolesEnabled] = useState(false);
@@ -335,10 +336,33 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
       controller.abort();
       clearTimeout(timer);
     };
-  }, [base]);
+  }, [base, start?.pending]);
   return (
     <main className="job-detail ticket-detail job-detail-canvas">
       <PageTitle>{job ? `작업 #${job.ticket_number}` : '작업'}</PageTitle>
+      {start?.pending && (
+        <p role="status" data-start-stage={start.stage}>
+          시작 준비 중 ·{' '}
+          {
+            (
+              {
+                checking: '작업 상태 확인 중',
+                'prepare-start': '시작 설정 준비 중',
+                plan: '원본과 실행 계획 확인 중',
+                confirm: '실행 범위 승인 중',
+                admit: '실행 접수 중',
+                run: '실행 요청 응답 대기 중',
+              } as Record<string, string>
+            )[start.stage]
+          }
+          {' · 응답에 시간이 걸릴 수 있습니다. 다시 시작을 누르지 않아도 됩니다.'}
+        </p>
+      )}
+      {start?.error && (
+        <p role="alert" className="alert">
+          {start.error} · 자동으로 다시 요청하지 않습니다. 현재 작업 상태를 확인해 주세요.
+        </p>
+      )}
       {error && (
         <p role="alert" className="alert">
           {error}
@@ -363,9 +387,9 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
               {canManage && job.status === 'draft' && (
                 <Button
-                  disabled={busy}
+                  disabled={busy || start?.pending}
                   onClick={() =>
-                    void action(() => startSavedJob(request, jsonPost, id, crypto.randomUUID()))
+                    void startTrackedJob(request, jsonPost, id, crypto.randomUUID()).catch(() => {})
                   }
                 >
                   작업 시작

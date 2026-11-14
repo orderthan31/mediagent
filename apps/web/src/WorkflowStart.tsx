@@ -1,5 +1,5 @@
 import { modelCallBudgetLabel, type ModelCallBudget } from './model-call-budget';
-import { startSavedJob } from './job-start.mjs';
+import { startTrackedJob } from './job-start.mjs';
 import { frozenGoalLanguages } from './goal-languages';
 import { languageLabel } from './language-label';
 import { WorkflowInputs } from './WorkflowInputs';
@@ -106,6 +106,7 @@ export const WorkflowStart = () => {
   const [error, setError] = useState('');
   const [listError, setListError] = useState('');
   const generation = useRef(0);
+  const creating = useRef(false);
   const inspectedContext = useRef('');
   const asset = assets.find((row) => row.asset_id === assetId);
   const selectedNode = inspection?.summary.find((row) => row.id === selected);
@@ -299,9 +300,11 @@ export const WorkflowStart = () => {
     translationContexts,
   });
   const create = async () => {
-    if (busy || !plan || !translationContextValid) {
+    if (creating.current || busy || !plan || !translationContextValid) {
       return;
     }
+    creating.current = true;
+    let handedOff = false;
     setBusy(true);
     setError('');
     try {
@@ -312,11 +315,10 @@ export const WorkflowStart = () => {
         paid_confirmed: plan.paid_roles.length > 0,
       });
       if (renewalBackend) {
-        try {
-          await startSavedJob(request, jsonPost, ticket.id, requestId);
-        } finally {
-          location.hash = `/jobs/${ticket.id}`;
-        }
+        // The shared tracker owns pending/error visibility after this form unmounts.
+        void startTrackedJob(request, jsonPost, ticket.id, requestId).catch(() => {});
+        location.hash = `/jobs/${ticket.id}`;
+        handedOff = true;
       } else if (frontendOnly) {
         location.hash = `/jobs/${ticket.id}`;
       } else {
@@ -325,7 +327,10 @@ export const WorkflowStart = () => {
     } catch (e) {
       setError(e instanceof Error ? e.message : '작업을 만들지 못했습니다.');
     } finally {
-      setBusy(false);
+      if (!handedOff) {
+        creating.current = false;
+        setBusy(false);
+      }
     }
   };
   useEffect(() => {
