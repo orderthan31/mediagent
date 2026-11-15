@@ -62,8 +62,12 @@ const render = (props, component = 'JobFiles') => {
 test('real accepted SRT file has a copy-edit entry beside original viewing and download', () => {
   const html = render({ base: '/renewal/jobs/' + id, runs: [run], manifest: { entry_count: 3 } });
   assert.match(html, /자막 수정/);
-  assert.match(html, /자막 SRT 받기/);
-  assert.match(html, /파일 목록\(JSON\) 받기/);
+  assert.match(html, /자막 SRT 다운로드/);
+  assert.doesNotMatch(html, /파일 목록\(JSON\) 받기/);
+  assert.equal(
+    (html.match(new RegExp(`artifacts/${runId}/subtitles\\?download=true`, 'g')) || []).length,
+    1,
+  );
   assert.equal((html.match(/자막 수정/g) || []).length, 1);
 });
 

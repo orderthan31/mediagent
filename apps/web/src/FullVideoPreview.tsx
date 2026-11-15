@@ -24,7 +24,13 @@ const labels: Record<Preview['state'], string> = {
   held: '실행 확인 필요 · 자동 재실행 안 함',
 };
 
-export const FullVideoPreview = ({ resource }: { resource: string }) => {
+export const FullVideoPreview = ({
+  resource,
+  showDownload = true,
+}: {
+  resource: string;
+  showDownload?: boolean;
+}) => {
   const [snapshot, setSnapshot] = useState<{ resource: string; value: Preview }>();
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -148,9 +154,11 @@ export const FullVideoPreview = ({ resource }: { resource: string }) => {
             src={mediaUrl(value.download_url)}
           />
           <p>재생시간 {value.media?.duration.toFixed(1)}초</p>
-          <a href={mediaUrl(value.download_url + '?download=true')} download>
-            WebM 받기
-          </a>
+          {showDownload && (
+            <a href={mediaUrl(value.download_url + '?download=true')} download>
+              WebM 받기
+            </a>
+          )}
         </>
       )}
     </section>

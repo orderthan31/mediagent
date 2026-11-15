@@ -2,7 +2,7 @@ import { modelCallOptionLabel } from './model-call-budget';
 import { FaceWorkflowReview } from './FaceWorkflowReview';
 import { publicAgentGraph } from './job-graphs';
 import type { GoalOutput } from './GoalResults';
-import { JobFiles, outputLabel } from './JobFiles';
+import { JobFiles } from './JobFiles';
 import { jobStateLabel } from './job-display';
 import { languageLabel } from './language-label';
 import { frozenGoalLanguages } from './goal-languages';
@@ -10,20 +10,19 @@ import { getJobStartState, startTrackedJob, subscribeJobStarts } from './job-sta
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { request, mediaUrl } from './api';
 import { jsonPost } from './video-api';
-import { FullVideoPreview } from './FullVideoPreview';
 import type { ProcessingProjection } from './processing-review-state';
 import { JobProcessingReview } from './JobProcessingReview';
 import { ProjectionRecoveryPanel } from './ProjectionRecoveryPanel';
 import { ModelRolePanel } from './ModelRolePanel';
 import { TaskResultTabs } from './TaskResultTabs';
 import { renewalBackend } from './preview';
-import { SrtCopyAction } from './SrtCopyEditor';
-import { artifactSrtSource } from './srt-copy';
-import { SubtitleTrackReview, SubtitleOutputs } from './SubtitleTracksPanel';
+import { SubtitleTrackReview } from './SubtitleTracksPanel';
 import { PageTitle } from './PageTitle';
 import { LoadingSkeleton } from './LoadingSkeleton';
 import { Button } from './hangyeol/primitives/button';
-import { WorkflowCanvas, type CanvasDefinition, type CanvasSpec } from './WorkflowCanvas';
+import type { CanvasDefinition, CanvasSpec } from './WorkflowCanvas';
+import { JobExecutionFlow } from './JobExecutionFlow';
+import type { ExecutionProgressMap, ExecutionRunProgress } from './job-execution-flow';
 import { DataForm } from './DataForm';
 import type { FieldSchema, FormData } from './form-contract';
 import './job-detail.css';
@@ -60,6 +59,7 @@ type Run = {
   node_type: string;
   display_status?: string;
   display_reason?: string;
+  progress?: ExecutionRunProgress['progress'];
   status: string;
   dispatch?: { phase: string };
   options: Record<string, string>;
@@ -153,46 +153,14 @@ type State = {
   reviews: Review[];
 };
 type Plan = { token: string; ready: boolean; reasons: string[]; notice: string };
-const translationLabels: Record<string, string> = {
-  completed: '완료',
-  failed: '실패',
-  skipped: '사용 불가',
-  started: '호출 중',
-  cancelled: '취소',
-  next_candidate: '다음 후보',
-  stop: '중단',
-  exhausted: '후보 소진',
-  adopted: '최종 채택',
-  rate_limited: '요청 한도',
-  upstream_failure: '서버 오류',
-  invalid_response: '응답 형식 오류',
-  unavailable: '사용 불가',
-  outcome_unknown: '전송 결과 불명',
-  authentication_failed: '인증 거부',
-  request_rejected: '요청 거부',
-};
-const labels: Record<string, string> = {
-  held: '보류 · 응답 확인 필요',
-  draft: '실행 전',
-  waiting: '대기',
-  running: '처리 중',
-  completed: '완료',
-  failed: '실패',
-  cancelled: '취소',
-  cancelling: '취소 접수 · 진행 처리 정리 중',
-  review_required: '검수 대기',
-  skipped: '미선택',
-  blocked: '선행 실패로 차단',
-  quarantined: '늦은 결과 격리',
-};
-
 export const RenewalJobDetail = ({ id }: { id: string }) => {
   const start = useSyncExternalStore(subscribeJobStarts, () => getJobStartState(id));
   const [job, setJob] = useState<State | null>(null);
-  const [catalog, setCatalog] = useState<CanvasSpec[]>([]);
+
   const [modelRolesEnabled, setModelRolesEnabled] = useState(false);
   const [selected, setSelected] = useState('');
   const [selectedTool, setSelectedTool] = useState('');
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [, setPlan] = useState<Plan | null>(null);
   const [, setConsent] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -202,6 +170,7 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
   const [resultsTab, setResultsTab] = useState<'output' | 'logs'>('output');
   const [panelRequest, setPanelRequest] = useState(0);
   const resultsPanel = useRef<HTMLElement>(null);
+  const filesPanel = useRef<HTMLDivElement>(null);
   const processingPanel = useRef<HTMLDivElement>(null);
   const [risk, setRisk] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, FormData>>({});
@@ -265,16 +234,6 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
           ),
         }
       : review?.contract.fields;
-  const outputs = run?.status === 'completed' ? run.result?.outputs || {} : {};
-  const vocalization = run?.result?.vocalization || run?.vocalization;
-  const translation =
-    run?.result?.transcription ||
-    run?.transcription ||
-    run?.result?.translation ||
-    run?.translation;
-  const traceLabel = run?.node_type === 'transcribe' ? '전사' : '번역';
-  const url = (port: string) =>
-    mediaUrl(`${base}/artifacts/${run?.id}/${encodeURIComponent(port)}`);
   const failedSteps =
     job?.agent_workflow?.nodes.flatMap((agent) => {
       const failed = agent.tools.find(
@@ -287,14 +246,30 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
       return failed ? [{ agent, tool: failed }] : [];
     }) || [];
   const openLogs = (agentId: string, toolId: string) => {
+    setDetailsOpen(true);
     setSelected(agentId);
     setSelectedTool(toolId);
     setResultsTab('logs');
     setPanelRequest((value) => value + 1);
   };
+  const openRecovery = (agentId: string, toolId: string) => {
+    setDetailsOpen(true);
+    setSelected(agentId);
+    setSelectedTool(toolId);
+    setResultsTab('output');
+    setPanelRequest((value) => value + 1);
+  };
   useEffect(() => {
     if (panelRequest) {
       const frame = requestAnimationFrame(() => {
+        if (resultsTab === 'output') {
+          const panel = resultsPanel.current?.querySelector<HTMLElement>('.unit-recovery');
+          if (panel) {
+            panel.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true });
+            panel.scrollIntoView({ block: 'start' });
+            return;
+          }
+        }
         const tab = resultsPanel.current?.querySelector<HTMLButtonElement>(
           '[role="tab"][aria-selected="true"]',
         );
@@ -303,7 +278,7 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
       });
       return () => cancelAnimationFrame(frame);
     }
-  }, [selected, panelRequest]);
+  }, [selected, panelRequest, resultsTab]);
   useEffect(() => {
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout>;
@@ -318,7 +293,6 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
         ]);
         if (!controller.signal.aborted) {
           setJob(next);
-          setCatalog(specs.nodes);
           setModelRolesEnabled(specs.independent_model_roles === true);
           setLoadError('');
         }
@@ -409,6 +383,16 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
                   <Button variant="secondary" onClick={() => openLogs(agent.id, failed.node_id)}>
                     로그 보기
                   </Button>
+                  {renewalBackend &&
+                    canManage &&
+                    ['transcribe', 'translate'].includes(failed.role) && (
+                      <Button
+                        variant="secondary"
+                        onClick={() => openRecovery(agent.id, failed.node_id)}
+                      >
+                        구간 복구
+                      </Button>
+                    )}
                   {agent.reason && <p role="alert">{agent.reason}</p>}
                 </div>
               ))}
@@ -440,27 +424,7 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
             </p>
           )}
           {job.output_mode === 'controlled' && <strong className="output-kind">통제 출력</strong>}
-          <details className="shared-job-custody" aria-label="자료와 실행 기록">
-            <summary>자료·실행 기록</summary>
-            {!canManage && <strong>공용 읽기 전용</strong>}
-            <dl>
-              <div>
-                <dt>원본 업로더</dt>
-                <dd>{job.snapshot.asset.uploaded_by || job.asset_owner_id || '기록 없음'}</dd>
-              </div>
-              <div>
-                <dt>작업 생성·실행 계정</dt>
-                <dd>{job.executed_by || '기록 없음'}</dd>
-              </div>
-            </dl>
-          </details>
-          <JobFiles
-            base={base}
-            runs={job.runs}
-            agents={job.agent_workflow?.nodes}
-            manifest={job.artifact_manifest}
-            stale={!!loadError}
-          />
+          {!canManage && <p>읽기 전용</p>}
           {job.selected_inputs?.map((input) => (
             <p key={input.input}>
               {input.input === 'photo'
@@ -532,196 +496,78 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
               <p role="alert">워크플로우를 불러오지 못했습니다. 새로고침해 주세요.</p>
             )}
             {agentDefinition && (
-              <WorkflowCanvas
+              <JobExecutionFlow
+                executionId={job.id}
                 definition={agentDefinition}
-                catalog={catalog}
-                selectedNodeId={selected}
-                onSelect={(identity) => {
+                agents={job.agent_workflow?.nodes || []}
+                selectedNodeId={selected || undefined}
+                onSelect={(identity, source) => {
                   setSelected(identity);
                   setSelectedTool('');
                   setResultsTab('output');
+                  if (source !== 'follow') {
+                    setDetailsOpen(true);
+                    setPanelRequest((value) => value + 1);
+                  }
                 }}
+                progressByRunId={
+                  Object.fromEntries(
+                    job.runs
+                      .filter((item) => item.progress)
+                      .map((item) => [
+                        item.id,
+                        {
+                          run_id: item.id,
+                          state: item.status,
+                          display_state: item.display_status || item.status,
+                          progress: item.progress,
+                        },
+                      ]),
+                  ) as ExecutionProgressMap
+                }
                 edgeStates={job.agent_workflow?.edges || {}}
-                inputLabel={job.snapshot.asset.original_filename}
-                inputThumbnail={
-                  job.snapshot.inputs?.video?.type === 'video'
-                    ? mediaUrl('/videos/' + job.snapshot.asset.asset_id + '/thumbnail')
-                    : undefined
-                }
-                nodeStates={
-                  job.agent_workflow
-                    ? Object.fromEntries(
-                        job.agent_workflow.nodes.map((agent) => [
-                          agent.id,
-                          { state: agent.state, label: agent.status_label, reason: agent.reason },
-                        ]),
-                      )
-                    : Object.fromEntries(
-                        job.runs.map((item) => [
-                          item.node_id,
-                          {
-                            label:
-                              !item.display_status &&
-                              job.processing_review?.source_attempt_id === item.id
-                                ? '원 실행 기록 보존'
-                                : labels[item.display_status || item.status] || item.status,
-                            state:
-                              !item.display_status &&
-                              job.processing_review?.source_attempt_id === item.id
-                                ? 'review_required'
-                                : item.display_status || item.status,
-                          },
-                        ]),
-                      )
-                }
-                detailsLabel="노드 실행 결과"
                 details={
-                  selected ? (
+                  selected && detailsOpen ? (
                     <section className="execution-node-body renewal-node-results">
                       <TaskResultTabs
                         key={`${id}:${selected}`}
                         jobId={id}
                         runId={run?.id}
                         canManage={canManage}
-                        unitRecoveryEnabled={renewalBackend}
+                        unitRecoveryEnabled={
+                          renewalBackend &&
+                          ['transcribe', 'translate'].includes(tool?.role || run?.node_type || '')
+                        }
                         onChanged={async () => {
                           await reload();
                         }}
                         activeTab={resultsTab}
                         onTabChange={setResultsTab}
+                        showProgress={false}
                         initialState={
                           tool?.state || run?.display_status || run?.status || 'waiting'
                         }
                         toolbar={
                           currentAgent && (
-                            <ol className="workflow-agent-tools" aria-label="에이전트 내부 처리">
-                              {currentAgent.tools.map((item) => (
-                                <li key={item.node_id} data-state={item.state}>
-                                  <button
-                                    type="button"
-                                    aria-pressed={tool?.node_id === item.node_id}
-                                    onClick={() => setSelectedTool(item.node_id)}
-                                  >
-                                    <span>{item.label}</span>
-                                    <span>
-                                      {(
-                                        {
-                                          waiting: '대기',
-                                          preparing: '준비 중',
-                                          running: '처리 중',
-                                          completed: '완료',
-                                          failed: '오류',
-                                          cancelled: '취소됨',
-                                        } as Record<string, string>
-                                      )[item.state] || '확인 필요'}
-                                    </span>
-                                  </button>
-                                </li>
-                              ))}
-                            </ol>
+                            <label className="job-task-run-picker">
+                              실행 단계
+                              <select
+                                aria-label="실행 단계"
+                                value={tool?.node_id || ''}
+                                onChange={(event) => setSelectedTool(event.target.value)}
+                              >
+                                {currentAgent.tools.map((item) => (
+                                  <option key={item.node_id} value={item.node_id}>
+                                    {item.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
                           )
                         }
                       >
-                        {modelRolesEnabled &&
-                          currentAgent &&
-                          ['transcription_agent', 'translation_agent'].includes(
-                            currentAgent.type,
-                          ) && (
-                            <ModelRolePanel
-                              key={`${id}:${currentAgent.id}`}
-                              observationOnly
-                              roleFilter={
-                                currentAgent.type === 'transcription_agent'
-                                  ? 'transcription'
-                                  : 'translation'
-                              }
-                              jobId={id}
-                              revision={job.revision}
-                              status={job.status}
-                              canManage={false}
-                              hasRuns={job.runs.length > 0}
-                              onChanged={reload}
-                            />
-                          )}
                         {run?.display_reason && run.display_reason !== currentAgent?.reason && (
                           <p role="alert">{run.display_reason}</p>
-                        )}
-                        {!Object.keys(outputs).length && <p>아직 출력 결과가 없습니다.</p>}
-                        {Object.entries(run?.inputs || {}).map(([port, ref]) => (
-                          <section className="execution-artifact" key={port}>
-                            <h4>
-                              {ref.type === 'video'
-                                ? '입력 영상'
-                                : ref.type === 'audio'
-                                  ? '입력 음성'
-                                  : '입력 자료'}
-                            </h4>
-                            {ref.type === 'video' && (
-                              <video
-                                controls
-                                preload="metadata"
-                                style={{ maxWidth: '100%' }}
-                                src={mediaUrl(
-                                  `${base}/inputs/${run?.id}/${encodeURIComponent(port)}/preview`,
-                                )}
-                              />
-                            )}
-                            <a
-                              target="_blank"
-                              rel="noreferrer"
-                              href={mediaUrl(
-                                `${base}/inputs/${run?.id}/${encodeURIComponent(port)}`,
-                              )}
-                            >
-                              입력 자료 열기
-                            </a>
-                          </section>
-                        ))}
-                        {vocalization && (
-                          <section aria-label="보컬 판정 실행 기록">
-                            <h4>보컬 판정 실행 기록</h4>
-                            <p>
-                              기록된 호출: {vocalization.call_count ?? '확인 중'} · 완료 결과
-                              재사용: {vocalization.reused_chunks ?? '확인 중'}
-                            </p>
-                            {vocalization.held && (
-                              <p role="alert">
-                                응답 확인이 필요해 중단했습니다. 자동으로 다시 호출하지 않습니다.
-                              </p>
-                            )}
-                            {vocalization.error && (
-                              <p>{translationLabels[vocalization.error] || vocalization.error}</p>
-                            )}
-                          </section>
-                        )}
-                        {translation && (
-                          <section aria-label={`${traceLabel} 실행 기록`}>
-                            <h4>{traceLabel} 실행 기록</h4>
-                            <p>
-                              사용 모델:{' '}
-                              {translation.selected?.remote_model ||
-                                translation.model?.model_id ||
-                                '확인 기록 없음'}
-                            </p>
-                            <details>
-                              <summary>모델 호출 상세</summary>
-                              <ol>
-                                {(translation.attempts || []).map((attempt) => (
-                                  <li key={attempt.index}>
-                                    {attempt.remote_model} · {attempt.protocol} · 모델 개정{' '}
-                                    {attempt.revision} / 연결 개정 {attempt.connection_revision} ·{' '}
-                                    {translationLabels[attempt.status] || attempt.status}
-                                    {attempt.error
-                                      ? ` · ${translationLabels[attempt.error] || attempt.error}`
-                                      : ''}
-                                    {attempt.transition
-                                      ? ` · ${translationLabels[attempt.transition] || attempt.transition}`
-                                      : ''}
-                                  </li>
-                                ))}
-                              </ol>
-                            </details>
-                          </section>
                         )}
                         {run?.error_code && (
                           <p role="alert">{run.error_code} · 자동 재실행하지 않습니다.</p>
@@ -732,59 +578,16 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
                             <a href={'#/jobs/' + run.result.reused_from.job_id}>원 작업</a>의 완료
                           </p>
                         )}
-                        {Object.entries(outputs).map(([port, ref]) => (
-                          <section className="execution-artifact" key={port}>
-                            <h4>{outputLabel(port, ref.type)}</h4>
-                            {ref.type === 'video' &&
-                              run?.result?.previews?.[port]?.status === 'ready' && (
-                                <video
-                                  src={url(port) + '/preview'}
-                                  controls
-                                  preload="metadata"
-                                  style={{ maxWidth: '100%' }}
-                                />
-                              )}
-                            {ref.type === 'video' && (
-                              <FullVideoPreview
-                                resource={`${base}/artifacts/${run?.id}/${encodeURIComponent(port)}/preview/full`}
-                              />
-                            )}
-                            {ref.type === 'audio' && (
-                              <audio src={url(port)} controls preload="metadata" />
-                            )}
-                            {ref.type === 'video' ? (
-                              <>
-                                <a href={url(port) + '?download=true'} download>
-                                  작업 결과 원본 받기
-                                </a>
-                                {run?.result?.previews?.[port]?.status === 'ready' ? (
-                                  <a href={url(port) + '/preview?download=true'} download>
-                                    이전 30초 WebM 받기
-                                  </a>
-                                ) : (
-                                  <p role="status">
-                                    웹 전용 WebM 생성에 실패했습니다. 작업 결과 원본은 보존되어
-                                    있습니다.
-                                  </p>
-                                )}
-                              </>
-                            ) : (
-                              <>
-                                <a href={url(port)} target="_blank" rel="noreferrer">
-                                  파일 보기
-                                </a>
-                                <a href={url(port) + '?download=true'} download>
-                                  파일 받기
-                                </a>
-                                <SrtCopyAction source={artifactSrtSource(base, run, port)} />
-                              </>
-                            )}
-                            <details>
-                              <summary>파일 상세</summary>
-                              <p>{ref.bytes.toLocaleString()} bytes</p>
-                            </details>
-                          </section>
-                        ))}
+                        {run?.status === 'completed' && !review && (
+                          <p>
+                            <Button
+                              variant="quiet"
+                              onClick={() => filesPanel.current?.scrollIntoView({ block: 'start' })}
+                            >
+                              결과 파일로 이동
+                            </Button>
+                          </p>
+                        )}
                         {review?.contract.kind === 'subtitle_tracks_v1' && (
                           <SubtitleTrackReview
                             review={review}
@@ -926,17 +729,24 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
                           )}
                       </TaskResultTabs>
                     </section>
-                  ) : (
-                    <p>태스크를 선택하면 출력과 로그를 확인할 수 있습니다.</p>
-                  )
+                  ) : null
                 }
               />
             )}
           </section>
+          <div ref={filesPanel}>
+            <JobFiles
+              base={base}
+              runs={job.runs}
+              agents={job.agent_workflow?.nodes}
+              stale={!!loadError}
+              subtitleOutputsEnabled={
+                !!toolDefinition?.nodes.some((item) => item.type === 'subtitle_outputs')
+              }
+              revision={job.revision}
+            />
+          </div>
           {job.status === 'failed' && <ProjectionRecoveryPanel key={job.id} jobId={job.id} />}
-          {toolDefinition?.nodes.some((item) => item.type === 'subtitle_outputs') && (
-            <SubtitleOutputs jobId={job.id} revision={job.revision} />
-          )}
           {canManage && (
             <section
               className="ticket-panel"

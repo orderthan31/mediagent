@@ -121,7 +121,7 @@ export const WorkspaceChrome = ({
                   label: '새 워크플로우',
                   href: '#/workflows/new',
                 }
-            : group === 4
+            : sectionRoute === '#/serving'
               ? route.startsWith('#/serving/connections')
                 ? { label: '공급자 추가', href: '#/serving/connections/new' }
                 : { label: '모델 추가', href: '#/serving/new' }
@@ -210,18 +210,21 @@ export const WorkspaceChrome = ({
           </nav>
         </div>
         <div className="ui02-page-actions">
-          {list && group !== 5 && !accountView && (!renewalBackend || group === 4) && (
-            <div className="ui02-search">
-              <Search size={20} aria-hidden="true" />
-              <input
-                type="search"
-                aria-label={`${current.name} 검색`}
-                placeholder={`${current.name} 검색`}
-                value={query}
-                onChange={(event) => onQuery(event.target.value)}
-              />
-            </div>
-          )}
+          {list &&
+            sectionRoute !== '#/settings' &&
+            !accountView &&
+            (!renewalBackend || sectionRoute === '#/serving') && (
+              <div className="ui02-search">
+                <Search size={20} aria-hidden="true" />
+                <input
+                  type="search"
+                  aria-label={`${current.name} 검색`}
+                  placeholder={`${current.name} 검색`}
+                  value={query}
+                  onChange={(event) => onQuery(event.target.value)}
+                />
+              </div>
+            )}
           {group === 1 && list && (
             <button
               className="ui02-primary ui02-upload-primary"

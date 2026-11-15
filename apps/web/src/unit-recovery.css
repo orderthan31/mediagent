@@ -57,6 +57,18 @@
   white-space: normal;
   padding: 8px 12px;
 }
+.unit-recovery-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.unit-recovery-actions button[aria-pressed='true'] {
+  border-color: currentColor;
+  font-weight: 700;
+}
+.unit-recovery-preserved {
+  margin-top: 12px;
+}
 .unit-recovery pre {
   white-space: pre-wrap;
   overflow-wrap: anywhere;

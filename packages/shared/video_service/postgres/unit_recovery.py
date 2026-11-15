@@ -74,7 +74,7 @@ class RoleUnitRecovery:
         if not row['name']:
             raise RecoveryUnavailable('unit_recovery_migration_required')
 
-    def _facts(self, db, actor, job_id, run_id, *, manage=False):
+    def _facts(self, db, actor, job_id, run_id, *, manage=False, _manifest_loader=None):
         self._schema(db)
         job = self.runtime._shared_job(db, resource_id(job_id))
         owner = job['owner_id']
@@ -133,6 +133,15 @@ class RoleUnitRecovery:
         }
         role = task_body['role']
         ref = command['inputs']['audio' if role == 'transcription' else 'transcript']
+        context['source_sha256'] = ref['sha256']
+        manifest = (_manifest_loader(owner, ref, task_body, safe_calls, context)
+                    if _manifest_loader is not None else self._manifest(owner, ref, task_body, safe_calls))
+        if manifest and any(u['status'] in {'unknown', 'active', 'evidence_invalid'} for u in manifest['units']):
+            blocked = 'unit_recovery_evidence_unresolved'
+        return job, run, task, latest, context, manifest, blocked
+
+    def _manifest(self, owner, ref, task_body, safe_calls):
+        role = task_body['role']
         raw = self.runtime.store.read(owner, ref, limit=ref['bytes'])
         if len(raw) != ref['bytes'] or hashlib.sha256(raw).hexdigest() != ref['sha256']:
             raise Conflict('unit_recovery_source_changed')
@@ -141,13 +150,9 @@ class RoleUnitRecovery:
             raise Conflict('unit_recovery_source_binding_changed')
         source = raw if role == 'transcription' else json.loads(raw)
         try:
-            manifest = _core().build_manifest(task_body, source, safe_calls)
+            return _core().build_manifest(task_body, source, safe_calls)
         except (ValueError, TypeError, KeyError):
             raise Conflict('unit_recovery_evidence_invalid') from None
-        if any(u['status'] in {'unknown', 'active', 'evidence_invalid'} for u in manifest['units']):
-            blocked = 'unit_recovery_evidence_unresolved'
-        context['source_sha256'] = ref['sha256']
-        return job, run, task, latest, context, manifest, blocked
 
     @staticmethod
     def _attempts(db, recovery):
@@ -326,8 +331,31 @@ class RoleUnitRecovery:
                               'can_continue': ready and latest['status'] != 'applied'} if latest else None)}
 
     def inspect(self, actor, job, run):
+        # GET alone separates expensive source validation from row locks. This
+        # request-local evidence is never shared between polls/actors/instances.
+        captured = []
+
+        def capture(*inputs):
+            captured.append(deepcopy(inputs))
+            return None
+
         with self.runtime.database.connection() as db:
-            return self._view(db, actor, self._facts(db, actor, job, run))
+            facts = self._facts(db, actor, job, run, _manifest_loader=capture)
+            if not captured:  # Unsupported role/policy: no source work.
+                return self._view(db, actor, facts)
+        manifest = self._manifest(*captured[0][:4])
+
+        def validated(*inputs):
+            if inputs != captured[0]:
+                raise Conflict('unit_recovery_context_changed')
+            return manifest
+
+        # Re-read all metadata under the original locks, then freshly verify
+        # latest recovery/retained attempts. Never retry I/O or mint authority
+        # when the Root context changed while the source was being inspected.
+        with self.runtime.database.connection() as db:
+            facts = self._facts(db, actor, job, run, _manifest_loader=validated)
+            return self._view(db, actor, facts)
 
     def _preview(self, facts, body, *, reused=None):
         job, run, task, latest, context, manifest, blocked = facts

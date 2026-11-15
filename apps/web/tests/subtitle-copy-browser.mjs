@@ -3,10 +3,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { tmpdir } from 'node:os';
 import { build } from 'esbuild';
 import { chromium, expect } from '@playwright/test';
 
-const scratch = 'C:/Users/skygg/AppData/Local/hermes/cache/scratch/mediagent-5178-parity';
+const scratch = process.env.SUBTITLE_COPY_TEST_SCRATCH || tmpdir();
 const jobId = '1'.repeat(32),
   runId = '2'.repeat(32),
   otherRun = '3'.repeat(32);
@@ -302,14 +303,15 @@ test('accepted SRT copy editor downloads exact bytes and works in production CSS
       const files = page.getByRole('region', { name: '결과 파일', exact: true });
       const primary = files
         .locator('li')
-        .filter({ has: page.locator(`a[href="${primaryPath}"]`) })
+        .filter({ has: page.locator(`a[href="${primaryPath}?download=true"]`) })
         .getByRole('button', { name: '자막 수정', exact: true });
       const other = files
         .locator('li')
-        .filter({ has: page.locator(`a[href="${otherPath}"]`) })
+        .filter({ has: page.locator(`a[href="${trackPath}?download=true"]`) })
         .getByRole('button', { name: '자막 수정', exact: true });
       await expect(primary).toBeVisible();
-      await expect(files.locator(`a[href="${root}/manifest?download=true"]`)).toBeVisible();
+      await expect(files.locator(`a[href="${root}/manifest?download=true"]`)).toHaveCount(0);
+      await expect(files.locator(`a[href="${primaryPath}?download=true"]`)).toHaveCount(1);
       assert.equal(await files.getByRole('button', { name: '자막 수정', exact: true }).count(), 2);
       await primary.click();
       const editor = page.getByRole('dialog', { name: '자막 수정', exact: true });
@@ -397,23 +399,24 @@ test('accepted SRT copy editor downloads exact bytes and works in production CSS
       release();
       await expect(editor.getByRole('textbox')).toHaveValue('다른 파일 문구');
       await editor.getByRole('button', { name: '닫기', exact: true }).click();
-      const tracks = page.getByRole('region', { name: '언어별 자막 산출물' });
-      assert.equal(await tracks.getByRole('button', { name: '자막 수정', exact: true }).count(), 1);
-      await tracks.getByRole('button', { name: '자막 수정', exact: true }).click();
+      await expect(page.getByRole('region', { name: '언어별 자막 산출물' })).toHaveCount(0);
+      // The language-specific output remains in the same owner, not a second panel.
+      await other.click();
       await expect(editor).toContainText('translated.pt-BR.srt');
       await expect(editor.getByRole('textbox')).toHaveValue('다른 파일 문구');
       await editor.press('Escape');
       await expect(editor).toHaveCount(0);
-      await page.locator('[data-node-id="subtitle"] .workflow-node-heading').click();
-      const detail = page.getByRole('dialog', { name: '노드 실행 결과', exact: true });
-      await detail.getByRole('button', { name: '자막 수정', exact: true }).click();
+      await page.locator('[data-node-id="subtitle"] .job-execution-flow__select').click();
+      const detail = page.locator('.job-execution-flow__details');
+      await expect(detail.getByRole('button', { name: '자막 수정', exact: true })).toHaveCount(0);
+      await expect(detail.locator('a[download]')).toHaveCount(0);
+      await primary.click();
       await expect(first).toHaveValue(original);
       assert.ok(
         (await first.evaluate((node) => Number.parseFloat(getComputedStyle(node).fontSize))) >= 14,
       );
       await editor.press('Escape');
       await expect(editor).toHaveCount(0);
-      await expect(detail).toBeVisible();
       await page.close();
     }
     assert.deepEqual(errors, []);

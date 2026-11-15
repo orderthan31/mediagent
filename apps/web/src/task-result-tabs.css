@@ -60,60 +60,11 @@
 .task-result-tab-panel[hidden] {
   display: none;
 }
-.task-log-list {
-  padding: 0;
-  margin: 0;
-  list-style: none;
-}
-.task-log-list li {
-  padding: 12px 0;
-  border-bottom: 1px solid #e4e4e7;
-}
-.task-log-list time,
-.task-log-time {
-  font-size: 0.8rem;
-  color: #71717a;
-}
-.task-log-list p {
-  margin: 4px 0 0;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-.task-log-list [data-level='warning'] p,
-.task-log-list [data-level='error'] p {
-  color: #b45309;
-}
 .task-log-counts {
   display: flex;
   flex-wrap: wrap;
   gap: 8px 16px;
   font-weight: 600;
-}
-.task-log-issues {
-  padding: 12px 0;
-  border-block: 1px solid #d4d4d8;
-}
-.task-log-issues ul {
-  margin: 8px 0 0;
-  padding-left: 20px;
-}
-.task-log-issues li {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-.task-log-issues [data-level='warning'] {
-  color: #92400e;
-}
-.task-log-issues [data-level='error'],
-.task-log-list [data-level='error'] p {
-  color: #b91c1c;
-}
-.task-log-latest {
-  overflow-wrap: anywhere;
-}
-.task-console-heading {
-  font-size: 1rem;
-  margin: 16px 0 8px;
 }
 @media (max-width: 640px) {
   .task-result-tab-panel {
@@ -133,13 +84,6 @@
     Consolas,
     monospace;
 }
-.task-console-line {
-  display: inline;
-}
-.task-console-line[data-stream='stderr'] {
-  color: #b45309;
-}
-
 .workflow-graph-node[data-state='held'] {
   border-color: #d97706;
   background: #fffbeb;

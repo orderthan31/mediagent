@@ -234,15 +234,24 @@ test('PC and 390px production cells, failure log entry and required markers work
         } else if (mode === 'log-error') {
           await expect(panel).toContainText('최근 처리 기록을 불러오지 못했습니다.');
           assert.equal(
-            await panel.getByText('수집된 에이전트·툴 원본 로그가 없습니다.').count(),
+            await panel
+              .getByText(
+                '저장된 터미널 출력이 없습니다. 과거 출력은 이 화면에서 복원할 수 없습니다.',
+              )
+              .count(),
             0,
           );
         } else {
-          await expect(panel).toContainText('수집된 에이전트·툴 원본 로그가 없습니다.');
+          await expect(panel).toContainText(
+            '저장된 터미널 출력이 없습니다. 과거 출력은 이 화면에서 복원할 수 없습니다.',
+          );
           await page.getByRole('tab', { name: '출력', exact: true }).click();
-          await expect(page.getByRole('tabpanel', { name: '출력', exact: true })).toContainText(
+          await expect(page.getByRole('region', { name: '결과 파일', exact: true })).toContainText(
             '아직 출력 결과가 없습니다.',
           );
+          await expect(
+            page.getByRole('tabpanel', { name: '출력', exact: true }).locator('a[download]'),
+          ).toHaveCount(0);
           assert.equal(
             await page
               .locator('.renewal-node-results')

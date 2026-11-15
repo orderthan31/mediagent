@@ -361,6 +361,7 @@ class Execution(Intake):
             "translation",
             "transcription",
             "vocalization",
+            "progress",
         }
         value["runs"] = []
         for run in state.get("runs", []):

@@ -242,12 +242,16 @@ def decorate_status_in(db,job,runs):
             run['display_status']='failed'
             run['display_reason']='실행 요청 전달을 확인하지 못했습니다. 자동으로 다시 보내지 않습니다.'
     if db.execute("SELECT to_regclass('model_role_tasks') value").fetchone()['value']:
-        roles=db.execute('SELECT task_id,attempt_id,phase,held_reason FROM model_role_tasks WHERE owner_id=%s AND job_id=%s',(job['owner_id'],job['id'])).fetchall()
+        roles=db.execute("""SELECT task_id,attempt_id,phase,held_reason,
+            envelope->>'role' role,envelope->'task' task,
+            jsonb_array_length(frozen_candidates) candidate_count
+            FROM model_role_tasks WHERE owner_id=%s AND job_id=%s""",(job['owner_id'],job['id'])).fetchall()
         for role in roles:
             run=next((r for r in result if r['id']==role['attempt_id']),None)
             if run is None:continue
             calls=db.execute('SELECT chunk_index,status,error_code,created_at FROM model_role_tool_calls WHERE task_id=%s ORDER BY chunk_index',(role['task_id'],)).fetchall()
             projected=project_logs(run,role,calls)
+            run['progress']=projected['progress']
             if projected['display_state']!=run['status']:run['display_status']=projected['display_state']
             reason=next((c['error_code']for c in calls if c.get('error_code')in ERRORS),role.get('held_reason'))
             if projected['display_state']=='failed':run['display_reason']=ERRORS.get(reason,'처리 오류로 멈췄습니다.')

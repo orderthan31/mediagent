@@ -44,16 +44,6 @@ const states: Record<string, string> = {
   quarantined: '늦은 결과 보존',
 };
 
-const logTime = (at: string | null) => {
-  if (at === null) {
-    return '시각 미기록';
-  }
-  const date = new Date(at);
-  return Number.isNaN(date.getTime()) ? '시각 확인 불가' : date.toLocaleString('ko-KR');
-};
-const logLevel = (level: string) =>
-  (({ info: '정보', warning: '경고', error: '오류' }) as Record<string, string>)[level] || level;
-
 export const TaskResultTabs = ({
   jobId,
   runId,
@@ -65,6 +55,7 @@ export const TaskResultTabs = ({
   onTabChange,
   canManage = false,
   unitRecoveryEnabled = false,
+  showProgress = true,
   onChanged,
 }: {
   jobId: string;
@@ -77,6 +68,7 @@ export const TaskResultTabs = ({
   onTabChange?: (tab: 'output' | 'logs') => void;
   canManage?: boolean;
   unitRecoveryEnabled?: boolean;
+  showProgress?: boolean;
   onChanged?: () => void | Promise<void>;
 }) => {
   const [localActive, setLocalActive] = useState<'output' | 'logs'>(initialTab);
@@ -103,10 +95,14 @@ export const TaskResultTabs = ({
     finishedSegments >= 0 &&
     finishedSegments <= plannedSegments;
   const hasChunkProgress = Boolean(progress) || (visibleLogs?.total_calls ?? 0) > 0;
-  const entries = visibleLogs?.entries ?? [];
-  const issues = entries.filter((entry) => ['warning', 'error'].includes(entry.level));
-  // The API sorts timestamped events before undated responses; do not infer a live segment.
-  const latestDatedEntry = [...entries].reverse().find((entry) => entry.at !== null);
+  const consoleOutput = visibleLogs?.console;
+  // This policy exposes only safe lifecycle diagnostics/withheld markers, not
+  // original stdio. Never pass those off as terminal output or unmask bodies.
+  const privateConsole = consoleOutput?.content_policy === 'private_diagnostics_v1';
+  const terminalText =
+    !privateConsole && consoleOutput?.available
+      ? consoleOutput.lines.map((line) => line.text).join('')
+      : '';
   const pending = Boolean(runId) && (loading || completedScope !== currentScope);
   const visibleError = completedScope === currentScope ? error : '';
   const sequence = useRef(0);
@@ -174,7 +170,15 @@ export const TaskResultTabs = ({
             : states[visibleLogs?.display_state || visibleLogs?.state || initialState] ||
               '상태 확인 필요'}
       </p>
-      {hasChunkProgress && (
+      {unitRecoveryEnabled && runId && (
+        <UnitRecoveryPanel
+          jobId={jobId}
+          runId={runId}
+          canManage={canManage}
+          onChanged={onChanged}
+        />
+      )}
+      {showProgress && hasChunkProgress && (
         <section className="task-chunk-progress" aria-label="청크 진행 상태">
           <h3>청크 진행</h3>
           {progress ? (
@@ -237,14 +241,6 @@ export const TaskResultTabs = ({
         ))}
       </div>
       {toolbar}
-      {unitRecoveryEnabled && runId && (
-        <UnitRecoveryPanel
-          jobId={jobId}
-          runId={runId}
-          canManage={canManage}
-          onChanged={onChanged}
-        />
-      )}
       <div
         role="tabpanel"
         id={`${prefix}-output-panel`}
@@ -273,71 +269,28 @@ export const TaskResultTabs = ({
           <p>처리 기록을 불러오는 중입니다.</p>
         ) : (
           <>
-            {visibleLogs && (
-              <>
-                <div className="task-log-counts">
-                  <span>기록된 요청 {visibleLogs.total_calls}건</span>
-                  <span>표시된 요청 {visibleLogs.shown_calls}건</span>
-                  <span>
-                    {visibleLogs.received_responses == null
-                      ? '응답 확인 건수 미제공'
-                      : `응답 확인 ${visibleLogs.received_responses}건${progress ? '' : ' (표시된 요청 기준)'}`}
-                  </span>
-                </div>
-                <p>요청 건수는 전체 예정 구간 수나 현재 실행 중인 구간 수를 뜻하지 않습니다.</p>
-                {visibleLogs.has_more && <p>이전 요청 기록은 생략되었습니다.</p>}
-              </>
-            )}
-            {issues.length > 0 && (
-              <section className="task-log-issues" aria-label="기록된 경고 및 오류">
-                <strong>확인할 경고·오류 {issues.length}건 (표시된 기록 기준)</strong>
-                <ul>
-                  {issues.map((entry, index) => (
-                    <li data-level={entry.level} key={index}>
-                      [{logLevel(entry.level)}] {entry.message}
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )}
-            <h3 className="task-console-heading">에이전트·툴 원본 로그</h3>
-            {visibleLogs?.console?.content_policy === 'private_diagnostics_v1' && (
+            {privateConsole ? (
               <p className="task-console-policy">
-                요청·응답·인증 본문과 자유형 출력은 숨깁니다. 실제 stdout/stderr 실행 진단만
-                표시합니다.
+                이 태스크는 개인정보 보호 정책으로 원본 stdout/stderr 본문이 보존되지 않거나
+                공개되지 않습니다. 저장된 진단 이벤트를 터미널 출력으로 대신 표시하지 않습니다.
               </p>
-            )}
-            {visibleLogs?.console?.truncated && <p>콘솔 로그 표시 상한에 도달했습니다.</p>}
-            {visibleLogs?.console?.lines.length ? (
-              <pre className="task-console-text">
-                {visibleLogs.console.lines.map((line, index) => (
-                  <span className="task-console-line" data-stream={line.stream} key={index}>
-                    {`${logTime(line.at)} [${line.stream}] ${line.text}\n`}
-                  </span>
-                ))}
-              </pre>
             ) : (
-              !visibleError && <p>수집된 에이전트·툴 원본 로그가 없습니다.</p>
-            )}
-            <h3 className="task-console-heading">실행 기록 · 상태·요청 이력</h3>
-            {latestDatedEntry && (
-              <p className="task-log-latest">
-                최근 시각이 기록된 이벤트: {logTime(latestDatedEntry.at)} —{' '}
-                {latestDatedEntry.message}
-              </p>
-            )}
-            {entries.length > 0 ? (
-              <ul className="task-log-list" aria-label="처리 기록">
-                {entries.map((entry, index) => (
-                  <li data-level={entry.level} key={index}>
-                    <span className="task-log-time">{logTime(entry.at)}</span>{' '}
-                    <strong>[{logLevel(entry.level)}]</strong>
-                    <p>{entry.message}</p>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              !visibleError && <p>보존된 처리 기록이 없습니다.</p>
+              <>
+                {consoleOutput?.truncated && (
+                  <p>저장 또는 조회 상한으로 일부 터미널 출력이 생략되었습니다.</p>
+                )}
+                {terminalText ? (
+                  <pre className="task-console-text" aria-label="터미널 출력">
+                    {terminalText}
+                  </pre>
+                ) : (
+                  !visibleError && (
+                    <p>
+                      저장된 터미널 출력이 없습니다. 과거 출력은 이 화면에서 복원할 수 없습니다.
+                    </p>
+                  )
+                )}
+              </>
             )}
           </>
         )}

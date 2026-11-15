@@ -93,6 +93,17 @@ const requestId = () =>
     b.toString(16).padStart(2, '0'),
   ).join('');
 
+const UnitEvidence = ({ unit }: { unit: Unit }) => (
+  <details>
+    <summary>원본 시간 매핑 · 출처 · 시도 기록</summary>
+    <p>원본 source_ranges</p>
+    <pre>{JSON.stringify(unit.source_ranges, null, 2)}</pre>
+    <p>출처 (provenance)</p>
+    <pre>{JSON.stringify(unit.provenance, null, 2)}</pre>
+    <pre>{JSON.stringify(unit.attempts, null, 2)}</pre>
+  </details>
+);
+
 // Keyed inner scope prevents stale drafts, approvals and responses crossing runs.
 export const UnitRecoveryPanel = (props: {
   jobId: string;
@@ -517,165 +528,197 @@ const RecoveryScope = ({
             <p>공용 읽기 전용 · 작업 소유자만 변경할 수 있습니다.</p>
           )}
           {view.blocked_reason && <p>변경 차단: {view.blocked_reason}</p>}
+          {!view.recovery && <p role="status">복구 요청 전 · 처리할 구간과 방법을 선택하세요.</p>}
           {dirty && <p>저장하지 않은 변경이 있습니다. 새 미리보기와 승인 후 저장이 필요합니다.</p>}
           {pendingEvidence && (
             <p>미확인 또는 진행 중인 요청이 있습니다. 실패로 간주하거나 재시도하지 않습니다.</p>
           )}
           <p>
             {Object.entries(view.counts)
+              .filter(([key, value]) => value > 0 || key === 'succeeded')
               .map(([k, v]) => `${labels[k] || k}: ${v}`)
               .join(' · ')}
           </p>
-          {view.units.map((u) => (
-            <article key={u.index} data-unit={u.index}>
-              <h4>
-                구간 {u.index + 1} · {labels[u.status] || u.status}
-              </h4>
-              <p>
-                원본 시간:{' '}
-                {u.source_ranges.map((r) => `${r.source_start}–${r.source_end}초`).join(', ') ||
-                  '매핑 없음'}
-              </p>
-              {u.error_code && <p>오류: {u.error_code}</p>}
-              <details>
-                <summary>원본 시간 매핑 · 출처 · 시도 기록</summary>
-                <p>원본 source_ranges</p>
-                <pre>{JSON.stringify(u.source_ranges, null, 2)}</pre>
-                <p>출처 (provenance)</p>
-                <pre>{JSON.stringify(u.provenance, null, 2)}</pre>
-                <pre>{JSON.stringify(u.attempts, null, 2)}</pre>
-              </details>
-              {['failed', 'unattempted'].includes(u.status) && (
-                <fieldset disabled={locked}>
-                  <label>
-                    구간 {u.index + 1} 처리
-                    <select
-                      aria-label={`구간 ${u.index + 1} 처리`}
-                      value={drafts[u.index]?.action || ''}
-                      onChange={(e) => update(u, { action: e.target.value })}
+          {canManage && view.access.can_manage && (
+            <button
+              type="button"
+              disabled={locked || !Object.values(drafts).some((d) => d.action)}
+              onClick={() => void mutate('preview')}
+            >
+              복구 미리보기
+            </button>
+          )}
+          {view.units
+            .filter((u) => u.status !== 'succeeded')
+            .map((u) => (
+              <article key={u.index} data-unit={u.index}>
+                <h4>
+                  구간 {u.index + 1} · {labels[u.status] || u.status}
+                </h4>
+                <p>
+                  원본 시간:{' '}
+                  {u.source_ranges.map((r) => `${r.source_start}–${r.source_end}초`).join(', ') ||
+                    '매핑 없음'}
+                </p>
+                {u.error_code && <p>오류: {u.error_code}</p>}
+                <UnitEvidence unit={u} />
+                {['failed', 'unattempted'].includes(u.status) && (
+                  <fieldset disabled={locked}>
+                    <div
+                      className="unit-recovery-actions"
+                      aria-label={`구간 ${u.index + 1} 동작 선택`}
                     >
-                      <option value="">명시적으로 선택</option>
-                      {u.allowed_actions.includes('retry') && (
-                        <option value="retry">재시도 · 원래 고정 후보 1</option>
-                      )}
-                      {u.allowed_actions.includes('skip') && (
-                        <option value="skip">제외 · 출력에서 생략</option>
-                      )}
-                      {u.allowed_actions.includes('manual') && (
-                        <option value="manual">수동 입력</option>
-                      )}
-                    </select>
-                  </label>
-                  {drafts[u.index]?.action === 'skip' && (
-                    <p>
-                      이 구간은 ASR·MT 모두 출력에서 생략됩니다. 빈 번역이나 원문으로 대체하지
-                      않습니다.
-                    </p>
-                  )}
-                  {drafts[u.index]?.action === 'manual' &&
-                    (view.role === 'translation' ? (
-                      <>
-                        <p>ID·순서·시간·화자는 고정되어 있습니다. 번역 텍스트만 수정합니다.</p>
-                        {drafts[u.index].rows.map((r, i) => (
-                          <label key={i}>
-                            행 {r.id} · {r.start}–{r.end} · {r.speaker || ''}
-                            <textarea
-                              aria-label={`구간 ${u.index + 1} 행 ${r.id} 번역`}
-                              value={r.text}
-                              onChange={(e) =>
-                                update(u, {
-                                  rows: drafts[u.index].rows.map((row, j) =>
-                                    j === i ? { ...row, text: e.target.value } : row,
-                                  ),
-                                })
-                              }
-                            />
-                          </label>
+                      {(
+                        [
+                          ['retry', '재시도'],
+                          ['skip', '무시'],
+                          ['manual', '직접 입력'],
+                        ] as const
+                      )
+                        .filter(([action]) => u.allowed_actions.includes(action))
+                        .map(([action, label]) => (
+                          <button
+                            type="button"
+                            key={action}
+                            aria-label={`구간 ${u.index + 1} ${label}`}
+                            aria-pressed={drafts[u.index]?.action === action}
+                            onClick={() => update(u, { action })}
+                          >
+                            {label}
+                          </button>
                         ))}
-                      </>
-                    ) : (
-                      <>
-                        <p>
-                          청크 로컬 시계 (0초부터, 최대{' '}
-                          {u.manual_schema?.duration_seconds ?? '서버 검증'}초). 원본 시간 매핑은
-                          위에 표시됩니다.
-                        </p>
-                        {drafts[u.index].rows.map((r, i) => (
-                          <div className="unit-recovery-row" key={i}>
-                            <p>행 {i + 1}</p>
-                            {(['start', 'end'] as const).map((field) => (
-                              <label key={field}>
-                                {field === 'start' ? '시작' : '종료'} (청크 기준 초)
-                                <input
-                                  type="number"
-                                  min="0"
-                                  max={u.manual_schema?.duration_seconds}
-                                  step="any"
-                                  aria-label={`구간 ${u.index + 1} 행 ${i + 1} ${field === 'start' ? '시작' : '종료'}`}
-                                  value={Number.isFinite(r[field]) ? r[field] : ''}
-                                  onChange={(e) =>
-                                    update(u, {
-                                      rows: drafts[u.index].rows.map((row, j) =>
-                                        i === j ? { ...row, [field]: e.target.valueAsNumber } : row,
-                                      ),
-                                    })
-                                  }
-                                />
-                              </label>
-                            ))}
-                            <label>
-                              자막 텍스트
+                    </div>
+                    <p>선택만으로 실행되지 않습니다. 아래 미리보기에서 확인 후 승인하세요.</p>
+                    <label>
+                      구간 {u.index + 1} 처리
+                      <select
+                        aria-label={`구간 ${u.index + 1} 처리`}
+                        value={drafts[u.index]?.action || ''}
+                        onChange={(e) => update(u, { action: e.target.value })}
+                      >
+                        <option value="">명시적으로 선택</option>
+                        {u.allowed_actions.includes('retry') && (
+                          <option value="retry">재시도 · 원래 고정 후보 1</option>
+                        )}
+                        {u.allowed_actions.includes('skip') && (
+                          <option value="skip">제외 · 출력에서 생략</option>
+                        )}
+                        {u.allowed_actions.includes('manual') && (
+                          <option value="manual">수동 입력</option>
+                        )}
+                      </select>
+                    </label>
+                    {drafts[u.index]?.action === 'skip' && (
+                      <p>
+                        이 구간은 ASR·MT 모두 출력에서 생략됩니다. 빈 번역이나 원문으로 대체하지
+                        않습니다.
+                      </p>
+                    )}
+                    {drafts[u.index]?.action === 'manual' &&
+                      (view.role === 'translation' ? (
+                        <>
+                          <p>ID·순서·시간·화자는 고정되어 있습니다. 번역 텍스트만 수정합니다.</p>
+                          {drafts[u.index].rows.map((r, i) => (
+                            <label key={i}>
+                              행 {r.id} · {r.start}–{r.end} · {r.speaker || ''}
                               <textarea
-                                aria-label={`구간 ${u.index + 1} 행 ${i + 1} 텍스트`}
+                                aria-label={`구간 ${u.index + 1} 행 ${r.id} 번역`}
                                 value={r.text}
                                 onChange={(e) =>
                                   update(u, {
                                     rows: drafts[u.index].rows.map((row, j) =>
-                                      i === j ? { ...row, text: e.target.value } : row,
+                                      j === i ? { ...row, text: e.target.value } : row,
                                     ),
                                   })
                                 }
                               />
                             </label>
-                            <button
-                              type="button"
-                              aria-label={`구간 ${u.index + 1} 행 ${i + 1} 삭제`}
-                              onClick={() =>
-                                update(u, { rows: drafts[u.index].rows.filter((_, j) => i !== j) })
-                              }
-                            >
-                              행 삭제
-                            </button>
-                          </div>
-                        ))}
-                        <button
-                          type="button"
-                          onClick={() =>
-                            update(u, {
-                              rows: [
-                                ...drafts[u.index].rows,
-                                { start: 0, end: u.manual_schema?.duration_seconds ?? 0, text: '' },
-                              ],
-                            })
-                          }
-                        >
-                          행 추가
-                        </button>
-                      </>
-                    ))}
-                </fieldset>
-              )}
-            </article>
-          ))}
+                          ))}
+                        </>
+                      ) : (
+                        <>
+                          <p>
+                            청크 로컬 시계 (0초부터, 최대{' '}
+                            {u.manual_schema?.duration_seconds ?? '서버 검증'}초). 원본 시간 매핑은
+                            위에 표시됩니다.
+                          </p>
+                          {drafts[u.index].rows.map((r, i) => (
+                            <div className="unit-recovery-row" key={i}>
+                              <p>행 {i + 1}</p>
+                              {(['start', 'end'] as const).map((field) => (
+                                <label key={field}>
+                                  {field === 'start' ? '시작' : '종료'} (청크 기준 초)
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max={u.manual_schema?.duration_seconds}
+                                    step="any"
+                                    aria-label={`구간 ${u.index + 1} 행 ${i + 1} ${field === 'start' ? '시작' : '종료'}`}
+                                    value={Number.isFinite(r[field]) ? r[field] : ''}
+                                    onChange={(e) =>
+                                      update(u, {
+                                        rows: drafts[u.index].rows.map((row, j) =>
+                                          i === j
+                                            ? { ...row, [field]: e.target.valueAsNumber }
+                                            : row,
+                                        ),
+                                      })
+                                    }
+                                  />
+                                </label>
+                              ))}
+                              <label>
+                                자막 텍스트
+                                <textarea
+                                  aria-label={`구간 ${u.index + 1} 행 ${i + 1} 텍스트`}
+                                  value={r.text}
+                                  onChange={(e) =>
+                                    update(u, {
+                                      rows: drafts[u.index].rows.map((row, j) =>
+                                        i === j ? { ...row, text: e.target.value } : row,
+                                      ),
+                                    })
+                                  }
+                                />
+                              </label>
+                              <button
+                                type="button"
+                                aria-label={`구간 ${u.index + 1} 행 ${i + 1} 삭제`}
+                                onClick={() =>
+                                  update(u, {
+                                    rows: drafts[u.index].rows.filter((_, j) => i !== j),
+                                  })
+                                }
+                              >
+                                행 삭제
+                              </button>
+                            </div>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              update(u, {
+                                rows: [
+                                  ...drafts[u.index].rows,
+                                  {
+                                    start: 0,
+                                    end: u.manual_schema?.duration_seconds ?? 0,
+                                    text: '',
+                                  },
+                                ],
+                              })
+                            }
+                          >
+                            행 추가
+                          </button>
+                        </>
+                      ))}
+                  </fieldset>
+                )}
+              </article>
+            ))}
           {canManage && view.access.can_manage && (
             <>
-              <button
-                type="button"
-                disabled={locked || !Object.values(drafts).some((d) => d.action)}
-                onClick={() => void mutate('preview')}
-              >
-                복구 미리보기
-              </button>
               {preview && (
                 <div className="unit-recovery-preview">
                   <h4>승인 전 미리보기</h4>
@@ -738,6 +781,29 @@ const RecoveryScope = ({
                 </div>
               )}
             </>
+          )}
+          {view.units.some((u) => u.status === 'succeeded') && (
+            <details className="unit-recovery-preserved">
+              <summary>
+                성공·보존 {view.units.filter((u) => u.status === 'succeeded').length}개 구간 보기
+              </summary>
+              {view.units
+                .filter((u) => u.status === 'succeeded')
+                .map((u) => (
+                  <article key={u.index} data-unit={u.index}>
+                    <h4>
+                      구간 {u.index + 1} · {labels[u.status]}
+                    </h4>
+                    <p>
+                      원본 시간:{' '}
+                      {u.source_ranges
+                        .map((r) => `${r.source_start}–${r.source_end}초`)
+                        .join(', ') || '매핑 없음'}
+                    </p>
+                    <UnitEvidence unit={u} />
+                  </article>
+                ))}
+            </details>
           )}
         </>
       )}

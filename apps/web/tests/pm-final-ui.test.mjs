@@ -88,7 +88,7 @@ test('actual ledger cells expose filename/status and retain ticket/workflow/date
   assert.match(html, /2026-01-01T00:00:00Z/);
 });
 
-test('results distinguish empty, stale, individual files and JSON manifest', () => {
+test('results distinguish empty/stale and keep one canonical download without the internal manifest dump', () => {
   const empty = render(
     `import {JobFiles} from './src/JobFiles'; console.log(renderToStaticMarkup(<JobFiles base="/renewal/jobs/unit" runs={[]} manifest={{entry_count:0}} />));`,
   );
@@ -103,18 +103,20 @@ test('results distinguish empty, stale, individual files and JSON manifest', () 
     `import {JobFiles} from './src/JobFiles'; console.log(renderToStaticMarkup(<JobFiles base="/renewal/jobs/unit" manifest={{entry_count:2}} runs={[{id:'accepted',node_id:'step',status:'completed',result:{outputs:{transcript:{type:'transcript'},video:{type:'video'}}}}]} />));`,
   );
   assert.match(files, /전사문\(JSON\)/);
-  assert.match(files, /파일 목록\(JSON\)/);
+  assert.doesNotMatch(files, /파일 목록\(JSON\)|요청한 결과/);
+  assert.equal((files.match(/download=""/g) || []).length, 2);
   assert.match(files, /accepted\/video\?download=true/);
   assert.match(files, /accepted\/transcript\?download=true/);
 });
 
-test('external failure selection opens actual canvas detail and logs tab', () => {
+test('selected failed task opens execution detail and genuine terminal tab without editor ports', () => {
   const html = render(
-    `import {WorkflowCanvas} from './src/WorkflowCanvas';import {TaskResultTabs} from './src/TaskResultTabs';console.log(renderToStaticMarkup(<WorkflowCanvas selectedNodeId="speech" definition={{id:'unit',catalog_version:2,nodes:[{id:'speech',type:'transcription_agent',position:{x:0,y:0},options:{}}],edges:[]}} catalog={[{id:'transcription_agent',label:'전사',inputs:{},outputs:{},options:{}}]} details={<TaskResultTabs jobId="unit" initialState="failed" initialTab="logs"><p>OUTPUT SENTINEL</p></TaskResultTabs>} />));`,
+    `import {JobExecutionFlow} from './src/JobExecutionFlow';import {TaskResultTabs} from './src/TaskResultTabs';console.log(renderToStaticMarkup(<JobExecutionFlow executionId="unit" selectedNodeId="speech" definition={{nodes:[{id:'speech',type:'transcription_agent'}],edges:[]}} agents={[{id:'speech',type:'transcription_agent',label:'전사',state:'failed',tools:[]}]} details={<TaskResultTabs jobId="unit" initialState="failed" initialTab="logs"><p>OUTPUT SENTINEL</p></TaskResultTabs>} />));`,
   );
-  assert.match(html, /workflow-node-settings/);
+  assert.match(html, /job-execution-flow__details/);
+  assert.doesNotMatch(html, /workflow-port|workflow-canvas|처리 기록 목록/);
   assert.match(html, /aria-selected="true"[^>]*>로그/);
-  assert.match(html, /수집된 에이전트·툴 원본 로그가 없습니다/);
+  assert.match(html, /저장된 터미널 출력이 없습니다/);
 });
 
 test('required timed input has an accessible field-linked marker and settings are single links', () => {
