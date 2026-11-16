@@ -89,3 +89,23 @@
   outline: 2px solid #2563eb;
   outline-offset: 2px;
 }
+
+.unit-recovery-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  list-style: none;
+  padding: 0;
+  margin: 12px 0;
+  color: #697586;
+  font-size: 13px;
+}
+.unit-recovery-steps [aria-current='step'] {
+  font-weight: 600;
+  color: #215fc6;
+}
+.unit-recovery-next {
+  padding: 10px 0;
+  color: #285075;
+  font-weight: 500;
+}

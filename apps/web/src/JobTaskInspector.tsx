@@ -31,7 +31,13 @@ export const JobTaskInspector = ({
     </header>
     {toolbar}
     {unitRecoveryEnabled && runId && (
-      <UnitRecoveryPanel jobId={jobId} runId={runId} canManage={canManage} onChanged={onChanged} />
+      <UnitRecoveryPanel
+        jobId={jobId}
+        runId={runId}
+        canManage={canManage}
+        focusOnOpen
+        onChanged={onChanged}
+      />
     )}
     {children}
   </section>

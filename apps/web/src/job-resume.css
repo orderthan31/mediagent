@@ -1,0 +1,38 @@
+.job-resume-control {
+  border: 1px solid var(--color-border, #cbd5e1);
+  border-radius: 8px;
+  padding: 12px;
+  margin-block: 12px;
+}
+.job-resume-control p {
+  margin: 0 0 10px;
+  overflow-wrap: anywhere;
+}
+.job-resume-control__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.job-resume-control button {
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 1px solid var(--color-border, #94a3b8);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.job-resume-control .job-resume-control__primary {
+  background: var(--color-primary, #1d4ed8);
+  color: white;
+}
+.job-resume-control button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.job-resume-control button:focus-visible {
+  outline: 2px solid var(--color-primary, #1d4ed8);
+  outline-offset: 3px;
+}
+.job-resume-control [role='status'] {
+  margin-top: 10px;
+  margin-bottom: 0;
+}

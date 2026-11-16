@@ -1,3 +1,4 @@
+import { continuePreparedRecovery } from './job-resume.mjs';
 import { useEffect, useRef, useState } from 'react';
 import { request } from './api';
 import './unit-recovery.css';
@@ -110,6 +111,7 @@ export const UnitRecoveryPanel = (props: {
   runId: string;
   canManage: boolean;
   onChanged?: () => void | Promise<void>;
+  focusOnOpen?: boolean;
 }) => {
   return <RecoveryScope key={`${props.jobId}:${props.runId}`} {...props} />;
 };
@@ -118,15 +120,19 @@ const RecoveryScope = ({
   runId,
   canManage,
   onChanged,
+  focusOnOpen = false,
 }: {
   jobId: string;
   runId: string;
   canManage: boolean;
   onChanged?: () => void | Promise<void>;
+  focusOnOpen?: boolean;
 }) => {
   const base = `/renewal/jobs/${encodeURIComponent(jobId)}/runs/${encodeURIComponent(runId)}/unit-recovery`;
   const [view, setView] = useState<View | null>(null);
   const latest = useRef<View | null>(null);
+  const panelRoot = useRef<HTMLElement>(null);
+  const initialFocusDone = useRef(false);
   const [drafts, setDrafts] = useState<Record<number, Draft>>({});
   const [preview, setPreview] = useState<Preview | null>(null);
   const [approved, setApproved] = useState(false);
@@ -134,6 +140,7 @@ const RecoveryScope = ({
   const dirtyRef = useRef(false);
   const editRevision = useRef(0);
   const renderedRevision = editRevision.current;
+  const nextActionButton = useRef<HTMLButtonElement>(null);
   const previewRevision = useRef<number | null>(null);
   const confirmApproval = (revision: number | undefined) => {
     if (revision === editRevision.current) {
@@ -300,6 +307,13 @@ const RecoveryScope = ({
     setPreview(null);
     setApproved(false);
     setError('');
+    if (patch.action === 'skip' || patch.action === 'retry') {
+      requestAnimationFrame(() => {
+        if (alive.current) {
+          nextActionButton.current?.scrollIntoView({ block: 'nearest' });
+        }
+      });
+    }
   };
   const post = <T,>(suffix: string, body: unknown) =>
     request<T>(`${base}/${suffix}`, {
@@ -318,7 +332,9 @@ const RecoveryScope = ({
     }
     if (
       kind === 'approve' &&
-      (!mayApprove(preview) || !approved || previewRevision.current !== editRevision.current)
+      (!mayApprove(preview) ||
+        (preview!.additional_call_limit > 0 && !approved) ||
+        previewRevision.current !== editRevision.current)
     ) {
       return;
     }
@@ -447,6 +463,18 @@ const RecoveryScope = ({
         }
         accept(executed);
         unresolved.current = null;
+        if (executed.recovery?.can_continue && !dirtyRef.current) {
+          requestAnimationFrame(() => {
+            if (!alive.current) {
+              return;
+            }
+            const next = panelRoot.current?.querySelector<HTMLButtonElement>(
+              '[data-recovery-continue]',
+            );
+            next?.scrollIntoView({ block: 'nearest' });
+            next?.focus({ preventScroll: true });
+          });
+        }
       } else if (kind === 'execute') {
         submitted = true;
         const id = view!.recovery!.request_id;
@@ -458,11 +486,30 @@ const RecoveryScope = ({
         accept(executed);
         unresolved.current = null;
       } else {
-        submitted = true;
-        unresolved.current = { id: view!.recovery!.request_id, operation: 'continue' };
-        await post<unknown>('continue', { request_id: view!.recovery!.request_id });
+        const result = await continuePreparedRecovery(
+          view!,
+          request,
+          () =>
+            alive.current &&
+            !dirtyRef.current &&
+            manageable.current &&
+            latest.current?.context_sha256 === view!.context_sha256 &&
+            latest.current?.recovery_revision === view!.recovery_revision &&
+            latest.current?.recovery?.id === view!.recovery!.id,
+        );
         if (!alive.current) {
           return;
+        }
+        if (result.state !== 'sent') {
+          if (result.state === 'uncertain' || result.state === 'blocked') {
+            submitted = true;
+            unresolved.current = { id: view!.recovery!.request_id, operation: 'continue' };
+          }
+          throw Error(
+            result.state === 'stale'
+              ? '작업 상태가 바뀌었습니다. 상태를 새로고침해 주세요.'
+              : '실행 결과를 확인해야 합니다. 자동으로 다시 보내지 않습니다.',
+          );
         }
         unresolved.current = null;
         setStale(true);
@@ -491,6 +538,24 @@ const RecoveryScope = ({
     }
   };
   useEffect(() => {
+    if (!focusOnOpen || !view || initialFocusDone.current) {
+      return;
+    }
+    const target = panelRoot.current?.querySelector<HTMLElement>(
+      '[data-unit] .unit-recovery-actions button',
+    );
+    if (target) {
+      initialFocusDone.current = true;
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          if (alive.current) {
+            target.scrollIntoView({ block: 'center' });
+          }
+        }),
+      );
+    }
+  }, [focusOnOpen, view]);
+  useEffect(() => {
     alive.current = true;
     controller.current = new AbortController();
     let timer: ReturnType<typeof setTimeout>;
@@ -514,9 +579,22 @@ const RecoveryScope = ({
     return null;
   }
   return (
-    <section className="unit-recovery" aria-label="구간 복구">
+    <section className="unit-recovery" aria-label="구간 복구" ref={panelRoot}>
       <h3>구간 복구</h3>
-      <p>기존 성공 결과는 보존하며 다시 호출하지 않습니다.</p>
+      <p>성공한 구간은 그대로 두고, 실패한 구간만 처리합니다.</p>
+      <ol className="unit-recovery-steps" aria-label="복구 진행 순서">
+        <li aria-current={!view?.recovery && !preview ? 'step' : undefined}>1. 구간 선택</li>
+        <li
+          aria-current={
+            preview || (view?.recovery && view.recovery.status !== 'applied') ? 'step' : undefined
+          }
+        >
+          2. 선택 확정·결과 준비
+        </li>
+        <li aria-current={view?.recovery?.status === 'applied' ? 'step' : undefined}>
+          3. 복구 적용·이어서 실행
+        </li>
+      </ol>
       {error && <p role="alert">{error}</p>}
       {!view && <p>복구 상태 확인 중</p>}
       <button type="button" disabled={busy} onClick={() => void refresh()}>
@@ -529,7 +607,11 @@ const RecoveryScope = ({
           )}
           {view.blocked_reason && <p>변경 차단: {view.blocked_reason}</p>}
           {!view.recovery && <p role="status">복구 요청 전 · 처리할 구간과 방법을 선택하세요.</p>}
-          {dirty && <p>저장하지 않은 변경이 있습니다. 새 미리보기와 승인 후 저장이 필요합니다.</p>}
+          {dirty && (
+            <p className="unit-recovery-next" role="status">
+              방법을 선택했지만 아직 적용 전입니다. 아래 ‘선택 내용 확인’을 눌러 주세요.
+            </p>
+          )}
           {pendingEvidence && (
             <p>미확인 또는 진행 중인 요청이 있습니다. 실패로 간주하거나 재시도하지 않습니다.</p>
           )}
@@ -539,15 +621,6 @@ const RecoveryScope = ({
               .map(([k, v]) => `${labels[k] || k}: ${v}`)
               .join(' · ')}
           </p>
-          {canManage && view.access.can_manage && (
-            <button
-              type="button"
-              disabled={locked || !Object.values(drafts).some((d) => d.action)}
-              onClick={() => void mutate('preview')}
-            >
-              복구 미리보기
-            </button>
-          )}
           {view.units
             .filter((u) => u.status !== 'succeeded')
             .map((u) => (
@@ -588,7 +661,11 @@ const RecoveryScope = ({
                           </button>
                         ))}
                     </div>
-                    <p>선택만으로 실행되지 않습니다. 아래 미리보기에서 확인 후 승인하세요.</p>
+                    <p>
+                      {drafts[u.index]?.action === 'skip'
+                        ? '이 구간을 제외하도록 선택했습니다. 아직 적용 전입니다.'
+                        : '방법을 고른 뒤 아래에서 선택 내용을 확인해 주세요.'}
+                    </p>
                     <label>
                       구간 {u.index + 1} 처리
                       <select
@@ -718,17 +795,35 @@ const RecoveryScope = ({
               </article>
             ))}
           {canManage && view.access.can_manage && (
+            <button
+              type="button"
+              ref={nextActionButton}
+              disabled={locked || !Object.values(drafts).some((d) => d.action)}
+              onClick={() => void mutate('preview')}
+            >
+              선택 내용 확인
+            </button>
+          )}
+          {canManage && view.access.can_manage && (
             <>
               {preview && (
                 <div className="unit-recovery-preview">
-                  <h4>승인 전 미리보기</h4>
-                  <p>추가 모델 호출 상한: {preview.additional_call_limit}</p>
+                  <h4>선택 내용을 확인하고 적용하세요</h4>
+                  <p>
+                    {preview.additional_call_limit === 0
+                      ? '이 단계의 추가 모델 호출 없음 · 성공 구간은 다시 처리하지 않습니다.'
+                      : `추가 모델 호출 상한: ${preview.additional_call_limit}회`}
+                  </p>
                   <p>
                     보존 구간 {preview.retained_units.length} · 실행 구간{' '}
                     {preview.execution_units.length}
                   </p>
-                  <p>원래 고정 모델 · 변경 불가</p>
-                  <pre>{JSON.stringify(preview.models, null, 2)}</pre>
+                  {preview.additional_call_limit > 0 && (
+                    <details>
+                      <summary>재시도에 사용할 고정 모델</summary>
+                      <pre>{JSON.stringify(preview.models, null, 2)}</pre>
+                    </details>
+                  )}
                   {preview.warnings.map((w, i) => (
                     <p key={i}>{w}</p>
                   ))}
@@ -737,31 +832,47 @@ const RecoveryScope = ({
                       {w.endsWith(':unresolved') ? '후속 단계 전 해결 필요' : '차단'}: {w}
                     </p>
                   ))}
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={approved}
-                      disabled={locked || !mayApprove(preview)}
-                      onChange={(e) => setApproved(e.target.checked)}
-                    />
-                    추가 호출 및 복구 결정을 승인합니다
-                  </label>
+                  {preview.additional_call_limit > 0 && (
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={approved}
+                        disabled={locked || !mayApprove(preview)}
+                        onChange={(e) => setApproved(e.target.checked)}
+                      />
+                      표시된 모델과 상한 안에서 추가 호출을 승인합니다
+                    </label>
+                  )}
                   <button
                     type="button"
-                    disabled={locked || !approved || !mayApprove(preview)}
+                    disabled={
+                      locked ||
+                      (preview.additional_call_limit > 0 && !approved) ||
+                      !mayApprove(preview)
+                    }
                     onClick={() => void mutate('approve')}
                   >
-                    승인 후 저장·실행
+                    {preview.additional_call_limit === 0
+                      ? preview.ready
+                        ? '선택 확정'
+                        : '선택한 구간만 저장'
+                      : '추가 호출 승인 후 재시도'}
                   </button>
                 </div>
               )}
               {view.recovery && (
                 <div>
                   <p>
-                    복구 {view.recovery.id} · {view.recovery.status} · 호출{' '}
-                    {view.recovery.executed_calls}/{view.recovery.additional_call_limit}
+                    이 구간 복구의 추가 모델 호출: {view.recovery.executed_calls}회 / 승인 상한{' '}
+                    {view.recovery.additional_call_limit}회
                   </p>
-                  <p>저장·새로고침은 후속 단계를 시작하지 않습니다.</p>
+                  <p className="unit-recovery-next" role="status">
+                    {view.recovery.status === 'applied'
+                      ? '복구 결과 적용 완료. 워크플로우 위의 ‘이어서 실행’ 버튼에서 남은 태스크를 진행하세요.'
+                      : view.recovery.can_continue
+                        ? '선택을 저장하고 복구 결과를 준비했습니다. 아직 작업에 적용하거나 다음 태스크를 시작하지 않았습니다.'
+                        : '아직 처리하지 않은 구간을 확인해 주세요. 후속 단계는 자동 실행하지 않습니다.'}
+                  </p>
                   {resumable && (
                     <button
                       type="button"
@@ -771,13 +882,22 @@ const RecoveryScope = ({
                       승인한 구간 실행
                     </button>
                   )}
-                  <button
-                    type="button"
-                    disabled={locked || dirty || !view.recovery.can_continue}
-                    onClick={() => void mutate('continue')}
-                  >
-                    후속 단계 계속
-                  </button>
+                  {view.recovery.status !== 'applied' && view.recovery.can_continue && (
+                    <p>
+                      ‘복구 적용·이어서 실행’을 누르면 결과를 적용하고 다음 태스크를 시작합니다.
+                      기존 승인 범위의 유료 모델 호출이 포함될 수 있습니다.
+                    </p>
+                  )}
+                  {view.recovery.status !== 'applied' && (
+                    <button
+                      type="button"
+                      data-recovery-continue
+                      disabled={locked || dirty || !view.recovery.can_continue}
+                      onClick={() => void mutate('continue')}
+                    >
+                      복구 적용·이어서 실행
+                    </button>
+                  )}
                 </div>
               )}
             </>

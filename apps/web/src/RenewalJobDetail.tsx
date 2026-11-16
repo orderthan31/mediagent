@@ -15,6 +15,8 @@ import { JobProcessingReview } from './JobProcessingReview';
 import { ProjectionRecoveryPanel } from './ProjectionRecoveryPanel';
 import { ModelRolePanel } from './ModelRolePanel';
 import { JobTaskInspector } from './JobTaskInspector';
+import { JobResumeControl } from './JobResumeControl';
+import { resumeProof, resumeAttempt } from './job-resume.mjs';
 import { JobExecutionWorkspace, type WorkspaceTab } from './JobExecutionWorkspace';
 import { JobLogExplorer } from './JobLogExplorer';
 import { renewalBackend } from './preview';
@@ -22,9 +24,8 @@ import { SubtitleTrackReview } from './SubtitleTracksPanel';
 import { PageTitle } from './PageTitle';
 import { LoadingSkeleton } from './LoadingSkeleton';
 import { Button } from './hangyeol/primitives/button';
-import type { CanvasDefinition, CanvasSpec } from './WorkflowCanvas';
-import { JobExecutionFlow } from './JobExecutionFlow';
-import type { ExecutionProgressMap, ExecutionRunProgress } from './job-execution-flow';
+import { WorkflowCanvas, type CanvasDefinition, type CanvasSpec } from './WorkflowCanvas';
+import { executionProgress, type ExecutionRunProgress } from './job-execution-flow';
 import { DataForm } from './DataForm';
 import type { FieldSchema, FormData } from './form-contract';
 import './job-detail.css';
@@ -76,6 +77,7 @@ type Run = {
     outputs: Record<string, Reference>;
     previews?: Record<string, { status: string }>;
     reused_from?: { job_id: string };
+    unit_recovery?: { id: string };
     translation?: TranslationTrace;
     transcription?: TranslationTrace;
     vocalization?: VocalTrace;
@@ -170,6 +172,7 @@ const JobDetailSession = ({ id }: { id: string }) => {
   const [job, setJob] = useState<State | null>(null);
 
   const [modelRolesEnabled, setModelRolesEnabled] = useState(false);
+  const [catalog, setCatalog] = useState<CanvasSpec[]>([]);
   const [selected, setSelected] = useState('');
   const [selectedTool, setSelectedTool] = useState('');
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -185,7 +188,6 @@ const JobDetailSession = ({ id }: { id: string }) => {
   const [dataSelectionRequest, setDataSelectionRequest] = useState(0);
   const [logFocusRequest, setLogFocusRequest] = useState(0);
   const [logFocusErrors, setLogFocusErrors] = useState(false);
-  const [manualSelection, setManualSelection] = useState(0);
   const [panelRequest, setPanelRequest] = useState(0);
   const resultsPanel = useRef<HTMLElement>(null);
   const filesPanel = useRef<HTMLDivElement>(null);
@@ -268,7 +270,6 @@ const JobDetailSession = ({ id }: { id: string }) => {
     setDetailsOpen(true);
     setSelected(agentId);
     setSelectedTool(toolId || '');
-    setManualSelection((value) => value + 1);
     setPanelRequest((value) => value + 1);
   };
   const openRunLogs = (identity: string, errorsOnly = false) => {
@@ -333,6 +334,7 @@ const JobDetailSession = ({ id }: { id: string }) => {
         ]);
         if (!controller.signal.aborted) {
           setJob(next);
+          setCatalog(Array.isArray(specs.nodes) ? specs.nodes : []);
           setModelRolesEnabled(specs.independent_model_roles === true);
           setLoadError('');
         }
@@ -398,7 +400,9 @@ const JobDetailSession = ({ id }: { id: string }) => {
             <a href={'#/videos/' + job.snapshot.asset.asset_id}>
               {job.snapshot.asset.original_filename}
             </a>
-            <strong role="status">{jobStateLabel(job)}</strong>
+            <strong role="status">
+              {resumeProof(job) && !resumeAttempt(job) ? '이어서 실행 대기' : jobStateLabel(job)}
+            </strong>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
               {canManage && job.status === 'draft' && (
                 <Button
@@ -415,6 +419,7 @@ const JobDetailSession = ({ id }: { id: string }) => {
               </Button>
             </div>
           </div>
+          <JobResumeControl job={job} onChanged={reload} />
           {!!failedSteps.length && (
             <div className="job-failure-actions" aria-label="실패 단계 확인">
               {failedSteps.map(({ agent, tool: failed }) => (
@@ -532,6 +537,8 @@ const JobDetailSession = ({ id }: { id: string }) => {
             </div>
           )}
           <JobExecutionWorkspace
+            showSummary={false}
+            progressLabel="워크플로우"
             activeTab={workspaceTab}
             onTabChange={setWorkspaceTab}
             status={jobStateLabel(job)}
@@ -575,36 +582,81 @@ const JobDetailSession = ({ id }: { id: string }) => {
                   <p role="alert">워크플로우를 불러오지 못했습니다. 새로고침해 주세요.</p>
                 )}
                 {agentDefinition && (
-                  <JobExecutionFlow
-                    executionId={job.id}
+                  <WorkflowCanvas
                     definition={agentDefinition}
-                    agents={job.agent_workflow?.nodes || []}
-                    selectedNodeId={selected || undefined}
-                    interactionKey={manualSelection}
-                    onSelect={(identity, source) => {
+                    catalog={catalog}
+                    disabled
+                    selectedNodeId={selected}
+                    onSelect={(identity) => {
+                      if (identity === '$input') {
+                        openData();
+                        setSelected('');
+                        return;
+                      }
                       setSelected(identity);
                       setSelectedTool('');
-                      if (source !== 'follow') {
-                        setDetailsOpen(true);
-                        setPanelRequest((value) => value + 1);
-                      }
+                      setDetailsOpen(true);
                     }}
-                    progressByRunId={
-                      Object.fromEntries(
-                        job.runs
-                          .filter((item) => item.progress)
-                          .map((item) => [
-                            item.id,
-                            {
-                              run_id: item.id,
-                              state: item.status,
-                              display_state: item.display_status || item.status,
-                              progress: item.progress,
-                            },
-                          ]),
-                      ) as ExecutionProgressMap
-                    }
                     edgeStates={job.agent_workflow?.edges || {}}
+                    inputLabel={job.snapshot.asset.original_filename}
+                    inputThumbnail={
+                      job.snapshot.inputs?.video?.type === 'video'
+                        ? mediaUrl('/videos/' + job.snapshot.asset.asset_id + '/thumbnail')
+                        : undefined
+                    }
+                    nodeStates={Object.fromEntries(
+                      (job.agent_workflow?.nodes || []).map((agent) => [
+                        agent.id,
+                        { state: agent.state, label: agent.status_label, reason: agent.reason },
+                      ]),
+                    )}
+                    nodeDetails={Object.fromEntries(
+                      (job.agent_workflow?.nodes || []).map((agent) => {
+                        const task = agent.tools.find(
+                          (item) => item.node_id === agent.selected_tool_id,
+                        );
+                        const current = job.runs.find((item) => item.id === task?.run_id);
+                        if (current?.status === 'completed' && current.result?.unit_recovery?.id) {
+                          return [
+                            agent.id,
+                            <span key={agent.id} className="job-canvas-task-progress">
+                              구간 복구 적용 완료
+                            </span>,
+                          ];
+                        }
+                        const progress = executionProgress(
+                          current ? { run_id: current.id, progress: current.progress } : undefined,
+                        );
+                        return [
+                          agent.id,
+                          <div key={agent.id} className="job-canvas-task-progress">
+                            {task && <span>{task.label}</span>}
+                            {progress.processed !== null && (
+                              <span>
+                                처리 {progress.processed}
+                                {progress.total !== null
+                                  ? ` / ${progress.total}`
+                                  : ' · 전체 미확인'}
+                              </span>
+                            )}
+                            {progress.determinate && (
+                              <progress
+                                aria-label={`${agent.label} 처리 수`}
+                                value={progress.processed!}
+                                max={progress.total!}
+                              />
+                            )}
+                            {progress.completed !== null && (
+                              <span>
+                                성공 {progress.completed} · 실패 {progress.failed ?? '미확인'}
+                              </span>
+                            )}
+                            {progress.inconsistent && <span>처리 수 확인 필요</span>}
+                          </div>,
+                        ];
+                      }),
+                    )}
+                    detailsLabel="태스크 상세"
                     details={
                       selected && detailsOpen ? (
                         <section className="execution-node-body renewal-node-results">
@@ -620,12 +672,30 @@ const JobDetailSession = ({ id }: { id: string }) => {
                               )
                             }
                             onChanged={async () => {
-                              await reload();
+                              const next = await reload();
+                              if (
+                                next.runs.some(
+                                  (item) =>
+                                    item.id === run?.id &&
+                                    item.status === 'completed' &&
+                                    item.result?.unit_recovery?.id,
+                                )
+                              ) {
+                                setSelected('');
+                                setDetailsOpen(false);
+                                requestAnimationFrame(() => {
+                                  const nextAction = resultsPanel.current
+                                    ?.closest('main')
+                                    ?.querySelector<HTMLElement>('.job-resume-control');
+                                  nextAction?.scrollIntoView({ block: 'nearest' });
+                                });
+                              }
                             }}
                             title={currentAgent?.label || '선택한 단계'}
                             state={tool?.state || run?.display_status || run?.status || 'waiting'}
                             toolbar={
-                              currentAgent && (
+                              currentAgent &&
+                              currentAgent.tools.length > 1 && (
                                 <label className="job-task-run-picker">
                                   실행 단계
                                   <select
@@ -896,7 +966,7 @@ const JobDetailSession = ({ id }: { id: string }) => {
           {canManage && (
             <section
               className="ticket-panel"
-              aria-label="실행 승인"
+              aria-label="작업 관리"
               hidden={job.status === 'completed' || !!job.processing_review}
             >
               {['draft', 'waiting', 'running', 'review_required'].includes(job.status) && (

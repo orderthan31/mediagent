@@ -411,12 +411,12 @@ test('accepted SRT copy editor downloads exact bytes and works in production CSS
       await expect(editor.getByRole('textbox')).toHaveValue('다른 파일 문구');
       await editor.press('Escape');
       await expect(editor).toHaveCount(0);
-      const progressTab = page.getByRole('tab', { name: '진행', exact: true });
+      const progressTab = page.getByRole('tab', { name: '워크플로우', exact: true });
       if (await progressTab.count()) {
         await progressTab.click();
       }
-      await page.locator('[data-node-id="subtitle"] .job-execution-flow__select').click();
-      const detail = page.locator('.job-execution-flow__details');
+      await page.locator('[data-node-id="subtitle"] .workflow-node-heading').click();
+      const detail = page.locator('.workflow-node-settings');
       await expect(detail.getByRole('button', { name: '자막 수정', exact: true })).toHaveCount(0);
       await expect(detail.locator('a[download]')).toHaveCount(0);
       if (await dataTab.count()) {

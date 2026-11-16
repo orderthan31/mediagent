@@ -186,6 +186,11 @@ for (const width of [390, 1280]) {
       const retry = panel.getByRole('button', { name: '구간 8 재시도', exact: true });
       const skip = panel.getByRole('button', { name: '구간 8 무시', exact: true });
       const manual = panel.getByRole('button', { name: '구간 8 직접 입력', exact: true });
+      if (process.env.RECOVERY_QA_SCREENSHOTS)
+        await page.screenshot({
+          path: process.env.RECOVERY_QA_SCREENSHOTS + '/recovery-' + width + '.png',
+          fullPage: true,
+        });
       await expect(retry).toBeInViewport();
       await expect(skip).toBeInViewport();
       await expect(manual).toBeInViewport();
@@ -195,7 +200,7 @@ for (const width of [390, 1280]) {
         await page.evaluate(() => window.__calls.filter((c) => c.method !== 'GET').length),
         0,
       );
-      const preview = panel.getByRole('button', { name: '복구 미리보기', exact: true });
+      const preview = panel.getByRole('button', { name: '선택 내용 확인', exact: true });
       await expect(preview).toBeInViewport();
       await preview.click();
       assert.deepEqual(
@@ -206,7 +211,11 @@ for (const width of [390, 1280]) {
         ),
         [{ suffix: 'preview', body: [{ unit_index: 7, action: 'skip' }] }],
       );
-      await expect(panel.getByText('추가 모델 호출 상한: 0', { exact: true })).toBeVisible();
+      await expect(
+        panel.getByText('이 단계의 추가 모델 호출 없음 · 성공 구간은 다시 처리하지 않습니다.', {
+          exact: true,
+        }),
+      ).toBeVisible();
       await panel.getByText('성공·보존 95개 구간 보기', { exact: true }).click();
       await expect(panel.locator('[data-unit="0"]')).toBeVisible();
       assert.equal(

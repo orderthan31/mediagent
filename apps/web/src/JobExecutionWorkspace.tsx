@@ -25,6 +25,8 @@ export const JobExecutionWorkspace = ({
   onStageSelect,
   onStageLogs,
   metadata,
+  showSummary = true,
+  progressLabel = '진행',
 }: {
   activeTab: WorkspaceTab;
   onTabChange: (tab: WorkspaceTab) => void;
@@ -37,6 +39,8 @@ export const JobExecutionWorkspace = ({
   onStageSelect: (stageId: string) => void;
   onStageLogs: (stageId: string, runId: string) => void;
   metadata?: { label: string; value: string }[];
+  showSummary?: boolean;
+  progressLabel?: string;
 }) => {
   const prefix = useId();
   const [summaryOpen, setSummaryOpen] = useState(false);
@@ -57,7 +61,10 @@ export const JobExecutionWorkspace = ({
     tabs.current[next]?.focus();
   };
   return (
-    <section className="job-workspace" aria-label="작업 실행 상세">
+    <section
+      className={`job-workspace ${showSummary ? '' : 'without-summary'}`}
+      aria-label="작업 실행 상세"
+    >
       <div className="job-workspace__topbar">
         <div role="tablist" aria-label="작업 상세 보기" className="job-workspace__tabs">
           {keys.map((tab, index) => (
@@ -75,19 +82,21 @@ export const JobExecutionWorkspace = ({
               onClick={() => onTabChange(tab)}
               onKeyDown={(event) => keyboard(event, index)}
             >
-              {{ progress: '진행', data: '데이터·결과', logs: '로그' }[tab]}
+              {{ progress: progressLabel, data: '데이터·결과', logs: '로그' }[tab]}
             </button>
           ))}
         </div>
-        <button
-          type="button"
-          className="job-workspace__summary-toggle"
-          aria-expanded={summaryOpen}
-          aria-controls={`${prefix}-summary`}
-          onClick={() => setSummaryOpen(!summaryOpen)}
-        >
-          실행 정보 {summaryOpen ? '접기' : '보기'}
-        </button>
+        {showSummary && (
+          <button
+            type="button"
+            className="job-workspace__summary-toggle"
+            aria-expanded={summaryOpen}
+            aria-controls={`${prefix}-summary`}
+            onClick={() => setSummaryOpen(!summaryOpen)}
+          >
+            실행 정보 {summaryOpen ? '접기' : '보기'}
+          </button>
+        )}
       </div>
       <div className="job-workspace__body">
         <div className="job-workspace__content">
@@ -105,70 +114,72 @@ export const JobExecutionWorkspace = ({
             </div>
           ))}
         </div>
-        <aside
-          id={`${prefix}-summary`}
-          className={`job-workspace__summary ${summaryOpen ? 'is-open' : ''}`}
-          aria-label="실행 정보"
-        >
-          <h3>실행 정보</h3>
-          <dl>
-            <div>
-              <dt>상태</dt>
-              <dd>{status}</dd>
-            </div>
-            {metadata?.map((row) => (
-              <div key={row.label}>
-                <dt>{row.label}</dt>
-                <dd>{row.value}</dd>
+        {showSummary && (
+          <aside
+            id={`${prefix}-summary`}
+            className={`job-workspace__summary ${summaryOpen ? 'is-open' : ''}`}
+            aria-label="실행 정보"
+          >
+            <h3>실행 정보</h3>
+            <dl>
+              <div>
+                <dt>상태</dt>
+                <dd>{status}</dd>
               </div>
-            ))}
-          </dl>
-          <h3>처리 과정</h3>
-          <ol className="job-workspace__timeline">
-            {stages.map((stage) => (
-              <li
-                key={stage.id}
-                data-stage-id={stage.id}
-                data-state={stage.state}
-                className={selectedStageId === stage.id ? 'is-selected' : ''}
-              >
-                <button
-                  type="button"
-                  className="job-workspace__stage"
-                  onClick={() => onStageSelect(stage.id)}
-                  aria-label={`${stage.label} 단계 보기`}
+              {metadata?.map((row) => (
+                <div key={row.label}>
+                  <dt>{row.label}</dt>
+                  <dd>{row.value}</dd>
+                </div>
+              ))}
+            </dl>
+            <h3>처리 과정</h3>
+            <ol className="job-workspace__timeline">
+              {stages.map((stage) => (
+                <li
+                  key={stage.id}
+                  data-stage-id={stage.id}
+                  data-state={stage.state}
+                  className={selectedStageId === stage.id ? 'is-selected' : ''}
                 >
-                  <span className="job-workspace__stage-dot" aria-hidden="true" />
-                  <span>
-                    <strong>{stage.label}</strong>
-                    <small>{executionStateLabel(stage.state)}</small>
-                  </span>
-                </button>
-                {(stage.completed != null || stage.failed != null) && (
-                  <p className="job-workspace__stage-counts">
-                    {stage.completed != null ? `성공 ${stage.completed}` : ''}
-                    {stage.failed != null ? ` · 실패 ${stage.failed}` : ''}
-                    {stage.planned != null ? ` / 전체 ${stage.planned}` : ''}
-                  </p>
-                )}
-                {stage.reason && ['failed', 'held', 'blocked'].includes(stage.state) && (
-                  <p className="job-workspace__stage-reason">{stage.reason}</p>
-                )}
-                {stage.runId && (
                   <button
                     type="button"
-                    className="job-workspace__stage-logs"
-                    onClick={() => onStageLogs(stage.id, stage.runId!)}
+                    className="job-workspace__stage"
+                    onClick={() => onStageSelect(stage.id)}
+                    aria-label={`${stage.label} 단계 보기`}
                   >
-                    {['failed', 'held', 'blocked'].includes(stage.state)
-                      ? '오류 로그'
-                      : '단계 로그'}
+                    <span className="job-workspace__stage-dot" aria-hidden="true" />
+                    <span>
+                      <strong>{stage.label}</strong>
+                      <small>{executionStateLabel(stage.state)}</small>
+                    </span>
                   </button>
-                )}
-              </li>
-            ))}
-          </ol>
-        </aside>
+                  {(stage.completed != null || stage.failed != null) && (
+                    <p className="job-workspace__stage-counts">
+                      {stage.completed != null ? `성공 ${stage.completed}` : ''}
+                      {stage.failed != null ? ` · 실패 ${stage.failed}` : ''}
+                      {stage.planned != null ? ` / 전체 ${stage.planned}` : ''}
+                    </p>
+                  )}
+                  {stage.reason && ['failed', 'held', 'blocked'].includes(stage.state) && (
+                    <p className="job-workspace__stage-reason">{stage.reason}</p>
+                  )}
+                  {stage.runId && (
+                    <button
+                      type="button"
+                      className="job-workspace__stage-logs"
+                      onClick={() => onStageLogs(stage.id, stage.runId!)}
+                    >
+                      {['failed', 'held', 'blocked'].includes(stage.state)
+                        ? '오류 로그'
+                        : '단계 로그'}
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ol>
+          </aside>
+        )}
       </div>
     </section>
   );

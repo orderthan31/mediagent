@@ -210,3 +210,22 @@ class ProgressReadTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class TerminalRecoveryProjectionTest(unittest.TestCase):
+    def test_completed_or_cancelled_run_is_not_reopened_by_retained_role_history(self):
+        for status in ('completed', 'cancelled'):
+            for phase in ('held', 'unknown', 'cancelled'):
+                with self.subTest(status=status, phase=phase):
+                    execution = {**run(), 'status': status,
+                                 'result': {'unit_recovery': {'id': 'c' * 32}}}
+                    previous = role(phase=phase)
+                    evidence = call(7, 'failed')
+                    evidence['error_code'] = 'invalid_response'
+                    saved = deepcopy((execution, previous, evidence))
+                    result = project_logs(execution, previous, [evidence])
+                    self.assertEqual(result['state'], status)
+                    self.assertEqual(result['display_state'], status)
+                    self.assertEqual(result['progress']['failed_segments'], 1)
+                    self.assertTrue(any(e['level'] == 'error' for e in result['entries']))
+                    self.assertEqual((execution, previous, evidence), saved)

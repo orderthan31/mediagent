@@ -63,9 +63,10 @@ const setup = async (browser, role = 'transcription', manage = true, overrides =
             contents: `
       export async function request(path,init={}){const body=init.body?JSON.parse(init.body):null;window.__calls.push({path,method:init.method||'GET',body});
       if(window.__mode==='defer'&&init.method==='POST')return new Promise(r=>window.__resolve=r);
+      if(!init.method&&path==='/renewal/jobs/'+window.__view.job_id)return {id:window.__view.job_id,revision:window.__view.job_revision,status:'running',access:{can_manage:true},runs:[{id:window.__view.run_id,status:'running',result:null}],reviews:[]};
       if(!init.method)return structuredClone(window.__view);
       if(path.endsWith('/preview')&&window.__mode==='preview-error')throw Error('invalid');
-      if(path.endsWith('/preview'))return {...body,preview_sha256:'c'.repeat(64),ready:true,retained_units:[{index:0}],execution_units:[{index:1}],additional_call_limit:body.decisions.filter(d=>d.action==='retry').length,models:[{model_id:'frozen-model',revision:7}],warnings:[],blocked_reasons:[],...window.__preview};
+      if(path.endsWith('/preview'))return {...body,preview_sha256:'c'.repeat(64),ready:false,retained_units:[{index:0}],execution_units:[{index:1}],additional_call_limit:body.decisions.filter(d=>d.action==='retry').length,models:[{model_id:'frozen-model',revision:7}],warnings:[],blocked_reasons:['other_units:unresolved'],...window.__preview};
       if(path.endsWith('/decisions')&&window.__mode==='lost-not-found')throw Error('unconfirmed');
       if(path.endsWith('/decisions')){window.__view.decisions=structuredClone(body.decisions);window.__view.recovery_revision++;window.__view.recovery={id:'rec',request_id:body.request_id,status:'approved',revision:window.__view.recovery_revision,additional_call_limit:body.decisions.filter(d=>d.action==='retry').length,executed_calls:0,can_continue:false};if(window.__mode==='lost')throw Error('lost response');}
       if(path.endsWith('/execute')){window.__view.recovery.executed_calls=window.__view.recovery.additional_call_limit;window.__view.recovery.can_continue=!window.__partial;if(window.__mode==='lost-execute')throw Error('lost execute');}
@@ -80,9 +81,16 @@ const setup = async (browser, role = 'transcription', manage = true, overrides =
     offline: true,
     viewport: { width: 390, height: 844 },
   });
-  await context.route('**/*', (r) => r.abort());
+  await context.route('**/*', (r) =>
+    r.request().url() === 'https://unit.invalid/'
+      ? r.fulfill({
+          contentType: 'text/html',
+          body: '<html lang="ko"><body><div id="root"></div></body></html>',
+        })
+      : r.abort(),
+  );
   const page = await context.newPage();
-  await page.setContent('<html lang="ko"><body><div id="root"></div></body></html>');
+  await page.goto('https://unit.invalid/');
   await page.clock.install();
   const css = process.env.UNIT_RECOVERY_BUILT_CSS
     ? await readFile(process.env.UNIT_RECOVERY_BUILT_CSS, 'utf8')
@@ -97,9 +105,15 @@ test('lost save reconciles pending approval; only explicit resume uses the SAME 
   try {
     const page = await setup(browser);
     await choices(page, 'transcription');
-    await page.getByLabel('추가 호출 및 복구 결정을 승인합니다').check();
+    if (await page.getByLabel('표시된 모델과 상한 안에서 추가 호출을 승인합니다').count())
+      await page.getByLabel('표시된 모델과 상한 안에서 추가 호출을 승인합니다').check();
     await page.evaluate(() => (window.__mode = 'lost'));
-    await page.getByRole('button', { name: '승인 후 저장·실행', exact: true }).click();
+    await page
+      .getByRole('button', {
+        name: /^(선택 확정|선택한 구간만 저장|추가 호출 승인 후 재시도)$/,
+        exact: true,
+      })
+      .click();
     const resume = page.getByRole('button', { name: '승인한 구간 실행', exact: true });
     await expect(resume).toBeEnabled();
     await page.clock.runFor(24000);
@@ -113,7 +127,9 @@ test('lost save reconciles pending approval; only explicit resume uses the SAME 
       el.click();
       el.click();
     });
-    await expect(page.getByRole('button', { name: '후속 단계 계속', exact: true })).toBeEnabled();
+    await expect(
+      page.getByRole('button', { name: '복구 적용·이어서 실행', exact: true }),
+    ).toBeEnabled();
     const posts = await page.evaluate(() => window.__calls.filter((c) => c.method === 'POST'));
     assert.deepEqual(
       posts.map((c) => c.path.split('/').at(-1)),
@@ -133,10 +149,18 @@ test('MT finite selected retry permits unresolved later units, but never hard ev
       window.__preview = { ready: false, blocked_reasons: ['unit:3:unresolved'] };
     });
     await page.getByLabel('구간 2 처리').selectOption('retry');
-    await page.getByRole('button', { name: '복구 미리보기', exact: true }).click();
-    await page.getByLabel('추가 호출 및 복구 결정을 승인합니다').check();
-    await page.getByRole('button', { name: '승인 후 저장·실행', exact: true }).click();
-    await expect(page.getByRole('button', { name: '후속 단계 계속', exact: true })).toBeDisabled();
+    await page.getByRole('button', { name: '선택 내용 확인', exact: true }).click();
+    if (await page.getByLabel('표시된 모델과 상한 안에서 추가 호출을 승인합니다').count())
+      await page.getByLabel('표시된 모델과 상한 안에서 추가 호출을 승인합니다').check();
+    await page
+      .getByRole('button', {
+        name: /^(선택 확정|선택한 구간만 저장|추가 호출 승인 후 재시도)$/,
+        exact: true,
+      })
+      .click();
+    await expect(
+      page.getByRole('button', { name: '복구 적용·이어서 실행', exact: true }),
+    ).toBeDisabled();
     await expect
       .poll(() => page.evaluate(() => window.__calls.filter((c) => c.method === 'POST').length))
       .toBe(3);
@@ -159,8 +183,10 @@ test('MT finite selected retry permits unresolved later units, but never hard ev
         reason,
       );
       await page.getByLabel('구간 3 처리').selectOption('skip');
-      await page.getByRole('button', { name: '복구 미리보기', exact: true }).click();
-      await expect(page.getByLabel('추가 호출 및 복구 결정을 승인합니다')).toBeDisabled();
+      await page.getByRole('button', { name: '선택 내용 확인', exact: true }).click();
+      await expect(
+        page.getByLabel('표시된 모델과 상한 안에서 추가 호출을 승인합니다'),
+      ).toBeDisabled();
     }
   } finally {
     await browser.close();
@@ -180,8 +206,12 @@ test('ASR rows default to local duration, add/remove, text input only and no arb
     await page.getByLabel('구간 2 행 2 삭제').click();
     await expect(page.getByLabel('구간 2 행 2 텍스트')).toHaveCount(0);
     await page.getByLabel('구간 2 행 1 텍스트').fill('직접 입력');
-    await page.getByRole('button', { name: '복구 미리보기', exact: true }).click();
-    await expect(page.getByText('추가 모델 호출 상한: 0', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: '선택 내용 확인', exact: true }).click();
+    await expect(
+      page.getByText('이 단계의 추가 모델 호출 없음 · 성공 구간은 다시 처리하지 않습니다.', {
+        exact: true,
+      }),
+    ).toBeVisible();
     assert.deepEqual(
       await page.evaluate(
         () => window.__calls.find((c) => c.method === 'POST').body.decisions[0].value,
@@ -197,9 +227,15 @@ test('unconfirmed missing mutation stays held; unknown/sending evidence cannot r
   try {
     const page = await setup(browser);
     await choices(page, 'transcription');
-    await page.getByLabel('추가 호출 및 복구 결정을 승인합니다').check();
+    if (await page.getByLabel('표시된 모델과 상한 안에서 추가 호출을 승인합니다').count())
+      await page.getByLabel('표시된 모델과 상한 안에서 추가 호출을 승인합니다').check();
     await page.evaluate(() => (window.__mode = 'lost-not-found'));
-    await page.getByRole('button', { name: '승인 후 저장·실행', exact: true }).click();
+    await page
+      .getByRole('button', {
+        name: /^(선택 확정|선택한 구간만 저장|추가 호출 승인 후 재시도)$/,
+        exact: true,
+      })
+      .click();
     await expect(page.getByRole('alert')).toContainText('확정 증거');
     await expect(page.getByLabel('구간 2 처리')).toBeDisabled();
     for (const status of ['unknown', 'sending']) {
@@ -237,7 +273,7 @@ test('preview error and cancelled/unmounted save never start execution', async (
     const page = await setup(browser);
     await page.getByLabel('구간 2 처리').selectOption('retry');
     await page.evaluate(() => (window.__mode = 'preview-error'));
-    await page.getByRole('button', { name: '복구 미리보기', exact: true }).click();
+    await page.getByRole('button', { name: '선택 내용 확인', exact: true }).click();
     await expect(page.getByRole('alert')).toContainText('invalid');
     await page.clock.runFor(24000);
     assert.deepEqual(
@@ -248,9 +284,15 @@ test('preview error and cancelled/unmounted save never start execution', async (
     );
     await page.evaluate(() => (window.__mode = 'ok'));
     await choices(page, 'transcription');
-    await page.getByLabel('추가 호출 및 복구 결정을 승인합니다').check();
+    if (await page.getByLabel('표시된 모델과 상한 안에서 추가 호출을 승인합니다').count())
+      await page.getByLabel('표시된 모델과 상한 안에서 추가 호출을 승인합니다').check();
     await page.evaluate(() => (window.__mode = 'defer'));
-    await page.getByRole('button', { name: '승인 후 저장·실행', exact: true }).click();
+    await page
+      .getByRole('button', {
+        name: /^(선택 확정|선택한 구간만 저장|추가 호출 승인 후 재시도)$/,
+        exact: true,
+      })
+      .click();
     await expect(page.getByLabel('구간 2 처리')).toBeDisabled();
     await page.evaluate(() => window.__show(false));
     await expect(page.locator('.unit-recovery')).toHaveCount(0);
@@ -275,8 +317,8 @@ const choices = async (page, role) => {
     await page.getByLabel('구간 4 행 1 종료').fill('2');
     await page.getByLabel('구간 4 행 1 텍스트').fill('Manual');
   }
-  await page.getByRole('button', { name: '복구 미리보기', exact: true }).click();
-  await expect(page.getByText('추가 모델 호출 상한: 1', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: '선택 내용 확인', exact: true }).click();
+  await expect(page.getByText('추가 모델 호출 상한: 1회', { exact: true })).toBeVisible();
 };
 for (const role of ['transcription', 'translation']) {
   test(`${role}: retain success, all actions, exact approval and separate continuation; responsive CSS`, async () => {
@@ -284,10 +326,11 @@ for (const role of ['transcription', 'translation']) {
     try {
       const page = await setup(browser, role);
       await expect(
-        page.getByText('기존 성공 결과는 보존하며 다시 호출하지 않습니다.'),
+        page.getByText('성공한 구간은 그대로 두고, 실패한 구간만 처리합니다.'),
       ).toBeVisible();
       await expect(page.getByLabel('구간 1 처리')).toHaveCount(0);
       await choices(page, role);
+      await page.getByText('재시도에 사용할 고정 모델', { exact: true }).click();
       await expect(page.getByText(/frozen-model/)).toBeVisible();
       if (role === 'transcription') {
         await expect(page.getByText(/청크 로컬 시계/).first()).toBeVisible();
@@ -305,14 +348,25 @@ for (const role of ['transcription', 'translation']) {
         }
       }
       await expect(
-        page.getByRole('button', { name: '승인 후 저장·실행', exact: true }),
+        page.getByRole('button', {
+          name: /^(선택 확정|선택한 구간만 저장|추가 호출 승인 후 재시도)$/,
+          exact: true,
+        }),
       ).toBeDisabled();
-      await page.getByLabel('추가 호출 및 복구 결정을 승인합니다').check();
-      await page.getByRole('button', { name: '승인 후 저장·실행', exact: true }).evaluate((el) => {
-        el.click();
-        el.click();
-      });
-      await expect(page.getByRole('button', { name: '후속 단계 계속', exact: true })).toBeEnabled();
+      if (await page.getByLabel('표시된 모델과 상한 안에서 추가 호출을 승인합니다').count())
+        await page.getByLabel('표시된 모델과 상한 안에서 추가 호출을 승인합니다').check();
+      await page
+        .getByRole('button', {
+          name: /^(선택 확정|선택한 구간만 저장|추가 호출 승인 후 재시도)$/,
+          exact: true,
+        })
+        .evaluate((el) => {
+          el.click();
+          el.click();
+        });
+      await expect(
+        page.getByRole('button', { name: '복구 적용·이어서 실행', exact: true }),
+      ).toBeEnabled();
       const calls = await page.evaluate(() => window.__calls.filter((c) => c.method === 'POST'));
       assert.deepEqual(
         calls.map((c) => c.path.split('/').at(-1)),
@@ -332,7 +386,7 @@ for (const role of ['transcription', 'translation']) {
           { id: 17, start: 120, end: 130, text: 'Translated', speaker: 'A' },
         ]);
       }
-      await page.getByRole('button', { name: '후속 단계 계속', exact: true }).click();
+      await page.getByRole('button', { name: '복구 적용·이어서 실행', exact: true }).click();
       await expect
         .poll(() =>
           page.evaluate(() => window.__calls.filter((c) => c.path.endsWith('/continue')).length),
@@ -349,9 +403,15 @@ test('lost save response: GET only, no replay on refresh/remount; cross-run comp
   try {
     const page = await setup(browser);
     await choices(page, 'transcription');
-    await page.getByLabel('추가 호출 및 복구 결정을 승인합니다').check();
+    if (await page.getByLabel('표시된 모델과 상한 안에서 추가 호출을 승인합니다').count())
+      await page.getByLabel('표시된 모델과 상한 안에서 추가 호출을 승인합니다').check();
     await page.evaluate(() => (window.__mode = 'lost'));
-    await page.getByRole('button', { name: '승인 후 저장·실행', exact: true }).click();
+    await page
+      .getByRole('button', {
+        name: /^(선택 확정|선택한 구간만 저장|추가 호출 승인 후 재시도)$/,
+        exact: true,
+      })
+      .click();
     await expect(page.getByRole('alert')).toContainText('GET으로');
     await page.getByRole('button', { name: '상태 새로고침' }).click();
     await page.evaluate(() => window.__show(false));
@@ -367,9 +427,15 @@ test('lost save response: GET only, no replay on refresh/remount; cross-run comp
     await page.evaluate(() => (window.__view.recovery = null));
     await page.getByRole('button', { name: '상태 새로고침' }).click();
     await choices(page, 'transcription');
-    await page.getByLabel('추가 호출 및 복구 결정을 승인합니다').check();
+    if (await page.getByLabel('표시된 모델과 상한 안에서 추가 호출을 승인합니다').count())
+      await page.getByLabel('표시된 모델과 상한 안에서 추가 호출을 승인합니다').check();
     await page.evaluate(() => (window.__mode = 'defer'));
-    await page.getByRole('button', { name: '승인 후 저장·실행', exact: true }).click();
+    await page
+      .getByRole('button', {
+        name: /^(선택 확정|선택한 구간만 저장|추가 호출 승인 후 재시도)$/,
+        exact: true,
+      })
+      .click();
     await page.evaluate(() => window.__run('other'));
     await page.evaluate(() =>
       window.__resolve({
@@ -392,23 +458,31 @@ for (const mode of ['lost-execute', 'lost-continue']) {
     try {
       const page = await setup(browser);
       await choices(page, 'transcription');
-      await page.getByLabel('추가 호출 및 복구 결정을 승인합니다').check();
+      if (await page.getByLabel('표시된 모델과 상한 안에서 추가 호출을 승인합니다').count())
+        await page.getByLabel('표시된 모델과 상한 안에서 추가 호출을 승인합니다').check();
       await page.evaluate((m) => (window.__mode = m), mode);
-      await page.getByRole('button', { name: '승인 후 저장·실행', exact: true }).click();
+      await page
+        .getByRole('button', {
+          name: /^(선택 확정|선택한 구간만 저장|추가 호출 승인 후 재시도)$/,
+          exact: true,
+        })
+        .click();
       if (mode === 'lost-continue') {
         await expect(
-          page.getByRole('button', { name: '후속 단계 계속', exact: true }),
+          page.getByRole('button', { name: '복구 적용·이어서 실행', exact: true }),
         ).toBeEnabled();
-        await page.getByRole('button', { name: '후속 단계 계속', exact: true }).evaluate((el) => {
-          el.click();
-          el.click();
-        });
+        await page
+          .getByRole('button', { name: '복구 적용·이어서 실행', exact: true })
+          .evaluate((el) => {
+            el.click();
+            el.click();
+          });
       }
       await expect(page.getByRole('alert')).toContainText(
         mode === 'lost-execute' ? 'GET으로' : '결과 미확인',
       );
       await page.getByRole('button', { name: '상태 새로고침' }).click();
-      const continuation = page.getByRole('button', { name: '후속 단계 계속', exact: true });
+      const continuation = page.getByRole('button', { name: '복구 적용·이어서 실행', exact: true });
       if (mode === 'lost-execute') {
         await expect(continuation).toBeEnabled();
       } else {
@@ -435,15 +509,19 @@ test('invalid ASR local timestamps never POST; dirty drafts invalidate approval'
     await page.getByLabel('구간 2 행 1 시작').fill('120');
     await page.getByLabel('구간 2 행 1 종료').fill('130');
     await page.getByLabel('구간 2 행 1 텍스트').fill('wrong clock');
-    await page.getByRole('button', { name: '복구 미리보기', exact: true }).click();
+    await page.getByRole('button', { name: '선택 내용 확인', exact: true }).click();
     await expect(page.getByRole('alert')).toContainText('시간 범위');
     assert.equal(await page.evaluate(() => window.__calls.some((c) => c.method === 'POST')), false);
     await choices(page, 'transcription');
-    await page.getByLabel('추가 호출 및 복구 결정을 승인합니다').check();
+    if (await page.getByLabel('표시된 모델과 상한 안에서 추가 호출을 승인합니다').count())
+      await page.getByLabel('표시된 모델과 상한 안에서 추가 호출을 승인합니다').check();
     await page.getByLabel('구간 2 처리').selectOption('skip');
-    await expect(page.getByRole('button', { name: '승인 후 저장·실행', exact: true })).toHaveCount(
-      0,
-    );
+    await expect(
+      page.getByRole('button', {
+        name: /^(선택 확정|선택한 구간만 저장|추가 호출 승인 후 재시도)$/,
+        exact: true,
+      }),
+    ).toHaveCount(0);
   } finally {
     await browser.close();
   }
@@ -459,9 +537,15 @@ test('partial retry keeps saved manual rows on remount and never reselects retai
     await page.getByLabel('구간 2 처리').selectOption('retry');
     await page.getByLabel('구간 3 처리').selectOption('manual');
     await page.getByLabel('구간 3 행 17 번역').fill('saved manual remains');
-    await page.getByRole('button', { name: '복구 미리보기', exact: true }).click();
-    await page.getByLabel('추가 호출 및 복구 결정을 승인합니다').check();
-    await page.getByRole('button', { name: '승인 후 저장·실행', exact: true }).click();
+    await page.getByRole('button', { name: '선택 내용 확인', exact: true }).click();
+    if (await page.getByLabel('표시된 모델과 상한 안에서 추가 호출을 승인합니다').count())
+      await page.getByLabel('표시된 모델과 상한 안에서 추가 호출을 승인합니다').check();
+    await page
+      .getByRole('button', {
+        name: /^(선택 확정|선택한 구간만 저장|추가 호출 승인 후 재시도)$/,
+        exact: true,
+      })
+      .click();
     await expect
       .poll(() => page.evaluate(() => window.__calls.filter((c) => c.method === 'POST').length))
       .toBe(3);
@@ -482,7 +566,7 @@ test('partial retry keeps saved manual rows on remount and never reselects retai
     await page.evaluate(() => {
       window.__preview = {};
     });
-    await page.getByRole('button', { name: '복구 미리보기', exact: true }).click();
+    await page.getByRole('button', { name: '선택 내용 확인', exact: true }).click();
     const preview = await page.evaluate(() =>
       window.__calls.filter((c) => c.path.endsWith('/preview')).at(-1),
     );
@@ -534,9 +618,15 @@ const savedFixture = (role, action = 'manual') => {
 };
 const posts = (page) => page.evaluate(() => window.__calls.filter((c) => c.method === 'POST'));
 const reapprove = async (page) => {
-  await page.getByRole('button', { name: '복구 미리보기', exact: true }).click();
-  await page.getByLabel('추가 호출 및 복구 결정을 승인합니다').check();
-  await page.getByRole('button', { name: '승인 후 저장·실행', exact: true }).click();
+  await page.getByRole('button', { name: '선택 내용 확인', exact: true }).click();
+  if (await page.getByLabel('표시된 모델과 상한 안에서 추가 호출을 승인합니다').count())
+    await page.getByLabel('표시된 모델과 상한 안에서 추가 호출을 승인합니다').check();
+  await page
+    .getByRole('button', {
+      name: /^(선택 확정|선택한 구간만 저장|추가 호출 승인 후 재시도)$/,
+      exact: true,
+    })
+    .click();
 };
 // Invoke captured React handlers in one JS turn, before a render can disable
 // the old button. This exercises the synchronous fence, not just DOM disabled.
@@ -563,9 +653,9 @@ for (const role of ['transcription', 'translation']) {
     const browser = await chromium.launch({ headless: true });
     try {
       const page = await setup(browser, role, true, savedFixture(role));
-      const continuation = page.getByRole('button', { name: '후속 단계 계속', exact: true });
+      const continuation = page.getByRole('button', { name: '복구 적용·이어서 실행', exact: true });
       await expect(continuation).toBeEnabled();
-      await editAndInvokeSaved(page, '후속 단계 계속', 'UNSAVED CORRECTION');
+      await editAndInvokeSaved(page, '복구 적용·이어서 실행', 'UNSAVED CORRECTION');
       await expect(continuation).toBeDisabled();
       await page.getByRole('button', { name: '상태 새로고침' }).click();
       await page.clock.runFor(24000);
@@ -614,7 +704,7 @@ for (const nextAction of ['skip', 'manual']) {
       await reapprove(page);
       await expect(page.getByRole('alert')).toContainText('GET으로');
       assert.equal(
-        await page.getByText('저장하지 않은 변경이 있습니다.', { exact: false }).count(),
+        await page.getByText('방법을 선택했지만 아직 적용 전입니다.', { exact: false }).count(),
         0,
       );
       const calls = await posts(page);
@@ -638,7 +728,7 @@ test('hydrated Continue action changes stay dirty through GET; remount only hydr
   const browser = await chromium.launch({ headless: true });
   try {
     const page = await setup(browser, 'translation', true, savedFixture('translation'));
-    const continuation = page.getByRole('button', { name: '후속 단계 계속', exact: true });
+    const continuation = page.getByRole('button', { name: '복구 적용·이어서 실행', exact: true });
     await expect(continuation).toBeEnabled();
     await page.getByLabel('구간 2 처리').selectOption('skip');
     await expect(continuation).toBeDisabled();
@@ -661,13 +751,13 @@ for (const mode of ['lost-applied', 'dispatch-failed']) {
     try {
       const page = await setup(browser, 'transcription', true, savedFixture('transcription'));
       await page.evaluate((mode) => (window.__mode = mode), mode);
-      await page.getByRole('button', { name: '후속 단계 계속', exact: true }).click();
+      await page.getByRole('button', { name: '복구 적용·이어서 실행', exact: true }).click();
       await expect.poll(() => page.evaluate(() => window.__changed)).toBe(1);
       await expect(page.getByRole('alert')).toContainText('채택을 확인');
       await expect(page.getByRole('alert')).toContainText('후속 단계 상태는 작업 상세');
       await expect(
-        page.getByRole('button', { name: '후속 단계 계속', exact: true }),
-      ).toBeDisabled();
+        page.getByRole('button', { name: '복구 적용·이어서 실행', exact: true }),
+      ).toHaveCount(0);
       await page.getByRole('button', { name: '상태 새로고침' }).click();
       await page.clock.runFor(24000);
       assert.equal(await page.evaluate(() => window.__changed), 1);
@@ -685,7 +775,7 @@ test('lost Continue remains held for missing/mismatched/non-applied/unknown/send
   try {
     const page = await setup(browser, 'transcription', true, savedFixture('transcription'));
     await page.evaluate(() => (window.__mode = 'lost-continue'));
-    await page.getByRole('button', { name: '후속 단계 계속', exact: true }).click();
+    await page.getByRole('button', { name: '복구 적용·이어서 실행', exact: true }).click();
     await expect(page.getByRole('alert')).toContainText('확정 증거');
     for (const evidence of ['missing', 'mismatch', 'approved', 'unknown', 'sending']) {
       await page.evaluate((evidence) => {
@@ -728,7 +818,9 @@ test('fresh retry approval after dirty action changes executes only the new requ
       page.getByRole('button', { name: '승인한 구간 실행', exact: true }),
     ).toBeDisabled();
     await reapprove(page);
-    await expect(page.getByRole('button', { name: '후속 단계 계속', exact: true })).toBeEnabled();
+    await expect(
+      page.getByRole('button', { name: '복구 적용·이어서 실행', exact: true }),
+    ).toBeEnabled();
     const calls = await posts(page);
     assert.deepEqual(
       calls.map((c) => c.path.split('/').at(-1)),
@@ -746,15 +838,19 @@ test('captured preview cannot approve pre-edit drafts; unmatched save GET never 
   try {
     const page = await setup(browser, 'transcription', true, savedFixture('transcription'));
     await expect(page.locator('textarea')).toHaveValue('SAVED');
-    await editAndInvokeSaved(page, '복구 미리보기', 'CORRECTION');
+    await editAndInvokeSaved(page, '선택 내용 확인', 'CORRECTION');
     assert.deepEqual(await posts(page), []);
     await page.evaluate(() => (window.__mode = 'lost-not-found'));
     await reapprove(page);
     await expect(page.getByRole('alert')).toContainText('확정 증거');
     await page.getByRole('button', { name: '상태 새로고침' }).click();
     await expect(page.locator('textarea')).toHaveValue('CORRECTION');
-    await expect(page.getByText('저장하지 않은 변경이 있습니다.', { exact: false })).toBeVisible();
-    await expect(page.getByRole('button', { name: '후속 단계 계속', exact: true })).toBeDisabled();
+    await expect(
+      page.getByText('방법을 선택했지만 아직 적용 전입니다.', { exact: false }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: '복구 적용·이어서 실행', exact: true }),
+    ).toBeDisabled();
     assert.deepEqual(
       (await posts(page)).map((c) => c.path.split('/').at(-1)),
       ['preview', 'decisions'],
@@ -768,10 +864,16 @@ test('newer local edit during pending save is not cleaned by old matching approv
   try {
     const page = await setup(browser, 'transcription', true, savedFixture('transcription'));
     await page.locator('textarea').fill('FIRST CORRECTION');
-    await page.getByRole('button', { name: '복구 미리보기', exact: true }).click();
-    await page.getByLabel('추가 호출 및 복구 결정을 승인합니다').check();
+    await page.getByRole('button', { name: '선택 내용 확인', exact: true }).click();
+    if (await page.getByLabel('표시된 모델과 상한 안에서 추가 호출을 승인합니다').count())
+      await page.getByLabel('표시된 모델과 상한 안에서 추가 호출을 승인합니다').check();
     await page.evaluate(() => (window.__mode = 'defer'));
-    await page.getByRole('button', { name: '승인 후 저장·실행', exact: true }).click();
+    await page
+      .getByRole('button', {
+        name: /^(선택 확정|선택한 구간만 저장|추가 호출 승인 후 재시도)$/,
+        exact: true,
+      })
+      .click();
     await expect(page.locator('textarea')).toBeDisabled();
     await page.evaluate(() => {
       const el = document.querySelector('textarea');
@@ -787,7 +889,9 @@ test('newer local edit during pending save is not cleaned by old matching approv
     await expect(page.locator('textarea')).toBeEnabled();
     await page.getByRole('button', { name: '상태 새로고침' }).click();
     await expect(page.locator('textarea')).toHaveValue('NEWER CORRECTION');
-    await expect(page.getByRole('button', { name: '후속 단계 계속', exact: true })).toBeDisabled();
+    await expect(
+      page.getByRole('button', { name: '복구 적용·이어서 실행', exact: true }),
+    ).toBeDisabled();
     assert.deepEqual(
       (await posts(page)).map((c) => c.path.split('/').at(-1)),
       ['preview', 'decisions'],
@@ -820,6 +924,51 @@ test('read-only, API access, unsupported and unknown gates; bounded polling', as
     const page = await setup(browser, 'transcription', true, { supported: false });
     await expect(page.locator('.unit-recovery')).toHaveCount(0);
     assert.equal(await page.getByRole('button').count(), 0);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('complete zero-call confirmation only prepares; dispatch requires a separate explicit action', async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const base = fixture('transcription');
+    base.units = base.units.slice(0, 2);
+    base.counts = { ...base.counts, failed: 1, unattempted: 0 };
+    const page = await setup(browser, 'transcription', true, base);
+    await page.evaluate(() => {
+      window.__preview = { ready: true, blocked_reasons: [], execution_units: [] };
+    });
+    await page.getByRole('button', { name: '구간 2 무시', exact: true }).click();
+    assert.deepEqual(await posts(page), []);
+    await page.getByRole('button', { name: '선택 내용 확인', exact: true }).click();
+    await expect(
+      page.getByText('이 단계의 추가 모델 호출 없음 · 성공 구간은 다시 처리하지 않습니다.', {
+        exact: true,
+      }),
+    ).toBeVisible();
+    assert.equal(
+      await page.getByRole('checkbox').count(),
+      0,
+      'no paid-call approval exists at zero calls; final button explicitly confirms the decision',
+    );
+    await page.getByRole('button', { name: '선택 확정', exact: true }).click();
+    await expect(
+      page.getByText('선택을 저장하고 복구 결과를 준비했습니다.', { exact: false }),
+    ).toBeVisible();
+    const calls = await posts(page);
+    assert.deepEqual(
+      calls.map((c) => c.path.split('/').at(-1)),
+      ['preview', 'decisions', 'execute'],
+    );
+    assert.equal(calls[1].body.approve_calls, false);
+    assert.deepEqual(calls[1].body.decisions, [{ unit_index: 1, action: 'skip' }]);
+    assert.equal(await page.evaluate(() => window.__changed), 0);
+    await expect(
+      page.getByRole('button', { name: '복구 적용·이어서 실행', exact: true }),
+    ).toBeEnabled();
+    await page.getByRole('button', { name: '상태 새로고침' }).click();
+    assert.equal((await posts(page)).length, 3);
   } finally {
     await browser.close();
   }

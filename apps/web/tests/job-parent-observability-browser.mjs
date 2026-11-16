@@ -184,7 +184,7 @@ for (const { state, severity, filter, statusText } of [
         await page.addScriptTag({
           content: bundle.outputFiles.find((f) => f.path.endsWith('.js')).text,
         });
-        await expect(page.getByRole('tab', { name: '진행', exact: true })).toHaveAttribute(
+        await expect(page.getByRole('tab', { name: '워크플로우', exact: true })).toHaveAttribute(
           'aria-selected',
           'true',
         );
@@ -207,7 +207,7 @@ for (const { state, severity, filter, statusText } of [
         await expect(table.getByText('원본', { exact: true })).toHaveCount(0);
         await page.getByRole('tab', { name: '로그', exact: true }).click();
         await page.getByRole('button', { name: '해당 단계', exact: true }).click();
-        await expect(page.getByRole('tab', { name: '진행', exact: true })).toHaveAttribute(
+        await expect(page.getByRole('tab', { name: '워크플로우', exact: true })).toHaveAttribute(
           'aria-selected',
           'true',
         );

@@ -169,11 +169,15 @@ def project_logs(run, role, calls, *, display_limit=None):
             add(None, 'warning' if call['status']=='unknown' else 'error',
                 label+': '+ERRORS.get(call.get('error_code'), '모델 처리 오류가 기록됐습니다.'))
     state = run['status']
+    terminal_run = state in {'completed', 'cancelled'}
     if role and role['phase'] in {'held', 'unknown'}:
-        state = 'failed' if calls and any(c['status']=='failed' for c in calls) and not any(c['status']in {'unknown','started'} for c in calls) else 'held'
+        # Retained original role/call history must not reopen a terminal node,
+        # including an explicitly adopted unit-recovery receipt. Keep its logs.
+        if not terminal_run:
+            state = 'failed' if calls and any(c['status']=='failed' for c in calls) and not any(c['status']in {'unknown','started'} for c in calls) else 'held'
         add(role.get('received_at'), 'warning', ERRORS.get(role.get('held_reason'), '응답이나 처리 결과를 확인할 수 없어 보류했습니다.'))
     elif role and role['phase']=='cancelled':
-        state='cancelled'
+        if not terminal_run:state='cancelled'
         add(role.get('received_at'), 'info', '취소 결과를 확인했습니다.')
     if run.get('error_code'):
         add(run.get('completed_at'), 'error', ERRORS.get(run['error_code'], '태스크 처리 오류가 기록됐습니다.'))

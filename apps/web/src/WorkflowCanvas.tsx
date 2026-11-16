@@ -77,6 +77,7 @@ export const WorkflowCanvas = ({
   detailsLabel = '노드 설정',
   inputLabel = '입력 트리거',
   inputThumbnail,
+  nodeDetails = {},
 }: {
   definition: CanvasDefinition;
   catalog: CanvasSpec[];
@@ -91,6 +92,7 @@ export const WorkflowCanvas = ({
   detailsLabel?: string;
   inputLabel?: string;
   inputThumbnail?: string;
+  nodeDetails?: Record<string, ReactNode>;
 }) => {
   const agentOnly = definition.catalog_version === 2;
   const portName = (port: string) =>
@@ -1158,6 +1160,9 @@ export const WorkflowCanvas = ({
               </button>
               {nodeStates[box.id]?.reason && (
                 <p className="workflow-node-error-reason">{nodeStates[box.id].reason}</p>
+              )}
+              {nodeDetails[box.id] && (
+                <div className="workflow-node-runtime">{nodeDetails[box.id]}</div>
               )}
               <div className="workflow-node-ports">
                 {(['inputs', 'outputs'] as const).map((direction) => (
