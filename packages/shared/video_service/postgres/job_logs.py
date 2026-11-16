@@ -42,7 +42,7 @@ def captured_records(run, console):
                    json.dumps(line, sort_keys=True).encode()).hexdigest()[:16],
                'at': timestamp(line.get('at')), 'level': 'UNKNOWN', 'message': text,
                'run_id': run['id'], 'node_id': run['node_id'],
-               'source': 'console', 'provenance': 'captured'}
+               'source': 'console', 'provenance': 'captured', 'stream': line.get('stream')}
         if private and text != WITHHELD and _safe_diagnostic(text):
             event = json.loads(text)
             row['source'] = 'diagnostic'
@@ -54,9 +54,12 @@ def captured_records(run, console):
                     row[key] = event[key]
             if event.get('error_code'):
                 row['message'] += ' · ' + ERRORS.get(event['error_code'], event['error_code'])
-            # Canonical private diagnostics are not stdout bodies; no raw field.
+            # Exact collector-emitted text, not a DB/lifecycle reconstruction.
+            row['terminal_text'] = text
+            # Arbitrary private stdout bodies remain withheld; no raw field.
         elif not private:
             row['raw'] = text
+            row['terminal_text'] = text
             match = re.match(r'^\[?(INFO|WARNING|ERROR)\]?(?:[: \t])', text)
             if match:
                 row['level'] = match[1]
@@ -145,6 +148,11 @@ class JobLogs:
             records.extend(captured_records(run, console))
             records.extend(stored_failures(run, role, calls))
             clipped = clipped or source['truncated']
+        terminal_records = [row for row in records if type(row.get('terminal_text')) is str]
+        terminal_records.sort(key=lambda row: (row['at'] is None, row['at'] or ''))
+        terminal_total = len(terminal_records)
+        terminal_clipped = any(source['truncated'] for source in sources) or terminal_total > MAX_RECORDS
+        terminal_records = terminal_records[-MAX_RECORDS:]
         total = len(records)
         # Prefer recent captured evidence and retained failures. Unknown times stay unknown.
         records.sort(key=lambda row: (row['at'] is None, row['at'] or '', row['id']))
@@ -156,4 +164,6 @@ class JobLogs:
                 source['truncated'] |= source['run_id'] in omitted_runs
             clipped = True
         return {'job_id': identity, 'records': shown, 'has_more': clipped,
-                'truncated': clipped, 'sources': sources, 'total_records': total}
+                'truncated': clipped, 'sources': sources, 'total_records': total,
+                'terminal_records': terminal_records, 'terminal_total_records': terminal_total,
+                'terminal_truncated': terminal_clipped}

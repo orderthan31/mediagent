@@ -1,7 +1,8 @@
+.system-settings .system-resources,
 .system-settings-links {
-  display: grid;
-  gap: 8px;
-  max-width: 44rem;
+  max-width: 48rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .system-settings-links > a {
   display: flex;
@@ -9,9 +10,8 @@
   justify-content: space-between;
   gap: 16px;
   min-height: 48px;
-  padding: 12px 16px;
-  border: 1px solid var(--g-line);
-  border-radius: 8px;
+  padding-block: 12px;
+  border-block: 1px solid var(--g-line);
   color: var(--g-ink);
   text-decoration: none;
 }
@@ -21,4 +21,30 @@
 .system-settings-links > a:focus-visible {
   outline: 2px solid var(--g-action);
   outline-offset: 2px;
+}
+.system-resource-node {
+  border-top: 1px solid var(--g-line);
+  padding-block: 16px;
+}
+.system-resource-node h3 {
+  margin: 0 0 12px;
+}
+.system-resource-node dl {
+  margin: 0;
+}
+.system-resource-node dl > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: 16px;
+  min-height: 44px;
+  align-items: baseline;
+  padding-block: 8px;
+}
+.system-resource-node dt,
+.system-observed-at {
+  color: var(--g-soft);
+}
+.system-resource-node dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
 }

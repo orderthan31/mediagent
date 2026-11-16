@@ -34,7 +34,7 @@ const profiles: Record<string, Profile> = {
     conditions: [
       'PCM WAV 오디오',
       'NVIDIA VAD: 기존 고정 처리 경로용 · 새 순차/병렬 어댑터 미지원',
-      '유료 발성분석이 켜진 새 전처리 경로 미지원',
+      '발성분석이 켜진 새 전처리 경로 미지원',
     ],
   },
   transcribe: {
@@ -152,7 +152,7 @@ const renewalProfiles: Record<string, Profile> = {
     access: '검증된 오디오 구간 · 원본 영상은 전송하지 않음',
     conditions: [
       '모델·연결 개정을 작업에 고정',
-      '호출 상한·비용 동의 후에만 실행',
+      '호출 상한·실행 승인 후에만 실행',
       '로컬/GPU 모델로 자동 대체하지 않음',
     ],
   },
@@ -164,7 +164,7 @@ const renewalProfiles: Record<string, Profile> = {
     access: '전사문 텍스트 · 원본 미디어 전송 없음',
     conditions: [
       '모델·연결 개정을 작업에 고정',
-      '호출 상한·비용 동의 후에만 실행',
+      '호출 상한·실행 승인 후에만 실행',
       '로컬/GPU 모델로 자동 대체하지 않음',
     ],
   },

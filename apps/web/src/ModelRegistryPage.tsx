@@ -26,6 +26,8 @@ const modelUseLabels: Record<string, string> = {
   translation: '번역',
   decision: '판단',
 };
+import { modelAccountLabel } from './model-account-selection';
+import './model-selection.css';
 import './serving.css';
 import './workflow-tickets.css';
 
@@ -411,10 +413,10 @@ export const ModelRegistryPage = ({
                   </label>
                 </details>
                 <label>
-                  {frontendOnly || renewalBackend ? '공급자 연결' : '공급자'}
+                  {frontendOnly || renewalBackend ? '공급자 / 계정' : '공급자'}
                   {frontendOnly || renewalBackend ? (
                     <select
-                      aria-label="공급자 연결"
+                      aria-label="공급자 / 계정"
                       value={connectionId}
                       onChange={(event) => {
                         const selected = connections.find((row) => row.id === event.target.value);
@@ -437,12 +439,16 @@ export const ModelRegistryPage = ({
                         setCompatible([]);
                       }}
                     >
-                      <option value="">연결 선택</option>
+                      <option value="">공급자 / 계정 선택</option>
                       {connections
                         .filter((row) => row.active !== false || row.id === original?.connection_id)
                         .map((row) => (
                           <option key={row.id} value={row.id}>
-                            {row.name}
+                            {modelAccountLabel(
+                              { provider: row.provider, connection_id: row.id },
+                              connections,
+                            )}
+                            {row.active === false ? ' · 사용 중지' : ''}
                           </option>
                         ))}
                     </select>
@@ -495,6 +501,9 @@ export const ModelRegistryPage = ({
                   </label>
                 )}
               </div>
+              {typedRegistry && !connectionId && (
+                <p role="status">공급자 / 계정을 먼저 선택하세요.</p>
+              )}
               {frontier && selectedConnection && (
                 <ModelCatalogPicker
                   key={connectionId + ':' + connectionRevision}
@@ -551,12 +560,6 @@ export const ModelRegistryPage = ({
                 <details>
                   <summary>{frontier ? '확인된 모델 능력' : '모델 능력 설정 (고급)'}</summary>
                   <fieldset disabled={frontier}>
-                    {frontier && (
-                      <p>
-                        공식 목록의 확인된 분류입니다. 실행 가능한 용도는 위 후보 목록과 별개로
-                        표시합니다.
-                      </p>
-                    )}
                     <ModelProfileFields value={profile} changed={setProfile} />
                   </fieldset>
                 </details>
@@ -657,7 +660,7 @@ export const ModelRegistryPage = ({
                   >
                     <strong className="ui02-list-title">{current.name}</strong>
                     <span className="ui02-list-meta">
-                      {providers[current.provider] || current.provider} / {current.model}
+                      {modelAccountLabel(current, connections)} / {current.model}
                     </span>
                     <span className="ui02-list-meta">
                       {typedRegistry
@@ -688,10 +691,7 @@ export const ModelRegistryPage = ({
               </div>
               <div>
                 <dt>공급자 연결</dt>
-                <dd>
-                  {connections.find((row) => row.id === selectedVersion.connection_id)?.name ||
-                    '미설정'}
-                </dd>
+                <dd>{modelAccountLabel(selectedVersion, connections)}</dd>
               </div>
               <div>
                 <dt>모델 ID</dt>

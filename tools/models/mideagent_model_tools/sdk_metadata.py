@@ -34,6 +34,14 @@ def sdk_profile(provider, model):
     evidence = ["https://github.com/BerriAI/litellm/blob/v1.106.6/model_prices_and_context_window.json"]
     if isinstance(source, str) and source.startswith("https://"):
         evidence.append(source)
+    # Exact primary-source evidence supplements (never replaces) the pinned
+    # SDK's audio/schema intersection. Do not infer sibling IDs or aliases.
+    if model == "gemini-3.8-flash" and provider in {"gemini", "vertex_ai"}:
+        evidence.append(
+            "https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash"
+            if provider == "gemini" else
+            "https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/gemini/3-8-flash"
+        )
     variants = {}
     if info["mode"] == "audio_transcription":
         profile = {"model_types": ["speech_recognition"], "input_modalities": ["audio"], "output_modalities": ["text"], "capabilities": ["speech_recognition"]}
@@ -49,6 +57,8 @@ def sdk_profile(provider, model):
             variant = {"model_types": sorted(set(types + ["multimodal"])), "input_modalities": sorted(set(inputs + ["audio"])),
                        "output_modalities": ["text"], "capabilities": sorted(set(features + ["speech_recognition"]))}
             audio_evidence = evidence + (["https://ai.google.dev/gemini-api/docs/generate-content/audio"] if provider == "gemini" else [])
+            if provider == "vertex_ai" and model == "gemini-3.8-flash":
+                audio_evidence.append("https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/capabilities/audio-understanding")
             variants["transcription"] = {"profile": variant, "evidence": audio_evidence,
                                          "reason": "SDK 메타데이터의 음성 입력·구조화 응답 계약입니다. 실제 전사·시각·품질은 미검증입니다."}
     return {"profile": profile, "profile_variants": variants, "evidence": evidence}

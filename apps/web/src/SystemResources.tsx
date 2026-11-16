@@ -1,27 +1,137 @@
 import { useEffect, useState } from 'react';
 import { request } from './api';
 import { PageTitle } from './PageTitle';
+import './system-settings.css';
 type Node = {
   id: string;
   name: string;
-  cpu_percent: number | null;
-  logical_processors: number;
-  memory_total: number;
-  memory_available: number;
+  cpu_percent?: number | null;
+  logical_processors?: number | null;
+  memory_total?: number | null;
+  memory_available?: number | null;
   gpu?: string[];
 };
-type Disk = { name: string; total: number; free: number; source: string; status?: string };
+type Disk = {
+  name: string;
+  total?: number | null;
+  free?: number | null;
+  source: string;
+  status?: string;
+};
 type State = {
   status: string;
   observed_at?: string;
-  notice?: string;
-  nodes: Node[];
-  storage: Disk[];
+  nodes?: Node[];
+  storage?: Disk[];
 };
-const gb = (n: number) => (Number.isFinite(n) ? (n / 1024 ** 3).toFixed(1) + ' GiB' : '미확인');
-export const SystemResources = () => {
+const gb = (n: number | null | undefined) =>
+  typeof n === 'number' && Number.isFinite(n) && n >= 0
+    ? (n / 1024 ** 3).toFixed(1) + ' GiB'
+    : '미확인';
+const percent = (n: number | null | undefined) =>
+  typeof n === 'number' && Number.isFinite(n) && n >= 0 && n <= 100 ? n + '%' : '미확인';
+export const SystemResources = ({ embedded = false }: { embedded?: boolean }) => {
   const [data, setData] = useState<State | null>(null);
   const [error, setError] = useState('');
+  const current = !error && data?.status === 'connected';
+  const content = (
+    <section className="system-resources" aria-labelledby="system-resources-title">
+      <h2 id="system-resources-title">컴퓨터 자원</h2>
+      <p role={error ? 'alert' : 'status'}>
+        {error ||
+          (current
+            ? '수집 연결됨'
+            : data?.status === 'stale'
+              ? '관측이 오래됨 · 현재 상태 미확인'
+              : data
+                ? '관측 없음 · 현재 상태 미확인'
+                : '자원 상태 확인 중')}
+      </p>
+      {data?.observed_at && Number.isFinite(Date.parse(data.observed_at)) && (
+        <p className="system-observed-at">
+          최근 수집{' '}
+          <time dateTime={data.observed_at}>
+            {new Date(data.observed_at).toLocaleString('ko-KR')}
+          </time>
+        </p>
+      )}
+      {current && !data?.nodes?.length && <p>수집된 컴퓨터 없음 · 현재 상태 미확인</p>}
+      {current &&
+        data?.nodes?.map((n) => (
+          <section className="system-resource-node" key={n.id}>
+            <h3>{n.name}</h3>
+            <dl>
+              <div>
+                <dt>CPU</dt>
+                <dd>
+                  {typeof n.logical_processors === 'number' &&
+                  Number.isInteger(n.logical_processors) &&
+                  n.logical_processors > 0
+                    ? `${n.logical_processors}개`
+                    : '미확인'}
+                </dd>
+              </div>
+              <div>
+                <dt>CPU 사용률</dt>
+                <dd>{percent(n.cpu_percent)}</dd>
+              </div>
+              <div>
+                <dt>전체 메모리</dt>
+                <dd>{gb(n.memory_total)}</dd>
+              </div>
+              <div>
+                <dt>사용 가능 메모리</dt>
+                <dd>{gb(n.memory_available)}</dd>
+              </div>
+              {!n.gpu?.length && (
+                <div>
+                  <dt>GPU</dt>
+                  <dd>미확인</dd>
+                </div>
+              )}
+              {n.gpu?.map((g, i) => {
+                const [name, usage, used, total] = g.split(',').map((v) => v.trim());
+                const mib = (v?: string) =>
+                  v && Number.isFinite(Number(v)) && Number(v) >= 0 ? `${v} MiB` : '미확인';
+                return (
+                  <div key={i}>
+                    <dt>GPU {i + 1}</dt>
+                    <dd>
+                      {name || '미확인'}
+                      <br />
+                      사용률 {usage ? percent(Number(usage)) : '미확인'}
+                      <br />
+                      메모리 {mib(used)} / {mib(total)}
+                    </dd>
+                  </div>
+                );
+              })}
+            </dl>
+          </section>
+        ))}
+      {!embedded &&
+        current &&
+        data?.storage?.map((d, i) => (
+          <section className="system-resource-node" key={i}>
+            <h3>저장 공간 {i + 1}</h3>
+            {d.status === 'connected' ? (
+              <dl>
+                <div>
+                  <dt>전체</dt>
+                  <dd>{gb(d.total)}</dd>
+                </div>
+                <div>
+                  <dt>여유</dt>
+                  <dd>{gb(d.free)}</dd>
+                </div>
+              </dl>
+            ) : (
+              <p>용량 미확인</p>
+            )}
+          </section>
+        ))}
+    </section>
+  );
   useEffect(() => {
     let live = true;
     const load = async () => {
@@ -44,46 +154,12 @@ export const SystemResources = () => {
       clearInterval(timer);
     };
   }, []);
-  return (
-    <main className="settings-page">
+  return embedded ? (
+    content
+  ) : (
+    <main className="settings-page system-settings">
       <PageTitle>시스템</PageTitle>
-      <h2>컴퓨터·스토리지</h2>
-      {error && <p role="alert">{error}</p>}
-      <p role="status">
-        {data?.status === 'connected' ? '자원 수집 연결됨' : data?.notice || '자원 상태 확인 중'}
-      </p>
-      {data?.observed_at && <p>최근 수집 {new Date(data.observed_at).toLocaleString('ko-KR')}</p>}
-      {data?.nodes.map((n) => (
-        <section key={n.id}>
-          <h3>{n.name}</h3>
-          <p>
-            CPU {n.logical_processors}개 · 사용{' '}
-            {n.cpu_percent === null ? '미확인' : n.cpu_percent + '%'}
-            {n.cpu_percent === null ? '' : ' · 유휴 ' + Math.max(0, 100 - n.cpu_percent) + '%'}
-          </p>
-          <p>
-            메모리 전체 {gb(n.memory_total)} · 사용 가능 {gb(n.memory_available)}
-          </p>
-          {n.gpu?.map((g, i) => (
-            <p key={i}>
-              GPU {g.split(',')[0]} · 사용 {g.split(',')[1]?.trim() || '미확인'}% · 메모리{' '}
-              {g.split(',')[2]?.trim() || '미확인'} / {g.split(',')[3]?.trim() || '미확인'} MiB
-            </p>
-          ))}
-        </section>
-      ))}
-      <h2>저장 공간</h2>
-      {data?.storage.map((d) => (
-        <section key={d.name}>
-          <h3>{d.name}</h3>
-          <p>
-            {d.status === 'unavailable'
-              ? '연결 미확인'
-              : '전체 ' + gb(d.total) + ' · 사용 ' + gb(d.total - d.free) + ' · 여유 ' + gb(d.free)}
-          </p>
-          <p>{d.source}</p>
-        </section>
-      ))}
+      {content}
     </main>
   );
 };

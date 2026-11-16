@@ -116,7 +116,7 @@ test('selected failed task opens execution detail and genuine terminal tab witho
   assert.match(html, /job-execution-flow__details/);
   assert.doesNotMatch(html, /workflow-port|workflow-canvas|처리 기록 목록/);
   assert.match(html, /aria-selected="true"[^>]*>로그/);
-  assert.match(html, /저장된 터미널 출력이 없습니다/);
+  assert.match(html, /로그 없음/);
 });
 
 test('required timed input has an accessible field-linked marker and settings are single links', () => {
@@ -128,7 +128,9 @@ test('required timed input has an accessible field-linked marker and settings ar
   assert.match(html, /자막을 선택하세요/);
   assert.match(html, /추출 음성을 선택하세요/);
   assert.doesNotMatch(html, />작업 설정</);
-  assert.equal((html.match(/워크플로우 설정/g) || []).length, 1);
+  assert.equal((html.match(/워크플로우 설정/g) || []).length, 0);
+  assert.match(html, /컴퓨터 자원/);
+  assert.match(html, /저장소 현황/);
   const language = render(
     `import {WorkflowInputs} from './src/WorkflowInputs';console.log(renderToStaticMarkup(<WorkflowInputs inputs={{transcript:'transcript'}} value={{subtitle_srt:'unit selected SRT',input_language:''}} choices={[]} onChange={()=>{}} />));`,
   );

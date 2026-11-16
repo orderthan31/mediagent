@@ -103,9 +103,9 @@ export const WorkflowInputs = ({
       {inputs.transcript && (
         <>
           <label>
-            시간 자막 출처
+            번역·자막 제작에 쓸 전사문 (필수)
             <select
-              aria-label="시간 자막 출처"
+              aria-label="번역·자막 제작에 쓸 전사문"
               aria-invalid={transcriptMissing}
               aria-describedby={transcriptMissing ? `${fieldId}-transcript-required` : undefined}
               value={
@@ -183,9 +183,10 @@ export const WorkflowInputs = ({
       )}
       {inputs.audio && (
         <label>
-          같은 영상의 추출 음성 (16kHz 모노 PCM WAV)
+          전사에 쓸 음성 (필수) · 같은 영상의 추출 WAV
+          <small>16kHz 모노 PCM</small>
           <select
-            aria-label="재사용 추출 음성"
+            aria-label="전사에 쓸 음성"
             aria-invalid={audioMissing}
             aria-describedby={audioMissing ? `${fieldId}-audio-required` : undefined}
             value={value.accepted_inputs?.audio ? inputChoiceKey(value.accepted_inputs.audio) : ''}

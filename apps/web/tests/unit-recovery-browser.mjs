@@ -325,9 +325,10 @@ for (const role of ['transcription', 'translation']) {
     const browser = await chromium.launch({ headless: true });
     try {
       const page = await setup(browser, role);
+      await expect(page.getByRole('heading', { name: '구간 복구', exact: true })).toBeVisible();
       await expect(
         page.getByText('성공한 구간은 그대로 두고, 실패한 구간만 처리합니다.'),
-      ).toBeVisible();
+      ).toHaveCount(0);
       await expect(page.getByLabel('구간 1 처리')).toHaveCount(0);
       await choices(page, role);
       await page.getByText('재시도에 사용할 고정 모델', { exact: true }).click();
@@ -969,6 +970,36 @@ test('complete zero-call confirmation only prepares; dispatch requires a separat
     ).toBeEnabled();
     await page.getByRole('button', { name: '상태 새로고침' }).click();
     assert.equal((await posts(page)).length, 3);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('one-action exclusion validates internally and explicitly resumes without a wizard', async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const base = fixture('transcription');
+    base.units = base.units.slice(0, 2);
+    base.counts = { ...base.counts, failed: 1, unattempted: 0 };
+    const page = await setup(browser, 'transcription', true, base);
+    await page.evaluate(
+      () => (window.__preview = { ready: true, blocked_reasons: [], execution_units: [] }),
+    );
+    await page.getByRole('button', { name: '구간 2 무시', exact: true }).click();
+    assert.deepEqual(await posts(page), []);
+    await expect(page.getByText(/유료/)).toHaveCount(0);
+    const button = page.getByRole('button', { name: '제외하고 계속', exact: true });
+    await expect(button).toBeEnabled();
+    await button.click();
+    await expect.poll(() => page.evaluate(() => window.__changed)).toBe(1);
+    const calls = await posts(page);
+    assert.deepEqual(
+      calls.map((c) => c.path.split('/').at(-1)),
+      ['preview', 'decisions', 'execute', 'continue'],
+    );
+    assert.equal(calls[1].body.approve_calls, false);
+    assert.deepEqual(calls[1].body.decisions, [{ unit_index: 1, action: 'skip' }]);
+    assert.ok(calls.every((c) => !c.path.endsWith('/run') && !c.path.endsWith('/admit')));
   } finally {
     await browser.close();
   }

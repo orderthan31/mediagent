@@ -315,6 +315,13 @@ const RecoveryScope = ({
       });
     }
   };
+  const pendingUnits =
+    view?.units.filter((u) => ['failed', 'unattempted'].includes(u.status)) || [];
+  const quickReady =
+    !view?.recovery?.can_continue &&
+    view?.recovery?.status !== 'applied' &&
+    pendingUnits.length > 0 &&
+    pendingUnits.every((u) => ['skip', 'manual'].includes(drafts[u.index]?.action || ''));
   const post = <T,>(suffix: string, body: unknown) =>
     request<T>(`${base}/${suffix}`, {
       method: 'POST',
@@ -322,12 +329,12 @@ const RecoveryScope = ({
       body: JSON.stringify(body),
       signal: controller.current?.signal,
     });
-  const mutate = async (kind: 'preview' | 'approve' | 'execute' | 'continue') => {
+  const mutate = async (kind: 'preview' | 'approve' | 'execute' | 'continue' | 'quick') => {
     if (fence.current || blocked || !manageable.current || uncertain) {
       return;
     }
     // A captured pre-edit handler must not preview the previous render's drafts.
-    if (kind === 'preview' && renderedRevision !== editRevision.current) {
+    if ((kind === 'preview' || kind === 'quick') && renderedRevision !== editRevision.current) {
       return;
     }
     if (
@@ -353,8 +360,9 @@ const RecoveryScope = ({
     setError('');
     let submitted = false;
     const submittedRevision = editRevision.current;
+    let prepared: Preview | null = null;
     try {
-      if (kind === 'preview') {
+      if (kind === 'preview' || kind === 'quick') {
         const decisions: Decision[] = [];
         for (const u of view!.units) {
           const draft = drafts[u.index];
@@ -418,10 +426,22 @@ const RecoveryScope = ({
           return;
         }
         previewRevision.current = submittedRevision;
-        setPreview(result);
-        setApproved(false);
-      } else if (kind === 'approve') {
-        const p = preview!;
+        if (kind === 'preview') {
+          setPreview(result);
+          setApproved(false);
+          return;
+        }
+        if (
+          !result.ready ||
+          result.additional_call_limit !== 0 ||
+          result.decisions.some((d) => d.action === 'retry')
+        ) {
+          throw Error('남은 구간의 처리 방식을 선택해 주세요.');
+        }
+        prepared = result;
+      }
+      if (kind === 'approve' || kind === 'quick') {
+        const p = prepared || preview!;
         const id = requestId();
         submitted = true;
         unresolved.current = { id, operation: 'save', editRevision: submittedRevision };
@@ -432,7 +452,7 @@ const RecoveryScope = ({
           decisions: p.decisions,
           request_id: id,
           preview_sha256: p.preview_sha256,
-          approve_calls: approved,
+          approve_calls: kind === 'quick' ? false : approved,
         });
         if (!alive.current) {
           return;
@@ -463,7 +483,32 @@ const RecoveryScope = ({
         }
         accept(executed);
         unresolved.current = null;
-        if (executed.recovery?.can_continue && !dirtyRef.current) {
+        if (kind === 'quick') {
+          if (!executed.recovery?.can_continue || dirtyRef.current) {
+            throw Error('복구 결과를 확인해 주세요.');
+          }
+          unresolved.current = { id, operation: 'continue' };
+          const result = await continuePreparedRecovery(
+            executed,
+            request,
+            () =>
+              alive.current &&
+              !dirtyRef.current &&
+              manageable.current &&
+              latest.current?.recovery?.id === executed.recovery?.id &&
+              latest.current?.context_sha256 === executed.context_sha256,
+          );
+          if (!alive.current) {
+            return;
+          }
+          if (result.state !== 'sent') {
+            throw Error('실행 요청 결과를 확인해 주세요.');
+          }
+          unresolved.current = null;
+          setStale(true);
+          await notifyChanged();
+        }
+        if (kind !== 'quick' && executed.recovery?.can_continue && !dirtyRef.current) {
           requestAnimationFrame(() => {
             if (!alive.current) {
               return;
@@ -581,20 +626,7 @@ const RecoveryScope = ({
   return (
     <section className="unit-recovery" aria-label="구간 복구" ref={panelRoot}>
       <h3>구간 복구</h3>
-      <p>성공한 구간은 그대로 두고, 실패한 구간만 처리합니다.</p>
-      <ol className="unit-recovery-steps" aria-label="복구 진행 순서">
-        <li aria-current={!view?.recovery && !preview ? 'step' : undefined}>1. 구간 선택</li>
-        <li
-          aria-current={
-            preview || (view?.recovery && view.recovery.status !== 'applied') ? 'step' : undefined
-          }
-        >
-          2. 선택 확정·결과 준비
-        </li>
-        <li aria-current={view?.recovery?.status === 'applied' ? 'step' : undefined}>
-          3. 복구 적용·이어서 실행
-        </li>
-      </ol>
+
       {error && <p role="alert">{error}</p>}
       {!view && <p>복구 상태 확인 중</p>}
       <button type="button" disabled={busy} onClick={() => void refresh()}>
@@ -795,14 +827,30 @@ const RecoveryScope = ({
               </article>
             ))}
           {canManage && view.access.can_manage && (
-            <button
-              type="button"
-              ref={nextActionButton}
-              disabled={locked || !Object.values(drafts).some((d) => d.action)}
-              onClick={() => void mutate('preview')}
-            >
-              선택 내용 확인
-            </button>
+            <>
+              {quickReady && (
+                <div className="unit-recovery-quick">
+                  <button
+                    className="unit-recovery-primary"
+                    type="button"
+                    disabled={locked}
+                    onClick={() => void mutate('quick')}
+                  >
+                    {pendingUnits.some((u) => drafts[u.index]?.action === 'manual')
+                      ? '입력 반영하고 계속'
+                      : '제외하고 계속'}
+                  </button>
+                </div>
+              )}
+              <button
+                type="button"
+                ref={nextActionButton}
+                disabled={locked || !Object.values(drafts).some((d) => d.action)}
+                onClick={() => void mutate('preview')}
+              >
+                선택 내용 확인
+              </button>
+            </>
           )}
           {canManage && view.access.can_manage && (
             <>
@@ -881,12 +929,6 @@ const RecoveryScope = ({
                     >
                       승인한 구간 실행
                     </button>
-                  )}
-                  {view.recovery.status !== 'applied' && view.recovery.can_continue && (
-                    <p>
-                      ‘복구 적용·이어서 실행’을 누르면 결과를 적용하고 다음 태스크를 시작합니다.
-                      기존 승인 범위의 유료 모델 호출이 포함될 수 있습니다.
-                    </p>
                   )}
                   {view.recovery.status !== 'applied' && (
                     <button

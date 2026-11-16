@@ -30,6 +30,7 @@ type TaskLog = {
     content_policy?: string;
     truncated: boolean;
     lines: { at: string | null; stream: string; text: string }[];
+    terminal_lines?: { at: string | null; stream: string; text: string }[];
   };
 };
 const states: Record<string, string> = {
@@ -96,13 +97,11 @@ export const TaskResultTabs = ({
     finishedSegments <= plannedSegments;
   const hasChunkProgress = Boolean(progress) || (visibleLogs?.total_calls ?? 0) > 0;
   const consoleOutput = visibleLogs?.console;
-  // This policy exposes only safe lifecycle diagnostics/withheld markers, not
-  // original stdio. Never pass those off as terminal output or unmask bodies.
-  const privateConsole = consoleOutput?.content_policy === 'private_diagnostics_v1';
-  const terminalText =
-    !privateConsole && consoleOutput?.available
-      ? consoleOutput.lines.map((line) => line.text).join('')
-      : '';
+  const terminalLines =
+    consoleOutput?.content_policy === 'private_diagnostics_v1'
+      ? consoleOutput.terminal_lines || []
+      : consoleOutput?.lines || [];
+  const terminalText = terminalLines.map((line) => line.text).join('\n');
   const pending = Boolean(runId) && (loading || completedScope !== currentScope);
   const visibleError = completedScope === currentScope ? error : '';
   const sequence = useRef(0);
@@ -269,29 +268,10 @@ export const TaskResultTabs = ({
           <p>처리 기록을 불러오는 중입니다.</p>
         ) : (
           <>
-            {privateConsole ? (
-              <p className="task-console-policy">
-                이 태스크는 개인정보 보호 정책으로 원본 stdout/stderr 본문이 보존되지 않거나
-                공개되지 않습니다. 저장된 진단 이벤트를 터미널 출력으로 대신 표시하지 않습니다.
-              </p>
-            ) : (
-              <>
-                {consoleOutput?.truncated && (
-                  <p>저장 또는 조회 상한으로 일부 터미널 출력이 생략되었습니다.</p>
-                )}
-                {terminalText ? (
-                  <pre className="task-console-text" aria-label="터미널 출력">
-                    {terminalText}
-                  </pre>
-                ) : (
-                  !visibleError && (
-                    <p>
-                      저장된 터미널 출력이 없습니다. 과거 출력은 이 화면에서 복원할 수 없습니다.
-                    </p>
-                  )
-                )}
-              </>
-            )}
+            {consoleOutput?.truncated && <small>이전 로그 일부 생략됨</small>}
+            <pre className="task-console-text" aria-label="터미널 출력">
+              {terminalText || '로그 없음'}
+            </pre>
           </>
         )}
       </div>

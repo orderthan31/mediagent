@@ -242,6 +242,19 @@ def classify(provider, item, protocol, *, catalog_items=None):
             evidence = [
                 "https://docs.x.ai/developers/rest-api-reference/inference/models"
             ]
+    # SDK metadata must obey the same native-provider fence as curated
+    # evidence. A Vertex capability does not authorize an AI Studio/API-key
+    # wire (or an OpenAI-compatible endpoint), nor the reverse.
+    if provider in {"gemini", "vertex_ai"} and protocol != provider:
+        profile = None
+        details = {
+            "profile": None,
+            "profile_variants": {},
+            "classification_status": "unsupported",
+            "provider_purpose": "",
+            "reason": "공급자의 정본 프로토콜이 아닌 연결에는 용도를 자동 부여하지 않습니다.",
+            "evidence": evidence,
+        }
     if profile:
         profile = validate_profile(**profile)
     runtime = []

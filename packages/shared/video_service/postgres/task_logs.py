@@ -3,6 +3,7 @@ from . import Missing, Conflict
 from .registry import resource_id
 
 ERRORS = {
+    'tool_transport_timeout_outcome_unknown': '도구 응답 대기 시간이 초과됐습니다. Bridge·모델 처리 결과는 아직 확인되지 않았으며 자동으로 다시 요청하지 않습니다.',
     'connection_failed': '모델 서버 연결에 실패했습니다. 주소와 통신 경로를 확인하세요.',
     'outcome_unknown': '모델 요청 오류: 응답 여부를 확인하지 못했습니다. 자동으로 다시 요청하지 않습니다.',
     'model_reply_unknown': '모델 요청 오류: 응답 여부를 확인하지 못해 처리가 멈췄습니다.',

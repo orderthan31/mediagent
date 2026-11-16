@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { modelAccountKey, modelAccountLabel, modelChoiceLabel } from './model-account-selection';
+import './model-selection.css';
 import { request } from './api';
 import {
   type RegisteredModel,
@@ -30,6 +32,8 @@ export const NodeModelBinding = ({
 }) => {
   const [selectionNotice, setSelectionNotice] = useState('');
   const [search, setSearch] = useState('');
+  const [account, setAccount] = useState('');
+  const loadSequence = useRef(0);
   const [registering, setRegistering] = useState(false);
   const [models, setModels] = useState<RegisteredModel[]>([]);
   const [error, setError] = useState('');
@@ -52,15 +56,24 @@ export const NodeModelBinding = ({
       ? supportsModelRole(pinned, role) && wireSupported(pinned)
       : pinned.uses?.includes(role));
   const load = async () => {
+    const sequence = ++loadSequence.current;
     setLoading(true);
     setError('');
     try {
       const data = await request<{ models: RegisteredModel[] }>('/settings/registered-models');
+      if (sequence !== loadSequence.current) {
+        return;
+      }
       setModels(data.models);
     } catch (e) {
+      if (sequence !== loadSequence.current) {
+        return;
+      }
       setError(e instanceof Error ? e.message : '등록 모델을 읽지 못했습니다.');
     } finally {
-      setLoading(false);
+      if (sequence === loadSequence.current) {
+        setLoading(false);
+      }
     }
   };
   const closeRegistration = () => {
@@ -76,6 +89,9 @@ export const NodeModelBinding = ({
     } else {
       setLoading(false);
     }
+    return () => {
+      loadSequence.current++;
+    };
   }, [role]);
   useEffect(() => {
     if (!registering) {
@@ -130,6 +146,29 @@ export const NodeModelBinding = ({
   return (
     <section className="node-model-binding">
       <h4>{roleLabel} 모델</h4>
+      <label>
+        공급자 / 계정
+        <select
+          aria-label="공급자 / 계정"
+          value={account}
+          disabled={loading || !!error}
+          onChange={(event) => setAccount(event.target.value)}
+        >
+          <option value="">전체 공급자 / 계정</option>
+          {[
+            ...new Map(
+              models.map((row) => {
+                const version = row.versions[String(row.current_revision)];
+                return [modelAccountKey(version), modelAccountLabel(version)] as const;
+              }),
+            ).entries(),
+          ].map(([key, label]) => (
+            <option key={key} value={key}>
+              {label}
+            </option>
+          ))}
+        </select>
+      </label>
       {!simple && (
         <label>
           모델 검색
@@ -222,13 +261,34 @@ export const NodeModelBinding = ({
           value={value ? `${value.model_id}@${value.revision}` : ''}
           onChange={(e) => {
             const [model_id, revision] = e.target.value.split('@');
-            changed(model_id ? { model_id, revision: Number(revision) } : undefined);
+            if (!model_id) {
+              changed(undefined);
+              return;
+            }
+            const row = models.find((item) => item.id === model_id);
+            const current = row?.versions[revision];
+            if (
+              loading ||
+              error ||
+              !row?.active ||
+              !current ||
+              row.current_revision !== Number(revision) ||
+              (account && modelAccountKey(current) !== account) ||
+              !wireSupported(current) ||
+              !(frontendOnly || renewalBackend
+                ? supportsModelRole(current, role)
+                : current.uses?.includes(role))
+            ) {
+              return;
+            }
+            changed({ model_id, revision: Number(revision) });
           }}
         >
           <option value="">모델 선택</option>
           {models.map((row) => {
             const current = row.versions[String(row.current_revision)];
             if (
+              (account && current && modelAccountKey(current) !== account) ||
               (row.id !== value?.model_id &&
                 search &&
                 !`${current?.name || ''} ${current?.model || ''} ${current?.provider || ''}`
@@ -247,19 +307,22 @@ export const NodeModelBinding = ({
                 value={`${row.id}@${current.revision}`}
                 disabled={!row.active || !wireSupported(current)}
               >
-                {current.name}
+                {modelChoiceLabel(current)}
                 {row.active ? '' : ' · 사용 중지'}
                 {!wireSupported(current) ? ` · ${roleLabel} 실행 미지원` : ''}
               </option>
             );
           })}
-          {value && (!pinnedAvailable || selected?.current_revision !== value.revision) && (
-            <option value={`${value.model_id}@${value.revision}`} disabled>
-              {pinned
-                ? `${pinned.name} · ${pinnedAvailable ? '이 워크플로우에 저장된 연결' : '유형/능력 재확인 필요'}`
-                : '등록 모델 미확인'}
-            </option>
-          )}
+          {value &&
+            (!pinnedAvailable ||
+              selected?.current_revision !== value.revision ||
+              (account && pinned && modelAccountKey(pinned) !== account)) && (
+              <option value={`${value.model_id}@${value.revision}`} disabled>
+                {pinned
+                  ? `${modelChoiceLabel(pinned)} · ${pinnedAvailable ? '이 워크플로우에 저장된 연결' : '유형/능력 재확인 필요'}`
+                  : '등록 모델 미확인'}
+              </option>
+            )}
         </select>
       </label>
       {!simple && ['translate', 'transcribe', 'vocalize'].includes(type) && fallbackChanged && (
@@ -268,15 +331,15 @@ export const NodeModelBinding = ({
           <section aria-label={`${roleLabel} 폴백`}>
             <h4>{roleLabel} 폴백</h4>
             {role === 'transcription' && (
-              <p>
-                Gemini 음성 포함 네이티브 요청 / OpenAI 계열 whisper-1 verbose_json 구간 시각만
-                지원합니다. PCM16·mono·16kHz WAV, 60초/2MiB 이내. 등록 정보상 규격 지원이며 실제
-                인식 정확도·인증 성공은 미확인입니다.
-              </p>
+              <details>
+                <summary>전사 입력 제한</summary>
+                <p>
+                  Gemini 음성 요청 / OpenAI whisper-1 구간 시각 지원. PCM16·mono·16kHz WAV,
+                  60초/2MiB 이내. 실제 인식 정확도·인증 성공은 미확인입니다.
+                </p>
+              </details>
             )}
-            <p>
-              선택 사항입니다. 없으면 기본 모델만 한 번 시도합니다. 최대 3개를 순서대로 시도합니다.
-            </p>
+            <p>기본 모델 실패 시 최대 3개를 순서대로 시도합니다. 없으면 기본 모델만 사용합니다.</p>
             <p>
               사용 불가·429·서버 오류·잘못된 응답만 다음 후보로 전환합니다. 인증·요청 거부·전송 결과
               불명·취소는 중단합니다.
@@ -314,7 +377,7 @@ export const NodeModelBinding = ({
                             value={`${row.id}@${current.revision}`}
                             disabled={!row.active || !wireSupported(current) || duplicate}
                           >
-                            {current.name}
+                            {modelChoiceLabel(current)}
                             {!row.active
                               ? ' · 사용 중지'
                               : !wireSupported(current)

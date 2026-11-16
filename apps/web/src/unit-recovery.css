@@ -109,3 +109,22 @@
   color: #285075;
   font-weight: 500;
 }
+
+.unit-recovery-quick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-block: 12px;
+}
+.unit-recovery .unit-recovery-primary {
+  min-height: 44px;
+  padding: 10px 16px;
+  border-color: #2d68b4;
+  background: #2d68b4;
+  color: white;
+}
+.unit-recovery-quick small {
+  color: #657185;
+  line-height: 1.5;
+}

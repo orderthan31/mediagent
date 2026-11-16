@@ -465,7 +465,6 @@ const JobDetailSession = ({ id }: { id: string }) => {
                     `${n.type === 'transcribe' ? '전사' : n.type === 'translate' ? '번역' : '보컬'} ${modelCallOptionLabel(n.options.max_model_calls)}`,
                 )
                 .join(' · ')}
-              {' · 외부 모델 API 비용은 선택한 공급자 요금이 적용됩니다.'}
             </p>
           )}
           {job.output_mode === 'controlled' && <strong className="output-kind">통제 출력</strong>}

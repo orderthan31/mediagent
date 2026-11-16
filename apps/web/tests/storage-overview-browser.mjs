@@ -83,7 +83,7 @@ test('storage menu and independent read states fit PC and 390px without mutation
       await page.addStyleTag({ content: css });
       await page.addScriptTag({ content: bundle.outputFiles[0].text });
       for (const name of ['공급자·API 키 설정', '모델 설정', '워크플로우 설정']) {
-        await expect(page.getByRole('link', { name, exact: false })).toBeVisible();
+        await expect(page.getByRole('link', { name, exact: false })).toHaveCount(0);
       }
       await page.getByRole('link', { name: '저장소 현황', exact: false }).click();
       const originals = page.getByRole('region', { name: '등록된 원본' });

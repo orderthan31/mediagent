@@ -3,14 +3,57 @@
 import argparse
 import base64
 import json
+import math
 import os
 import ssl
 import sys
+import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
 
 from mideagent_agents.state import RoleState
+
+
+_UNSET_TIMEOUT = object()
+# The registered provider transport admits at most 120 seconds per socket wait.
+# A role worker cannot inspect/mutate frozen provider options. Use that ceiling
+# rather than assuming every admitted candidate uses the SDK's 60-second default.
+REGISTRY_PROVIDER_TIMEOUT_CEILING_SECONDS = 120
+TOOL_TIMEOUT_OVERHEAD_SECONDS = 15
+
+
+def _finite_timeout(value, code):
+    try:
+        valid = type(value) in (int, float) and math.isfinite(value) and value > 0
+    except OverflowError:
+        valid = False
+    if not valid:
+        raise ValueError(code)
+    return value
+
+
+def coordinated_tool_timeout(timeout_seconds=_UNSET_TIMEOUT, *,
+                             provider_timeout_seconds,
+                             overhead_seconds=TOOL_TIMEOUT_OVERHEAD_SECONDS):
+    """Validate/default an outer wait without changing any provider contract.
+
+    This coordinates configured socket waits, not a total wall-clock deadline:
+    queueing, multiple I/O phases and a late Bridge remain outcome-unknown. An
+    explicit short timeout fails closed; it is never silently extended/replayed.
+    """
+    provider = _finite_timeout(provider_timeout_seconds, 'finite_provider_timeout_required')
+    overhead = _finite_timeout(overhead_seconds, 'bounded_tool_overhead_required')
+    if overhead > 60:
+        raise ValueError('bounded_tool_overhead_required')
+    minimum = _finite_timeout(provider + overhead, 'finite_tool_timeout_required')
+    if minimum <= provider:
+        raise ValueError('bounded_tool_overhead_required')
+    timeout = minimum if timeout_seconds is _UNSET_TIMEOUT else _finite_timeout(
+        timeout_seconds, 'finite_tool_timeout_required')
+    if timeout < minimum:
+        raise ValueError('tool_timeout_below_provider_budget')
+    return timeout
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -41,9 +84,13 @@ class ScopedSpeechTool:
             raise ValueError("verified_tls_tool_required")
         if url.username or url.password or url.fragment:
             raise ValueError("invalid_scoped_tool_url")
-        self.timeout = config["timeout_seconds"]
-        if not isinstance(self.timeout, (int, float)) or self.timeout <= 0:
-            raise ValueError("finite_tool_timeout_required")
+        if self.contract == "registry_translation_v1":
+            self.timeout = coordinated_tool_timeout(
+                config.get("timeout_seconds", _UNSET_TIMEOUT),
+                provider_timeout_seconds=REGISTRY_PROVIDER_TIMEOUT_CEILING_SECONDS,
+            )
+        else:
+            self.timeout = _finite_timeout(config["timeout_seconds"], "finite_tool_timeout_required")
         self.token = os.environ[config["credential_env"]]
         self.maximum = config.get("max_reply_bytes", 16 * 1024 * 1024)
         context = ssl.create_default_context(cafile=config.get("ca_file"))
@@ -88,8 +135,16 @@ class ScopedSpeechTool:
             },
             method="POST",
         )
-        with self.client.open(request, timeout=self.timeout) as response:
-            raw = response.read(self.maximum + 1)
+        try:
+            with self.client.open(request, timeout=self.timeout) as response:
+                raw = response.read(self.maximum + 1)
+        except (TimeoutError, urllib.error.URLError) as error:
+            # Only this HTTP boundary establishes a tool-transport timeout.
+            # Neither a message containing 'timeout' nor an HTTP 504 proves it.
+            if isinstance(error, TimeoutError) or isinstance(error.reason, TimeoutError):
+                from video_service.diagnostic_codes import mark_tool_transport_timeout
+                mark_tool_transport_timeout(error)
+            raise
         if len(raw) > self.maximum:
             raise ValueError("tool_response_exceeds_declared_budget")
         return json.loads(raw)

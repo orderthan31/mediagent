@@ -815,18 +815,18 @@ export const WorkflowTickets = ({
               )}
               <p>
                 {plan.paid_roles.length
-                  ? `모델 호출 역할: ${plan.paid_roles.join(', ')} · 외부 공급자 비용이 발생할 수 있습니다.`
+                  ? `모델 호출 역할: ${plan.paid_roles.join(', ')}`
                   : '이 선택 단계에는 모델 호출 역할이 없습니다.'}
               </p>
               <label className="serving-check">
                 <input
                   type="checkbox"
-                  aria-label="유료 모델 호출 확인"
+                  aria-label="모델 실행 확인"
                   checked={paid}
                   disabled={!!busy || plan.paid_roles.length === 0}
                   onChange={(e) => setPaid(e.target.checked)}
                 />
-                계획의 유료 모델 호출을 명시적으로 확인
+                선택한 모델 실행을 승인합니다.
               </label>
               <div className="ticket-actions">
                 <Button

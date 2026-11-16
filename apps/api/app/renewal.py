@@ -177,6 +177,8 @@ def create_app(
     *,
     allowed_origins,
     secure_cookies=True,
+    single_user_account=None,
+    single_user_private_origin=None,
     content_store=None,
     local_execution=False,
     agent_executor=None,
@@ -197,6 +199,14 @@ def create_app(
     policy = admission_policy if admission_policy is not None else AdmissionPolicy()
     if type(policy) is not AdmissionPolicy:
         raise ValueError("invalid_admission_policy")
+    from .single_user import SingleUser
+
+    single_user = None
+    if single_user_account is not None or single_user_private_origin is not None:
+        single_user = SingleUser(
+            database, single_user_account, single_user_private_origin,
+            origins=allowed_origins, secure=secure_cookies, mode=policy.mode,
+        )
     policy.preflight(database, remote_control)
     if policy.mode == "maintenance":
         if (
@@ -339,6 +349,11 @@ def create_app(
     @app.middleware("http")
     async def request_boundary(request, call_next):
         origin = request.headers.get("origin")
+        if single_user is not None and request.method not in ("GET", "HEAD", "OPTIONS") and origin is None:
+            return JSONResponse(
+                {"detail": "same_origin_required"}, status_code=403,
+                headers={"Cache-Control": "no-store"},
+            )
         if origin is not None and origin not in origins:
             return JSONResponse(
                 {"detail": "허용되지 않은 요청 origin"},
@@ -434,8 +449,16 @@ def create_app(
             headers={"Cache-Control": "no-store"},
         )
 
+    def resolve_session(request: Request):
+        if single_user is not None:
+            value = single_user.session()
+            if value is None:
+                raise HTTPException(503, "single_user_active_account_required")
+            return value
+        return accounts.session(request.cookies.get(cookie))
+
     def session(request: Request):
-        value = accounts.session(request.cookies.get(cookie))
+        value = resolve_session(request)
         if not value:
             raise HTTPException(401, "로그인이 필요합니다.")
         if request.method not in ("GET", "HEAD", "OPTIONS"):
@@ -472,17 +495,19 @@ def create_app(
 
     @app.get("/api/auth/session")
     def current(request: Request):
-        value = accounts.session(request.cookies.get(cookie))
+        value = resolve_session(request)
         return {
-            "enabled": True,
+            "enabled": single_user is None,
             "backend": "postgres",
-            "setup_required": accounts.setup_required(),
+            "setup_required": accounts.setup_required() if single_user is None else False,
             "user": value["user"] if value else None,
             "csrf_token": value["csrf_token"] if value else None,
         }
 
     @app.post("/api/auth/bootstrap", status_code=201)
     def bootstrap(body: Credentials, request: Request):
+        if single_user is not None:
+            raise HTTPException(409, "single_user_auth_disabled")
         accounts.throttle(
             "bootstrap:" + (request.client.host if request.client else "unknown")
         )
@@ -491,6 +516,8 @@ def create_app(
 
     @app.post("/api/auth/login")
     def login(body: Credentials, request: Request, response: Response):
+        if single_user is not None:
+            raise HTTPException(409, "single_user_auth_disabled")
         value = accounts.login(
             body.username,
             body.password,
@@ -517,6 +544,8 @@ def create_app(
 
     @app.post("/api/auth/logout", status_code=204)
     def logout(request: Request, response: Response, value=session_dependency):
+        if single_user is not None:
+            raise HTTPException(409, "single_user_auth_disabled")
         accounts.logout(request.cookies[cookie])
         response.delete_cookie(
             cookie, path="/", secure=secure_cookies, httponly=True, samesite="strict"

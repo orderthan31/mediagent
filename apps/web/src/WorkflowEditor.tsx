@@ -598,8 +598,10 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
         doc.input_profile !== 'face_workflow_v1' &&
         doc.input_profile !== 'subtitle_file_v1' && (
           <fieldset disabled={!!busy} aria-label="워크플로우 선택 입력 설정">
-            <legend>작업 시작 시 선택할 입력</legend>
-            <label>
+            <legend>작업에 쓸 입력</legend>
+            <label
+              style={{ display: 'flex', alignItems: 'center', gap: 12, minHeight: 44, paddingBlock: 8 }}
+            >
               <input
                 type="checkbox"
                 checked={doc.inputs.transcript === 'transcript'}
@@ -607,15 +609,39 @@ export const WorkflowEditor = ({ initialId }: { initialId?: string }) => {
                   change(setWorkflowInput(doc, 'transcript', event.target.checked))
                 }
               />
-              SRT 또는 완료된 전사문 선택
+              <span>
+                <strong>번역·자막 제작에 쓸 전사문</strong>
+                <small style={{ display: 'block' }}>
+                  SRT 파일 또는 완료된 전사문 ·{' '}
+                  {doc.inputs.transcript === 'transcript' ? '시작할 때 선택 필수' : '시작 입력 사용 안 함'}
+                </small>
+              </span>
             </label>
-            <label>
+            <label
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                minHeight: 44,
+                paddingBlock: 8,
+                borderTop: '1px solid var(--g-line)',
+              }}
+            >
               <input
                 type="checkbox"
                 checked={doc.inputs.audio === 'audio'}
                 onChange={(event) => change(setWorkflowInput(doc, 'audio', event.target.checked))}
               />
-              같은 영상의 추출 WAV 재사용 (전사 목표에서 재추출 생략)
+              <span>
+                <strong>전사에 쓸 음성</strong>
+                <small style={{ display: 'block' }}>
+                  {doc.input_profile === 'audio_file_v1'
+                    ? '등록된 음성 원본 사용'
+                    : doc.inputs.audio === 'audio'
+                      ? '같은 영상의 추출 WAV · 시작할 때 선택 필수'
+                      : '영상에서 추출'}
+                </small>
+              </span>
             </label>
           </fieldset>
         )}

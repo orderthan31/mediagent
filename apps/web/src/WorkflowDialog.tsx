@@ -236,9 +236,7 @@ export const WorkflowDialog = ({
       .then((value) => {
         if (!controller.signal.aborted && generation === sequence.current) {
           if (!isPlan(value)) {
-            throw new Error(
-              '실행 계획의 유료 단계 정보를 확인할 수 없습니다. 계획을 다시 확인해 주세요.',
-            );
+            throw new Error('모델 실행 계획을 확인할 수 없습니다. 계획을 다시 확인해 주세요.');
           }
           const next = { inputKey, generation, value };
           activePlan.current = next;
@@ -545,8 +543,7 @@ export const WorkflowDialog = ({
         </div>
         {plan && plan.paid_stages.length > 0 && (
           <section className="workflow-paid" aria-labelledby="workflow-paid-title">
-            <h3 id="workflow-paid-title">유료 단계 확인</h3>
-            <p>현재 계획에서 유료로 분류된 단계입니다. 표시된 단계를 확인한 뒤 시작하세요.</p>
+            <h3 id="workflow-paid-title">모델 실행 확인</h3>
             <ul>
               {plan.paid_stages.map((s) => (
                 <li key={s}>
@@ -569,18 +566,9 @@ export const WorkflowDialog = ({
                   setConfirmed(value);
                 }}
               />
-              표시된 유료 단계의 실행을 확인했습니다.
+              선택한 모델 실행을 승인합니다.
             </label>
-            <p>
-              원본·입력·옵션이나 계획을 바꾸면 다시 확인해야 해요. 가격과 청구 금액은 이 계획에서
-              제공하지 않아요.
-            </p>
           </section>
-        )}
-        {plan && plan.paid_stages.length === 0 && (
-          <p className="workflow-no-paid">
-            현재 계획에 유료로 표시된 단계가 없습니다. 비용이 없다는 보장은 아닙니다.
-          </p>
         )}
         <div className="workflow-footer">
           <Button variant="secondary" type="button" onClick={onClose} disabled={busy}>

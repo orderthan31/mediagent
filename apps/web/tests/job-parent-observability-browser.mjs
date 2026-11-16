@@ -193,11 +193,10 @@ for (const { state, severity, filter, statusText } of [
           'aria-selected',
           'true',
         );
-        await expect(page.getByRole('combobox', { name: '로그 등급', exact: true })).toHaveValue(
-          filter,
-        );
-        await expect(page.getByText('구간 8 · 후보 1', { exact: true })).toBeVisible();
-        await page.getByRole('button', { name: '관련 데이터', exact: true }).click();
+        await expect(page.getByRole('combobox', { name: '로그 등급', exact: true })).toHaveCount(0);
+        await expect(page.getByRole('log')).toContainText('로그 없음');
+        await expect(page.getByRole('log')).not.toContainText('저장된 응답 형식 오류');
+        await page.getByRole('button', { name: '결과 보기', exact: true }).click();
         await expect(page.getByRole('tab', { name: '데이터·결과', exact: true })).toHaveAttribute(
           'aria-selected',
           'true',
@@ -206,7 +205,7 @@ for (const { state, severity, filter, statusText } of [
         await expect(table.getByText(statusText, { exact: true })).toHaveCount(2);
         await expect(table.getByText('원본', { exact: true })).toHaveCount(0);
         await page.getByRole('tab', { name: '로그', exact: true }).click();
-        await page.getByRole('button', { name: '해당 단계', exact: true }).click();
+        await page.getByRole('button', { name: '태스크 보기', exact: true }).click();
         await expect(page.getByRole('tab', { name: '워크플로우', exact: true })).toHaveAttribute(
           'aria-selected',
           'true',

@@ -219,7 +219,7 @@ const modelBindings = (definition: MockDefinition) =>
 const planFor = (definition: MockDefinition) => ({
   token: '0'.repeat(64),
   paid_roles: [],
-  notice: '목업 계획 · 실제 실행/과금 없음',
+  notice: '목업 계획 · 실제 실행 없음',
   settings: {},
   ready: true,
   model_bindings: modelBindings(definition),
@@ -1068,7 +1068,7 @@ export const mockRequest = async <T>(path: string, init: RequestInit = {}): Prom
     value = {
       token: '0'.repeat(64),
       input_sha256: '0'.repeat(64),
-      cost: { state: 'no_external_call', amount: null, notice: '목업 · 실제 요청·실행·과금 없음' },
+      cost: { state: 'no_external_call', amount: null, notice: '목업 · 실제 요청·실행 없음' },
       risk_required: false,
     };
   } else if (route === '/execution-approvals/confirm') {

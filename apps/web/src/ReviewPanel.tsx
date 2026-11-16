@@ -120,7 +120,7 @@ export const ReviewPanel = ({
       pendingDecision.current = null;
       setStatus(
         action === 'approve'
-          ? '자료 확정 · 이어 실행 전. 별도 계획/비용 확인과 요청이 필요합니다.'
+          ? '자료 확정 · 실행 계획을 확인한 뒤 이어서 실행하세요.'
           : '수정 요청 · 검수 대기를 유지합니다. 영구 거절/가지 종료가 아닙니다.',
       );
       await changed();

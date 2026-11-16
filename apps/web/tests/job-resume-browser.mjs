@@ -59,13 +59,13 @@ async function setup(browser, patch = {}) {
 }
 const runButton = (page) => page.getByRole('button', { name: '이어서 실행', exact: true });
 const posts = (page) => page.evaluate(() => window.__calls.filter((c) => c.method === 'POST'));
-test('mount is inert; explicit same-job resume warns about paid stages and is one-shot while busy', async () => {
+test('mount is inert; explicit same-job resume has no billing notice and is one-shot while busy', async () => {
   const browser = await chromium.launch({ headless: true });
   try {
     const page = await setup(browser);
     await expect(runButton(page)).toBeEnabled();
     assert.deepEqual(await page.evaluate(() => window.__calls), []);
-    await expect(page.getByText(/기존 승인 범위의 유료 모델/)).toBeVisible();
+    await expect(page.getByText(/유료/)).toHaveCount(0);
     await page.evaluate(() => (window.__mode = 'defer-post'));
     await runButton(page).evaluate((el) => {
       el.click();

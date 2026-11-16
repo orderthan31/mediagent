@@ -6,6 +6,7 @@ FAILURE_CODES = frozenset({
     'translation_output_capacity', 'interrupted_model_intent',
     'unavailable', 'output_capacity_exceeded',
     'tool_exception', 'delivery_held', 'delivery_exception', 'transport_exception',
+    'tool_transport_timeout_outcome_unknown',
 })
 
 
@@ -13,9 +14,27 @@ def safe_code(value):
     return value if type(value) is str and value in FAILURE_CODES else None
 
 
+_TOOL_TRANSPORT_TIMEOUT = object()
+
+
+def mark_tool_transport_timeout(error):
+    """Producer HTTP-boundary evidence only; retain exception type and identity."""
+    try:
+        error._mideagent_tool_transport_timeout = _TOOL_TRANSPORT_TIMEOUT
+    except BaseException:
+        # Diagnostics must never replace the original transport exception.
+        pass
+
+
 def failure_code(error, fallback):
-    # Only the adapter's explicit sanitized code is evidence, not str(error).
-    return safe_code(getattr(error, 'code', None)) or fallback
+    # Explicit adapter evidence wins. Never infer from exception text, elapsed
+    # time or a bare TimeoutError outside the marked producer HTTP boundary.
+    code = safe_code(getattr(error, 'code', None))
+    if code:
+        return code
+    if getattr(error, '_mideagent_tool_transport_timeout', None) is _TOOL_TRANSPORT_TIMEOUT:
+        return 'tool_transport_timeout_outcome_unknown'
+    return fallback
 
 
 def event_level(state):

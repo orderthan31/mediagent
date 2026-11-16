@@ -1,9 +1,9 @@
 .job-workspace {
-  border: 1px solid #e1e6ed;
-  border-radius: 9px;
-  background: #fff;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   min-width: 0;
-  overflow: clip;
+  overflow: visible;
 }
 .job-workspace__topbar {
   display: flex;
@@ -11,7 +11,7 @@
   align-items: center;
   gap: 12px;
   border-bottom: 1px solid #e1e6ed;
-  padding: 0 20px;
+  padding: 0;
   min-height: 55px;
 }
 .job-workspace__tabs {
@@ -44,7 +44,7 @@
   min-width: 0;
 }
 .job-workspace__panel {
-  padding: 20px;
+  padding: 20px 0 0;
   min-width: 0;
 }
 .job-workspace__panel[hidden] {
@@ -248,12 +248,12 @@
     display: block;
   }
   .job-workspace__panel {
-    padding: 16px;
+    padding: 16px 0 0;
   }
 }
 @media (max-width: 600px) {
   .job-workspace__topbar {
-    padding: 0 12px;
+    padding: 0;
     gap: 4px;
   }
   .job-workspace__tabs {
@@ -263,7 +263,7 @@
     font-size: 12px;
   }
   .job-workspace__panel {
-    padding: 12px;
+    padding: 12px 0 0;
   }
   .job-workspace__stage,
   .job-workspace__stage-logs {

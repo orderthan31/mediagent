@@ -640,12 +640,6 @@ export const SavedSubtitleRender = ({
               {audio ? '전사' : '번역'} · 최대 {budget.max_calls}회 (기본·대체 모델 합계)
             </p>
           ))}
-          {!!currentPlan.paid_roles.length && (
-            <p>
-              선택한 모델의 API 비용이 발생할 수 있습니다. 금액은 미산정이며, 작업 시작을 누르면
-              표시된 모델·호출 범위로 실행합니다.
-            </p>
-          )}
           <p>이 화면의 확인만으로 모델을 호출하지 않습니다.</p>
         </>
       )}

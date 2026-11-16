@@ -108,7 +108,23 @@ class _GuardedTransport(httpx.BaseTransport):
                     if not preserved:
                         self._fail("선택 모델의 전사 temperature 옵션을 SDK가 보존하지 못했습니다.", "unavailable")
             if self.schema is not None:
-                self._validate_schema_and_options(json.loads(content))
+                body = json.loads(content)
+                if self.model == "gemini-3.8-flash" and self.expected.path.endswith(":generateContent"):
+                    # LiteLLM 1.106.6 injects temperature=1 for Gemini 3+
+                    # although this exact model disallows sampling parameters.
+                    # Remove only that known SDK default, never a user choice.
+                    config = body.get("generationConfig", {})
+                    if "temperature" not in self.options and type(config.get("temperature")) in (int, float) and config["temperature"] == 1:
+                        del config["temperature"]
+                        content = json.dumps(body, allow_nan=False).encode()
+                        if len(content) > 3 * 1024 * 1024:
+                            self._fail("모델 요청 크기 상한을 초과했습니다.")
+                        headers = dict(request.headers)
+                        headers["content-length"] = str(len(content))
+                        request = httpx.Request(request.method, request.url, headers=headers, content=content, extensions=request.extensions)
+                    if {"temperature", "topP", "topK", "top_p", "top_k", "candidateCount", "candidate_count"} & set(config):
+                        self._fail("Gemini 3.8 Flash는 sampling·candidate 옵션을 지원하지 않습니다.", "unavailable")
+                self._validate_schema_and_options(body)
             if self.vertex and (request.headers.get('authorization') != 'Bearer ' + self.key or any(request.headers.get(k) for k in ('x-api-key', 'x-goog-api-key', 'x-goog-user-project'))):
                 self._fail("Vertex 요청별 인증 헤더를 확인하세요.")
             request.extensions["mideagent_timeout_seconds"] = self.options.get("timeout", 60)
@@ -282,6 +298,8 @@ class LiteLLMAdapter:
         self.protocol, self._key, self.model = protocol, api_key, contract["model"]
         self.operation = contract["operation"]
         validate_operation_options(self.operation, self.options)
+        if protocol in {"gemini", "vertex_ai"} and self.model == "gemini-3.8-flash" and {"temperature", "top_p"} & set(self.options):
+            raise ValueError("Gemini 3.8 Flash는 temperature·top_p를 지원하지 않습니다. 명시 옵션을 제거하세요.")
         if self.operation not in {"translation", "structured_audio", "audio_transcription"}:
             raise ValueError("구현되지 않은 SDK 요청 방식입니다.")
         if not isinstance(self.model, str) or not 1 <= len(self.model) <= 200 or any(c in self.model for c in "?#\\") or any(p in (".", "..") for p in self.model.split("/")):

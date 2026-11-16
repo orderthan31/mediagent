@@ -121,10 +121,7 @@ export const RecoveryActions = ({
       )}
       {!['completed', 'failed', 'cancelled'].includes(ticket.status) && (
         <>
-          <p>
-            취소 접수 뒤 새 dispatch를 막습니다. 이미 시작한 외부 호출의 즉시 중단·환불을 보장하지
-            않으며 결과를 보존합니다.
-          </p>
+          <p>취소 접수 후 다음 단계의 실행을 막고, 이미 시작한 호출의 결과는 보존합니다.</p>
           <Button
             variant="secondary"
             disabled={busy || ticket.status === 'cancelling'}
@@ -148,7 +145,7 @@ export const RecoveryActions = ({
                   recoveryRequest.current = crypto.randomUUID();
                 }}
               />
-              결과 불명 호출을 다시 요청하면 중복 호출·과금이 생길 수 있음을 별도 확인
+              결과가 불명확한 호출을 다시 요청하면 중복 호출될 수 있음을 확인합니다.
             </label>
           )}
           <Button disabled={busy} onClick={() => void recover()}>

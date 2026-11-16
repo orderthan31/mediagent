@@ -6,6 +6,7 @@ The existing renewal_server remains a loopback-only isolated test launcher.
 
 import argparse
 import json
+import os
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -47,6 +48,9 @@ def main():
         parser.error("Controlled models require --enable-registered-models")
     try:
         config, dsn = load_bootstrap(args.bootstrap_file)
+        from app.single_user import from_environment
+
+        single_user_account, single_user_private_origin = from_environment(os.environ)
         from app.admission import AdmissionPolicy
 
         policy = AdmissionPolicy.parse(config.get("admission_policy"))
@@ -107,6 +111,8 @@ def main():
             database,
             allowed_origins=tuple(config["allowed_origins"]),
             secure_cookies=config["secure_cookies"],
+            single_user_account=single_user_account,
+            single_user_private_origin=single_user_private_origin,
             content_store=store,
             credential_store=credentials,
             broker_factory=broker_factory,

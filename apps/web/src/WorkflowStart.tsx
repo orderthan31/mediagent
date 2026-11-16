@@ -925,12 +925,6 @@ export const WorkflowStart = () => {
                 </p>
               </section>
             ) : null}
-            {plan?.paid_roles.length ? (
-              <p>
-                선택한 모델의 API 비용이 발생할 수 있습니다. 금액은 미산정이며, 작업 시작을 누르면
-                표시된 모델·호출 범위로 실행합니다.
-              </p>
-            ) : null}
             <Button
               aria-describedby={
                 !assetId

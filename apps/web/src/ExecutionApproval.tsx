@@ -85,9 +85,7 @@ export const ExecutionApproval = ({
         !['may_charge', 'no_external_call', 'unknown'].includes(value.cost.state) ||
         value.cost.amount !== null
       )
-        throw new Error(
-          '서버 비용 분류/입력 계획을 확인하지 못했습니다. 무료로 취급하지 않습니다.',
-        );
+        throw new Error('실행 계획을 확인하지 못했습니다. 계획을 다시 확인해 주세요.');
       if (version === generation.current) setQuote({ ...value, selection });
     } catch (e) {
       if (version === generation.current)
@@ -169,14 +167,9 @@ export const ExecutionApproval = ({
       </Button>
       {current && (
         <>
-          <p className={current.cost.state === 'unknown' ? 'alert' : 'serving-help'}>
-            {current.cost.state === 'unknown'
-              ? '비용을 확인하지 못해 실행할 수 없습니다.'
-              : current.cost.state === 'may_charge'
-                ? '비용 발생 가능 · 금액 미산정. 비용 상한은 보장되지 않습니다.'
-                : '외부 모델 호출 없음'}
-          </p>
-          {current.cost.state === 'unknown' && <p>{current.cost.notice}</p>}
+          {current.cost.state === 'unknown' && (
+            <p className="alert">실행 계획을 확인하지 못했습니다.</p>
+          )}
           {!frontendOnly && (
             <p className="execution-input-sha">
               실제 사용할 입력 SHA <code>{current.input_sha256}</code>
@@ -186,13 +179,12 @@ export const ExecutionApproval = ({
             <label className="serving-check">
               <input
                 type="checkbox"
-                aria-label="유료가능·금액미산정 비용 확인"
+                aria-label="모델 실행 확인"
                 checked={paid}
                 disabled={busy}
                 onChange={(event) => setPaid(event.target.checked)}
               />
-              금액 미산정 상태와 유료 비용 발생 가능성을 명시 확인합니다. 비용 상한·환불 보장은
-              아닙니다.
+              이 실행 계획으로 모델을 호출하는 데 동의합니다.
             </label>
           )}
           {current.risk_required && (
@@ -204,7 +196,7 @@ export const ExecutionApproval = ({
                 disabled={busy}
                 onChange={(event) => setRisk(event.target.checked)}
               />
-              이전 호출 결과 불명·중복 호출/과금 위험을 비용 확인과 별도로 확인합니다.
+              이전 호출의 결과가 불명확하며, 다시 실행하면 중복 호출될 수 있음을 확인합니다.
             </label>
           )}
           <Button
@@ -223,7 +215,7 @@ export const ExecutionApproval = ({
       {approved && (
         <p role="status">
           {frontendOnly
-            ? '샘플 계획 확인됨 · 실제 실행·과금 없음'
+            ? '샘플 계획 확인됨 · 실제 실행 없음'
             : expired
               ? '확인 만료 · 계획을 다시 확인해 주세요.'
               : '확인됨 · 15분 이내 실행 가능'}

@@ -108,8 +108,6 @@ const ResumeSession = ({ job, onChanged }: JobResumeControlProps) => {
   }
   return (
     <section className="job-resume-control" aria-label="복구 후 이어서 실행" aria-busy={busy}>
-      <p>복구 결과가 적용됐습니다. 아래 버튼으로 이 작업의 남은 태스크를 이어서 실행하세요.</p>
-      <small>다음 단계에는 기존 승인 범위의 유료 모델 호출이 포함될 수 있습니다.</small>
       <div className="job-resume-control__actions">
         <button
           type="button"

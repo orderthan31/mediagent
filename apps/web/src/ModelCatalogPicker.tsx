@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { request } from './api';
+import './model-selection.css';
 import {
   catalogPurposeLabel,
   selectCatalogPurpose,
@@ -56,6 +57,14 @@ export const ModelCatalogPicker = ({
   const mounted = useRef(false);
   const binding = { connection_id: connection.id, connection_revision: revision };
   const query = async () => {
+    if (
+      connection.credential !== 'reference_set' ||
+      connection.address_mode === 'legacy_preserved' ||
+      connection.active === false ||
+      !revision
+    ) {
+      return;
+    }
     const requestId = ++sequence.current;
     controller.current?.abort();
     const signal = new AbortController();
@@ -96,10 +105,14 @@ export const ModelCatalogPicker = ({
       }
     }
   };
-  const selectedRaw = catalog?.models.find((item) => item.id === model);
+  const currentCatalog =
+    catalog?.connection_id === connection.id && catalog?.connection_revision === revision
+      ? catalog
+      : null;
+  const selectedRaw = currentCatalog?.models.find((item) => item.id === model);
   const selected = selectedRaw ? selectCatalogPurpose(selectedRaw, purpose) : undefined;
   const candidates =
-    catalog?.models
+    currentCatalog?.models
       .map((item) => selectCatalogPurpose(item, purpose))
       .filter((item) => matches(item, purpose))
       .filter(
@@ -111,15 +124,18 @@ export const ModelCatalogPicker = ({
   const legacy = connection.address_mode === 'legacy_preserved';
   useEffect(() => {
     mounted.current = true;
+    setCatalog(null);
+    setBusy(false);
+    setError('');
     return () => {
       mounted.current = false;
       sequence.current++;
       controller.current?.abort();
     };
-  }, []);
+  }, [connection.id, revision]);
   return (
-    <section className="serving-help model-catalog-picker" aria-label="공식 모델 조회">
-      <p>모델 목록만 조회합니다. 생성·전사·번역은 실행하지 않습니다.</p>
+    <section className="model-catalog-picker" aria-label="공식 모델 조회">
+      <p>목록 조회만 진행하며 모델은 실행하지 않습니다.</p>
       {noKey && (
         <p role="status">저장된 API 키가 없습니다. 공급자 설정에서 키를 먼저 등록하세요.</p>
       )}
@@ -130,13 +146,13 @@ export const ModelCatalogPicker = ({
       )}
       <Button
         variant="secondary"
-        disabled={busy || noKey || legacy || !revision}
+        disabled={busy || noKey || legacy || !revision || connection.active === false}
         onClick={() => void query()}
       >
         {busy ? '공식 목록 조회 중' : '공식 모델 목록 조회'}
       </Button>
       {error && <p role="alert">목록 조회 실패 · {error}</p>}
-      {catalog && <p role="status">모델 {catalog.models.length}개를 불러왔습니다.</p>}
+      {currentCatalog && <p role="status">모델 {currentCatalog.models.length}개</p>}
       <label>
         모델 용도
         <select
@@ -144,16 +160,16 @@ export const ModelCatalogPicker = ({
           value={purpose}
           onChange={(event) => {
             setPurpose(event.target.value);
-            if (selectedRaw) {
+            if (selectedRaw && !busy && !noKey && !legacy && connection.active !== false) {
               const next = selectCatalogPurpose(selectedRaw, event.target.value);
               onPick(matches(next, event.target.value) ? next : null, binding);
             }
           }}
         >
-          <option value="all">전체 · 미지원/근거 미확인 포함</option>
-          <option value="translation">번역 · 현재 어댑터 후보</option>
-          <option value="transcription">전사 · 시간정보 어댑터 후보</option>
-          <option value="registration">분류 확인 · 등록용 메타데이터</option>
+          <option value="all">전체</option>
+          <option value="translation">번역</option>
+          <option value="transcription">전사 (시간정보 포함)</option>
+          <option value="registration">기타 등록 가능 모델</option>
         </select>
       </label>
       <label>
@@ -171,8 +187,11 @@ export const ModelCatalogPicker = ({
         <select
           aria-label="공식 모델"
           value={model}
-          disabled={!catalog || busy}
+          disabled={!currentCatalog || busy || noKey || legacy || connection.active === false}
           onChange={(event) => {
+            if (!currentCatalog || busy || noKey || legacy || connection.active === false) {
+              return;
+            }
             onPick(candidates.find((item) => item.id === event.target.value) || null, binding);
           }}
         >
@@ -188,9 +207,7 @@ export const ModelCatalogPicker = ({
           ))}
         </select>
       </label>
-      {catalog && !candidates.length && (
-        <p>이 용도에 확인된 모델이 없습니다. 목록 조회 성공을 실행 지원으로 간주하지 않습니다.</p>
-      )}
+      {currentCatalog && !candidates.length && <p>이 용도에 확인된 모델이 없습니다.</p>}
       {selected && (
         <details>
           <summary>모델 확인 정보</summary>

@@ -121,6 +121,7 @@ def read_private_console(task_id, *, root=None, limit=None):
     except OSError:
         return empty
     lines = []
+    terminal_lines = []
     for item in raw.decode('utf8', errors='replace').splitlines():
         try:
             row = json.loads(item)
@@ -135,9 +136,11 @@ def read_private_console(task_id, *, root=None, limit=None):
                        and row.get('private_console_policy') == _POLICY)
             visible = text if trusted and (text == WITHHELD or _safe_diagnostic(text)) else WITHHELD
             lines.append({'at': at, 'stream': row['stream'], 'text': visible})
+            if trusted and text != WITHHELD and _safe_diagnostic(text):
+                terminal_lines.append({'at': at, 'stream': row['stream'], 'text': text})
         except (ValueError, TypeError, RecursionError):
             continue
-    return {'lines': lines, 'available': True,
+    return {'lines': lines, 'terminal_lines': terminal_lines, 'available': True,
             'truncated': info.st_size > bound or info.st_size >= task_console._LIMIT,
             'content_policy': 'private_diagnostics_v1'}
 

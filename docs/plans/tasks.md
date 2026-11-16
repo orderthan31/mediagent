@@ -122,3 +122,16 @@ FaceFusion은 위 완료 목록에서 제외한다. 실제 공급자, 격리 제
 - [제품 요구사항](specs.md)
 - [구조](architect.md)
 - [실행 계약](../references/high/runtime.md)
+
+
+## 2026-11-16 — Requested execution UX and temporary single-user candidate (source-only)
+
+- Preserve the saved read-only WorkflowCanvas. Remove the page-tab outer card and the standalone subtitle-editor navigation; retain contextual SRT editing and results.
+- Recovery: explicit `제외하고 계속` internally previews, saves zero-call choices, applies and continues with the shared durable frontier fence. Latest user correction removes paid/billing notices from the UI; this does not remove explicit execution/retry approval or authorize extra calls. Paid retries retain separate explicit approval. Existing advanced preparation remains non-dispatching.
+- Logs: render only genuinely collected console text in an inert terminal pane; never render stored-failure prose as captured stdout/stderr or manufacture missing originals. Keep private pre-tee provenance and withheld-body policy.
+- System and workflow inputs: purpose-first labels, aligned resource/storage rows and no duplicate LNB destinations. Preserve input IDs, saved graph, wires, model revisions and upload contracts.
+- Model selection: distinguish provider and connection while preserving explicit pins and fallbacks; fence catalog results to connection/revision. Read-only operating inspection found Vertex Gemini 3.8 revision 1 saved without speech capability, whereas AI Studio revision 2 explicitly includes it. Historical revisions and frozen jobs are not rewritten.
+- Provider adapter: pinned SDK offline wire regression removes only SDK-injected Gemini 3.8 sampling defaults. This is not proof of the historical #41 provider failure; its producer timeout and ledger invalid_response remain separate evidence.
+- Producer source defaults/validates registry MT tool wait against the admitted provider ceiling plus bounded overhead (135 seconds). Existing explicit 25-second configurations fail closed in the new CLI and must not be silently deployed unchanged. Existing held workers and #41 are not restarted, retried or replayed by this candidate. Future-template configuration/readback is a separate operating gate.
+- Optional single-user mode binds an existing active account, retains role/owner/CSRF/Origin/Host checks, and leaves normal login as default. Frontend hides and fences logout only in that explicit mode. Authorized skygg-context observation confirmed the existing Serve HTTPS-to-loopback route is tailnet-only; operating activation remains pending exact-candidate review and readback.
+- All implementation is currently a source candidate, not an operating completion. No inference, original-data deletion, grant, new public ingress, unknown-work replay or initializer cleanup is authorized/performed by these verifications.

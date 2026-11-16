@@ -34,16 +34,18 @@ export const AccountMenu = () => {
       <span className="account-username" title={auth.session.user.username}>
         {auth.session.user.username}
       </span>
-      <Button
-        variant="quiet"
-        title="로그아웃"
-        aria-label="로그아웃"
-        disabled={auth.busy}
-        onClick={auth.logout}
-      >
-        <LogOut size={18} />
-        로그아웃
-      </Button>
+      {auth.session.enabled && (
+        <Button
+          variant="quiet"
+          title="로그아웃"
+          aria-label="로그아웃"
+          disabled={auth.busy}
+          onClick={auth.logout}
+        >
+          <LogOut size={18} />
+          로그아웃
+        </Button>
+      )}
     </div>
   );
 };
@@ -99,7 +101,7 @@ export const AuthGate = ({ children }: { children: ReactNode }) => {
     }
   };
   const logout = async () => {
-    if (busy) {
+    if (busy || session?.enabled === false) {
       return;
     }
     setBusy(true);

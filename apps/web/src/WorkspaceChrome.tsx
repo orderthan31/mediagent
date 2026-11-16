@@ -14,7 +14,6 @@ import {
   Search,
   ChevronRight,
   UsersRound,
-  Captions,
 } from 'lucide-react';
 import { AccountMenu, useWorkspaceAuth } from './AuthGate';
 import { frontendOnly, renewalBackend } from './preview';
@@ -32,7 +31,6 @@ const sections = [
   ...(frontendOnly || renewalBackend
     ? [{ name: '계정 관리', href: '#/account', icon: UsersRound }]
     : []),
-  ...(renewalBackend ? [{ name: '자막 파일 편집', href: '#/subtitles', icon: Captions }] : []),
 ];
 export const WorkspaceChrome = ({
   route,
