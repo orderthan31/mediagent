@@ -14,7 +14,12 @@ test('role recovery UI is explicit artifact-only and does not dereference absent
   assert.match(detail, /<ModelRolePanel/);
   // Call-history tables are no longer duplicated into the output panel.
   assert.doesNotMatch(detail, /translation\.attempts\.map|translation\.attempts \|\|/);
-  assert.match(detail, /<TaskResultTabs/);
+  assert.match(detail, /<JobTaskInspector/);
+  assert.match(detail, /<JobLogExplorer/);
+  assert.doesNotMatch(detail, /<TaskResultTabs/);
+  const inspector = await readFile(new URL('../src/JobTaskInspector.tsx', import.meta.url), 'utf8');
+  assert.match(inspector, /<UnitRecoveryPanel/);
+  assert.doesNotMatch(inspector, /TaskLogReader|request</);
 });
 
 test('orphan recovery keeps the originally admitted nonce and revision', async () => {

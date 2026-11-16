@@ -24,6 +24,7 @@ export type JobExecutionFlowProps = {
   selectedNodeId?: string;
   onSelect?: (nodeId: string, source?: 'user' | 'follow') => void;
   className?: string;
+  interactionKey?: number;
 };
 
 export const JobExecutionFlow = (props: JobExecutionFlowProps) => (
@@ -40,6 +41,7 @@ const ExecutionFlowSession = ({
   selectedNodeId,
   onSelect,
   className = '',
+  interactionKey = 0,
 }: JobExecutionFlowProps) => {
   const titleId = useId();
   const viewport = useRef<HTMLDivElement>(null);
@@ -120,6 +122,11 @@ const ExecutionFlowSession = ({
     center(tasks[next].agent.id, true);
   };
 
+  useEffect(() => {
+    if (interactionKey) {
+      setFollowing(false);
+    }
+  }, [interactionKey]);
   useEffect(() => {
     onSelectRef.current = onSelect;
   }, [onSelect]);

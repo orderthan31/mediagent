@@ -1,0 +1,239 @@
+.job-log-explorer {
+  min-width: 0;
+  display: grid;
+  gap: 14px;
+}
+.job-log-explorer__filters {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: end;
+}
+.job-log-explorer__filters label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  color: #566175;
+  min-width: 130px;
+}
+.job-log-explorer__filters select,
+.job-log-explorer__filters input {
+  min-height: 40px;
+  max-width: 100%;
+  border: 1px solid #dce1e8;
+  background: #fff;
+  border-radius: 6px;
+  padding: 8px 10px;
+  color: #243047;
+  font: inherit;
+  font-size: 13px;
+}
+.job-log-explorer__search {
+  flex: 1;
+  min-width: 180px;
+}
+.job-log-explorer__summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: #64748b;
+}
+.job-log-explorer__summary button,
+.job-log-explorer__links button,
+.job-log-explorer__pages button {
+  min-height: 36px;
+  padding: 5px 9px;
+  border: 1px solid #d9e0e8;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.job-log-explorer__summary button:disabled,
+.job-log-explorer__pages button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.job-log-explorer__summary [role='status'] {
+  margin-left: auto;
+}
+.job-log-explorer__notice,
+.job-log-explorer__empty {
+  margin: 0;
+  padding: 12px 14px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: #64748b;
+  background: #f7f9fc;
+  border-left: 2px solid #cbd5e1;
+}
+.job-log-explorer__terminal {
+  min-width: 0;
+  min-height: 240px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #101827;
+  color: #dce5f1;
+}
+.job-log-explorer__columns,
+.job-log-explorer__record {
+  display: grid;
+  grid-template-columns: 86px 78px minmax(120px, 0.7fr) minmax(180px, 2fr);
+  gap: 12px;
+  padding: 13px 15px;
+  align-items: start;
+}
+.job-log-explorer__columns {
+  color: #90a0b9;
+  font-size: 11px;
+  border-bottom: 1px solid #2b3547;
+  background: #172133;
+}
+.job-log-explorer__record {
+  border-bottom: 1px solid #263043;
+  font-size: 12px;
+  line-height: 1.65;
+}
+.job-log-explorer__record:last-child {
+  border-bottom: 0;
+}
+.job-log-explorer__record time {
+  color: #91a5c3;
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+}
+.job-log-explorer__level {
+  font:
+    600 11px/1.8 ui-monospace,
+    monospace;
+  width: fit-content;
+  border-radius: 3px;
+  padding: 0 5px;
+  background: #263349;
+  color: #c4d3eb;
+}
+.job-log-explorer__level.is-error {
+  color: #ffabb1;
+  background: #4b2633;
+}
+.job-log-explorer__level.is-warning {
+  color: #f4d58b;
+  background: #443b26;
+}
+.job-log-explorer__level.is-info {
+  color: #9bc6ff;
+  background: #233954;
+}
+.job-log-explorer__location {
+  display: grid;
+  gap: 2px;
+  color: #acbbd1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.job-log-explorer__location strong {
+  color: #e2e8f3;
+  font-size: 12px;
+  font-weight: 500;
+}
+.job-log-explorer__location code {
+  font-size: 10px;
+  color: #90a5c5;
+}
+.job-log-explorer__message {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.job-log-explorer__message > p {
+  margin: 0 0 4px;
+  white-space: pre-wrap;
+}
+.job-log-explorer__message small {
+  color: #94a5bf;
+  font-size: 10px;
+}
+.job-log-explorer__message details {
+  margin-top: 8px;
+}
+.job-log-explorer__message summary {
+  color: #aecafa;
+  cursor: pointer;
+}
+.job-log-explorer__message details p {
+  margin: 6px 0;
+}
+.job-log-explorer__message pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 320px;
+  overflow: auto;
+  padding: 10px;
+  border: 1px solid #334159;
+  background: #0a111e;
+  font:
+    11px/1.7 ui-monospace,
+    monospace;
+}
+.job-log-explorer__links {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.job-log-explorer__links button {
+  min-height: 30px;
+  color: #b6d2fb;
+  border-color: #3c4b64;
+  font-size: 11px;
+}
+.job-log-explorer__pages {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  font-size: 12px;
+  color: #64748b;
+}
+@media (max-width: 700px) {
+  .job-log-explorer__filters {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .job-log-explorer__filters label {
+    min-width: 0;
+  }
+  .job-log-explorer__search {
+    grid-column: 1 / -1;
+  }
+  .job-log-explorer__filters select,
+  .job-log-explorer__filters input {
+    width: 100%;
+    min-height: 44px;
+    box-sizing: border-box;
+  }
+  .job-log-explorer__columns {
+    display: none;
+  }
+  .job-log-explorer__record {
+    grid-template-columns: 1fr auto;
+    gap: 7px 12px;
+    padding: 12px;
+  }
+  .job-log-explorer__location,
+  .job-log-explorer__message {
+    grid-column: 1 / -1;
+  }
+  .job-log-explorer__location {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    column-gap: 8px;
+  }
+  .job-log-explorer__links button,
+  .job-log-explorer__summary button,
+  .job-log-explorer__pages button {
+    min-height: 44px;
+  }
+}

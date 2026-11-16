@@ -13,6 +13,7 @@ import time
 
 from video_service import task_console
 from video_service.private_task_console import private_capture
+from video_service.diagnostic_codes import safe_code, failure_code, event_level
 
 
 _emission = contextvars.ContextVar('private_worker_emission', default=None)
@@ -35,19 +36,22 @@ def task_capture(task_id):
 
 
 def emit(event, role, state, *, tool_id=None, index=None, kind=None,
-         started=None, planned_segments=None, error=None, error_code=None):
+         started=None, planned_segments=None, error=None, error_code=None,
+         unit_index=None, candidate_index=None):
     """Trusted boundary metadata, never a parser/allowlist for printed bodies."""
     try:
         capability = _emission.get()
         if capability is None or role not in {'transcription', 'translation', 'vocalization'}:
             return
         states = {
-            'mideagent.tool.v1': {'started', 'completed', 'failed', 'held', 'cancelled'},
-            'mideagent.delivery.v1': {'received', 'completed', 'failed', 'held', 'cancelled', 'error'},
+            'mideagent.tool.v1': {'started', 'completed', 'failed', 'held', 'cancelled', 'unknown'},
+            'mideagent.delivery.v1': {'received', 'completed', 'failed', 'held', 'cancelled', 'error', 'unknown'},
         }
         if state not in states.get(event, set()):
             return
-        row = {'event': event, 'role': role, 'state': state}
+        row = {'event': event, 'role': role, 'state': state, 'level': event_level(state)}
+        if unit_index is not None or candidate_index is not None:
+            row.update(unit_index=unit_index, candidate_index=candidate_index)
         if tool_id is not None:
             from mideagent_agents.registry import registration
             registered = registration(role)
@@ -74,8 +78,8 @@ def emit(event, role, state, *, tool_id=None, index=None, kind=None,
         if error is not None:
             allowed = {ValueError, TypeError, RuntimeError, TimeoutError, OSError, EOFError}
             row['error_type'] = type(error).__name__ if type(error) in allowed else 'Exception'
-            if error_code not in {'tool_exception', 'delivery_held', 'delivery_exception'}:
-                return
+            error_code = failure_code(error, error_code)
+        if safe_code(error_code):
             row['error_code'] = error_code
         capability(json.dumps(row, separators=(',', ':')))
     except BaseException:
@@ -85,7 +89,7 @@ def emit(event, role, state, *, tool_id=None, index=None, kind=None,
 def result_state(result):
     if type(result) is dict:
         status = result.get('status')
-        if type(status) is str and status in {'failed', 'held', 'cancelled'}:
+        if type(status) is str and status in {'failed', 'held', 'cancelled', 'unknown'}:
             return status
     return 'completed'
 
@@ -148,20 +152,25 @@ def record_prepare_plan(task_id, role, tool_id, count):
                 pass
 
 
-def invoke_observed(tool, source, *, task_id, role, identity, index):
+def invoke_observed(tool, source, *, task_id, role, identity, index,
+                    unit_index=None, candidate_index=None):
     with task_capture(task_id):
+        context = dict(unit_index=unit_index, candidate_index=candidate_index)
         started = time.monotonic()
-        emit('mideagent.tool.v1', role, 'started', tool_id=identity, index=index)
+        emit('mideagent.tool.v1', role, 'started', tool_id=identity, index=index, **context)
         try:
             result = tool.invoke({'source': source})
         except BaseException as error:
             emit('mideagent.tool.v1', role, 'failed', tool_id=identity, index=index,
-                 started=started, error=error, error_code='tool_exception')
+                 started=started, error=error, error_code='tool_exception', **context)
             raise
         planned = (len(result) if identity in {'speech.prepare_audio', 'text.prepare_batches'}
                    and type(result) is list else None)
         if planned is not None:
             record_prepare_plan(task_id, role, identity, planned)
-        emit('mideagent.tool.v1', role, result_state(result), tool_id=identity,
-             index=index, started=started, planned_segments=planned)
+        state = result_state(result)
+        emit('mideagent.tool.v1', role, state, tool_id=identity,
+             index=index, started=started, planned_segments=planned, **context,
+             error_code=safe_code(result.get('error', result.get('held_reason')))
+             if type(result) is dict and state != 'completed' else None)
         return result

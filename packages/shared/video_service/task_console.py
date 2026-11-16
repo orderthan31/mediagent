@@ -1,5 +1,5 @@
 """Task-bound console tee. No Docker/DB authority and no invented lifecycle records."""
-import contextlib,contextvars,datetime,io,json,os,re,sys,threading
+import contextlib,contextvars,datetime,io,json,os,re,sys,threading,stat
 from pathlib import Path
 _context=contextvars.ContextVar('task_console',default=None)
 _lock=threading.RLock()
@@ -10,6 +10,8 @@ def redact(text,secrets=()):
   if secret:text=text.replace(secret,'[REDACTED]')
  text=re.sub(r'(?im)(?:authorization|proxy-authorization|set-cookie|cookie|password|api[-_]?key|access[-_]?token|refresh[-_]?token|credential|secret)\s*[:=].*$', '[REDACTED authentication data]',text)
  text=re.sub(r'(?i)\b(?:Bearer|Basic)\s+[^\s,;]+','[REDACTED authentication data]',text)
+ text=re.sub(r'(?i)\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis|amqps?)://[^\s\"\x27]+','[REDACTED connection string]',text)
+ text=re.sub(r'(?i)(https?://)[^/@\s]+:[^/@\s]+@',r'\1[REDACTED]@',text)
  text=re.sub(r'https?://[^\s\"\x27]+',lambda m:m[0].split('?')[0].split('#')[0]+'?[REDACTED]'if'?'in m[0]or'#'in m[0]else re.sub(r'//[^/@]+:[^/@]+@','//[REDACTED]@',m[0]),text)
  text=re.sub(r'\b(?:sk-|AIza)[A-Za-z0-9_-]{12,}','[REDACTED]',text)
  text=re.sub(r'\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+','[REDACTED]',text)
@@ -61,18 +63,25 @@ def capture_console(task_id,*,root=None,secrets=()):
    if value['pending'].get(kind)and isinstance(stream,_Stream):stream.record(value,value['pending'][kind])
   _context.reset(token)
 
-def read_console(task_id,*,root=None):
+def read_console(task_id,*,root=None,limit=None):
  _identity(task_id);folder=root or os.environ.get('MIDEAGENT_TASK_CONSOLE_ROOT');lines=[]
+ bound=_LIMIT if limit is None else max(1,min(limit,_LIMIT))
  if not folder:return {'lines':lines,'available':False,'truncated':False}
  path=Path(folder)/(task_id+'.jsonl')
  if path.is_symlink():raise ValueError('console_symlink_rejected')
  try:
-  with path.open('rb')as f:raw=f.read(_LIMIT)
- except FileNotFoundError:return {'lines':lines,'available':False,'truncated':False}
+  fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
+  with os.fdopen(fd,'rb')as f:
+   info=os.fstat(f.fileno())
+   if not stat.S_ISREG(info.st_mode):return {'lines':lines,'available':False,'truncated':False}
+   raw=f.read(bound)
+ except OSError:return {'lines':lines,'available':False,'truncated':False}
  for item in raw.decode('utf8',errors='replace').splitlines():
   try:row=json.loads(item)
-  except ValueError:continue # a concurrently appended partial line is read next time
-  if row.get('task_id')!=task_id or row.get('stream')not in {'stdout','stderr'}:continue
-  if not isinstance(row.get('text'),str)or not isinstance(row.get('at'),str):continue
-  lines.append({'at':row['at'][:40],'stream':row['stream'],'text':redact(row['text'])[:8192]})
- return {'lines':lines,'available':True,'truncated':len(raw)>=_LIMIT}
+  except (ValueError,RecursionError):continue # a concurrently appended partial line is read next time
+  if type(row)is not dict:continue
+  if row.get('task_id')!=task_id or type(row.get('stream'))is not str or row['stream']not in {'stdout','stderr'}:continue
+  if not isinstance(row.get('text'),str):continue
+  at=row.get('at');at=at[:40] if type(at)is str else None
+  lines.append({'at':at,'stream':row['stream'],'text':redact(row['text'])[:8192]})
+ return {'lines':lines,'available':True,'truncated':info.st_size>bound or info.st_size>=_LIMIT}

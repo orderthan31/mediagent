@@ -4,53 +4,109 @@
   border-top: 1px solid var(--border, #d5d8de);
   padding-top: 16px;
 }
-.job-result-list {
-  list-style: none;
-  padding: 0;
-  margin: 8px 0;
-}
-.job-result-list > li {
+.job-results .job-data-filters {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
   flex-wrap: wrap;
-  gap: 8px 16px;
-  padding-block: 10px;
+  align-items: end;
+  gap: 12px;
+}
+.job-results .job-data-filters label {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  flex: 1 1 130px;
+}
+.job-results .job-data-filters input,
+.job-results .job-data-filters select {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  min-height: 44px;
+}
+.job-results .job-data-count {
+  color: var(--text-secondary, #555d69);
+}
+.job-results .job-data-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.job-results .job-data-table caption {
+  text-align: left;
+  padding-block: 8px;
+}
+.job-results .job-data-table th,
+.job-results .job-data-table td {
+  text-align: left;
+  vertical-align: top;
+  padding: 12px 8px;
   border-bottom: 1px solid var(--border, #e2e5e9);
+  overflow-wrap: anywhere;
 }
-.job-result-list > li > div {
+.job-results .job-data-table th {
+  background: var(--surface-muted, #f5f6f8);
+}
+.job-results .job-data-table th:nth-child(1) {
+  width: 20%;
+}
+.job-results .job-data-table th:nth-child(2) {
+  width: 29%;
+}
+.job-results .job-data-table th:nth-child(3) {
+  width: 12%;
+}
+.job-results .job-data-table th:nth-child(4) {
+  width: 9%;
+}
+.job-results .job-data-table th:nth-child(5) {
+  width: 14%;
+}
+.job-results .job-data-table th:nth-child(6) {
+  width: 16%;
+}
+.job-results .job-data-table small {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-secondary, #555d69);
+}
+.job-results .job-data-table [data-selected-run] {
+  background: var(--surface-muted, #f5f6f8);
+}
+.job-results .job-data-actions {
   display: flex;
-  align-items: center;
   flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
 }
-.job-result-list button,
-.job-result-list a,
-.job-result-preview-heading button,
-.job-intermediate-files > summary {
+.job-results .job-data-table button,
+.job-results .job-data-table a,
+.job-results .job-data-filters button,
+.job-results .job-result-preview-heading button {
   min-height: 44px;
   display: inline-flex;
   align-items: center;
 }
-.job-result-preview {
+.job-results .job-result-preview {
   min-width: 0;
   padding-block: 12px;
 }
-.job-result-preview-heading {
+.job-results .job-result-preview-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
 }
-.job-result-preview-heading h4 {
+.job-results .job-result-preview-heading h4 {
   margin: 0;
+  overflow-wrap: anywhere;
 }
-.job-result-preview video,
-.job-result-preview audio {
+.job-results .job-result-preview video,
+.job-results .job-result-preview audio {
   width: 100%;
   max-width: 960px;
 }
-.job-result-text {
+.job-results .job-result-text {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   max-height: 55vh;
@@ -58,6 +114,42 @@
   padding: 12px;
   background: var(--surface-muted, #f5f6f8);
 }
-.job-intermediate-files {
-  margin-top: 8px;
+@media (max-width: 720px) {
+  .job-results .job-data-table caption {
+    display: block;
+    width: auto;
+  }
+  .job-results .job-data-table,
+  .job-results .job-data-table tbody,
+  .job-results .job-data-table tr,
+  .job-results .job-data-table td {
+    display: block;
+    width: auto;
+  }
+  .job-results .job-data-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .job-results .job-data-table tr {
+    padding-block: 8px;
+    border-bottom: 1px solid var(--border, #e2e5e9);
+  }
+  .job-results .job-data-table td {
+    display: grid;
+    grid-template-columns: 92px minmax(0, 1fr);
+    gap: 6px;
+    padding: 5px 8px;
+    border: 0;
+  }
+  .job-results .job-data-table td::before {
+    content: attr(data-label);
+    color: var(--text-secondary, #555d69);
+    font-weight: 500;
+  }
+  .job-results .job-data-table td small {
+    grid-column: 2;
+  }
 }

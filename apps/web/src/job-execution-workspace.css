@@ -1,0 +1,272 @@
+.job-workspace {
+  border: 1px solid #e1e6ed;
+  border-radius: 9px;
+  background: #fff;
+  min-width: 0;
+  overflow: clip;
+}
+.job-workspace__topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid #e1e6ed;
+  padding: 0 20px;
+  min-height: 55px;
+}
+.job-workspace__tabs {
+  display: flex;
+  align-self: stretch;
+  gap: 24px;
+}
+.job-workspace__tabs > button {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  padding: 0 2px;
+  color: #6a7689;
+  font-size: 13px;
+  font-weight: 500;
+  min-height: 48px;
+  cursor: pointer;
+  border-radius: 0;
+}
+.job-workspace__tabs > button[aria-selected='true'] {
+  color: #215fc6;
+  border-bottom-color: #3976d7;
+}
+.job-workspace__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 270px;
+  min-height: 560px;
+}
+.job-workspace__content {
+  min-width: 0;
+}
+.job-workspace__panel {
+  padding: 20px;
+  min-width: 0;
+}
+.job-workspace__panel[hidden] {
+  display: none;
+}
+.job-workspace__summary {
+  border-left: 1px solid #e1e6ed;
+  padding: 20px 18px;
+  background: #fcfdff;
+  min-width: 0;
+}
+.job-workspace__summary h3 {
+  font-size: 13px;
+  font-weight: 600;
+  color: #28354b;
+  margin: 0 0 16px;
+}
+.job-workspace__summary dl {
+  display: grid;
+  gap: 11px;
+  margin: 0 0 30px;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.job-workspace__summary dl > div {
+  display: grid;
+  grid-template-columns: 65px minmax(0, 1fr);
+  gap: 12px;
+}
+.job-workspace__summary dt {
+  color: #8090a7;
+}
+.job-workspace__summary dd {
+  margin: 0;
+  color: #3f4d64;
+  overflow-wrap: anywhere;
+}
+.job-workspace__timeline {
+  padding: 0;
+  list-style: none;
+  margin: 0;
+}
+.job-workspace__timeline > li {
+  position: relative;
+  margin: 0 0 0 7px;
+  border-left: 1px solid #dce3ed;
+  padding: 0 0 23px 16px;
+}
+.job-workspace__timeline > li:last-child {
+  border-left-color: transparent;
+  padding-bottom: 0;
+}
+.job-workspace__stage {
+  display: flex;
+  align-items: start;
+  text-align: left;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  color: #4c5c74;
+  min-height: 40px;
+  width: 100%;
+}
+.job-workspace__stage > span:last-child {
+  display: grid;
+  gap: 3px;
+}
+.job-workspace__stage strong {
+  font-size: 12px;
+  font-weight: 500;
+}
+.job-workspace__stage small {
+  font-size: 11px;
+  color: #78879d;
+}
+.job-workspace__stage-dot {
+  position: absolute;
+  top: 3px;
+  left: -5px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #9aabbe;
+  box-shadow: 0 0 0 3px #fcfdff;
+}
+.job-workspace__timeline [data-state='completed'] .job-workspace__stage-dot {
+  background: #38a87d;
+}
+.job-workspace__timeline [data-state='running'] .job-workspace__stage-dot,
+.job-workspace__timeline [data-state='preparing'] .job-workspace__stage-dot {
+  background: #3978d5;
+}
+.job-workspace__timeline [data-state='failed'] .job-workspace__stage-dot,
+.job-workspace__timeline [data-state='held'] .job-workspace__stage-dot,
+.job-workspace__timeline [data-state='blocked'] .job-workspace__stage-dot {
+  background: #da6268;
+}
+.job-workspace__timeline .is-selected strong {
+  color: #215fc6;
+}
+.job-workspace__stage-counts,
+.job-workspace__stage-reason {
+  font-size: 11px;
+  line-height: 1.65;
+  color: #7c899c;
+  margin: 3px 0;
+}
+.job-workspace__stage-reason {
+  color: #b4515d;
+}
+.job-workspace__stage-logs {
+  display: inline-flex;
+  border: 0;
+  background: transparent;
+  color: #3f6caa;
+  cursor: pointer;
+  padding: 3px 0;
+  min-height: 30px;
+  font-size: 11px;
+}
+.job-workspace__summary-toggle {
+  display: none;
+  border: 0;
+  background: none;
+  color: #64748b;
+  font-size: 12px;
+  cursor: pointer;
+  min-height: 44px;
+}
+.job-workspace .job-execution {
+  margin: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+.job-workspace .job-execution-flow {
+  border: 0;
+}
+.job-workspace .job-execution-flow__header h3 {
+  font-size: 13px;
+}
+.job-workspace .job-execution-flow__viewport {
+  background-color: #f9fbfd;
+}
+.job-workspace .renewal-node-results {
+  margin-top: 18px;
+}
+.job-task-inspector {
+  border-top: 1px solid #e1e6ed;
+  padding-top: 16px;
+  min-width: 0;
+}
+.job-task-inspector > header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.job-task-inspector > header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.job-task-inspector > header > span {
+  color: #64748b;
+  font-size: 12px;
+}
+.job-task-inspector .job-task-run-picker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  font-size: 12px;
+}
+.job-task-inspector .job-task-run-picker select {
+  min-height: 40px;
+  max-width: 100%;
+}
+.job-workspace__panel.is-data .job-files {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+@media (max-width: 1050px) {
+  .job-workspace__body {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+  }
+  .job-workspace__summary-toggle {
+    display: block;
+  }
+  .job-workspace__summary {
+    display: none;
+    border-left: 0;
+    border-top: 1px solid #e1e6ed;
+  }
+  .job-workspace__summary.is-open {
+    display: block;
+  }
+  .job-workspace__panel {
+    padding: 16px;
+  }
+}
+@media (max-width: 600px) {
+  .job-workspace__topbar {
+    padding: 0 12px;
+    gap: 4px;
+  }
+  .job-workspace__tabs {
+    gap: 16px;
+  }
+  .job-workspace__tabs > button {
+    font-size: 12px;
+  }
+  .job-workspace__panel {
+    padding: 12px;
+  }
+  .job-workspace__stage,
+  .job-workspace__stage-logs {
+    min-height: 44px;
+  }
+}

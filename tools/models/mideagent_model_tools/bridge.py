@@ -8,6 +8,8 @@ import ssl
 import threading
 import contextvars
 import re
+import time
+from video_service.diagnostic_codes import failure_code, safe_code, event_level
 from video_service import task_console
 from video_service.task_console import capture_console
 from video_service.private_task_console import private_capture
@@ -27,17 +29,21 @@ from video_service.bootstrap import load_bootstrap
 _emission = contextvars.ContextVar('private_bridge_emission', default=None)
 
 
-def _emit_boundary(role, operation, state, error=None):
+def _emit_boundary(role, operation, state, error=None, *, started=None, code=None):
     if (role not in {'transcription', 'translation', 'vocalization'}
             or operation not in {'invoke', 'storage_lease'}
-            or state not in {'received', 'completed', 'failed'}):
+            or state not in {'received', 'completed', 'failed', 'held', 'cancelled', 'unknown'}):
         return
     row = {'event': 'mideagent.tool_transport.v1', 'role': role,
-           'operation': operation, 'state': state}
+           'operation': operation, 'state': state, 'level': event_level(state)}
+    if started is not None:
+        row['elapsed_ms'] = round((time.monotonic() - started) * 1000, 3)
     if error is not None:
         allowed = {ValueError, TypeError, RuntimeError, TimeoutError, OSError, EOFError}
         row.update(error_type=type(error).__name__ if type(error) in allowed else 'Exception',
-                   error_code='transport_exception')
+                   error_code=failure_code(error, 'transport_exception'))
+    elif safe_code(code):
+        row['error_code'] = code
     capability = _emission.get()
     if capability is not None:
         capability(json.dumps(row, separators=(',', ':')))
@@ -49,9 +55,10 @@ def _invoke_observed(identity, token, role, operation, invoke):
     with private_capture(identity, secrets=(token,), legacy_capture=capture_console) as capability:
         previous = _emission.set(capability)
         try:
-            def emit(state, error=None):
+            started = time.monotonic()
+            def emit(state, error=None, code=None):
                 try:
-                    _emit_boundary(role, operation, state, error)
+                    _emit_boundary(role, operation, state, error, started=started, code=code)
                 except BaseException:
                     pass
 
@@ -61,7 +68,10 @@ def _invoke_observed(identity, token, role, operation, invoke):
             except BaseException as error:
                 emit('failed', error)
                 raise
-            emit('completed')
+            state = reply.get('status') if type(reply) is dict else None
+            terminal = state if type(state) is str and state in {'failed', 'held', 'cancelled', 'unknown'} else 'completed'
+            emit(terminal, code=safe_code(reply.get('error'))
+                 if type(reply) is dict and terminal != 'completed' else None)
             return reply
         finally:
             _emission.reset(previous)

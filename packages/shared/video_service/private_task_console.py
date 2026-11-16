@@ -19,6 +19,7 @@ from pathlib import Path
 import sys
 
 from video_service import task_console
+from video_service.diagnostic_codes import FAILURE_CODES, event_level
 
 _scope: contextvars.ContextVar[dict | None] = contextvars.ContextVar('private_task_console', default=None)
 WITHHELD = '[output body withheld]'
@@ -37,19 +38,28 @@ def _safe_diagnostic(text):
         if type(role) is not str or role not in {'transcription', 'translation', 'vocalization'}:
             return False
         definitions = {
-            'mideagent.tool.v1': ({'tool_id', 'index'}, {'started', 'completed', 'failed', 'held', 'cancelled'}, {'tool_exception'}),
-            'mideagent.delivery.v1': ({'kind'}, {'received', 'completed', 'failed', 'held', 'cancelled', 'error'}, {'delivery_held', 'delivery_exception'}),
-            'mideagent.tool_transport.v1': ({'operation'}, {'received', 'completed', 'failed'}, {'transport_exception'}),
+            'mideagent.tool.v1': ({'tool_id', 'index'}, {'started', 'completed', 'failed', 'held', 'cancelled', 'unknown'}),
+            'mideagent.delivery.v1': ({'kind'}, {'received', 'completed', 'failed', 'held', 'cancelled', 'error', 'unknown'}),
+            'mideagent.tool_transport.v1': ({'operation'}, {'received', 'completed', 'failed', 'held', 'cancelled', 'unknown'}),
         }
         if type(event) is not str or event not in definitions:
             return False
-        required, states, errors = definitions[event]
+        required, states = definitions[event]
         keys = {'event', 'role', 'state'} | required
         if (not keys <= row.keys() or row.keys() - keys -
-                {'elapsed_ms', 'planned_segments', 'error_type', 'error_code'}):
+                {'elapsed_ms', 'planned_segments', 'error_type', 'error_code',
+                 'level', 'unit_index', 'candidate_index'}):
             return False
         if type(state) is not str or state not in states:
             return False
+        if 'level' in row and row['level'] != event_level(state):
+            return False
+        if 'unit_index' in row or 'candidate_index' in row:
+            if (event != 'mideagent.tool.v1' or row.get('tool_id') not in {
+                    'speech.transcribe', 'speech.validate_chunk', 'text.translate', 'text.validate_batch'}
+                    or any(type(row.get(k)) is not int or not 0 <= row[k] < 2**31
+                           for k in ('unit_index', 'candidate_index'))):
+                return False
         tools = {
             'transcription': {'media.analyze', 'media.extract_audio', 'media.preprocess_audio',
                               'speech.prepare_audio', 'speech.transcribe', 'speech.validate_chunk', 'speech.merge_segments'},
@@ -72,10 +82,13 @@ def _safe_diagnostic(text):
             if (row.get('tool_id') not in {'speech.prepare_audio', 'text.prepare_batches'}
                     or type(row['planned_segments']) is not int or not 0 <= row['planned_segments'] < 2**31):
                 return False
-        if 'error_type' in row or 'error_code' in row:
+        if 'error_type' in row:
             if (row.get('error_type') not in {'ValueError', 'TypeError', 'RuntimeError', 'TimeoutError', 'OSError', 'EOFError', 'Exception'}
-                    or row.get('error_code') not in errors):
+                    or 'error_code' not in row):
                 return False
+        if 'error_code' in row and (state not in {'failed', 'error', 'held', 'unknown', 'cancelled'}
+                                   or type(row['error_code']) is not str or row['error_code'] not in FAILURE_CODES):
+            return False
         # Only the producer's canonical spelling is admissible. A permissive
         # JSON parse alone would hide earlier duplicate-key body values while
         # returning the original, still-sensitive serialized text to readers.
@@ -84,13 +97,14 @@ def _safe_diagnostic(text):
         return False
 
 
-def read_private_console(task_id, *, root=None):
+def read_private_console(task_id, *, root=None, limit=None):
     """Project legacy private bodies as withheld without rewriting archive bytes.
 
     The marker is owned by the pre-tee collector, never inferred from body JSON.
     Historical unmarked diagnostics are withheld too: provenance is unavailable.
     """
     task_console._identity(task_id)
+    bound = task_console._LIMIT if limit is None else max(1, min(limit, task_console._LIMIT))
     folder = root or os.environ.get('MIDEAGENT_TASK_CONSOLE_ROOT')
     empty = {'lines': [], 'available': False, 'truncated': False,
              'content_policy': 'private_diagnostics_v1'}
@@ -100,9 +114,10 @@ def read_private_console(task_id, *, root=None):
     try:
         fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
         with os.fdopen(fd, 'rb') as stream:
-            if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+            info = os.fstat(stream.fileno())
+            if not stat.S_ISREG(info.st_mode):
                 return empty
-            raw = stream.read(task_console._LIMIT)
+            raw = stream.read(bound)
     except OSError:
         return empty
     lines = []
@@ -122,7 +137,8 @@ def read_private_console(task_id, *, root=None):
             lines.append({'at': at, 'stream': row['stream'], 'text': visible})
         except (ValueError, TypeError, RecursionError):
             continue
-    return {'lines': lines, 'available': True, 'truncated': len(raw) >= task_console._LIMIT,
+    return {'lines': lines, 'available': True,
+            'truncated': info.st_size > bound or info.st_size >= task_console._LIMIT,
             'content_policy': 'private_diagnostics_v1'}
 
 

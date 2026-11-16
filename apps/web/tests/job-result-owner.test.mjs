@@ -106,7 +106,61 @@ test('failed/incomplete tasks are never published as final files; no-goal-yet ke
     runs,
     agents: [{ id: 'speech', label: '전사', outputs: [] }],
   });
-  assert.match(html, /아직 출력 결과가 없습니다/);
+  assert.doesNotMatch(html, /아직 출력 결과가 없습니다/);
+  assert.match(html, /파일 1 \/ 1개/);
   assert.match(html, /중간 파일 1개/);
-  assert.doesNotMatch(html, /not-finished/);
+  assert.match(html, /data-stage-run="not-finished"/);
+  assert.doesNotMatch(html, /artifacts\/not-finished/);
+});
+
+test('unified table uses verified input/original routes, real timestamps and no fabricated failed output', () => {
+  const source = 'f'.repeat(32);
+  const runs = [
+    {
+      ...run('done', { transcript: ref('transcript') }),
+      started_at: '2026-01-01T00:00:00Z',
+      completed_at: '2026-01-01T00:00:02.500Z',
+    },
+    { ...run('failed', {}, 'failed'), inputs: { audio: ref('audio', 'b') } },
+    { ...run('waiting', {}, 'waiting'), inputs: { audio: ref('audio', 'b') } },
+  ];
+  const html = render({
+    base: '/renewal/jobs/offline',
+    runs,
+    originalSource: { asset_id: source, original_filename: 'original.mp4' },
+    stageLabels: { 'step-done': '전사 단계' },
+    onOpenLogs: () => {},
+  });
+  assert.match(html, /<table/);
+  assert.doesNotMatch(html, /<details/);
+  assert.match(html, /전사 단계/);
+  assert.match(html, /2.5초/);
+  assert.match(html, /파일 3 \/ 3개/);
+  assert.equal((html.match(/download=""/g) || []).length, 3);
+  assert.match(html, new RegExp(`/api/videos/${source}/download`));
+  assert.match(html, /\/inputs\/failed\/audio/);
+  assert.doesNotMatch(html, /\/inputs\/waiting\/audio|\/artifacts\/failed|\/artifacts\/waiting/);
+  assert.match(html, /data-stage-run="failed"/);
+  assert.match(html, /data-stage-run="waiting"/);
+  assert.match(html, /생성된 파일 없음/);
+});
+
+test('subtitle format is semantic identity even if producer hashes are identical', () => {
+  const runs = [run('sub', { subtitles: ref('subtitle'), sami: ref('subtitle') })];
+  const result = collect(runs, [
+    {
+      outputs: [
+        {
+          name: 'subtitles',
+          node_id: 'step-sub',
+          run_id: 'sub',
+          port: 'subtitles',
+          type: 'subtitle',
+        },
+      ],
+    },
+  ]);
+  assert.equal(result.main.length, 1);
+  assert.equal(result.intermediate.length, 1);
+  assert.equal(result.intermediate[0].port, 'sami');
 });

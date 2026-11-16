@@ -16,8 +16,16 @@ def invoke(agent, task, identity, execute, *, index=0):
         return registered(source)
     tool = standard_tools('agent:'+agent.registration['id'], {identity: bound})[0]
     from mideagent_agents.tool_events import invoke_observed
+    context = {}
+    # These tools' indices are frozen candidate-call indices, not generic operation indices.
+    if identity in {'speech.transcribe', 'speech.validate_chunk', 'text.translate', 'text.validate_batch'}:
+        models = task.get('models')
+        width = len(models) if type(models) is list else 1
+        if width > 0 and type(index) is int and index >= 0:
+            unit, candidate = divmod(index, width)
+            context = dict(unit_index=unit, candidate_index=candidate)
     result = invoke_observed(tool, source, task_id=task['task_id'],
-                             role=agent.registration['role'], identity=identity, index=index)
+                             role=agent.registration['role'], identity=identity, index=index, **context)
     schema = tool.get_input_schema().model_json_schema()
     sha = hashlib.sha256(json.dumps(schema, sort_keys=True).encode()).hexdigest()
     with agent.state.connect() as db:

@@ -14,7 +14,9 @@ import type { ProcessingProjection } from './processing-review-state';
 import { JobProcessingReview } from './JobProcessingReview';
 import { ProjectionRecoveryPanel } from './ProjectionRecoveryPanel';
 import { ModelRolePanel } from './ModelRolePanel';
-import { TaskResultTabs } from './TaskResultTabs';
+import { JobTaskInspector } from './JobTaskInspector';
+import { JobExecutionWorkspace, type WorkspaceTab } from './JobExecutionWorkspace';
+import { JobLogExplorer } from './JobLogExplorer';
 import { renewalBackend } from './preview';
 import { SubtitleTrackReview } from './SubtitleTracksPanel';
 import { PageTitle } from './PageTitle';
@@ -61,6 +63,8 @@ type Run = {
   display_reason?: string;
   progress?: ExecutionRunProgress['progress'];
   status: string;
+  started_at?: string | null;
+  completed_at?: string | null;
   dispatch?: { phase: string };
   options: Record<string, string>;
   inputs: Record<string, Reference>;
@@ -143,7 +147,13 @@ type State = {
   display_status?: string;
   parent_id: string | null;
   snapshot: {
-    asset: { asset_id: string; original_filename: string; uploaded_by?: string };
+    asset: {
+      asset_id: string;
+      original_filename: string;
+      uploaded_by?: string;
+      size_bytes?: number;
+      sha256?: string;
+    };
     inputs?: Record<string, { type: string }>;
     definition: CanvasDefinition;
     tool_definition?: CanvasDefinition;
@@ -153,7 +163,9 @@ type State = {
   reviews: Review[];
 };
 type Plan = { token: string; ready: boolean; reasons: string[]; notice: string };
-export const RenewalJobDetail = ({ id }: { id: string }) => {
+export const RenewalJobDetail = ({ id }: { id: string }) => <JobDetailSession key={id} id={id} />;
+
+const JobDetailSession = ({ id }: { id: string }) => {
   const start = useSyncExternalStore(subscribeJobStarts, () => getJobStartState(id));
   const [job, setJob] = useState<State | null>(null);
 
@@ -167,7 +179,13 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
   const [cancelBusy, setCancelBusy] = useState(false);
   const [error, setError] = useState('');
   const [loadError, setLoadError] = useState('');
-  const [resultsTab, setResultsTab] = useState<'output' | 'logs'>('output');
+  const [workspaceTab, setWorkspaceTab] = useState<WorkspaceTab>('progress');
+  const [logRunId, setLogRunId] = useState('');
+  const [dataRunId, setDataRunId] = useState('');
+  const [dataSelectionRequest, setDataSelectionRequest] = useState(0);
+  const [logFocusRequest, setLogFocusRequest] = useState(0);
+  const [logFocusErrors, setLogFocusErrors] = useState(false);
+  const [manualSelection, setManualSelection] = useState(0);
   const [panelRequest, setPanelRequest] = useState(0);
   const resultsPanel = useRef<HTMLElement>(null);
   const filesPanel = useRef<HTMLDivElement>(null);
@@ -245,24 +263,47 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
       );
       return failed ? [{ agent, tool: failed }] : [];
     }) || [];
-  const openLogs = (agentId: string, toolId: string) => {
+  const inspectStage = (agentId: string, toolId?: string) => {
+    setWorkspaceTab('progress');
     setDetailsOpen(true);
     setSelected(agentId);
-    setSelectedTool(toolId);
-    setResultsTab('logs');
+    setSelectedTool(toolId || '');
+    setManualSelection((value) => value + 1);
     setPanelRequest((value) => value + 1);
   };
-  const openRecovery = (agentId: string, toolId: string) => {
-    setDetailsOpen(true);
-    setSelected(agentId);
-    setSelectedTool(toolId);
-    setResultsTab('output');
-    setPanelRequest((value) => value + 1);
+  const openRunLogs = (identity: string, errorsOnly = false) => {
+    setLogRunId(identity);
+    setWorkspaceTab('logs');
+    setLogFocusErrors(errorsOnly);
+    setLogFocusRequest((value) => value + 1);
+  };
+  const openLogs = (agentId: string, toolId: string) => {
+    const item = job?.agent_workflow?.nodes
+      .find((agent) => agent.id === agentId)
+      ?.tools.find((candidate) => candidate.node_id === toolId);
+    if (item?.run_id) {
+      openRunLogs(item.run_id, ['failed', 'quarantined'].includes(item.state));
+    }
+  };
+  const openRecovery = (agentId: string, toolId: string) => inspectStage(agentId, toolId);
+  const inspectRun = (identity: string) => {
+    const agent = job?.agent_workflow?.nodes.find((candidate) =>
+      candidate.tools.some((item) => item.run_id === identity),
+    );
+    const item = agent?.tools.find((candidate) => candidate.run_id === identity);
+    if (agent && item) {
+      inspectStage(agent.id, item.node_id);
+    }
+  };
+  const openData = (identity = '') => {
+    setDataRunId(identity);
+    setDataSelectionRequest((value) => value + 1);
+    setWorkspaceTab('data');
   };
   useEffect(() => {
     if (panelRequest) {
       const frame = requestAnimationFrame(() => {
-        if (resultsTab === 'output') {
+        if (workspaceTab === 'progress') {
           const panel = resultsPanel.current?.querySelector<HTMLElement>('.unit-recovery');
           if (panel) {
             panel.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true });
@@ -270,15 +311,14 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
             return;
           }
         }
-        const tab = resultsPanel.current?.querySelector<HTMLButtonElement>(
-          '[role="tab"][aria-selected="true"]',
-        );
+        const tab =
+          resultsPanel.current?.querySelector<HTMLButtonElement>('.job-task-inspector h3');
         tab?.focus({ preventScroll: true });
         tab?.scrollIntoView({ block: 'nearest' });
       });
       return () => cancelAnimationFrame(frame);
     }
-  }, [selected, panelRequest, resultsTab]);
+  }, [selected, panelRequest, workspaceTab]);
   useEffect(() => {
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout>;
@@ -491,261 +531,367 @@ export const RenewalJobDetail = ({ id }: { id: string }) => {
               <JobProcessingReview jobId={id} onChanged={() => void reload()} />
             </div>
           )}
-          <section className="job-execution" ref={resultsPanel}>
-            {!agentDefinition && (
-              <p role="alert">워크플로우를 불러오지 못했습니다. 새로고침해 주세요.</p>
-            )}
-            {agentDefinition && (
-              <JobExecutionFlow
-                executionId={job.id}
-                definition={agentDefinition}
-                agents={job.agent_workflow?.nodes || []}
-                selectedNodeId={selected || undefined}
-                onSelect={(identity, source) => {
-                  setSelected(identity);
-                  setSelectedTool('');
-                  setResultsTab('output');
-                  if (source !== 'follow') {
-                    setDetailsOpen(true);
-                    setPanelRequest((value) => value + 1);
-                  }
-                }}
-                progressByRunId={
-                  Object.fromEntries(
-                    job.runs
-                      .filter((item) => item.progress)
-                      .map((item) => [
-                        item.id,
-                        {
-                          run_id: item.id,
-                          state: item.status,
-                          display_state: item.display_status || item.status,
-                          progress: item.progress,
-                        },
-                      ]),
-                  ) as ExecutionProgressMap
-                }
-                edgeStates={job.agent_workflow?.edges || {}}
-                details={
-                  selected && detailsOpen ? (
-                    <section className="execution-node-body renewal-node-results">
-                      <TaskResultTabs
-                        key={`${id}:${selected}`}
-                        jobId={id}
-                        runId={run?.id}
-                        canManage={canManage}
-                        unitRecoveryEnabled={
-                          renewalBackend &&
-                          ['transcribe', 'translate'].includes(tool?.role || run?.node_type || '')
-                        }
-                        onChanged={async () => {
-                          await reload();
-                        }}
-                        activeTab={resultsTab}
-                        onTabChange={setResultsTab}
-                        showProgress={false}
-                        initialState={
-                          tool?.state || run?.display_status || run?.status || 'waiting'
-                        }
-                        toolbar={
-                          currentAgent && (
-                            <label className="job-task-run-picker">
-                              실행 단계
-                              <select
-                                aria-label="실행 단계"
-                                value={tool?.node_id || ''}
-                                onChange={(event) => setSelectedTool(event.target.value)}
-                              >
-                                {currentAgent.tools.map((item) => (
-                                  <option key={item.node_id} value={item.node_id}>
-                                    {item.label}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
-                          )
-                        }
-                      >
-                        {run?.display_reason && run.display_reason !== currentAgent?.reason && (
-                          <p role="alert">{run.display_reason}</p>
-                        )}
-                        {run?.error_code && (
-                          <p role="alert">{run.error_code} · 자동 재실행하지 않습니다.</p>
-                        )}
-                        {run?.result?.reused_from && (
-                          <p>
-                            이 결과는{' '}
-                            <a href={'#/jobs/' + run.result.reused_from.job_id}>원 작업</a>의 완료
-                          </p>
-                        )}
-                        {run?.status === 'completed' && !review && (
-                          <p>
-                            <Button
-                              variant="quiet"
-                              onClick={() => filesPanel.current?.scrollIntoView({ block: 'start' })}
-                            >
-                              결과 파일로 이동
-                            </Button>
-                          </p>
-                        )}
-                        {review?.contract.kind === 'subtitle_tracks_v1' && (
-                          <SubtitleTrackReview
-                            review={review}
+          <JobExecutionWorkspace
+            activeTab={workspaceTab}
+            onTabChange={setWorkspaceTab}
+            status={jobStateLabel(job)}
+            selectedStageId={selected}
+            metadata={[
+              { label: '작업', value: `#${job.ticket_number}` },
+              ...frozenGoalLanguages(job.snapshot.definition).map((item) => ({
+                label: item.label,
+                value: languageLabel(item.value),
+              })),
+            ]}
+            stages={(job.agent_workflow?.nodes || []).map((agent) => {
+              const selectedTool = agent.tools.find(
+                (item) => item.node_id === agent.selected_tool_id,
+              );
+              const currentRun = job.runs.find((item) => item.id === selectedTool?.run_id);
+              return {
+                id: agent.id,
+                label: agent.label,
+                state: agent.state,
+                reason: agent.reason,
+                runId: currentRun?.id,
+                completed: currentRun?.progress?.completed_segments,
+                failed: currentRun?.progress?.failed_segments,
+                planned: currentRun?.progress?.planned_segments,
+              };
+            })}
+            onStageSelect={(identity) => inspectStage(identity)}
+            onStageLogs={(identity, runId) =>
+              openRunLogs(
+                runId,
+                !!job.agent_workflow?.nodes.some(
+                  (agent) =>
+                    agent.id === identity && ['failed', 'quarantined'].includes(agent.state),
+                ),
+              )
+            }
+            progress={
+              <section className="job-execution" ref={resultsPanel}>
+                {!agentDefinition && (
+                  <p role="alert">워크플로우를 불러오지 못했습니다. 새로고침해 주세요.</p>
+                )}
+                {agentDefinition && (
+                  <JobExecutionFlow
+                    executionId={job.id}
+                    definition={agentDefinition}
+                    agents={job.agent_workflow?.nodes || []}
+                    selectedNodeId={selected || undefined}
+                    interactionKey={manualSelection}
+                    onSelect={(identity, source) => {
+                      setSelected(identity);
+                      setSelectedTool('');
+                      if (source !== 'follow') {
+                        setDetailsOpen(true);
+                        setPanelRequest((value) => value + 1);
+                      }
+                    }}
+                    progressByRunId={
+                      Object.fromEntries(
+                        job.runs
+                          .filter((item) => item.progress)
+                          .map((item) => [
+                            item.id,
+                            {
+                              run_id: item.id,
+                              state: item.status,
+                              display_state: item.display_status || item.status,
+                              progress: item.progress,
+                            },
+                          ]),
+                      ) as ExecutionProgressMap
+                    }
+                    edgeStates={job.agent_workflow?.edges || {}}
+                    details={
+                      selected && detailsOpen ? (
+                        <section className="execution-node-body renewal-node-results">
+                          <JobTaskInspector
+                            key={`${id}:${selected}`}
+                            jobId={id}
+                            runId={run?.id}
                             canManage={canManage}
-                            assetId={job.snapshot.asset.asset_id}
-                            onChanged={() => {
-                              setPlan(null);
-                              setConsent(null);
-                              void reload();
+                            unitRecoveryEnabled={
+                              renewalBackend &&
+                              ['transcribe', 'translate'].includes(
+                                tool?.role || run?.node_type || '',
+                              )
+                            }
+                            onChanged={async () => {
+                              await reload();
                             }}
-                          />
-                        )}
-                        {review &&
-                          ['face_select', 'face_confirm_preview'].includes(
-                            review.contract.kind || '',
-                          ) && (
-                            <FaceWorkflowReview
-                              key={review.id}
-                              initial={review}
-                              jobId={job.id}
-                              canManage={canManage}
-                              active={job.status === 'review_required'}
-                              changed={async () => {
-                                setPlan(null);
-                                setConsent(null);
-                                await reload();
-                              }}
-                            />
-                          )}
-                        {review &&
-                          !['subtitle_tracks_v1', 'face_select', 'face_confirm_preview'].includes(
-                            review.contract.kind || '',
-                          ) &&
-                          !canManage && (
-                            <section className="execution-review" aria-label="검수 내용 읽기 전용">
-                              <h4>검수 내용 · 읽기 전용</h4>
-                              <pre>{JSON.stringify(review.draft, null, 2)}</pre>
-                            </section>
-                          )}
-                        {review &&
-                          !['subtitle_tracks_v1', 'face_select', 'face_confirm_preview'].includes(
-                            review.contract.kind || '',
-                          ) &&
-                          canManage && (
-                            <section
-                              aria-label="공통 검수"
-                              className={
-                                ['audio_regions_v1', 'audio_regions_long_v5'].includes(
-                                  review.contract.kind || '',
-                                )
-                                  ? 'audio-region-review'
-                                  : undefined
-                              }
-                            >
-                              <h4>
-                                {['audio_regions_v1', 'audio_regions_long_v5'].includes(
-                                  review.contract.kind || '',
-                                )
-                                  ? '음성 보호·제거 구간 검수'
-                                  : '자료 확인'}
-                              </h4>
-                              {['audio_regions_v1', 'audio_regions_long_v5'].includes(
-                                review.contract.kind || '',
-                              ) && (
-                                <>
-                                  <audio
-                                    controls
-                                    preload="none"
-                                    src={mediaUrl('/renewal/reviews/' + review.id + '/source')}
-                                  />
-                                  <p>
-                                    원본 오디오의 초 단위 구간입니다. 보호 구간은 적용 시 앞뒤
-                                    0.3초를 더 보호하며, 겹친 제거 제안은 전체 취소합니다.
-                                  </p>
-                                  <p>
-                                    후속 음성 필터가 off면 보호·제거 결정은 적용하지 않습니다.
-                                    NVIDIA VAD를 선택하면 마지막에 VAD 유지 구간과 겹치는 부분만
-                                    남습니다.
-                                  </p>
-                                  <p>
-                                    직접 지정한 결정입니다. 자동 보컬 탐지·확인 결과가 아닙니다.
-                                    저장·확정만으로 실행하지 않습니다.
-                                  </p>
-                                  <p>
-                                    원본 길이 {review.contract.audio?.duration_seconds.toFixed(3)}초
-                                    · 각 목록 최대 1,024개
-                                  </p>
-                                </>
-                              )}
-                              <DataForm
-                                schema={reviewFields!}
-                                value={drafts[review.id] ?? review.draft}
-                                disabled={busy || review.status === 'confirmed'}
-                                onChange={(value) => {
-                                  if (value && typeof value === 'object' && !Array.isArray(value)) {
-                                    setDrafts((previous) => ({ ...previous, [review.id]: value }));
-                                  }
+                            title={currentAgent?.label || '선택한 단계'}
+                            state={tool?.state || run?.display_status || run?.status || 'waiting'}
+                            toolbar={
+                              currentAgent && (
+                                <label className="job-task-run-picker">
+                                  실행 단계
+                                  <select
+                                    aria-label="실행 단계"
+                                    value={tool?.node_id || ''}
+                                    onChange={(event) => setSelectedTool(event.target.value)}
+                                  >
+                                    {currentAgent.tools.map((item) => (
+                                      <option key={item.node_id} value={item.node_id}>
+                                        {item.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                              )
+                            }
+                          >
+                            {run?.display_reason && run.display_reason !== currentAgent?.reason && (
+                              <p role="alert">{run.display_reason}</p>
+                            )}
+                            {run?.error_code && (
+                              <p role="alert">{run.error_code} · 자동 재실행하지 않습니다.</p>
+                            )}
+                            {run?.result?.reused_from && (
+                              <p>
+                                이 결과는{' '}
+                                <a href={'#/jobs/' + run.result.reused_from.job_id}>원 작업</a>의
+                                완료
+                              </p>
+                            )}
+                            {run?.status === 'completed' && !review && (
+                              <p>
+                                <Button variant="quiet" onClick={() => openData(run?.id || '')}>
+                                  결과 파일로 이동
+                                </Button>
+                              </p>
+                            )}
+                            {review?.contract.kind === 'subtitle_tracks_v1' && (
+                              <SubtitleTrackReview
+                                review={review}
+                                canManage={canManage}
+                                assetId={job.snapshot.asset.asset_id}
+                                onChanged={() => {
+                                  setPlan(null);
+                                  setConsent(null);
+                                  void reload();
                                 }}
                               />
-                              <Button
-                                variant="secondary"
-                                disabled={busy || review.status === 'confirmed'}
-                                onClick={() =>
-                                  void action(async () => {
-                                    await jsonPost('/renewal/reviews/' + review.id + '/save', {
-                                      revision: review.revision,
-                                      draft: drafts[review.id] ?? review.draft,
-                                    });
-                                    setDrafts((previous) => {
-                                      const next = { ...previous };
-                                      delete next[review.id];
-                                      return next;
-                                    });
+                            )}
+                            {review &&
+                              ['face_select', 'face_confirm_preview'].includes(
+                                review.contract.kind || '',
+                              ) && (
+                                <FaceWorkflowReview
+                                  key={review.id}
+                                  initial={review}
+                                  jobId={job.id}
+                                  canManage={canManage}
+                                  active={job.status === 'review_required'}
+                                  changed={async () => {
                                     setPlan(null);
                                     setConsent(null);
-                                  })
-                                }
-                              >
-                                검수 저장
-                              </Button>
-                              <Button
-                                disabled={
-                                  busy || review.status === 'confirmed' || review.id in drafts
-                                }
-                                onClick={() =>
-                                  void action(async () => {
-                                    await jsonPost('/renewal/reviews/' + review.id + '/confirm', {
-                                      revision: review.revision,
-                                    });
-                                    setPlan(null);
-                                    setConsent(null);
-                                  })
-                                }
-                              >
-                                검수 확정
-                              </Button>
-                              <p>확정은 실행이 아닙니다. 새 계획 확인 뒤 별도로 이어 실행합니다.</p>
-                            </section>
-                          )}
-                      </TaskResultTabs>
-                    </section>
-                  ) : null
-                }
+                                    await reload();
+                                  }}
+                                />
+                              )}
+                            {review &&
+                              ![
+                                'subtitle_tracks_v1',
+                                'face_select',
+                                'face_confirm_preview',
+                              ].includes(review.contract.kind || '') &&
+                              !canManage && (
+                                <section
+                                  className="execution-review"
+                                  aria-label="검수 내용 읽기 전용"
+                                >
+                                  <h4>검수 내용 · 읽기 전용</h4>
+                                  <pre>{JSON.stringify(review.draft, null, 2)}</pre>
+                                </section>
+                              )}
+                            {review &&
+                              ![
+                                'subtitle_tracks_v1',
+                                'face_select',
+                                'face_confirm_preview',
+                              ].includes(review.contract.kind || '') &&
+                              canManage && (
+                                <section
+                                  aria-label="공통 검수"
+                                  className={
+                                    ['audio_regions_v1', 'audio_regions_long_v5'].includes(
+                                      review.contract.kind || '',
+                                    )
+                                      ? 'audio-region-review'
+                                      : undefined
+                                  }
+                                >
+                                  <h4>
+                                    {['audio_regions_v1', 'audio_regions_long_v5'].includes(
+                                      review.contract.kind || '',
+                                    )
+                                      ? '음성 보호·제거 구간 검수'
+                                      : '자료 확인'}
+                                  </h4>
+                                  {['audio_regions_v1', 'audio_regions_long_v5'].includes(
+                                    review.contract.kind || '',
+                                  ) && (
+                                    <>
+                                      <audio
+                                        controls
+                                        preload="none"
+                                        src={mediaUrl('/renewal/reviews/' + review.id + '/source')}
+                                      />
+                                      <p>
+                                        원본 오디오의 초 단위 구간입니다. 보호 구간은 적용 시 앞뒤
+                                        0.3초를 더 보호하며, 겹친 제거 제안은 전체 취소합니다.
+                                      </p>
+                                      <p>
+                                        후속 음성 필터가 off면 보호·제거 결정은 적용하지 않습니다.
+                                        NVIDIA VAD를 선택하면 마지막에 VAD 유지 구간과 겹치는 부분만
+                                        남습니다.
+                                      </p>
+                                      <p>
+                                        직접 지정한 결정입니다. 자동 보컬 탐지·확인 결과가 아닙니다.
+                                        저장·확정만으로 실행하지 않습니다.
+                                      </p>
+                                      <p>
+                                        원본 길이{' '}
+                                        {review.contract.audio?.duration_seconds.toFixed(3)}초 · 각
+                                        목록 최대 1,024개
+                                      </p>
+                                    </>
+                                  )}
+                                  <DataForm
+                                    schema={reviewFields!}
+                                    value={drafts[review.id] ?? review.draft}
+                                    disabled={busy || review.status === 'confirmed'}
+                                    onChange={(value) => {
+                                      if (
+                                        value &&
+                                        typeof value === 'object' &&
+                                        !Array.isArray(value)
+                                      ) {
+                                        setDrafts((previous) => ({
+                                          ...previous,
+                                          [review.id]: value,
+                                        }));
+                                      }
+                                    }}
+                                  />
+                                  <Button
+                                    variant="secondary"
+                                    disabled={busy || review.status === 'confirmed'}
+                                    onClick={() =>
+                                      void action(async () => {
+                                        await jsonPost('/renewal/reviews/' + review.id + '/save', {
+                                          revision: review.revision,
+                                          draft: drafts[review.id] ?? review.draft,
+                                        });
+                                        setDrafts((previous) => {
+                                          const next = { ...previous };
+                                          delete next[review.id];
+                                          return next;
+                                        });
+                                        setPlan(null);
+                                        setConsent(null);
+                                      })
+                                    }
+                                  >
+                                    검수 저장
+                                  </Button>
+                                  <Button
+                                    disabled={
+                                      busy || review.status === 'confirmed' || review.id in drafts
+                                    }
+                                    onClick={() =>
+                                      void action(async () => {
+                                        await jsonPost(
+                                          '/renewal/reviews/' + review.id + '/confirm',
+                                          {
+                                            revision: review.revision,
+                                          },
+                                        );
+                                        setPlan(null);
+                                        setConsent(null);
+                                      })
+                                    }
+                                  >
+                                    검수 확정
+                                  </Button>
+                                  <p>
+                                    확정은 실행이 아닙니다. 새 계획 확인 뒤 별도로 이어 실행합니다.
+                                  </p>
+                                </section>
+                              )}
+                          </JobTaskInspector>
+                        </section>
+                      ) : null
+                    }
+                  />
+                )}
+              </section>
+            }
+            data={
+              <div ref={filesPanel} data-selected-run={dataRunId || undefined}>
+                <JobFiles
+                  base={base}
+                  runs={job.runs}
+                  agents={job.agent_workflow?.nodes}
+                  stageLabels={Object.fromEntries(
+                    (job.agent_workflow?.nodes || []).flatMap((agent) =>
+                      agent.tools.map((item) => [item.node_id, `${agent.label} · ${item.label}`]),
+                    ),
+                  )}
+                  selectedRunId={dataRunId || undefined}
+                  selectionRequest={dataSelectionRequest}
+                  onOpenLogs={(identity) =>
+                    openRunLogs(
+                      identity,
+                      ['failed', 'quarantined'].includes(
+                        job.runs.find((item) => item.id === identity)?.display_status ||
+                          job.runs.find((item) => item.id === identity)?.status ||
+                          '',
+                      ),
+                    )
+                  }
+                  originalSource={{
+                    asset_id: job.snapshot.asset.asset_id,
+                    original_filename: job.snapshot.asset.original_filename,
+                    bytes: job.snapshot.asset.size_bytes,
+                    sha256: job.snapshot.asset.sha256,
+                  }}
+                  stale={!!loadError}
+                  subtitleOutputsEnabled={
+                    !!toolDefinition?.nodes.some((item) => item.type === 'subtitle_outputs')
+                  }
+                  revision={job.revision}
+                />
+              </div>
+            }
+            logs={
+              <JobLogExplorer
+                jobId={id}
+                enabled={workspaceTab === 'logs'}
+                runs={job.runs.map((item) => {
+                  const agent = job.agent_workflow?.nodes.find((candidate) =>
+                    candidate.tools.some((tool) => tool.run_id === item.id),
+                  );
+                  const tool = agent?.tools.find((candidate) => candidate.run_id === item.id);
+                  return {
+                    id: item.id,
+                    node_id: item.node_id,
+                    label: tool?.label || item.node_type,
+                    agentLabel: agent?.label,
+                  };
+                })}
+                runId={logRunId}
+                onRunChange={setLogRunId}
+                focusRequest={logFocusRequest}
+                focusErrors={logFocusErrors}
+                onOpenData={openData}
+                onOpenStage={inspectRun}
               />
-            )}
-          </section>
-          <div ref={filesPanel}>
-            <JobFiles
-              base={base}
-              runs={job.runs}
-              agents={job.agent_workflow?.nodes}
-              stale={!!loadError}
-              subtitleOutputsEnabled={
-                !!toolDefinition?.nodes.some((item) => item.type === 'subtitle_outputs')
-              }
-              revision={job.revision}
-            />
-          </div>
+            }
+          />
           {job.status === 'failed' && <ProjectionRecoveryPanel key={job.id} jobId={job.id} />}
           {canManage && (
             <section
