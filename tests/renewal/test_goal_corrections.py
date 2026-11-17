@@ -10,6 +10,8 @@ from uuid import uuid4
 
 import pytest
 
+from video_service.handoff_timing import handoff_context, handoff_span, timed
+
 ROOT = Path(__file__).resolve().parents[2]
 for project in ("packages/shared", "agents", "apps/orchestrator"):
     sys.path.insert(0, str(ROOT / project))
@@ -114,10 +116,12 @@ def source_execution(monkeypatch):
     original = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "Execution")
     methods = [n for n in original.body if isinstance(n, ast.FunctionDef) and n.name in {
         "_insert_run", "_ready_agent_tools", "_result_for", "_write_outbox", "claim_next",
+        "_claim_admitted_in", "_claim_candidates", "_claim_all_cold",
         "create", "recover", "_creation_model_bindings", "normal_input_plan", "input_choices", "inspect", "_shared_view"}]
     cls = ast.ClassDef(name="SourceExecution", bases=[], keywords=[], body=methods, decorator_list=[])
     namespace = dict(__name__="mideagent_orchestrator.execution_unit", __package__="mideagent_orchestrator",
                      uuid4=uuid4, canonical=canonical, digest=digest, Jsonb=lambda x: deepcopy(x),
+                     timed=timed, handoff_context=handoff_context, handoff_span=handoff_span,
                      public_asset=lambda asset: deepcopy(asset), request_id=lambda value: None,
                      Conflict=ValueError, spec=spec, CPU_AGENTS=CPU_AGENTS, CONTROL=frozenset(),
                      TERMINAL=frozenset({"completed", "failed", "cancelled", "skipped", "blocked", "quarantined"}))

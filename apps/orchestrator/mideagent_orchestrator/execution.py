@@ -1631,8 +1631,132 @@ class Execution(Intake):
         from mideagent_orchestrator.workflow import ready_tool_ids
         return ready_tool_ids(snapshot, indexed)
 
+    def _claim_admitted_in(self, db, queue, job, runs):
+        """Shared admission fence; caller holds owner queue then job row lock."""
+        new_start = False
+        if not runs and job['active_claim_id']:
+            new_start = queue.requires_in(db, job)
+            if not queue.allowed_in(db, job, new_claim=new_start):
+                return False
+            if new_start and self._queue_start_reasons_in(db, job):
+                from video_service.start_queue_policy import QueueConflict
+
+                raise QueueConflict('시작 조건이 바뀌었습니다. 작업 상세에서 모델·자원 상태를 확인하세요.')
+        from video_service.postgres.job_processing_review import JobProcessingReview
+
+        if JobProcessingReview(self).capture_in(db, job):
+            return False
+        if (
+            job["status"] not in ("waiting", "running")
+            or job["cancel_requested"]
+            or not job["active_claim_id"]
+        ):
+            return False
+        if new_start:
+            from .agent_pool import AgentPool
+
+            AgentPool.enroll_in(db, job)
+        if sum(r["status"] in ("running", "waiting") for r in runs) >= 2:
+            return False
+        return True
+
+    def _claim_candidates(self, job, indexed):
+        """Original-order, routing-aware frontier, shared by gate and final claim.
+
+        Keep this lazy: control/skip results update indexed during the final sweep.
+        """
+        definition = job["snapshot"]["definition"]
+        eligible_tools = self._ready_agent_tools(job["snapshot"], indexed)
+        for node in definition["nodes"]:
+            if job["snapshot"].get("agent_control_policy") == 1:
+                eligible_tools = self._ready_agent_tools(job["snapshot"], indexed)
+            if eligible_tools is not None and node["id"] not in eligible_tools:
+                continue
+            if node["id"] in indexed:
+                continue
+            edges = [
+                e for e in definition["edges"] if e["target"]["node"] == node["id"]
+            ]
+            states = [(e, *self._result_for(job, indexed, e)) for e in edges]
+            if any(status not in TERMINAL for _, status, _ in states):
+                continue
+            inputs = {
+                e["target"]["port"]: ref
+                for e, status, ref in states
+                if status == "completed" and ref is not None
+            }
+            selected = spec(node["type"], node["options"])
+            required = set(selected["inputs"]) - set(selected["optional_inputs"])
+            missing = required - set(inputs)
+            strict_join_failure = (
+                node["type"] == "join" and job["snapshot"].get("agent_control_policy") == 1
+                and any(state in {"failed", "blocked", "cancelled", "quarantined"} for _, state, _ in states)
+            )
+            status = None
+            if missing and not (node["type"] == "join" and inputs and not strict_join_failure):
+                status = (
+                    "blocked"
+                    if any(
+                        s in ("failed", "blocked", "quarantined", "cancelled")
+                        for _, s, _ in states
+                    )
+                    else "skipped"
+                )
+            yield node, inputs, status
+
+    def _claim_all_cold(self, owner, identity):
+        """Commit authorized preparation only, never a reservation or byte proof.
+
+        Deliberately defers corrupt-content diagnosis until capacity is ready.
+        A ready node, metadata progress, or uncertain closure falls back to the
+        unchanged full preflight. No gate lock survives into that media I/O.
+        """
+        from .agent_pool import AgentPool
+        from .face_workflow import selected as face_selected
+        from .start_queue import StartQueue
+
+        with self.database.connection() as db:
+            queue = StartQueue(self)
+            queue.lock_in(db, owner)
+            job = self._job(db, owner, identity, lock=True)
+            runs = self._runs(db, owner, identity)
+            # Face staging has additional frontier fences; do not approximate it.
+            if face_selected(job["snapshot"]):
+                return False
+            if not self._claim_admitted_in(db, queue, job, runs):
+                return False
+            indexed = {r["node_id"]: r for r in runs}
+            # Review/terminal metadata settlement must still reach the full sweep.
+            if any(r["status"] == "review_required" for r in runs):
+                return False
+            if not any(r["status"] in ("running", "waiting") for r in runs):
+                if job["snapshot"].get("agent_execution_policy") == 1:
+                    from .workflow import goal_settlement
+
+                    settlement = goal_settlement(job["snapshot"], indexed)
+                    if settlement is not None and settlement != job["status"]:
+                        return False
+                elif job["status"] != "waiting":
+                    # Legacy sweeps settle running -> waiting when capacity is cold.
+                    return False
+            cold = False
+            for node, inputs, skip_status in self._claim_candidates(job, indexed):
+                if skip_status is not None or node["type"] in CONTROL or node["type"] in {
+                    "review", "face_select", "face_confirm_preview",
+                } or node.get("options", {}).get("review_kind") == "subtitle_tracks_v1":
+                    return False
+                # ready_in writes admitted demand and takes a capacity lock. It
+                # is reached only at the same dependency-eligible external node
+                # as the final sweep (except byte validation, intentionally later).
+                if AgentPool.ready_in(db, job, node):
+                    return False
+                cold = True
+            return cold
+
     @timed("claim")
     def claim_next(self, owner, identity):
+        if self._claim_all_cold(owner, identity):
+            return None
         verified = self._preflight_cpu_inputs(owner, identity)
         from video_service.postgres.subtitle_tracks import SubtitleTracks
 
@@ -1657,69 +1781,13 @@ class Execution(Intake):
             face_stage = (verified or {}).get("face")
             if face_selected(job["snapshot"]):
                 FaceWorkflow.check_stage(job, runs, face_stage)
-            new_start = False
-            if not runs and job['active_claim_id']:
-                new_start = queue.requires_in(db, job)
-                if not queue.allowed_in(db, job, new_claim=new_start):
-                    return None
-                if new_start and self._queue_start_reasons_in(db, job):
-                    from video_service.start_queue_policy import QueueConflict
-
-                    raise QueueConflict('시작 조건이 바뀌었습니다. 작업 상세에서 모델·자원 상태를 확인하세요.')
-            from video_service.postgres.job_processing_review import JobProcessingReview
-
-            if JobProcessingReview(self).capture_in(db, job):
-                return None
-            if (
-                job["status"] not in ("waiting", "running")
-                or job["cancel_requested"]
-                or not job["active_claim_id"]
-            ):
-                return None
-            if new_start:
-                from .agent_pool import AgentPool
-
-                AgentPool.enroll_in(db, job)
-            if sum(r["status"] in ("running", "waiting") for r in runs) >= 2:
+            if not self._claim_admitted_in(db, queue, job, runs):
                 return None
             indexed = {r["node_id"]: r for r in runs}
             definition = job["snapshot"]["definition"]
-            eligible_tools = self._ready_agent_tools(job["snapshot"], indexed)
-            for node in definition["nodes"]:
-                if job["snapshot"].get("agent_control_policy") == 1:
-                    eligible_tools = self._ready_agent_tools(job["snapshot"], indexed)
-                if eligible_tools is not None and node["id"] not in eligible_tools:
-                    continue
-                if node["id"] in indexed:
-                    continue
-                edges = [
-                    e for e in definition["edges"] if e["target"]["node"] == node["id"]
-                ]
-                states = [(e, *self._result_for(job, indexed, e)) for e in edges]
-                if any(status not in TERMINAL for _, status, _ in states):
-                    continue
-                inputs = {
-                    e["target"]["port"]: ref
-                    for e, status, ref in states
-                    if status == "completed" and ref is not None
-                }
-                selected = spec(node["type"], node["options"])
-                required = set(selected["inputs"]) - set(selected["optional_inputs"])
-                missing = required - set(inputs)
-                strict_join_failure = (
-                    node["type"] == "join" and job["snapshot"].get("agent_control_policy") == 1
-                    and any(state in {"failed", "blocked", "cancelled", "quarantined"} for _, state, _ in states)
-                )
-                if missing and not (node["type"] == "join" and inputs and not strict_join_failure):
-                    status = (
-                        "blocked"
-                        if any(
-                            s in ("failed", "blocked", "quarantined", "cancelled")
-                            for _, s, _ in states
-                        )
-                        else "skipped"
-                    )
-                    row, _ = self._insert_run(db, job, node, {}, status)
+            for node, inputs, skip_status in self._claim_candidates(job, indexed):
+                if skip_status is not None:
+                    row, _ = self._insert_run(db, job, node, {}, skip_status)
                     indexed[node["id"]] = row
                     continue
                 if (

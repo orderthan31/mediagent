@@ -14,6 +14,7 @@ from test_start_queue_fleet import fleet_case as fleet_case
 from video_service.canonical import digest
 from video_service.agent_protocol import CPU_AGENTS
 from video_service.content_store import ContentStore
+from video_service.handoff_timing import handoff_context, handoff_span, timed
 from video_service.start_queue_policy import claim_digest, QueueConflict
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -22,9 +23,10 @@ ROOT = Path(__file__).resolve().parents[2]
 def execution_methods():
     path = ROOT / 'apps/orchestrator/mideagent_orchestrator/execution.py'
     cls = next(n for n in ast.parse(path.read_text(encoding='utf8')).body if isinstance(n, ast.ClassDef) and n.name == 'Execution')
-    nodes = [n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name in {'admit', 'claim_next', '_queue_start_ready_in'}]
+    nodes = [n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name in {'admit', 'claim_next', '_queue_start_ready_in', '_claim_admitted_in', '_claim_candidates', '_claim_all_cold'}]
     ns = dict(__name__='mideagent_orchestrator.execution', __package__='mideagent_orchestrator',
               digest=digest, uuid4=uuid4, request_id=lambda x:x, resource_id=lambda x:x,
+              timed=timed, handoff_context=handoff_context, handoff_span=handoff_span,
               Conflict=ValueError, TERMINAL={'completed','failed','skipped','blocked','cancelled'},
               spec=lambda *args: {'inputs':{},'optional_inputs':[]}, CPU_AGENTS=CPU_AGENTS, CONTROL=set())
     exec(compile(ast.Module(body=nodes,type_ignores=[]),str(path),'exec'),ns)
@@ -112,6 +114,8 @@ def case(tmp_path,monkeypatch):
     methods=execution_methods()
     runtime.admit=lambda *args:methods['admit'](runtime,*args)
     runtime.claim_next=lambda *args:methods['claim_next'](runtime,*args)
+    for name in ('_claim_admitted_in', '_claim_candidates', '_claim_all_cold'):
+        setattr(runtime, name, methods[name].__get__(runtime))
     return runtime,StartQueue(runtime),db,state
 
 
@@ -146,7 +150,8 @@ def test_actual_first_reservation_pause_order_descendants_and_lock_order(case):
     before=state['capture']
     db.jobs[b['id']]['runs']*=2
     assert runtime.claim_next(OWNER,b['id']) is None
-    assert state['capture']==before+1 and state['reserve']==3
+    # The cheap gate and the fresh final transaction each retain this fence.
+    assert state['capture']==before+2 and state['reserve']==3
 
 
 def test_actual_admit_enrolls_only_new_claim_and_nonce_replay_never_adopts_old(case):
@@ -263,7 +268,8 @@ def test_first_reservation_holds_owner_serialization_until_commit(case,monkeypat
     finally:
         release.set();worker.join(3);patch.join(3)
     assert not worker.is_alive() and not patch.is_alive() and failures==[]
-    assert commits==['first-reservation','pause-policy'] and state['reserve']==1
+    # Gate commits without reserving; the actual reservation still serializes pause.
+    assert commits==['first-reservation','first-reservation','pause-policy'] and state['reserve']==1
 
 
 def test_progression_excludes_active_unknown_and_preserves_started_descendants(case):

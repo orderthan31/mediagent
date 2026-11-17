@@ -87,7 +87,12 @@
 - [x] User implementation authorization and clean base captured.
 - [x] Existing architecture audit and measured timing baseline preserved.
 - [x] Isolated local Python 3.12 test environment prepared.
-- [ ] Phase 1 instrumentation implementation/tests/SPEC/QUALITY/native verification.
+- [x] Phase 1 instrumentation implementation/tests/SPEC/QUALITY/native verification.
+  - Published instrumentation source: `e98379be86d54b2640234c6db241d204e6174a7a`, tree `37c84f712713a5d56f6e4e89583550a9f81e7ea6`; independent SPEC and QUALITY passed, 20 focused tests.
+  - Installed only the reviewed telemetry overlays on API, three result consumers and two Bridges; preserved the older installed results projection variant and excluded future adapter/MT135 changes.
+  - Exact images/modules, actual AMQP consumer registration, private HTTPS session, unchanged frontend index, business fingerprints and queue contents were verified. Thirteen stable protected services remained unchanged; two pre-existing auto-restarting initializers were retained without intervention.
+  - A rollout readiness probe incorrectly treated inherited `Healthcheck: [NONE]` as a missing healthy state; that attempt restored all predecessors. Historical failure was preserved, actual consumer/channel/peer readiness was proven on the originals, and the corrected rollout passed. No business data was restored or replayed.
+  - Performance attribution remains pending natural work; installed timing and isolated regression success are not measured production speedup.
 - [ ] Phase 2 bounded verified-I/O implementation/tests/reviews.
 - [ ] Phase 3 durable handoff implementation/tests/reviews.
 - [ ] Phase 4 measured remaining overhead disposition/tests/reviews.
