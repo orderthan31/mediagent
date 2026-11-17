@@ -6,6 +6,7 @@ import psycopg
 from psycopg.types.json import Jsonb
 
 from video_service.canonical import digest
+from video_service.handoff_timing import handoff_context, handoff_span, timed
 from video_service.object_store import ObjectIntegrityError, ObjectStoreError, validate_reference
 from video_service.postgres import Conflict
 from video_service.rabbitmq_transport import InvalidMessage
@@ -74,10 +75,15 @@ class RoleResultDeliveries:
             raise InvalidMessage("role_result_scope_changed")
         return row
 
+    @timed("model_result_callback")
     def receive(self, packet):
         with self.runtime.database.connection() as c:
-            self.validate_scope(c, packet)
-        with self.guard(packet["task_id"]):
+            scope = self.validate_scope(c, packet)
+        with handoff_context(
+            task_id=packet["task_id"], request_sha256=packet["request_sha256"],
+            job_id=scope.get("job_id"), attempt_id=scope.get("attempt_id"),
+            claim_id=scope.get("claim_id"), generation=scope.get("generation"),
+        ), self.guard(packet["task_id"]):
             with self.runtime.database.connection() as c:
                 row = c.execute(
                     "SELECT * FROM model_role_result_deliveries WHERE task_id=%s FOR UPDATE",
@@ -120,7 +126,8 @@ class RoleResultDeliveries:
                 (task,),
             )
         try:
-            self.coordinator.roles.receive(packet)
+            with handoff_span("model_adoption"):
+                self.coordinator.roles.receive(packet)
             self.coordinator._dispatch_after_result(packet)
         except ObjectIntegrityError:
             self.hold(task, "result_artifact_integrity", "rejected")

@@ -16,6 +16,7 @@ from uuid import uuid4
 from psycopg.types.json import Jsonb
 
 from video_service.canonical import canonical, digest
+from video_service.handoff_timing import timed
 from video_service.agent_protocol import CPU_AGENTS
 from video_service.renewal_contracts import spec
 from video_service.postgres import Conflict, Missing
@@ -885,6 +886,7 @@ class Execution(Intake):
             ).fetchone()
             return self._view(db, row)
 
+    @timed("preflight")
     def _preflight_cpu_inputs(self, owner, identity, command=None):
         # Immutable input verification must not hold the mutable job row lock.
         with self.database.connection() as db:
@@ -1629,6 +1631,7 @@ class Execution(Intake):
         from mideagent_orchestrator.workflow import ready_tool_ids
         return ready_tool_ids(snapshot, indexed)
 
+    @timed("claim")
     def claim_next(self, owner, identity):
         verified = self._preflight_cpu_inputs(owner, identity)
         from video_service.postgres.subtitle_tracks import SubtitleTracks
@@ -2205,6 +2208,7 @@ class Execution(Intake):
             )
         return result
 
+    @timed("result_import")
     def _import_outputs(self, owner, command, result, *, face_verified=None):
         if command.get("protocol_version") == 3:
             if face_verified != {"request_sha256":digest(command),"result_sha256":digest(result)}:
@@ -2320,6 +2324,7 @@ class Execution(Intake):
 
         return accept_role_recovery(self, owner, identity, run_id, request_id)
 
+    @timed("result_accept")
     def accept(self, owner, command, result):
         verified = self._preflight_cpu_inputs(owner, command["run_id"], command)
         from .face_workflow import FaceWorkflow

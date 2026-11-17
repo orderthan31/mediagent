@@ -5,6 +5,7 @@ its real publisher-confirm; result ack is strictly after the durable DB commit.
 """
 
 from video_service.canonical import canonical
+from .handoff_timing import timed
 from .postgres import Conflict, Missing
 
 
@@ -12,6 +13,7 @@ class DurableTransport:
     def __init__(self, runtime):
         self.runtime = runtime
 
+    @timed("outbox_publish")
     def publish_exact(self, owner, job_id, message_id, send_confirm):
         from .postgres.dispatch_queue import DispatchQueue
         queued = DispatchQueue(self.runtime).publish_exact(owner, job_id, message_id, send_confirm)

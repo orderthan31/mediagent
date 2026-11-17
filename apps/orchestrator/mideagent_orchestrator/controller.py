@@ -3,6 +3,7 @@
 import json
 
 from video_service.durable_transport import DurableTransport
+from video_service.handoff_timing import handoff_context, handoff_span, timed
 from video_service.rabbitmq_transport import BrokerError, decode, envelope
 
 
@@ -107,28 +108,32 @@ class BrokerController:
         # unpublished attempt after a transport failure. Never scan pending jobs.
         state = self.runtime.get(owner, job_id)
         from mideagent_orchestrator.agent_pool import AgentPool
-        if AgentPool(self.runtime).blocked(owner,job_id):
-            return state
-        limit = len(state["snapshot"]["definition"]["nodes"]) + 1
-        for _ in range(limit):
-            before = {(run["id"], run["status"]) for run in state["runs"]}
-            self.runtime.claim_next(owner, job_id)
-            state = self.runtime.get(owner, job_id)
-            for run in state["runs"]:
-                if run["status"] == "running" or (
-                    run["status"] == "waiting" and run.get("dispatch")
+        # Bind the validated destination before capturing dispatch metadata.
+        # advance_queue can enter here inside another job's result callback.
+        with handoff_context(job_id=job_id), handoff_span("dispatch"):
+            if AgentPool(self.runtime).blocked(owner,job_id):
+                return state
+            limit = len(state["snapshot"]["definition"]["nodes"]) + 1
+            for _ in range(limit):
+                before = {(run["id"], run["status"]) for run in state["runs"]}
+                self.runtime.claim_next(owner, job_id)
+                state = self.runtime.get(owner, job_id)
+                for run in state["runs"]:
+                    if run["status"] == "running" or (
+                        run["status"] == "waiting" and run.get("dispatch")
+                    ):
+                        self.publish_exact(owner, job_id, run["id"])
+                state = self.runtime.get(owner, job_id)
+                after = {(run["id"], run["status"]) for run in state["runs"]}
+                if (
+                    state["status"] not in {"waiting", "running"}
+                    or any(run["status"] in {"running", "waiting"} for run in state["runs"])
+                    or before == after
                 ):
-                    self.publish_exact(owner, job_id, run["id"])
-            state = self.runtime.get(owner, job_id)
-            after = {(run["id"], run["status"]) for run in state["runs"]}
-            if (
-                state["status"] not in {"waiting", "running"}
-                or any(run["status"] in {"running", "waiting"} for run in state["runs"])
-                or before == after
-            ):
-                break
-        return state
+                    break
+            return state
 
+    @timed("result_callback")
     def receive(self, delivery):
         from video_service.engine_protocol import RESULT as ENGINE_RESULT
         from video_service.engine_protocol import decode as engine_decode
@@ -137,5 +142,9 @@ class BrokerController:
         value = decoder(delivery, result=True)
         # accept() commits before this returns. serve() ACKs only after this whole
         # handler finishes; a repeated result is fenced by the durable inbox.
-        self.runtime.accept(value["owner"], value["command"], value["result"])
-        self.dispatch(value["owner"], value["command"]["run_id"])
+        with handoff_context(job_id=value["command"]["run_id"],
+                             attempt_id=value["command"]["attempt_id"],
+                             generation=value["command"].get("generation"),
+                             claim_id=value["command"].get("claim_id")):
+            self.runtime.accept(value["owner"], value["command"], value["result"])
+            self.dispatch(value["owner"], value["command"]["run_id"])

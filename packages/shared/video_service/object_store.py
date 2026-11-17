@@ -13,6 +13,7 @@ import os
 import re
 import tempfile
 from urllib.parse import urlsplit
+from .handoff_timing import handoff_span, timed
 
 from .content_store import (
     HEX,
@@ -117,34 +118,40 @@ class S3ContentStore(ContentStore):
         from botocore.exceptions import BotoCoreError, ClientError
 
         body = None
-        try:
-            response = self.client.get_object(Bucket=self.bucket, Key=key)
-            body = response["Body"]
-            if not 0 < response["ContentLength"] <= limit:
-                raise ObjectIntegrityError("Remote size exceeded")
-            digest, size = hashlib.sha256(), 0
-            while block := body.read(1024 * 1024):
-                size += len(block)
-                if size > limit:
+        with handoff_span("object_download_hash_write") as timing:
+            size = 0
+            try:
+                with handoff_span("object_get"):
+                    response = self.client.get_object(Bucket=self.bucket, Key=key)
+                body = response["Body"]
+                if not 0 < response["ContentLength"] <= limit:
                     raise ObjectIntegrityError("Remote size exceeded")
-                digest.update(block)
-                destination.write(block)
-            if size != response["ContentLength"]:
-                raise ObjectStoreError("Remote object truncated")
-            if verify_metadata and response.get('Metadata', {}) != {
-                'sha256': digest.hexdigest(), 'bytes': str(size)
-            }:
-                raise ObjectIntegrityError('Remote receipt digest mismatch')
-            if descriptor is not None:
-                descriptor['etag'] = response.get('ETag')
-            return digest.hexdigest(), size
-        except ClientError as exc:
-            raise _client_failure("Object unavailable or transfer failed", exc) from None
-        except (BotoCoreError, OSError):
-            raise ObjectStoreError("Object unavailable or transfer failed") from None
-        finally:
-            if body is not None:
-                body.close()
+                digest, size = hashlib.sha256(), 0
+                while block := body.read(1024 * 1024):
+                    size += len(block)
+                    if size > limit:
+                        raise ObjectIntegrityError("Remote size exceeded")
+                    with timing.measure("hash_ms"):
+                        digest.update(block)
+                    with timing.measure("write_ms"):
+                        destination.write(block)
+                if size != response["ContentLength"]:
+                    raise ObjectStoreError("Remote object truncated")
+                if verify_metadata and response.get('Metadata', {}) != {
+                    'sha256': digest.hexdigest(), 'bytes': str(size)
+                }:
+                    raise ObjectIntegrityError('Remote receipt digest mismatch')
+                if descriptor is not None:
+                    descriptor['etag'] = response.get('ETag')
+                return digest.hexdigest(), size
+            except ClientError as exc:
+                raise _client_failure("Object unavailable or transfer failed", exc) from None
+            except (BotoCoreError, OSError):
+                raise ObjectStoreError("Object unavailable or transfer failed") from None
+            finally:
+                timing.record(bytes=size)
+                if body is not None:
+                    body.close()
 
     def verify_descriptor(self, owner, reference):
         """HEAD-only admission; the independent worker still verifies every byte."""
@@ -165,6 +172,7 @@ class S3ContentStore(ContentStore):
             raise ObjectIntegrityError("Original object descriptor mismatch")
         return reference
 
+    @timed("object_path")
     def path(self, owner, reference):
         try:
             owner, reference = reference_origin(owner, reference)
@@ -177,13 +185,14 @@ class S3ContentStore(ContentStore):
             if sha != reference["sha256"] or size != reference["bytes"]:
                 raise ObjectIntegrityError("Remote content integrity mismatch")
             stream.seek(0)
-            stored = ContentStore.put(
-                self,
-                owner,
-                iter(lambda: stream.read(1024 * 1024), b""),
-                reference["type"],
-                max_bytes=max(MAX_CONTENT, reference["bytes"]),
-            )
+            with handoff_span("object_materialize", bytes=size, sha256=sha):
+                stored = ContentStore.put(
+                    self,
+                    owner,
+                    iter(lambda: stream.read(1024 * 1024), b""),
+                    reference["type"],
+                    max_bytes=max(MAX_CONTENT, reference["bytes"]),
+                )
         # ContentStore.put validates its local path without calling this override.
         if any(stored[k] != reference[k] for k in ("sha256", "bytes", "type")):
             raise ObjectIntegrityError("Remote content reference mismatch")
@@ -206,6 +215,7 @@ class S3ContentStore(ContentStore):
         self.path(owner, value)
         return value
 
+    @timed("object_put")
     def put(self, owner, blocks, kind, *, max_bytes=MAX_CONTENT):
         # Only an explicit caller policy can exceed the unchanged default bound.
         reference = ContentStore.put(self, owner, blocks, kind, max_bytes=max_bytes)

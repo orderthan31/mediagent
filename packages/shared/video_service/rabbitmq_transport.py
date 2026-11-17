@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from urllib.parse import urlsplit
 
 from .agent_protocol import COMMAND, MAX_MESSAGE, RESULT
+from .handoff_timing import handoff_context, handoff_span, timed
 from video_service.canonical import canonical, digest
 from video_service.agent_protocol import CPU_AGENTS
 from .cpu_input_policy import input_limit
@@ -335,6 +336,7 @@ class RabbitClient:
         self.channel.confirm_delivery()
 
     @classmethod
+    @timed("mq_connect")
     def connect(cls, config, *, environ):
         connection = None
         diagnostics = logging.getLogger("pika")
@@ -421,6 +423,7 @@ class RabbitClient:
                 routing_key=role,
             )
 
+    @timed("mq_publish_confirm")
     def publish(self, delivery):
         self._owner()
         value = decode(delivery, result=delivery.message_type == RESULT)
@@ -473,6 +476,12 @@ class RabbitClient:
 
         status("connected")
 
+        def measured_handler(delivery):
+            # ThreadPoolExecutor does not propagate context. Each callback owns
+            # a fresh trace; validated controller bindings are nested within it.
+            with handoff_context(root=True), handoff_span("mq_callback"):
+                return handler(delivery)
+
         def received(channel, method, properties, body):
             if stop.is_set():
                 channel.basic_nack(delivery_tag=method.delivery_tag, requeue=True)
@@ -488,7 +497,7 @@ class RabbitClient:
                 properties.content_encoding,
             )
             status("busy", delivery)
-            active.append((method.delivery_tag, pool.submit(handler, delivery)))
+            active.append((method.delivery_tag, pool.submit(measured_handler, delivery)))
 
         tag = c.basic_consume(
             queue=self.config.queue(role), on_message_callback=received, auto_ack=False
