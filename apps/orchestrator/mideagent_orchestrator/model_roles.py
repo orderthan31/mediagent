@@ -91,7 +91,12 @@ class ModelRoleCoordinator:
             self.enroll_job(owner, job_id, job["revision"], request_id, roles=roles)
         return self.runtime.get(owner, job_id)
 
-    def enroll_job(self, owner, job_id, revision, request_id, *, roles=None):
+    def enroll_job(self, owner, job_id, revision, request_id, *, roles=None, _start_guard=None):
+        if _start_guard is not None:
+            from .start_requests import require_guard
+            require_guard(_start_guard, runtime=self.runtime).authorize('enroll', owner, job_id, request_id)
+            if roles != _start_guard.state['roles'] or revision != _start_guard.state['scope']['revision']:
+                raise Conflict('unsupported_start_role_scope')
         payload = {"job_id": job_id, "revision": revision, "request_id": request_id}
         selected = ["transcription"] if roles is None else roles
         if (
@@ -104,7 +109,11 @@ class ModelRoleCoordinator:
         if roles is not None:
             payload["roles"] = selected
         with self.runtime.database.connection() as c:
+            if _start_guard is not None:
+                _start_guard.check(c)
             job = self.runtime._job(c, owner, job_id, lock=True)
+            if _start_guard is not None:
+                _start_guard.check(c, job)
             prior = c.execute(
                 "SELECT * FROM model_role_enrollments WHERE owner_id=%s AND request_id=%s",
                 (owner, request_id),
@@ -187,6 +196,9 @@ class ModelRoleCoordinator:
                 "UPDATE jobs SET revision=revision+1,updated_at=now()WHERE owner_id=%s AND id=%s",
                 (owner, job_id),
             )
+            if _start_guard is not None:
+                from .start_requests import _scope
+                _start_guard.finish(c, 'enrolled', scope={**_scope(job), 'revision': revision + 1})
             return response
 
     @staticmethod

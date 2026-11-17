@@ -62,9 +62,19 @@ def transcript_consumers(native):
             return [n for n in native["nodes"] if n["id"] in consumers]
 
 
+class _ResolvedInputs(dict):
+    """Local resolution plus metadata observations, never client verification."""
+
+    def __init__(self, runtime, checks, **values):
+        super().__init__(values)
+        self.runtime = runtime
+        self.checks = tuple(checks)
+
+
 class NormalInputs:
     def __init__(self, runtime):
         self.runtime = runtime
+        self._accepted_checks = []
 
     def saved(self, actor, asset, selector, selected_language, *, maximum, video_required=True):
         from video_service.subtitle_copies import SubtitleCopies, validate_srt
@@ -101,13 +111,13 @@ class NormalInputs:
                "title": receipt["title"], "filename": receipt["filename"]}
         return ref, pin, rows
 
-    def accepted(self, db, actor, asset, port, selector, *, maximum=MAX_TEXT):
+    def _accepted_source(self, db, asset, port, selector, *, lock=False):
         if (not isinstance(selector, dict) or set(selector) != {"job_id", "run_id", "port"}
                 or any(not isinstance(selector.get(k), str) or not ID.fullmatch(selector[k]) for k in ("job_id", "run_id"))
                 or selector["port"] != port):
             raise ValueError("완료 작업·실행·출력 포트를 선택하세요.")
         runtime = self.runtime
-        job = runtime._shared_job(db, selector["job_id"])
+        job = runtime._shared_job(db, selector["job_id"], lock=lock)
         if job["status"] != "completed" or job.get("library_removed_at"):
             raise ValueError("완료되어 보관 중인 작업만 입력으로 사용할 수 있습니다.")
         runs = runtime._runs(db, job["owner_id"], job["id"])
@@ -140,6 +150,38 @@ class NormalInputs:
                 raise ValueError("같은 영상에서 완료된 원본 음성 추출 결과만 재사용합니다.")
         elif node["type"] not in {"transcribe", "translate"}:
             raise ValueError("전사·번역 도구의 완료된 시간 자막을 선택하세요.")
+        reference = receipt["outputs"].get(port)
+        validate_reference(reference)
+        if reference["type"] != port:
+            raise ValueError("선택한 출력의 입력 유형이 다릅니다.")
+        return job, runs, run, node
+
+    @staticmethod
+    def _source_digest(source):
+        job, runs, run, node = source
+        return digest({
+            "job": {key: job[key] for key in ("id", "owner_id", "asset_id", "status", "snapshot", "snapshot_sha256")},
+            "runs": [{key: r.get(key) for key in ("id", "owner_id", "job_id", "node_id", "attempt", "generation", "status", "display_status", "inputs", "request", "request_sha256", "result", "dispatch")} for r in runs],
+            "scope": {key: job.get(key) for key in ("revision", "generation", "ticket_number", "cancel_requested", "recovery_ready", "active_claim_id")},
+            "run_id": run["id"], "node": node,
+        })
+
+    def recheck(self, db, actor, asset, resolved, *, lock=True):
+        if not isinstance(resolved, _ResolvedInputs) or resolved.runtime is not self.runtime:
+            raise ValueError("입력 검증 문맥을 다시 확인하세요.")
+        # This is metadata-only and deliberately comes after every CAS/media read
+        # and materialization. The source row remains pinned through INSERT.
+        for port, selector, expected in sorted(resolved.checks, key=lambda check: check[1]["job_id"]):
+            source = self._accepted_source(db, asset, port, selector, lock=lock)
+            if self._source_digest(source) != expected:
+                raise ValueError("완료 입력이 검증 중 바뀌었습니다. 다시 선택하세요.")
+
+    def accepted(self, db, actor, asset, port, selector, *, maximum=MAX_TEXT):
+        runtime = self.runtime
+        source = self._accepted_source(db, asset, port, selector)
+        job, runs, run, node = source
+        observed = self._source_digest(source)
+        receipt, request = run["result"], run.get("request")
         runtime.ticket_artifacts.read(job, runs)
         reference = receipt["outputs"].get(port)
         validate_reference(reference)
@@ -168,16 +210,18 @@ class NormalInputs:
                **({"language": selected_language} if selected_language else {})}
         if rows is not None:
             pin["segments"] = len(rows)
+        self._accepted_checks.append((port, deepcopy(selector), observed))
         return bound, pin, rows
 
     def resolve(self, db, actor, asset, definition, options):
+        self._accepted_checks = []
         from video_service.audio_original import PROFILE, asset_media, policy
         from video_service.image_original import asset_media as image_media
         if image_media(asset) is not None:
             raise ValueError('사진은 독립 입력입니다. 작업의 대상 영상을 선택하세요.')
         if definition.get("input_profile") == "face_workflow_v1":
             from .face_workflow import FaceWorkflow
-            return FaceWorkflow(self.runtime).resolve(db, actor, asset, definition, options)
+            return _ResolvedInputs(self.runtime, (), **FaceWorkflow(self.runtime).resolve(db, actor, asset, definition, options))
         if "face_input" in options:
             raise ValueError("사진 입력에는 얼굴 합성 구성을 선택하세요.")
         audio_media = asset_media(asset)
@@ -191,7 +235,7 @@ class NormalInputs:
             bound = {**reference, **({"source_owner_id": custodian} if custodian != actor else {})}
             pin = {"kind": "audio_original", "asset_id": asset["id"], "reference": deepcopy(reference),
                    "custodian_id": custodian, "content_sha256": reference["sha256"], "media": audio_media, "policy": policy()}
-            return {"references": {"audio": bound}, "bindings": {"audio": pin}, "segments": None, "language": None}
+            return _ResolvedInputs(self.runtime, (), references={"audio": bound}, bindings={"audio": pin}, segments=None, language=None)
         if audio_media is not None:
             raise ValueError("음성 원본에는 음성 전용 전사 구성을 선택하세요.")
         from video_service.subtitle_original import asset_media as subtitle_media, PROFILE as SUBTITLE_PROFILE
@@ -266,7 +310,9 @@ class NormalInputs:
             for node in transcript_consumers(native):
                 if node["type"] == "generate_subtitle":
                     preserved_files(rows, node["options"])
-        return {"references": refs, "bindings": bindings, "segments": rows, "language": input_language}
+        resolved = _ResolvedInputs(self.runtime, self._accepted_checks, references=refs, bindings=bindings, segments=rows, language=input_language)
+        self.recheck(db, actor, asset, resolved, lock=False)
+        return resolved
 
     def materialize(self, actor, resolved):
         refs = deepcopy(resolved["references"])

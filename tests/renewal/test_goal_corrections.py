@@ -128,7 +128,8 @@ def source_execution(monkeypatch):
                      Conflict=ValueError, spec=spec, CPU_AGENTS=CPU_AGENTS, CONTROL=frozenset(),
                      TERMINAL=frozenset({"completed", "failed", "cancelled", "skipped", "blocked", "quarantined"}))
     functions = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "public"]
-    exec(compile(ast.fix_missing_locations(ast.Module(body=[*functions, cls], type_ignores=[])), str(path), "exec"), namespace)
+    helpers = [n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "_VerifiedInputs"]
+    exec(compile(ast.fix_missing_locations(ast.Module(body=[*functions, *helpers, cls], type_ignores=[])), str(path), "exec"), namespace)
     pool = SimpleNamespace(enrolled_in=lambda *args: False, ready_in=lambda *args: True,
                            assigned_in=lambda *args: None)
     leaves = {

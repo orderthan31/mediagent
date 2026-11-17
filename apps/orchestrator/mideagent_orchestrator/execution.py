@@ -46,6 +46,17 @@ def public(row):
     return {k: v.isoformat() if isinstance(v, datetime) else v for k, v in row.items()}
 
 
+class _VerifiedInputs(dict):
+    """Ephemeral, runtime-local media checks; never a serialized authority."""
+
+    def __init__(self, runtime, owner, job, **values):
+        super().__init__(values)
+        self.runtime = runtime
+        self.owner = owner
+        self.job_id = job["id"]
+        self.snapshot = digest(job["snapshot"])
+
+
 class Execution(Intake):
     def __init__(
         self,
@@ -268,9 +279,9 @@ class Execution(Intake):
         with self.database.connection() as db:
             return self._view(db, self._job(db, owner, identity, lock=True))
 
-    def _shared_job(self, db, identity):
+    def _shared_job(self, db, identity, *, lock=True):
         rows = db.execute(
-            "SELECT * FROM jobs WHERE id=%s LIMIT 2 FOR UPDATE",
+            "SELECT * FROM jobs WHERE id=%s LIMIT 2" + (" FOR UPDATE" if lock else ""),
             (resource_id(identity),),
         ).fetchall()
         if not rows:
@@ -633,7 +644,18 @@ class Execution(Intake):
         parent_id=None,
         paid_confirmed=False,
         input_plan_sha256=None,
+        _start_guard=None,
     ):
+        if _start_guard is not None:
+            from .start_requests import require_guard
+            require_guard(_start_guard, runtime=self).authorize('create', owner, None, request_id)
+            selected = _start_guard.root['payload']['body']
+            if (parent_id is not None or asset_id != selected['asset_id']
+                    or definition_id != selected['definition_id']
+                    or definition_revision != selected['definition_revision']
+                    or (options or {}) != selected['options']
+                    or paid_confirmed != selected['paid_confirmed']):
+                raise Conflict('unsupported_start_creation_scope')
         globals()["request_id"](request_id)
         if type(definition_revision) is not int or definition_revision < 1:
             raise ValueError("워크플로우 버전 오류")
@@ -667,6 +689,8 @@ class Execution(Intake):
             if previous:
                 if previous["creation_sha256"] != digest(creation):
                     raise Conflict("같은 생성 요청 ID에 다른 내용입니다.")
+                if _start_guard is not None:
+                    raise Conflict('start_creation_nonce_already_bound')
                 return self._view(db, previous)
             asset = self._shared_asset(db, asset_id)
             workflow_owner, definition = self._job_definition(
@@ -854,6 +878,16 @@ class Execution(Intake):
                 snapshot["face_operation_policy"] = face_policy()
                 frozen_face(snapshot, owner)
             # Serialize duplicate creation IDs without depending on a unique-error fallback.
+            if normal_inputs:
+                from .normal_inputs import NormalInputs
+                NormalInputs(self).recheck(db, owner, asset, normal_inputs)
+            if _start_guard is not None:
+                _start_guard.check(db)
+                captured = _start_guard.root['payload']
+                if (captured['kind'] != 'raw'
+                        or digest(public_asset(asset)) != captured['anchors']['asset']
+                        or original_definition_sha != captured['anchors']['definition']):
+                    raise Conflict('start_creation_scope_changed')
             db.execute(
                 "SELECT pg_advisory_xact_lock(hashtextextended(%s,0))",
                 (owner + ":create:" + request_id,),
@@ -865,6 +899,8 @@ class Execution(Intake):
             if previous:
                 if previous["creation_sha256"] != digest(creation):
                     raise Conflict("생성 요청 충돌")
+                if _start_guard is not None:
+                    raise Conflict('start_creation_nonce_already_bound')
                 return self._view(db, previous)
             identity = uuid4().hex
             row = db.execute(
@@ -884,6 +920,9 @@ class Execution(Intake):
                     workflow_owner,
                 ),
             ).fetchone()
+            if _start_guard is not None:
+                from .start_requests import _scope
+                _start_guard.finish(db, 'created', job_id=row['id'], scope=_scope(row))
             return self._view(db, row)
 
     @timed("preflight")
@@ -891,12 +930,6 @@ class Execution(Intake):
         # Immutable input verification must not hold the mutable job row lock.
         with self.database.connection() as db:
             job = self._job(db, owner, identity)
-            if not (
-                job["snapshot"].get("cpu_input_policy")
-                or job["snapshot"].get("audio_pipeline_policy")
-                or job["snapshot"].get("agent_definition", {}).get("input_profile") == "face_workflow_v1"
-            ):
-                return None
             references = list(job["snapshot"]["inputs"].values())
             from video_service.audio_original import frozen_origin
             origin = frozen_origin(job["snapshot"])
@@ -932,25 +965,24 @@ class Execution(Intake):
                 )
         from .face_workflow import FaceWorkflow
         face_stage = FaceWorkflow(self).preflight(owner, identity)
-        return {
-            "face": face_stage,
-            "audio_review_contracts": audio_contracts,
-            "snapshot_sha256": snapshot_sha,
-            "references": {digest(ref) for ref in references},
-        }
+        return _VerifiedInputs(
+            self, owner, job, face=face_stage,
+            audio_review_contracts=audio_contracts,
+            snapshot_sha256=snapshot_sha,
+            references={digest(ref) for ref in references},
+        )
 
     def _checked_input(self, owner, job, reference, verified):
-        if job["snapshot"].get("cpu_input_policy") or job["snapshot"].get(
-            "audio_pipeline_policy"
-        ) or job["snapshot"].get("agent_definition", {}).get("input_profile") == "face_workflow_v1":
-            if (
-                not verified
-                or verified["snapshot_sha256"] != job["snapshot_sha256"]
-                or digest(reference) not in verified["references"]
-            ):
-                raise Conflict("CPU input context changed; reread required")
-            return
-        self.store.path(owner, reference)
+        if (
+            not isinstance(verified, _VerifiedInputs)
+            or verified.runtime is not self
+            or verified.owner != owner
+            or verified.job_id != job["id"]
+            or verified.snapshot != digest(job["snapshot"])
+            or verified["snapshot_sha256"] != job["snapshot_sha256"]
+            or digest(reference) not in verified["references"]
+        ):
+            raise Conflict("CPU input context changed; reread required")
 
     def _plan(self, db, job, verified=None):
         from video_service.postgres.job_processing_review import JobProcessingReview
@@ -1206,12 +1238,21 @@ class Execution(Intake):
         with self.database.connection() as db:
             return self._plan(db, self._job(db, owner, identity, lock=True), verified)
 
-    def confirm(self, owner, identity, token, nonce):
+    def confirm(self, owner, identity, token, nonce, *, _start_guard=None):
+        if _start_guard is not None:
+            from .start_requests import require_guard
+            require_guard(_start_guard, runtime=self).authorize('confirm', owner, identity, nonce)
+            if token != _start_guard.state['plan_token']:
+                raise Conflict('unsupported_start_plan')
         verified = self._preflight_cpu_inputs(owner, identity)
         request_id(nonce)
         payload_sha = digest({"job": identity, "token": token})
         with self.database.connection() as db:
+            if _start_guard is not None:
+                _start_guard.check(db)
             job = self._job(db, owner, identity, lock=True)
+            if _start_guard is not None:
+                _start_guard.check(db, job)
             previous = db.execute(
                 "SELECT * FROM execution_consents WHERE owner_id=%s AND job_id=%s AND request_id=%s",
                 (owner, identity, nonce),
@@ -1227,9 +1268,16 @@ class Execution(Intake):
                 "INSERT INTO execution_consents(owner_id,job_id,id,request_id,plan_sha256,expires_at,request_sha256) VALUES (%s,%s,%s,%s,%s,now()+interval '15 minutes',%s) RETURNING *",
                 (owner, identity, uuid4().hex, nonce, token, payload_sha),
             ).fetchone()
+            if _start_guard is not None:
+                _start_guard.finish(db, 'confirmed', consent_id=row['id'])
             return public(row)
 
-    def admit(self, owner, identity, consent_id, nonce):
+    def admit(self, owner, identity, consent_id, nonce, *, _start_guard=None):
+        if _start_guard is not None:
+            from .start_requests import require_guard
+            require_guard(_start_guard, runtime=self).authorize('admit', owner, identity, nonce)
+            if consent_id != _start_guard.state['consent_id']:
+                raise Conflict('unsupported_start_consent')
         verified = self._preflight_cpu_inputs(owner, identity)
         request_id(nonce)
         resource_id(consent_id)
@@ -1241,7 +1289,11 @@ class Execution(Intake):
         queued_sha = claim_digest(identity, consent_id)
         with self.database.connection() as db:
             queue.lock_in(db, owner)
+            if _start_guard is not None:
+                _start_guard.check(db)
             job = self._job(db, owner, identity, lock=True)
+            if _start_guard is not None:
+                _start_guard.check(db, job)
             previous = db.execute(
                 "SELECT * FROM execution_claims WHERE owner_id=%s AND request_id=%s",
                 (owner, nonce),
@@ -1295,6 +1347,8 @@ class Execution(Intake):
                 "UPDATE jobs SET status='waiting',active_claim_id=%s,revision=revision+1,updated_at=now() WHERE owner_id=%s AND id=%s RETURNING *",
                 (claim, owner, identity),
             ).fetchone()
+            if _start_guard is not None:
+                _start_guard.finish(db, 'admitted', claim_id=claim)
             return self._view(db, job)
 
     def _result_for(self, job, indexed, edge):

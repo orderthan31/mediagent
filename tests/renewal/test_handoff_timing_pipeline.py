@@ -253,15 +253,23 @@ def test_actual_execution_import_and_preflight_boundaries(tmp_path):
     def connection():
         yield object()
     runtime.database = SimpleNamespace(connection=connection)
-    runtime._job = lambda *args: {"snapshot": {}}
+    snapshot = {"inputs": {"metadata": ref}}
+    job = {"id": JOB, "owner_id": OWNER, "snapshot": snapshot,
+           "snapshot_sha256": digest(snapshot)}
+    runtime._job = lambda *args: job
+    runtime._runs = lambda *args: []
     records = []
     with timing_sink(records.append):
-        assert runtime._preflight_cpu_inputs(OWNER, JOB) is None
+        verified = runtime._preflight_cpu_inputs(OWNER, JOB)
+        assert verified["snapshot_sha256"] == job["snapshot_sha256"]
+        assert verified["references"] == {digest(ref)}
+        runtime._checked_input(OWNER, job, ref, verified)
         outputs = {"metadata": ref}
         result = runtime._import_outputs(OWNER, command(), {"transport": "s3_subprocess", "outputs": outputs})
         assert result is outputs
-    assert len(peer.gets) == 1
-    assert records[0]["stage"] == "preflight"
+    assert len(peer.gets) == 2 and all(body.closed for body in peer.bodies)
+    preflight = [r for r in records if r["stage"] == "preflight"]
+    assert len(preflight) == 1 and preflight[0]["outcome"] == "ok"
     assert records[-1]["stage"] == "result_import"
 
 

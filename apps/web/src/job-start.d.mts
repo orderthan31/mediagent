@@ -6,6 +6,16 @@ export function startSavedJob(
   onStage?: (stage: string) => void,
 ): Promise<any>;
 export const startTrackedJob: typeof startSavedJob;
+export function requestTrackedStart(
+  post: <T = any>(path: string, body: unknown) => Promise<T>,
+  id: string,
+  revision: number,
+  nonce: string,
+): Promise<{
+  id: string;
+  job_id?: string;
+  start_request: { id: string; state: string; code?: string };
+}>;
 export type JobStartState = Readonly<{ pending: boolean; stage: string; error: string }>;
 export function getJobStartState(id: string): JobStartState | null;
 export function subscribeJobStarts(listener: () => void): () => void;

@@ -15,11 +15,28 @@ class DurableTransport:
 
     @timed("outbox_publish")
     def publish_exact(self, owner, job_id, message_id, send_confirm):
+        # Every injected sender is wrapped, including the queued fast path.
+        original_sender = send_confirm
+
+        def guarded_sender(identity, kind, payload):
+            if kind.startswith('internal.start.'):
+                raise Conflict('internal_start_record_not_deliverable')
+            return original_sender(identity, kind, payload)
+
+        send_confirm = guarded_sender
         from .postgres.dispatch_queue import DispatchQueue
         queued = DispatchQueue(self.runtime).publish_exact(owner, job_id, message_id, send_confirm)
         if queued is not None:
             return queued
         with self.runtime.database.connection() as db:
+            # Pre-job aggregate IDs are deliberately not job IDs. Reject their
+            # record type before the legacy job lookup as well as before send.
+            internal = db.execute(
+                "SELECT message_type FROM message_outbox WHERE owner_id=%s AND id=%s",
+                (owner, message_id),
+            ).fetchone()
+            if internal and internal['message_type'].startswith('internal.start.'):
+                raise Conflict('internal_start_record_not_deliverable')
             job = self.runtime._job(db, owner, job_id, lock=True)
             from .postgres.job_processing_review import JobProcessingReview
             if JobProcessingReview(self.runtime).capture_in(db, job):

@@ -80,6 +80,10 @@ class Revision(Body):
     revision: StrictInt = Field(ge=1)
 
 
+class SavedStart(Revision):
+    request_id: str = Field(min_length=1, max_length=100)
+
+
 class RoleResultRecovery(Revision):
     operation: Literal["retry_result_delivery", "settle_recovery_response"] = (
         "retry_result_delivery"
@@ -412,6 +416,7 @@ def mount_runtime(
                 else "unverified",
                 "media": source.get("media"),
                 **({"audio_original_policy": source["audio_original_policy"], "media_type": source["media_type"]} if source.get("media_kind") == "audio" else {}),
+                **({"subtitle_original_policy": source["subtitle_original_policy"], "media_type": source["media_type"]} if source.get("media_kind") == "subtitle" else {}),
             },
         }
         from mideagent_orchestrator.workflow import compile_definition, selected_definition
@@ -520,6 +525,12 @@ def mount_runtime(
                 )
             ),
         }
+
+    from .start_request_routes import mount_start_requests
+
+    mount_start_requests(app, runtime, owner_dependency, create_model=Create,
+        saved_model=SavedStart, selection_model=Selection, selection_plan=selection_plan,
+        enabled=local_execution, factory=broker_factory)
 
     @app.post("/api/settings/work-entry/preview", dependencies=[Depends(administrator)])
     @app.post("/api/work-entry/preview")

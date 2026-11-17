@@ -1,3 +1,5 @@
+import { validReceiptId, isKnownStartRequestState } from './start-receipts.mjs';
+
 /** One explicit click authorizes the displayed immutable job, never a background start. */
 export const startSavedJob = async (get, post, id, nonce, onStage = () => {}) => {
   const base = '/renewal/jobs/' + id;
@@ -47,22 +49,20 @@ const publish = (id, state) => {
     listener();
   }
 };
-export const startTrackedJob = (get, post, id, nonce) => {
+const trackStart = (id, operation, initialStage, completedStage) => {
   if (active.has(id)) {
     return active.get(id);
   }
   // Install the shared fence before notifying subscribers or issuing requests.
   const promise = Promise.resolve().then(async () => {
     try {
-      const result = await startSavedJob(get, post, id, nonce, (stage) =>
-        publish(id, { pending: true, stage, error: '' }),
-      );
-      publish(id, { pending: false, stage: 'completed', error: '' });
+      const result = await operation((stage) => publish(id, { pending: true, stage, error: '' }));
+      publish(id, { pending: false, stage: completedStage, error: '' });
       return result;
     } catch (reason) {
       publish(id, {
         pending: false,
-        stage: states.get(id)?.stage || 'checking',
+        stage: states.get(id)?.stage || initialStage,
         error: reason instanceof Error ? reason.message : '시작 요청 실패',
       });
       throw reason;
@@ -71,6 +71,38 @@ export const startTrackedJob = (get, post, id, nonce) => {
     }
   });
   active.set(id, promise);
-  publish(id, { pending: true, stage: 'checking', error: '' });
+  publish(id, { pending: true, stage: initialStage, error: '' });
   return promise;
 };
+
+// Compatibility for explicit legacy callers; new UI uses server-owned intake below.
+export const startTrackedJob = (get, post, id, nonce) =>
+  trackStart(
+    id,
+    (onStage) => startSavedJob(get, post, id, nonce, onStage),
+    'checking',
+    'completed',
+  );
+
+export const requestTrackedStart = (post, id, revision, nonce) =>
+  trackStart(
+    id,
+    async () => {
+      const receipt = await post('/renewal/jobs/' + id + '/start-request', {
+        revision,
+        request_id: nonce,
+      });
+      if (
+        receipt?.id !== id ||
+        receipt?.job_id !== id ||
+        !validReceiptId(receipt?.start_request?.id) ||
+        typeof receipt?.start_request?.state !== 'string' ||
+        !isKnownStartRequestState(receipt.start_request.state)
+      ) {
+        throw new Error('시작 접수 상태를 확인하지 못했습니다.');
+      }
+      return receipt;
+    },
+    'submit',
+    'accepted',
+  );

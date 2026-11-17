@@ -1,13 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { parseStartRequestRoute } from '../src/start-receipts.mjs';
 
 // Keep the contract test independent of React/browser dependencies.
 const source = readFileSync(new URL('../src/workspace-access.ts', import.meta.url), 'utf8');
 const ordinary = new Function(
-  source.replace('export const', 'const').replace(': string', '').replace(': boolean', '') +
-    '\nreturn isOrdinaryRoute;',
-)();
+  'parseStartRequestRoute',
+  source
+    .replace(/^import .*;\n/m, '')
+    .replace('export const', 'const')
+    .replace(': string', '')
+    .replace(': boolean', '') + '\nreturn isOrdinaryRoute;',
+)(parseStartRequestRoute);
 test('ordinary routes are originals, jobs and local subtitle editing; management stays closed', () => {
   for (const route of [
     '#/',
@@ -15,6 +20,8 @@ test('ordinary routes are originals, jobs and local subtitle editing; management
     '#/start',
     '#/subtitles',
     '#/videos/' + 'a'.repeat(32),
+    '#/start-requests/' + 'a'.repeat(32),
+    '#/start-requests?request_id=original%2Dnonce',
     '#/jobs/' + '1'.repeat(32),
   ]) {
     assert.equal(ordinary(route), true, route);
@@ -28,6 +35,9 @@ test('ordinary routes are originals, jobs and local subtitle editing; management
     '#/account',
     '#/jobs/../../settings',
     '#/start/admin',
+    '#/start-requests',
+    '#/start-requests?request_id=x&admin=1',
+    '#/start-requests/' + 'a'.repeat(32) + '/edit',
     '#/subtitles/admin',
     '#/unknown',
   ]) {

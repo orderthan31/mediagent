@@ -5,7 +5,13 @@ import { JobFiles } from './JobFiles';
 import { jobStateLabel } from './job-display';
 import { languageLabel } from './language-label';
 import { frozenGoalLanguages } from './goal-languages';
-import { getJobStartState, startTrackedJob, subscribeJobStarts } from './job-start.mjs';
+import { getJobStartState, requestTrackedStart, subscribeJobStarts } from './job-start.mjs';
+import {
+  readPendingStart,
+  rememberPendingStart,
+  startRequestLabel,
+  validReceiptId,
+} from './start-receipts.mjs';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { request, mediaUrl } from './api';
 import { jsonPost } from './video-api';
@@ -114,7 +120,9 @@ type WorkflowAgentState = {
   tools: AgentToolState[];
   outputs?: GoalOutput[];
 };
+type ServerStart = { id: string; state: string; code?: string };
 type State = {
+  start_request?: ServerStart | null;
   selected_inputs?: {
     input: string;
     kind: string;
@@ -169,6 +177,49 @@ export const RenewalJobDetail = ({ id }: { id: string }) => <JobDetailSession ke
 const JobDetailSession = ({ id }: { id: string }) => {
   const start = useSyncExternalStore(subscribeJobStarts, () => getJobStartState(id));
   const [job, setJob] = useState<State | null>(null);
+  const [serverStart, setServerStart] = useState<ServerStart | null>(null);
+  const [startStatusKnown, setStartStatusKnown] = useState(false);
+  const [startStatusError, setStartStatusError] = useState('');
+  const [pendingNonce, setPendingNonce] = useState(() => readPendingStart('job.' + id));
+  const startFence = useRef(false);
+  // Only the latest observation can establish absence. A seen receipt is sticky
+  // for this job session: a late null must never authorize a fresh submission.
+  const observation = useRef(0);
+  const authorityKnown = useRef(false);
+  const observedReceipt = useRef<ServerStart | null>(null);
+  const beginObservation = () => {
+    authorityKnown.current = false;
+    setStartStatusKnown(false);
+    return ++observation.current;
+  };
+  const failObservation = (reason: unknown) => {
+    authorityKnown.current = false;
+    setStartStatusKnown(false);
+    setStartStatusError(reason instanceof Error ? reason.message : '접수 확인 불가');
+  };
+  const observeStart = (value: ServerStart | null, current = true) => {
+    if (value !== null && (!validReceiptId(value?.id) || typeof value?.state !== 'string')) {
+      throw new Error('시작 접수 상태를 확인하지 못했습니다.');
+    }
+    // Late presence is conservative evidence, not current absence or fresher status.
+    if (!current && (!value || observedReceipt.current)) {
+      return;
+    }
+    if (value) {
+      observedReceipt.current = {
+        id: value.id,
+        state: value.state,
+        ...(typeof value.code === 'string' ? { code: value.code } : {}),
+      };
+    }
+    setServerStart(observedReceipt.current);
+    if (!current) {
+      return;
+    }
+    authorityKnown.current = true;
+    setStartStatusKnown(true);
+    setStartStatusError('');
+  };
 
   const [modelRolesEnabled, setModelRolesEnabled] = useState(false);
   const [catalog, setCatalog] = useState<CanvasSpec[]>([]);
@@ -199,16 +250,61 @@ const JobDetailSession = ({ id }: { id: string }) => {
     recover: crypto.randomUUID(),
   });
   const base = '/renewal/jobs/' + id;
-  const reload = async () => {
-    const next = await request<State>(base);
+  const reconcileJob = async (next: State, token: number, signal?: AbortSignal) => {
+    const current = () => token === observation.current && !signal?.aborted;
+    if (signal?.aborted) {
+      return;
+    }
+    if (next.id !== id) {
+      throw new Error('시작 접수 상태를 확인하지 못했습니다.');
+    }
+    if (Object.hasOwn(next, 'start_request')) {
+      observeStart(next.start_request as ServerStart | null, current());
+    }
+    if (!current()) {
+      return;
+    }
     setJob(next);
-    setLoadError('');
-    return next;
+    if (
+      !Object.hasOwn(next, 'start_request') &&
+      (next.status === 'draft' || readPendingStart('job.' + id))
+    ) {
+      const status = await request<{
+        id: string;
+        job_id: string;
+        start_request: ServerStart | null;
+      }>(base + '/start-request', { signal });
+      if (signal?.aborted) {
+        return;
+      }
+      if (status.id !== id || status.job_id !== id || !Object.hasOwn(status, 'start_request')) {
+        throw new Error('시작 접수 상태를 확인하지 못했습니다.');
+      }
+      observeStart(status.start_request, current());
+    }
+  };
+  const reload = async () => {
+    const token = beginObservation();
+    try {
+      const next = await request<State>(base);
+      await reconcileJob(next, token);
+      if (token === observation.current) {
+        setLoadError('');
+      }
+      return next;
+    } catch (reason) {
+      if (token === observation.current) {
+        failObservation(reason);
+      }
+      throw reason;
+    }
   };
   const action = async (operation: () => Promise<unknown>) => {
     if (busy) {
       return;
     }
+    // Fence Start before operation's first await, not after React disables it.
+    beginObservation();
     setBusy(true);
     setError('');
     try {
@@ -323,6 +419,7 @@ const JobDetailSession = ({ id }: { id: string }) => {
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout>;
     const load = async () => {
+      const token = beginObservation();
       try {
         const [next, specs] = await Promise.all([
           request<State>(base, { signal: controller.signal }),
@@ -332,13 +429,24 @@ const JobDetailSession = ({ id }: { id: string }) => {
           ),
         ]);
         if (!controller.signal.aborted) {
-          setJob(next);
+          try {
+            await reconcileJob(next, token, controller.signal);
+          } catch (reason) {
+            if (!controller.signal.aborted && token === observation.current) {
+              failObservation(reason);
+            }
+          }
+          if (controller.signal.aborted || token !== observation.current) {
+            return;
+          }
           setCatalog(Array.isArray(specs.nodes) ? specs.nodes : []);
           setModelRolesEnabled(specs.independent_model_roles === true);
           setLoadError('');
         }
       } catch (reason) {
-        if (!controller.signal.aborted) {
+        if (!controller.signal.aborted && token === observation.current) {
+          authorityKnown.current = false;
+          setStartStatusKnown(false);
           setLoadError(reason instanceof Error ? reason.message : '작업 조회 실패');
         }
       } finally {
@@ -350,20 +458,33 @@ const JobDetailSession = ({ id }: { id: string }) => {
     void load();
     return () => {
       controller.abort();
+      ++observation.current;
+      authorityKnown.current = false;
       clearTimeout(timer);
     };
   }, [base, start?.pending]);
   return (
     <main className="job-detail ticket-detail job-detail-canvas">
       <PageTitle>{job ? `작업 #${job.ticket_number}` : '작업'}</PageTitle>
-      {start?.pending && (
-        <p role="status" data-start-stage={start.stage}>
-          시작 중…
+      {(start?.pending || serverStart || pendingNonce) && (
+        <p
+          role="status"
+          data-start-stage={serverStart?.state || (start?.pending ? 'submit' : 'uncertain')}
+        >
+          {serverStart
+            ? startRequestLabel(serverStart.state)
+            : start?.pending
+              ? '시작 중…'
+              : '접수 확인 불가'}
         </p>
+      )}
+      {serverStart?.code && <p role="alert">{serverStart.code}</p>}
+      {startStatusError && startStatusError !== start?.error && (
+        <p role="alert">{startStatusError}</p>
       )}
       {start?.error && (
         <p role="alert" className="alert">
-          {start.error} · 자동으로 다시 요청하지 않습니다. 현재 작업 상태를 확인해 주세요.
+          {start.error}
         </p>
       )}
       {error && (
@@ -392,15 +513,56 @@ const JobDetailSession = ({ id }: { id: string }) => {
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
               {canManage && job.status === 'draft' && (
                 <Button
-                  disabled={busy || start?.pending}
-                  onClick={() =>
-                    void startTrackedJob(request, jsonPost, id, crypto.randomUUID()).catch(() => {})
+                  disabled={
+                    busy ||
+                    start?.pending ||
+                    !startStatusKnown ||
+                    !!serverStart ||
+                    !!pendingNonce ||
+                    job.runs.length > 0
                   }
+                  onClick={() => {
+                    if (
+                      !authorityKnown.current ||
+                      observedReceipt.current ||
+                      startFence.current ||
+                      readPendingStart('job.' + id) ||
+                      serverStart ||
+                      !startStatusKnown ||
+                      job.runs.length
+                    ) {
+                      return;
+                    }
+                    startFence.current = true;
+                    const nonce = crypto.randomUUID();
+                    try {
+                      setPendingNonce(rememberPendingStart('job.' + id, { request_id: nonce }));
+                    } catch (reason) {
+                      startFence.current = false;
+                      setStartStatusError(
+                        reason instanceof Error ? reason.message : '접수 확인 불가',
+                      );
+                      return;
+                    }
+                    void requestTrackedStart(jsonPost, id, job.revision, nonce)
+                      .then((receipt) => {
+                        ++observation.current;
+                        observeStart(receipt.start_request);
+                      })
+                      .catch((reason: unknown) => {
+                        setStartStatusError(
+                          reason instanceof Error ? reason.message : '접수 확인 불가',
+                        );
+                      })
+                      .finally(() => {
+                        startFence.current = false;
+                      });
+                  }}
                 >
                   작업 시작
                 </Button>
               )}
-              <Button variant="quiet" disabled={busy} onClick={() => void action(reload)}>
+              <Button variant="quiet" disabled={busy} onClick={() => void action(async () => {})}>
                 새로고침
               </Button>
             </div>

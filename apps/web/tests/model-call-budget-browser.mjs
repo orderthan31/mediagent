@@ -37,7 +37,7 @@ test('concise start/detail copy preserves saved limits and pending-start fence (
     stdin: {
       resolveDir: process.cwd(),
       loader: 'tsx',
-      contents: `import React from 'react';import{createRoot}from'react-dom/client';import{AuthGate}from'./src/AuthGate';import{PageTitleProvider}from'./src/PageTitle';import{WorkflowEditor}from'./src/WorkflowEditor';import{WorkflowStart}from'./src/WorkflowStart';import{RenewalJobDetail}from'./src/RenewalJobDetail';import{startTrackedJob}from'./src/job-start.mjs';const mode=new URLSearchParams(location.search).get('mode');if(mode==='pending'){const get=async(path)=>path.endsWith('/plan')?new Promise(()=>{}):{status:'draft',revision:1,runs:[]};const post=async()=>({});startTrackedJob(get,post,'${jobId}','offline');}createRoot(document.getElementById('root')).render(<AuthGate><PageTitleProvider>{mode==='editor'?<WorkflowEditor initialId="${workflow}"/>:['detail','pending'].includes(mode)?<RenewalJobDetail id="${jobId}"/>:<WorkflowStart/>}</PageTitleProvider></AuthGate>);`,
+      contents: `import React from 'react';import{createRoot}from'react-dom/client';import{AuthGate}from'./src/AuthGate';import{PageTitleProvider}from'./src/PageTitle';import{WorkflowEditor}from'./src/WorkflowEditor';import{WorkflowStart}from'./src/WorkflowStart';import{RenewalJobDetail}from'./src/RenewalJobDetail';import{requestTrackedStart}from'./src/job-start.mjs';const mode=new URLSearchParams(location.search).get('mode');if(mode==='pending'){const post=async()=>new Promise(()=>{});requestTrackedStart(post,'${jobId}',1,'offline');}createRoot(document.getElementById('root')).render(<AuthGate><PageTitleProvider>{mode==='editor'?<WorkflowEditor initialId="${workflow}"/>:['detail','pending'].includes(mode)?<RenewalJobDetail id="${jobId}"/>:<WorkflowStart/>}</PageTitleProvider></AuthGate>);`,
     },
     bundle: true,
     write: false,
@@ -152,6 +152,7 @@ test('concise start/detail copy preserves saved limits and pending-start fence (
           ticket_number: 1,
           revision: 1,
           status: 'draft',
+          start_request: null,
           parent_id: null,
           access: { can_manage: true },
           snapshot: {
@@ -223,7 +224,7 @@ test('concise start/detail copy preserves saved limits and pending-start fence (
         );
       }
       await mount('pending');
-      await expect(page.locator('[data-start-stage="plan"]')).toHaveText('시작 중…');
+      await expect(page.locator('[data-start-stage="submit"]')).toHaveText('시작 중…');
       await expect(page.getByRole('button', { name: '작업 시작', exact: true })).toBeDisabled();
       assert.doesNotMatch(
         await page.locator('body').innerText(),

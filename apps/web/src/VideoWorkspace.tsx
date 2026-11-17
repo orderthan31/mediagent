@@ -19,6 +19,8 @@ import { Pagination, usePagination } from './Pagination';
 import { frontendOnly, renewalBackend } from './preview';
 import { ticketNumber, workflowName } from './job-identity';
 import { JobLedger } from './JobLedger';
+import { StartRequestProgress, StartRequestsSummary } from './StartRequestProgress';
+import { parseStartRequestRoute } from './start-receipts.mjs';
 import { LoadingSkeleton } from './LoadingSkeleton';
 import { AccountPage } from './AccountPage';
 import { PublishingAuth } from './PublishingAuth';
@@ -149,6 +151,7 @@ export const VideoWorkspace = () => {
   const assetId = route.match(/^#\/videos\/([a-f0-9]{32})$/)?.[1],
     jobId = route.match(/^#\/jobs\/([a-f0-9]{32})$/)?.[1];
   const jobsView = route === '#/jobs';
+  const startRequestRoute = renewalBackend ? parseStartRequestRoute(route) : null;
   const savedSubtitleId = route.match(/^#\/subtitles\/saved\/([a-f0-9]{32})$/)?.[1];
   const savedSubtitleListView = renewalBackend && route === '#/subtitles/saved';
   const directSubtitleView = renewalBackend && (route === '#/subtitles' || !!savedSubtitleId);
@@ -637,6 +640,12 @@ export const VideoWorkspace = () => {
           ) : (
             <SettingsPage />
           )
+        ) : startRequestRoute ? (
+          <StartRequestProgress
+            key={route}
+            receiptId={startRequestRoute.receipt_id}
+            requestId={startRequestRoute.request_id}
+          />
         ) : jobId ? (
           renewalBackend ? (
             <RenewalJobDetail id={jobId} key={jobId} />
@@ -680,6 +689,7 @@ export const VideoWorkspace = () => {
             ) : (
               <>
                 <PageTitle>{jobsView ? '작업' : '원본'}</PageTitle>
+                {jobsView && renewalBackend && <StartRequestsSummary />}
 
                 {!hasConfirmedList && !listFailed ? (
                   <LoadingSkeleton

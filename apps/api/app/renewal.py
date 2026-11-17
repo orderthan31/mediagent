@@ -136,7 +136,7 @@ class JsonBodyLimit:
         )
         selected_input = (
             scope["method"] == "POST"
-            and re.fullmatch(r"/api/(?:settings/)?work-entry/(?:preview|create)", scope["path"])
+            and re.fullmatch(r"/api/(?:settings/)?work-entry/(?:preview|create|create-and-start)", scope["path"])
         )
         independent_subtitle_save = (
             self.uploads

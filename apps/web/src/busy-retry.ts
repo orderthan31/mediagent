@@ -21,10 +21,20 @@ export const canRetryBusy = (path: string, init?: RequestInit) => {
   const method = (init?.method || 'GET').toUpperCase();
   // A normal Create can have committed despite an unclear response. Reconcile
   // via the job list; never automatically repeat the creation action.
-  if (method === 'POST' && /^\/(?:settings\/)?work-entry\/create$/.test(path)) {
+  if (
+    method === 'POST' &&
+    (/^\/(?:settings\/)?work-entry\/create(?:-and-start)?$/.test(path) ||
+      /^\/renewal\/jobs\/[a-f0-9]{32}\/start-request$/.test(path))
+  ) {
     return false;
   }
-  if (method !== 'GET' && (new Headers(init?.headers).has('X-Execution-Approval') || /^\/(?:settings\/[^/]+-tickets\/[^/]+\/(?:start|continue)|videos\/[^/]+\/jobs|jobs\/[^/]+\/(?:start|retry))$/.test(path))) {
+  if (
+    method !== 'GET' &&
+    (new Headers(init?.headers).has('X-Execution-Approval') ||
+      /^\/(?:settings\/[^/]+-tickets\/[^/]+\/(?:start|continue)|videos\/[^/]+\/jobs|jobs\/[^/]+\/(?:start|retry))$/.test(
+        path,
+      ))
+  ) {
     return false;
   }
   if (method === 'GET' || method === 'HEAD') {

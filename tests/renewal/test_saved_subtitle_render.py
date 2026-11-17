@@ -370,9 +370,12 @@ def planning(state, connected):
     child['revision'] = 1  # The real DB supplies this existing default.
     tree = ast.parse((ROOT / 'apps/orchestrator/mideagent_orchestrator/execution.py').read_text(encoding='utf8'))
     original = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == 'Execution')
-    methods = [n for n in original.body if isinstance(n, ast.FunctionDef) and n.name in {'_plan', '_checked_input'}]
+    methods = [n for n in original.body if isinstance(n, ast.FunctionDef)
+               and n.name in {'_plan', '_checked_input', '_preflight_cpu_inputs'}]
+    # Reuse source_execution's exact production helper class in both methods.
     ns = dict(runtime.create.__func__.__globals__)
-    exec(compile(ast.Module(body=methods, type_ignores=[]), 'real-execution-plan-methods', 'exec'), ns)
+    exec(compile(ast.Module(body=methods, type_ignores=[]),
+                 'real-execution-plan-methods', 'exec'), ns)
     for method in methods:
         setattr(runtime, method.name, MethodType(ns[method.name], runtime))
     execute = runtime.database.execute
@@ -383,7 +386,27 @@ def planning(state, connected):
             return SimpleNamespace(fetchall=lambda: deepcopy(reviews))
         return execute(query, params)
     runtime.database.execute = sql
-    return SimpleNamespace(runtime=runtime, child=child, reviews=reviews)
+    def preflight(job):
+        # _view returns a copy: explicitly persist test edits before the real
+        # preflight reads SQL state. Never refresh a receipt after context drift.
+        runtime.database.jobs[job['id']] = deepcopy(job)
+        before = deepcopy(runtime.database.jobs)
+        try:
+            return runtime._preflight_cpu_inputs(job['owner_id'], job['id'])
+        finally:
+            assert runtime.database.jobs == before
+            assert not runtime.database.outbox and runtime.database.runs[job['id']] == []
+
+    def plan(job):
+        verified = preflight(job)
+        before = deepcopy(runtime.database.jobs)
+        result = runtime._plan(runtime.database, job, verified)
+        assert runtime.database.jobs == before
+        assert not runtime.database.outbox and runtime.database.runs[job['id']] == []
+        return result
+
+    return SimpleNamespace(runtime=runtime, child=child, reviews=reviews,
+                           preflight=preflight, plan=plan)
 
 
 def test_first_start_plan_accepts_real_created_saved_render_bindings(planning):
@@ -392,7 +415,7 @@ def test_first_start_plan_accepts_real_created_saved_render_bindings(planning):
     before = deepcopy(state.child)
     assert state.child['snapshot']['definition']['inputs'] == {'video': 'video', 'transcript': 'transcript'}
     assert [n['type'] for n in state.child['snapshot']['definition']['nodes']] == ['generate_subtitle', 'encode', 'validate_video']
-    plan = state.runtime._plan(state.runtime.database, state.child)
+    plan = state.plan(state.child)
     assert plan['ready'], plan['reasons']
     assert plan['reasons'] == [] and plan['paid_roles'] == []
     assert state.child == before and state.child['active_claim_id'] is None
@@ -432,7 +455,7 @@ def test_first_start_plan_refuses_unbound_wrong_type_or_unsupported_inputs(plann
     elif change == 'content_pin_mismatch':
         snapshot['normal_input_bindings']['transcript']['content_sha256'] = '0' * 64
     child['snapshot_sha256'] = digest(snapshot)
-    plan = runtime._plan(runtime.database, child)
+    plan = planning.plan(child)
     assert not plan['ready'] and plan['reasons']
     assert any('입력' in reason for reason in plan['reasons'])
     assert not runtime.database.outbox and runtime.database.runs[child['id']] == []
@@ -449,7 +472,7 @@ def test_first_start_plan_preserves_legacy_single_input_with_extra_lineage(plann
     snapshot.pop('agent_definition')
     snapshot['definition']['inputs'] = {port: port}
     child['snapshot_sha256'] = digest(snapshot)
-    plan = planning.runtime._plan(planning.runtime.database, child)
+    plan = planning.plan(child)
     assert plan['ready'] and plan['reasons'] == []
     assert set(snapshot['inputs']) == {'video', 'transcript'}
 
@@ -458,6 +481,7 @@ def test_first_start_plan_preserves_legacy_single_input_with_extra_lineage(plann
 def test_first_start_plan_keeps_real_checked_input_content_and_custody_fences(state, planning, monkeypatch, change):
     from video_service.canonical import digest
     runtime, child = planning.runtime, planning.child
+    assert planning.plan(child)['ready']
     reference = child['snapshot']['inputs']['transcript']
     if change == 'wrong_custodian':
         reference['source_owner_id'] = 'e' * 32
@@ -467,8 +491,14 @@ def test_first_start_plan_keeps_real_checked_input_content_and_custody_fences(st
         reference['source_owner_id'] = '../not-an-actor'
     child['snapshot_sha256'] = digest(child['snapshot'])
     monkeypatch.setattr(state.store, 'put', lambda *a, **k: pytest.fail('plan may not materialize or repair inputs'))
-    with pytest.raises(ValueError):
-        runtime._plan(runtime.database, child)
+    errors = {'wrong_custodian': 'Content unavailable',
+              'wrong_bytes': 'Content integrity mismatch',
+              'malformed_origin': 'Invalid source owner'}
+    before = deepcopy(child)
+    # Invalid CAS references now fail during unlocked preflight, before _plan.
+    with pytest.raises(ValueError, match=f'^{errors[change]}$'):
+        planning.plan(child)
+    assert child == before
     assert not runtime.database.outbox and runtime.database.runs[child['id']] == []
 
 
@@ -486,7 +516,7 @@ def test_first_start_plan_keeps_existing_admission_guards(planning, guard):
             assert roles == ['generate_subtitle', 'encode', 'validate_video']
             return ['synthetic CPU unavailable']
         runtime.fleet = SimpleNamespace(reasons=unavailable)
-    plan = runtime._plan(runtime.database, child)
+    plan = planning.plan(child)
     assert not plan['ready'] and plan['reasons']
     assert not runtime.database.outbox and runtime.database.runs[child['id']] == []
 
@@ -495,25 +525,44 @@ def test_first_start_plan_keeps_token_binding_and_preflight_context(state, plann
     from video_service.canonical import digest
     from video_service.cpu_input_policy import LARGE_PROFILE
     runtime, child = planning.runtime, planning.child
-    before = runtime._plan(runtime.database, child)
-    assert runtime._plan(runtime.database, deepcopy(child)) == before  # reopened frozen input
+    before = planning.plan(child)
+    assert planning.plan(deepcopy(child)) == before  # reopened frozen input
     child['snapshot']['normal_input_bindings']['transcript']['language'] = 'ja'
     child['snapshot_sha256'] = digest(child['snapshot'])
-    after = runtime._plan(runtime.database, child)
+    after = planning.plan(child)
     assert after['ready'] and before['token'] != after['token']
     child['revision'] += 1
-    assert runtime._plan(runtime.database, child)['token'] != after['token']
-    # Exercise the existing _checked_input fence with an explicit synthetic
-    # preflight receipt and the existing policy object, not an actual CPU run.
+    assert planning.plan(child)['token'] != after['token']
+    # Obtain the production typed receipt from real CAS verification, not a
+    # permissive dictionary. Keep this receipt frozen throughout drift checks.
     child['snapshot']['cpu_input_policy'] = deepcopy(LARGE_PROFILE)
     child['snapshot_sha256'] = digest(child['snapshot'])
-    verified = {'snapshot_sha256': child['snapshot_sha256'],
-                'references': {digest(ref) for ref in child['snapshot']['inputs'].values()}}
-    with pytest.raises(ValueError, match='context changed'):
-        runtime._plan(runtime.database, child, {**verified, 'snapshot_sha256': '0' * 64})
-    with pytest.raises(ValueError, match='context changed'):
-        runtime._plan(runtime.database, child, {**verified, 'references': set()})
+    verified = planning.preflight(child)
     assert runtime._plan(runtime.database, child, verified)['ready']
+    with pytest.raises(ValueError, match='context changed'):
+        runtime._plan(runtime.database, child, dict(verified))
+    from copy import copy
+    for field, value in (('runtime', object()), ('owner', OWNER), ('job_id', 'e' * 32),
+                         ('snapshot', '0' * 64), ('snapshot_sha256', '0' * 64),
+                         ('references', set())):
+        invalid = copy(verified)
+        if field in {'snapshot_sha256', 'references'}:
+            invalid[field] = value
+        else:
+            setattr(invalid, field, value)
+        with pytest.raises(ValueError, match='context changed'):
+            runtime._plan(runtime.database, child, invalid)
+    before_drift = deepcopy(child)
+    child['snapshot']['normal_input_bindings']['transcript']['language'] = 'ko'
+    # Reject both an unsynchronized digest and an honestly recomputed digest.
+    for refresh_hash in (False, True):
+        if refresh_hash:
+            child['snapshot_sha256'] = digest(child['snapshot'])
+        with pytest.raises(ValueError, match='context changed'):
+            runtime._plan(runtime.database, child, verified)
+    assert runtime.database.jobs[child['id']] == before_drift
+    assert runtime._plan(runtime.database, before_drift, verified)['ready']
+    assert not runtime.database.outbox and runtime.database.runs[child['id']] == []
 
 
 @pytest.mark.parametrize('explicit_video', [False, True])
@@ -534,6 +583,6 @@ def test_first_start_plan_accepts_existing_inline_agent_input_contract(planning,
     child['revision'] = 1
     assert child['snapshot']['normal_input_bindings']['transcript']['kind'] == 'subtitle_srt'
     assert 'source_owner_id' not in child['snapshot']['inputs']['transcript']
-    plan = runtime._plan(runtime.database, child)
+    plan = planning.plan(child)
     assert plan['ready'], plan['reasons']
     assert not runtime.database.outbox and runtime.database.runs[child['id']] == []

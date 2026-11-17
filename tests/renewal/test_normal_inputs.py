@@ -137,7 +137,7 @@ def accepted_inputs(tmp_path):
     runs = [{"id": "e" * 32, "node_id": "extract", "status": "completed", "inputs": {"video": video}, "result": {"outputs": {"audio": refs["audio"]}}},
             {"id": "f" * 32, "node_id": "speech", "status": "completed", "result": {"outputs": {"transcript": refs["transcript"]}}}]
     manifest_reads = []
-    runtime = SimpleNamespace(store=store, _shared_job=lambda db, identity: job, _runs=lambda *args: runs,
+    runtime = SimpleNamespace(store=store, _shared_job=lambda db, identity, *, lock=True: job, _runs=lambda *args: runs,
                               asset_reference=lambda asset: video,
                               ticket_artifacts=SimpleNamespace(read=lambda *args: manifest_reads.append(args)))
     asset = {"id": asset_id, "asset_id": asset_id, "owner_id": owner}

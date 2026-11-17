@@ -1,5 +1,10 @@
 import type { ModelCallBudget } from './model-call-budget';
-import { startTrackedJob } from './job-start.mjs';
+import {
+  readPendingStart,
+  rememberPendingStart,
+  parseStartReceipt,
+  startReceiptRoute,
+} from './start-receipts.mjs';
 import { frozenGoalLanguages } from './goal-languages';
 import { languageLabel } from './language-label';
 import { WorkflowInputs } from './WorkflowInputs';
@@ -148,6 +153,11 @@ export const WorkflowStart = () => {
     setRequestId(crypto.randomUUID());
   };
   const load = async () => {
+    const pending = renewalBackend ? readPendingStart() : null;
+    if (pending) {
+      location.hash = startReceiptRoute(pending);
+      return;
+    }
     setLoading(true);
     try {
       const [videos, workflows, nodes] = await Promise.all([
@@ -308,18 +318,47 @@ export const WorkflowStart = () => {
     setBusy(true);
     setError('');
     try {
-      const ticket = await jsonPost<{ id: string }>(entryPath + '/create', {
+      const prior = renewalBackend ? readPendingStart() : null;
+      if (prior) {
+        location.hash = startReceiptRoute(prior);
+        handedOff = true;
+        return;
+      }
+      const body = {
         ...selection(),
         request_id: requestId,
         token: plan.token,
         paid_confirmed: plan.paid_roles.length > 0,
-      });
+      };
       if (renewalBackend) {
-        // The shared tracker owns pending/error visibility after this form unmounts.
-        void startTrackedJob(request, jsonPost, ticket.id, requestId).catch(() => {});
-        location.hash = `/jobs/${ticket.id}`;
+        rememberPendingStart('create', { request_id: requestId });
+        const route = startReceiptRoute({ request_id: requestId });
+        // Intake outlives this component. Reopening only observes the original nonce.
+        location.hash = route;
         handedOff = true;
-      } else if (frontendOnly) {
+        try {
+          const receipt = parseStartReceipt(await jsonPost(entryPath + '/create-and-start', body));
+          // A delayed acknowledgement may only enrich its still-current nonce.
+          if (readPendingStart()?.request_id === requestId) {
+            rememberPendingStart('create', { request_id: requestId, receipt_id: receipt.id });
+          }
+          if (location.hash === route) {
+            location.hash = startReceiptRoute({ request_id: requestId, receipt_id: receipt.id });
+          }
+        } catch (reason) {
+          window.dispatchEvent(
+            new CustomEvent('start-intake-error', {
+              detail: {
+                request_id: requestId,
+                message: reason instanceof Error ? reason.message : '접수 확인 불가',
+              },
+            }),
+          );
+        }
+        return;
+      }
+      const ticket = await jsonPost<{ id: string }>(entryPath + '/create', body);
+      if (frontendOnly) {
         location.hash = `/jobs/${ticket.id}`;
       } else {
         setTicketId(ticket.id);
