@@ -32,12 +32,12 @@ const catalog = [
   },
 ];
 
-test('rendered normal field, consent preview and draft detail preserve auto/numeric (OFFLINE)', async () => {
+test('concise start/detail copy preserves saved limits and pending-start fence (OFFLINE)', async () => {
   const bundle = await build({
     stdin: {
       resolveDir: process.cwd(),
       loader: 'tsx',
-      contents: `import React from 'react';import{createRoot}from'react-dom/client';import{AuthGate}from'./src/AuthGate';import{PageTitleProvider}from'./src/PageTitle';import{WorkflowEditor}from'./src/WorkflowEditor';import{WorkflowStart}from'./src/WorkflowStart';import{RenewalJobDetail}from'./src/RenewalJobDetail';const mode=new URLSearchParams(location.search).get('mode');createRoot(document.getElementById('root')).render(<AuthGate><PageTitleProvider>{mode==='editor'?<WorkflowEditor initialId="${workflow}"/>:mode==='detail'?<RenewalJobDetail id="${jobId}"/>:<WorkflowStart/>}</PageTitleProvider></AuthGate>);`,
+      contents: `import React from 'react';import{createRoot}from'react-dom/client';import{AuthGate}from'./src/AuthGate';import{PageTitleProvider}from'./src/PageTitle';import{WorkflowEditor}from'./src/WorkflowEditor';import{WorkflowStart}from'./src/WorkflowStart';import{RenewalJobDetail}from'./src/RenewalJobDetail';import{startTrackedJob}from'./src/job-start.mjs';const mode=new URLSearchParams(location.search).get('mode');if(mode==='pending'){const get=async(path)=>path.endsWith('/plan')?new Promise(()=>{}):{status:'draft',revision:1,runs:[]};const post=async()=>({});startTrackedJob(get,post,'${jobId}','offline');}createRoot(document.getElementById('root')).render(<AuthGate><PageTitleProvider>{mode==='editor'?<WorkflowEditor initialId="${workflow}"/>:['detail','pending'].includes(mode)?<RenewalJobDetail id="${jobId}"/>:<WorkflowStart/>}</PageTitleProvider></AuthGate>);`,
     },
     bundle: true,
     write: false,
@@ -177,9 +177,7 @@ test('rendered normal field, consent preview and draft detail preserve auto/nume
     await page.locator('[data-node-id="transcribe"]').first().click();
     const field = page.getByLabel('최대 모델 호출 수', { exact: true });
     await expect(field).toHaveValue('auto');
-    await expect(field.locator('option[value="auto"]')).toHaveText(
-      '자동 · 실제 입력 단위 수 × 선택 후보 수 · 입력 준비 후 유한한 호출 상한 확정',
-    );
+    await expect(field.locator('option[value="auto"]')).toHaveText('자동');
     for (const [index, value] of ['1', '128', 'auto'].entries()) {
       await field.selectOption(value);
       await expect(field).toHaveValue(value);
@@ -210,53 +208,32 @@ test('rendered normal field, consent preview and draft detail preserve auto/nume
               ]
             : [{ node_id: 'literal-node', role: 'transcribe', max_calls: Number(value) }];
         await mount('start');
-        const preview = page.getByRole('region', { name: '이번 작업 모델 호출 상한' });
-        await expect(preview).toContainText(
-          value === 'auto'
-            ? '자동 · 실제 입력 단위 수 × 선택 후보 2개 · 입력 준비 후 유한한 호출 상한 확정'
-            : `최대 ${value}회`,
-        );
-        await expect(
-          page.getByText('선택한 모델의 API 비용이 발생할 수 있습니다.', { exact: false }),
-        ).toBeVisible();
+        await expect(page.getByRole('button', { name: '작업 시작', exact: true })).toBeEnabled();
+        await expect(page.getByRole('region', { name: '이번 작업 모델 호출 상한' })).toHaveCount(0);
         assert.doesNotMatch(
-          await preview.innerText(),
-          /최대\s*회|auto|undefined|null|NaN|Infinity/,
+          await page.locator('body').innerText(),
+          /유한한 호출 상한|실제 입력 단위 수|API 비용|공급자 요금/,
         );
         await mount('detail');
-        await expect(page.locator('.job-start-scope')).toContainText(
-          value === 'auto'
-            ? '자동 · 실제 입력 단위 수 × 선택 후보 수 · 입력 준비 후 유한한 호출 상한 확정'
-            : `최대 ${value}회`,
+        await expect(page.getByRole('button', { name: '작업 시작', exact: true })).toBeEnabled();
+        await expect(page.locator('.job-start-scope')).toHaveCount(0);
+        assert.doesNotMatch(
+          await page.locator('body').innerText(),
+          /유한한 호출 상한|실제 입력 단위 수|API 비용|공급자 요금/,
         );
-        await expect(page.locator('.job-start-scope')).toContainText('외부 모델 API 비용');
       }
-    }
-    for (const [budget, expected] of [
-      [
-        { budget_mode: 'input_derived', max_calls: null, planned_units: null },
-        '선택 후보 수 · 입력 준비 후',
-      ],
-      [
-        { budget_mode: 'input_derived', max_calls: 0, planned_units: null },
-        '입력 준비 후 유한한 호출 상한 확정',
-      ],
-      [
-        { budget_mode: 'input_derived', max_calls: 0, planned_units: 0 },
-        '실제 입력 0개 · 호출 없음 (상한 0회)',
-      ],
-      [{ budget_mode: 'explicit', max_calls: 128 }, '최대 128회'],
-    ]) {
-      budgets = [{ node_id: 'literal-node', role: 'transcribe', ...budget }];
-      await mount('start');
-      await expect(page.getByRole('region', { name: '이번 작업 모델 호출 상한' })).toContainText(
-        expected,
+      await mount('pending');
+      await expect(page.locator('[data-start-stage="plan"]')).toHaveText('시작 중…');
+      await expect(page.getByRole('button', { name: '작업 시작', exact: true })).toBeDisabled();
+      assert.doesNotMatch(
+        await page.locator('body').innerText(),
+        /원본과 실행 계획|다시 시작을 누르지|응답에 시간이 걸릴/,
       );
     }
     assert.deepEqual(unexpected, []);
     assert.deepEqual(errors, []);
     console.log(
-      'OFFLINE: editor auto wire/save, preview + cost/detail auto/1/128 at 1440/390; no provider/start requests',
+      'OFFLINE: auto/1/128 save preserved; no billing/formula narration at 1440/390; concise pending state retains disabled Start; no provider/application start requests',
     );
   } finally {
     await browser.close();

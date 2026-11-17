@@ -1,4 +1,3 @@
-import { modelCallOptionLabel } from './model-call-budget';
 import { FaceWorkflowReview } from './FaceWorkflowReview';
 import { publicAgentGraph } from './job-graphs';
 import type { GoalOutput } from './GoalResults';
@@ -359,20 +358,7 @@ const JobDetailSession = ({ id }: { id: string }) => {
       <PageTitle>{job ? `작업 #${job.ticket_number}` : '작업'}</PageTitle>
       {start?.pending && (
         <p role="status" data-start-stage={start.stage}>
-          시작 준비 중 ·{' '}
-          {
-            (
-              {
-                checking: '작업 상태 확인 중',
-                'prepare-start': '시작 설정 준비 중',
-                plan: '원본과 실행 계획 확인 중',
-                confirm: '실행 범위 승인 중',
-                admit: '실행 접수 중',
-                run: '실행 요청 응답 대기 중',
-              } as Record<string, string>
-            )[start.stage]
-          }
-          {' · 응답에 시간이 걸릴 수 있습니다. 다시 시작을 누르지 않아도 됩니다.'}
+          시작 중…
         </p>
       )}
       {start?.error && (
@@ -454,19 +440,7 @@ const JobDetailSession = ({ id }: { id: string }) => {
               처리 확인
             </Button>
           )}
-          {canManage && job.status === 'draft' && (
-            <p className="job-start-scope">
-              {toolDefinition?.nodes
-                .filter(
-                  (n) => n.model_ref && ['transcribe', 'translate', 'vocalize'].includes(n.type),
-                )
-                .map(
-                  (n) =>
-                    `${n.type === 'transcribe' ? '전사' : n.type === 'translate' ? '번역' : '보컬'} ${modelCallOptionLabel(n.options.max_model_calls)}`,
-                )
-                .join(' · ')}
-            </p>
-          )}
+
           {job.output_mode === 'controlled' && <strong className="output-kind">통제 출력</strong>}
           {!canManage && <p>읽기 전용</p>}
           {job.selected_inputs?.map((input) => (

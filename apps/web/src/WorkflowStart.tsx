@@ -1,4 +1,4 @@
-import { modelCallBudgetLabel, type ModelCallBudget } from './model-call-budget';
+import type { ModelCallBudget } from './model-call-budget';
 import { startTrackedJob } from './job-start.mjs';
 import { frozenGoalLanguages } from './goal-languages';
 import { languageLabel } from './language-label';
@@ -898,33 +898,7 @@ export const WorkflowStart = () => {
                   ` · 원문 언어: ${input.language === 'auto' ? '미지정' : languageLabel(input.language)}`}
               </p>
             ))}
-            {plan?.model_call_budgets?.length ? (
-              <section aria-label="이번 작업 모델 호출 상한">
-                <h3>모델 호출 상한</h3>
-                <ul>
-                  {plan.model_call_budgets.map((item) => (
-                    <li key={item.node_id}>
-                      {item.role === 'vocalize'
-                        ? '보컬'
-                        : item.role === 'transcribe'
-                          ? '전사'
-                          : '번역'}{' '}
-                      · {item.node_id}: {modelCallBudgetLabel(item)}
-                      {typeof item.minimum_audio_calls === 'number' &&
-                      Number.isSafeInteger(item.minimum_audio_calls) &&
-                      item.minimum_audio_calls >= 0
-                        ? ` · 원본 길이 기준 ${item.minimum_audio_calls}개 ${item.role === 'vocalize' ? '탐지 구간 예상 · 후보 재확인도 같은 상한 사용' : '오디오 구간 예상'}`
-                        : ''}
-                    </li>
-                  ))}
-                </ul>
 
-                <p>
-                  실제 구간 수는 전처리 결과에 따라 달라집니다. 이 화면의 확인만으로 API를 호출하지
-                  않습니다.
-                </p>
-              </section>
-            ) : null}
             <Button
               aria-describedby={
                 !assetId
@@ -947,7 +921,7 @@ export const WorkflowStart = () => {
               }
               onClick={() => void create()}
             >
-              {busy ? '시작 준비 중…' : '작업 시작'}
+              {busy ? '시작 중…' : '작업 시작'}
             </Button>
             {!busy && !plan && assetId && definitionId && inputReady && (
               <p id="start-readiness" role="status">

@@ -176,7 +176,7 @@ test('create routes immediately; one explicit handoff continues through every de
     const f = await fixture(browser);
     await f.begin();
     await expect(f.page.locator('.job-detail')).toBeVisible({ timeout: 1500 });
-    await expect(f.page.getByRole('status').filter({ hasText: '시작 준비' })).toBeVisible();
+    await expect(f.page.locator('[data-start-stage]')).toHaveText('시작 중…');
     assert.equal(f.calls.filter((c) => c.path === '/work-entry/create').length, 1);
     await f.release('detail');
     for (const stage of ['prepare-start', 'plan', 'confirm', 'admit', 'run']) {
