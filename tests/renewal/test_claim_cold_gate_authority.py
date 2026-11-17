@@ -133,7 +133,7 @@ def test_concurrent_cold_then_ready_exactly_one_command(db, admin, movie, tmp_pa
 def test_fresh_final_claim_rechecks_after_unlocked_preflight(db, admin, movie, tmp_path, monkeypatch, change):
     runtime, owner, job, client = prepared(db, admin, movie, tmp_path)
     observe(db)
-    preflight = runtime._preflight_cpu_inputs
+    preflight = runtime._stage_claim_candidate
     observed = []
 
     def during_preflight(*args, **kwargs):
@@ -155,7 +155,7 @@ def test_fresh_final_claim_rechecks_after_unlocked_preflight(db, admin, movie, t
         observed.append(True)
         return preflight(*args, **kwargs)
 
-    monkeypatch.setattr(runtime, '_preflight_cpu_inputs', during_preflight)
+    monkeypatch.setattr(runtime, '_stage_claim_candidate', during_preflight)
     assert runtime.claim_next(owner, job['id']) is None
     assert observed == [True] and counts(db, job) == (0, 0, 0)
     assert len(demands(db, job)) == 1 and demands(db, job)[0]['node_run_id'] is None

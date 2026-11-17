@@ -1324,20 +1324,9 @@ class Execution(Intake):
             (message_id or uuid4().hex, owner, identity, kind, Jsonb(payload)),
         )
 
-    def _insert_run(self, db, job, node, inputs, status, *, face_stage=None):
-        from mideagent_orchestrator.dispatch_queue import DispatchQueue
-        from mideagent_orchestrator.agent_pool import AgentPool
-
-        deferred = (
-            status == "running"
-            and node["type"] in getattr(self, "defer_broker_agents", ())
-            and DispatchQueue.managed_in(db, node["type"])
-            and not AgentPool.enrolled_in(db,job)
-        )
-        if deferred:
-            status = "waiting"
-        identity = uuid4().hex
-        from video_service.cpu_input_policy import LARGE_AGENTS, LARGE_PROFILE, lease_seconds
+    def _build_run_command(self, db, job, node, inputs, status, identity, *, face_stage=None):
+        """Existing command semantics; pure except engine pin lookup / auto input reads."""
+        from video_service.cpu_input_policy import LARGE_AGENTS, LARGE_PROFILE
 
         cpu_policy = job["snapshot"].get("cpu_input_policy")
         from video_service.original_video_budget import CPU_ROLES as VIDEO_ROLES
@@ -1535,6 +1524,36 @@ class Execution(Intake):
                          if node["type"].startswith("face_") else node["options"]),
                 runtime=descriptor,
             )
+        return command
+
+    def _insert_run(self, db, job, node, inputs, status, *, face_stage=None, staged_command=None):
+        from mideagent_orchestrator.dispatch_queue import DispatchQueue
+        from mideagent_orchestrator.agent_pool import AgentPool
+
+        deferred = (
+            status == "running"
+            and node["type"] in getattr(self, "defer_broker_agents", ())
+            and DispatchQueue.managed_in(db, node["type"])
+            and not AgentPool.enrolled_in(db,job)
+        )
+        if deferred:
+            status = "waiting"
+        identity = uuid4().hex
+        from video_service.cpu_input_policy import lease_seconds
+
+        if staged_command is None:
+            command = self._build_run_command(db, job, node, inputs, status, identity, face_stage=face_stage)
+        else:
+            # Internal, input-bound whole command, never a caller-provided cap.
+            binding, frozen = staged_command
+            if binding != self._claim_command_binding(job, node, inputs, status):
+                raise Conflict("staged_command_binding_changed")
+            command = json.loads(frozen)
+            command["attempt_id"] = identity
+            node = {**node, "options": command["options"]}
+            from video_service.model_call_budget import automatic, frozen_cap
+            if automatic(command):
+                frozen_cap(command)
         row = db.execute(
             "INSERT INTO node_runs(owner_id,job_id,id,node_id,agent_revision,attempt,generation,status,input_sha256,settings_sha256,inputs,options,node_type,request,request_sha256,claim_id,lease_owner,lease_expires_at,started_at) VALUES (%s,%s,%s,%s,%s,1,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,now()+(%s*interval '1 second'),now()) RETURNING *",
             (
@@ -1704,12 +1723,121 @@ class Execution(Intake):
                 )
             yield node, inputs, status
 
-    def _claim_all_cold(self, owner, identity):
+    @staticmethod
+    def _claim_command_binding(job, node, inputs, status):
+        return digest({"owner": job["owner_id"], "job": job["id"],
+                       "snapshot": job["snapshot"], "snapshot_sha256": job["snapshot_sha256"],
+                       "generation": job["generation"], "claim": job["active_claim_id"],
+                       "node": node, "inputs": inputs, "status": status})
+
+    def _claim_stage_supported(self, job, node):
+        """Conservative first slice: no control routing / structured closures.
+
+        Native control graphs, Face, subtitle bundles, engines and deferred
+        dispatch retain the complete old sweep, including its locked control I/O.
+        """
+        snapshot = job["snapshot"]
+        # A selective proof requires the complete frozen metadata contract.
+        # Incomplete/historical contexts retain broad validation, never a partial
+        # candidate with defaulted identities or invented snapshot authority.
+        if (not job.get("snapshot_sha256") or "revision" not in job
+                or not snapshot.get("asset")):
+            return False
+        if (snapshot.get("agent_control_policy") == 1
+                or snapshot.get("subtitle_tracks_policy")
+                or node["type"] in CONTROL
+                or node["type"] in getattr(self, "defer_broker_agents", ())
+                or self._engine_role(node)):
+            return False
+        return node["type"] in CPU_AGENTS or (
+            node["type"] in {"transcribe", "translate"} and node.get("model_ref")
+        )
+
+    def _claim_candidate_in(self, db, queue, job, runs, node, inputs):
+        """Immutable in-process bytes; no mutable SQL/graph alias crosses I/O."""
+        owner, identity = job["owner_id"], job["id"]
+        reviews = db.execute(
+            "SELECT * FROM review_tasks WHERE owner_id=%s AND job_id=%s ORDER BY id FOR UPDATE",
+            (owner, identity),
+        ).fetchall()
+        claim = db.execute(
+            "SELECT * FROM execution_claims WHERE owner_id=%s AND job_id=%s AND id=%s FOR UPDATE",
+            (owner, identity, job["active_claim_id"]),
+        ).fetchone()
+        if not claim or claim["generation"] != job["generation"]:
+            raise Conflict("staged_claim_authority_changed")
+        policy = queue.load(owner)[0] if not runs and queue.requires_in(db, job) else None
+        from video_service.content_store import reference_origin
+        return canonical({"actor": owner, "job": public(job), "node": node,
+                          "inputs": inputs,
+                          "origins": {p: reference_origin(owner, ref)[0] for p, ref in inputs.items()},
+                          "runs": [public(r) for r in runs],
+                          "reviews": [public(r) for r in reviews],
+                          "claim": public(claim), "queue": policy})
+
+    @timed("preflight")
+    def _stage_claim_candidate(self, candidate):
+        """Ordinary full remote verification at EVERY logical read, off-lock.
+
+        This proof is private to this claim. It is not approval preflight, a
+        store cache, an enrollment proof or a worker verified handle.
+        """
+        frozen = json.loads(candidate)
+        job, node, inputs = frozen["job"], frozen["node"], frozen["inputs"]
+        owner, snapshot = frozen["actor"], job["snapshot"]
+        from video_service.audio_original import frozen_origin, verify_path
+        from video_service.content_store import reference_origin
+        from video_service.object_store import validate_reference
+        origin = frozen_origin(snapshot)
+        # Preserve frozen original type, origin and media budgets without reading
+        # unrelated history. Descriptor validation is not content verification.
+        video = snapshot["inputs"].get("video")
+        if video is not None:
+            custodian, ref = reference_origin(owner, video)
+            validate_reference(ref)
+            asset = snapshot["asset"]
+            if (ref["type"] != "video" or ref["sha256"] != asset["sha256"]
+                    or ref["bytes"] != asset["size_bytes"]
+                    or custodian != asset.get("storage_custodian_id", asset.get("uploaded_by", owner))):
+                raise Conflict("staged_original_video_binding_changed")
+            if snapshot.get("cpu_input_policy"):
+                from video_service.cpu_input_policy import validate_media
+                validate_media(asset.get("media") or {})
+        selected = spec(node["type"], node["options"])
+        for port, reference in inputs.items():
+            custodian, ref = reference_origin(owner, reference)
+            validate_reference(ref)
+            if port not in selected["inputs"] or ref["type"] != selected["inputs"][port]:
+                raise Conflict("staged_input_type_changed")
+            if any(e["source"]["node"] == "$input" and e["target"] == {"node": node["id"], "port": port}
+                   for e in snapshot["definition"]["edges"]):
+                source_port = next(e["source"]["port"] for e in snapshot["definition"]["edges"]
+                                   if e["target"] == {"node": node["id"], "port": port})
+                pin = snapshot.get("normal_input_bindings", {}).get(source_port)
+                if pin and (custodian != pin.get("custodian_id", owner)
+                            or ref["sha256"] != pin.get("content_sha256", (pin.get("reference") or {}).get("sha256"))):
+                    raise Conflict("staged_normal_input_binding_changed")
+            path = self.store.path(owner, reference)
+            if origin and reference == origin["reference"]:
+                verify_path(path, origin["media"], reference["bytes"])
+            if ref["type"] == "audio" and not (
+                    origin and reference == origin["reference"]
+                    and node["type"] == "preprocess_audio"):
+                from video_service.postgres.audio_region_reviews import contract_for
+                contract_for(self.store, owner, reference, kind=(
+                    "audio_regions_long_v5" if snapshot.get("audio_pipeline_policy") else "audio_regions_v1"))
+        binding = self._claim_command_binding(job, node, inputs, "running")
+        command = self._build_run_command(None, job, node, inputs, "running", "0" * 32)
+        return binding, canonical(command)
+
+    def _claim_all_cold(self, owner, identity, *, capture=False):
         """Commit authorized preparation only, never a reservation or byte proof.
 
         Deliberately defers corrupt-content diagnosis until capacity is ready.
-        A ready node, metadata progress, or uncertain closure falls back to the
-        unchanged full preflight. No gate lock survives into that media I/O.
+        Without capture, a ready node retains the original full preflight.
+        With capture, True means cold, False means conservative full fallback,
+        and immutable bytes identify exactly one supported warm candidate.
+        No gate lock survives into media I/O; readiness is not a reservation.
         """
         from .agent_pool import AgentPool
         from .face_workflow import selected as face_selected
@@ -1729,6 +1857,7 @@ class Execution(Intake):
             # Review/terminal metadata settlement must still reach the full sweep.
             if any(r["status"] == "review_required" for r in runs):
                 return False
+            settlement_fallback = False
             if not any(r["status"] in ("running", "waiting") for r in runs):
                 if job["snapshot"].get("agent_execution_policy") == 1:
                     from .workflow import goal_settlement
@@ -1737,8 +1866,16 @@ class Execution(Intake):
                     if settlement is not None and settlement != job["status"]:
                         return False
                 elif job["status"] != "waiting":
-                    # Legacy sweeps settle running -> waiting when capacity is cold.
-                    return False
+                    # Cold/no-work legacy sweeps still settle running -> waiting.
+                    # Do not hide an actual warm successor behind that fallback.
+                    settlement_fallback = True
+                    if not capture:
+                        return False
+            # Take review/claim guards BEFORE the first capacity guard, even if
+            # several earlier roles are cold. Serialize the whole frontier once.
+            context = (json.loads(self._claim_candidate_in(db, queue, job, runs, {}, {}))
+                       if capture and any(self._claim_stage_supported(job, n)
+                                          for n in job["snapshot"]["definition"]["nodes"]) else None)
             cold = False
             for node, inputs, skip_status in self._claim_candidates(job, indexed):
                 if skip_status is not None or node["type"] in CONTROL or node["type"] in {
@@ -1749,18 +1886,26 @@ class Execution(Intake):
                 # is reached only at the same dependency-eligible external node
                 # as the final sweep (except byte validation, intentionally later).
                 if AgentPool.ready_in(db, job, node):
+                    if context is not None and self._claim_stage_supported(job, node):
+                        from video_service.content_store import reference_origin
+                        return canonical({**context, "node": node, "inputs": inputs,
+                                          "origins": {p: reference_origin(owner, ref)[0] for p, ref in inputs.items()}})
                     return False
                 cold = True
-            return cold
+            return cold and not settlement_fallback
 
     @timed("claim")
     def claim_next(self, owner, identity):
-        if self._claim_all_cold(owner, identity):
+        gate = self._claim_all_cold(owner, identity, capture=True)
+        if gate is True:
             return None
-        verified = self._preflight_cpu_inputs(owner, identity)
+        candidate = gate if isinstance(gate, bytes) else None
+        staged_command = self._stage_claim_candidate(candidate) if candidate is not None else None
+        selected_candidate = json.loads(candidate) if candidate is not None else None
+        verified = None if candidate is not None else self._preflight_cpu_inputs(owner, identity)
         from video_service.postgres.subtitle_tracks import SubtitleTracks
 
-        subtitle_staged = SubtitleTracks(self).preflight(owner, identity)
+        subtitle_staged = None if candidate is not None else SubtitleTracks(self).preflight(owner, identity)
         if verified and subtitle_staged:
             for material in subtitle_staged.values():
                 if material["snapshot_sha256"] != verified["snapshot_sha256"]:
@@ -1783,9 +1928,27 @@ class Execution(Intake):
                 FaceWorkflow.check_stage(job, runs, face_stage)
             if not self._claim_admitted_in(db, queue, job, runs):
                 return None
+            if candidate is not None:
+                # Compare complete authority after I/O, before any reservation.
+                if self._claim_candidate_in(db, queue, job, runs,
+                                            selected_candidate["node"], selected_candidate["inputs"]) != candidate:
+                    return None
             indexed = {r["node_id"]: r for r in runs}
             definition = job["snapshot"]["definition"]
             for node, inputs, skip_status in self._claim_candidates(job, indexed):
+                if candidate is not None:
+                    from mideagent_orchestrator.agent_pool import AgentPool
+                    if node["id"] != selected_candidate["node"]["id"]:
+                        # Earlier cold roles may have become warm. Never execute a
+                        # different closure or stage again automatically in-call.
+                        if skip_status is not None or node["type"] in CONTROL or AgentPool.ready_in(db, job, node):
+                            return None
+                        continue
+                    if node != selected_candidate["node"] or inputs != selected_candidate["inputs"] or skip_status is not None:
+                        return None
+                    if self._execution_reasons(db, {"nodes": [node]}, job["snapshot"].get("engine_bindings", {}),
+                                               job["snapshot"]["options"], (), job["snapshot"].get("model_bindings", {})):
+                        return None
                 if skip_status is not None:
                     row, _ = self._insert_run(db, job, node, {}, skip_status)
                     indexed[node["id"]] = row
@@ -1798,10 +1961,13 @@ class Execution(Intake):
                 ) and node["id"] not in (subtitle_staged or {}):
                     # Stage a newly completed control parent outside the lock next claim.
                     continue
-                for ref in inputs.values():
-                    self._checked_input(owner, job, ref, verified)
+                if candidate is None:
+                    for ref in inputs.values():
+                        self._checked_input(owner, job, ref, verified)
                 from mideagent_orchestrator.agent_pool import AgentPool
                 if not AgentPool.ready_in(db,job,node):
+                    if candidate is not None:
+                        return None
                     continue
                 instance = None
                 if (
@@ -1811,6 +1977,8 @@ class Execution(Intake):
                 ):
                     instance = self.fleet.reserve(db, node["type"])
                     if instance is None:
+                        if candidate is not None:
+                            return None
                         continue
                 from .workflow import scope_snapshot
                 scope = scope_snapshot(job["snapshot"])
@@ -1819,7 +1987,8 @@ class Execution(Intake):
                         raise Conflict("agent_tool_selection_changed")
                     return self._insert_run(db, job, node, inputs,
                         "review_required" if node["type"] in {"review", "face_select", "face_confirm_preview"} else "running",
-                        **({"face_stage":face_stage} if node["type"].startswith("face_") else {}))
+                        **({"face_stage":face_stage} if node["type"].startswith("face_") else {}),
+                        **({"staged_command": staged_command} if candidate is not None else {}))
                 if scope and node["type"] not in CONTROL:
                     from mideagent_agents.catalog import CLASSES
                     agent_node=next(n for n in scope["definition"]["nodes"] if n["id"]==scope["owners"][node["id"]])
@@ -1827,6 +1996,8 @@ class Execution(Intake):
                         verify_references=job["snapshot"].get("agent_output_policy")==1)
                     claimed=agent.advance(indexed,definition,invoke_tool)
                     if claimed is None:
+                        if candidate is not None:
+                            return None
                         continue
                     row,command=claimed
                 else:

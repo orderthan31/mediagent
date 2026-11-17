@@ -1,5 +1,7 @@
 """Actual admission/claim/controller source contracts; fake DB, no engine/provider."""
 import ast
+import json
+from datetime import datetime
 from contextlib import contextmanager
 from copy import deepcopy
 from pathlib import Path
@@ -11,7 +13,7 @@ import pytest
 
 from test_start_queue import FakeDatabase, OWNER, CONSENT, enroll
 from test_start_queue_fleet import fleet_case as fleet_case
-from video_service.canonical import digest
+from video_service.canonical import canonical, digest
 from video_service.agent_protocol import CPU_AGENTS
 from video_service.content_store import ContentStore
 from video_service.handoff_timing import handoff_context, handoff_span, timed
@@ -22,10 +24,12 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def execution_methods():
     path = ROOT / 'apps/orchestrator/mideagent_orchestrator/execution.py'
-    cls = next(n for n in ast.parse(path.read_text(encoding='utf8')).body if isinstance(n, ast.ClassDef) and n.name == 'Execution')
-    nodes = [n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name in {'admit', 'claim_next', '_queue_start_ready_in', '_claim_admitted_in', '_claim_candidates', '_claim_all_cold'}]
+    tree = ast.parse(path.read_text(encoding='utf8'))
+    cls = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == 'Execution')
+    nodes = [n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name in {'admit', 'claim_next', '_queue_start_ready_in', '_claim_admitted_in', '_claim_candidates', '_claim_all_cold', '_claim_stage_supported', '_claim_candidate_in', '_claim_command_binding', '_stage_claim_candidate', '_build_run_command'}]
+    nodes = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == 'public'] + nodes
     ns = dict(__name__='mideagent_orchestrator.execution', __package__='mideagent_orchestrator',
-              digest=digest, uuid4=uuid4, request_id=lambda x:x, resource_id=lambda x:x,
+              digest=digest, canonical=canonical, json=json, datetime=datetime, uuid4=uuid4, request_id=lambda x:x, resource_id=lambda x:x,
               timed=timed, handoff_context=handoff_context, handoff_span=handoff_span,
               Conflict=ValueError, TERMINAL={'completed','failed','skipped','blocked','cancelled'},
               spec=lambda *args: {'inputs':{},'optional_inputs':[]}, CPU_AGENTS=CPU_AGENTS, CONTROL=set())
@@ -114,7 +118,9 @@ def case(tmp_path,monkeypatch):
     methods=execution_methods()
     runtime.admit=lambda *args:methods['admit'](runtime,*args)
     runtime.claim_next=lambda *args:methods['claim_next'](runtime,*args)
-    for name in ('_claim_admitted_in', '_claim_candidates', '_claim_all_cold'):
+    for name in ('_claim_admitted_in', '_claim_candidates', '_claim_all_cold',
+                 '_claim_stage_supported', '_claim_candidate_in', '_claim_command_binding',
+                 '_stage_claim_candidate', '_build_run_command'):
         setattr(runtime, name, methods[name].__get__(runtime))
     return runtime,StartQueue(runtime),db,state
 

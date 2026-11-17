@@ -94,6 +94,13 @@
   - A rollout readiness probe incorrectly treated inherited `Healthcheck: [NONE]` as a missing healthy state; that attempt restored all predecessors. Historical failure was preserved, actual consumer/channel/peer readiness was proven on the originals, and the corrected rollout passed. No business data was restored or replayed.
   - Performance attribution remains pending natural work; installed timing and isolated regression success are not measured production speedup.
 - [ ] Phase 2 bounded verified-I/O implementation/tests/reviews.
+  - [x] Slice 1: shared admitted cold-demand gate published as `ed141eb26b3f863762ae2ba6def5b125ee1affe9`; exact source SPEC/QUALITY and installed-variant integration approved. Parent independently passed 57 cold-gate/timing cases on a fresh no-network disposable PostgreSQL fixture.
+  - [x] Slice 1 installed on API and three result consumers only. Exact images/imports, private HTTPS actor/CSRF, unchanged frontend, business fingerprints, enrollment/demand/policy and queues verified; workers, Bridges and controller unchanged. No historical replay or production speedup claim.
+  - [ ] Next: ready-node-specific plain/audio input staging with fresh locked candidate binding and off-lock derived-budget work where required; retain conservative full fallbacks for unsupported Face/subtitle/control-dependent closures.
+  - [ ] Optional operation-local reuse remains deferred: no implicit cache or weakened per-read remote freshness without an explicit semantics decision.
 - [ ] Phase 3 durable handoff implementation/tests/reviews.
+  - **Deferred / no ACK-early switch:** frozen-base liveness proof found that reserved ordinary/model successors can disappear from API pump selection, and AgentPool membership disables managed encode's recoverable pending path. Existing enrollment alone does not prove restart-safe scheduling.
+  - Source API StartQueuePump wiring is proven; native resident restart/crash coverage is not. Keep synchronous result→dispatch and all held/unknown recovery rules unchanged. No new obligation type, historical scan, retry, service or grant was enabled.
+  - Prerequisite report: private `phase3-liveness-proof.md`; parent independently reproduced five critical frozen AST predicates. Any future bounded managed-CPU scope needs an explicitly resolved fresh-path protocol and atomic exact scheduling obligation before implementation/activation.
 - [ ] Phase 4 measured remaining overhead disposition/tests/reviews.
 - [ ] Integrated delivery, exact runtime readback and final change-focused report.

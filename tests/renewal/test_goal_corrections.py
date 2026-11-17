@@ -2,6 +2,7 @@
 import ast
 from contextlib import contextmanager
 from copy import deepcopy
+from datetime import datetime
 import json
 from pathlib import Path
 import sys
@@ -117,15 +118,17 @@ def source_execution(monkeypatch):
     methods = [n for n in original.body if isinstance(n, ast.FunctionDef) and n.name in {
         "_insert_run", "_ready_agent_tools", "_result_for", "_write_outbox", "claim_next",
         "_claim_admitted_in", "_claim_candidates", "_claim_all_cold",
+        '_claim_stage_supported', '_claim_candidate_in', '_claim_command_binding', '_stage_claim_candidate', '_build_run_command',
         "create", "recover", "_creation_model_bindings", "normal_input_plan", "input_choices", "inspect", "_shared_view"}]
     cls = ast.ClassDef(name="SourceExecution", bases=[], keywords=[], body=methods, decorator_list=[])
     namespace = dict(__name__="mideagent_orchestrator.execution_unit", __package__="mideagent_orchestrator",
-                     uuid4=uuid4, canonical=canonical, digest=digest, Jsonb=lambda x: deepcopy(x),
+                     uuid4=uuid4, canonical=canonical, digest=digest, json=json, datetime=datetime, Jsonb=lambda x: deepcopy(x),
                      timed=timed, handoff_context=handoff_context, handoff_span=handoff_span,
                      public_asset=lambda asset: deepcopy(asset), request_id=lambda value: None,
                      Conflict=ValueError, spec=spec, CPU_AGENTS=CPU_AGENTS, CONTROL=frozenset(),
                      TERMINAL=frozenset({"completed", "failed", "cancelled", "skipped", "blocked", "quarantined"}))
-    exec(compile(ast.fix_missing_locations(ast.Module(body=[cls], type_ignores=[])), str(path), "exec"), namespace)
+    functions = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "public"]
+    exec(compile(ast.fix_missing_locations(ast.Module(body=[*functions, cls], type_ignores=[])), str(path), "exec"), namespace)
     pool = SimpleNamespace(enrolled_in=lambda *args: False, ready_in=lambda *args: True,
                            assigned_in=lambda *args: None)
     leaves = {
