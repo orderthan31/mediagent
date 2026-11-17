@@ -52,7 +52,7 @@
 
 **Files:** `apps/web/src/job-start.mjs`, `WorkflowStart.tsx`, `RenewalJobDetail.tsx`, new compact request-status component and existing app route; `tests/server-owned-start.test.mjs`, focused routed browser tests.
 
-- The new saved-start helper already has a red missing-export receipt and seven passing new/retained unit tests; it is not yet wired or deployed.
+- Wire the saved-start helper and create receipt route; retain the original missing-export RED and seven-test checkpoint as historical evidence rather than current installation status.
 - Add create acknowledgement/lost-reply nonce recovery and read-only request-status routing. Do not issue prepare/plan/confirm/admit/run from the new UI path.
 - Test PC/mobile, double clicks, close/reload immediately after receipt, uncertainty, cancellation/status errors, no implicit POST on mount and same resulting job identity.
 - Keep legacy explicit helper compatibility tests; do not weaken existing permission/cancellation/unknown-outcome assertions.
@@ -72,7 +72,18 @@
 
 ## Current status
 
-This history does not confer whole-candidate or activation approval. Current source and operating status are bound separately to the exact manifest, final combined test receipts, independent SPEC/QUALITY verdicts and verified native deployment receipts. Historical failures and earlier green subsets remain preserved.
+**운영 반영 완료.** 실행 코드 기준은 `dad53a7463db28fd1beb5236c10b881306ebdf48`이며, 문서 상태 정리와 실행 이미지의 소스 식별자를 구분한다.
+
+- 완전한 39개 변경 경로를 동결해 독립 SPEC·QUALITY 승인을 받았다. 내구성 있는 생성 전 접수, 저장 작업의 명시 시작, GET 전용 상태·원래 nonce 복구와 기존 StartQueue 인계를 연결했다. 기존 검증·승인·취소·만료·불명 결과·중복 실행 fence는 유지한다.
+- 동일 실행 코드의 실제 격리 PostgreSQL 핵심 46개와 API/입력 43개를 통과했으며 그중 신규 기능 사례는 중복을 제외해 83개다. 프론트 단위 213개, routed 브라우저 28개와 별도 model-budget 브라우저 1개를 통과했다. 저장 자막의 계획 회귀 24개는 실제 typed preflight를 사용하도록 테스트 연결을 보완한 뒤 통과했다. 다른 혼합 묶음의 기존 fixture 실패·skip은 별도 보존하며 전체 저장소 회귀가 모두 통과했다고 표시하지 않는다.
+- 실제 production bundle·API·임시 DB에서 202 접수 후 브라우저 종료, 소유 API 프로세스 강제 종료·재시작, 같은 접수 재개와 합성 CPU 분석 완료를 확인했다. 결과 HTTP 다운로드의 바이트·SHA-256도 일치했다. 이는 실제 공급자나 운영 원본 전사·번역 실행 증거가 아니다.
+- 최종 이미지의 실제 모듈 import·CLI, 설치된 서버 소스 8개, HTTPS 정적 자산 22개와 버전 메타데이터를 대조했다. 운영 API의 기동과 새 읽기 전용 상태 경로, 1440/768/390/320px 실제 HTTPS 화면의 노드 선택·가로 넘침·콘솔·무변경 요청을 확인했다. 운영에서 새 접수를 제출하거나 기존 작업을 시작하지 않았다.
+- 교체는 기존 API·웹 두 서비스로 제한했다. 결과 수신기·브리지·컨트롤러·워커, 기존 사설 접근·CSRF·권한을 유지했고 보존 대상 작업·업무 데이터·큐·비대상 서비스를 대조했다. DB 백업은 비공개 보관 경로에서 형식·해시를 검증했으며 이전 컨테이너와 실행 가능한 복구 경로를 보존했다. DB 되감기나 작업·결과 재발행은 하지 않았다.
+- 자산 가용성은 기존의 fresh read-time 의미다. 권한 있는 라이브러리 제거가 마지막 읽기 뒤 커밋하는 것을 배제하지 않으며, 엄격한 제거-through-commit 배타성을 제공한다고 주장하지 않는다. 실제 모델 호출·영상 전체 속도 향상·Phase 3 early ACK는 이번 완료 범위가 아니다.
+
+### 보존된 검증 경과
+
+아래는 앞선 후보와 보완 단계의 이력이다. 당시의 부분 통과·미반영 상태를 현재 승인이나 운영 상태로 대신 사용하지 않는다. 원래 실패와 기각된 probe, 각 단계의 소스 결합과 실행 증거는 비공개 검증 자료에 보존한다.
 
 - The original 12-path backend candidate passed 43 new real-PG cases. Independent SPEC rejected caller-constructible authority, media I/O under mutable job locks and late-claim terminalization. Unchanged probes were reproduced; bounded cycle-one repairs now provide issued/runtime-bound/revoked guards using fresh persisted authority, claim reconciliation in the root/job-locked terminal transaction, and unlocked validation with final metadata-only source rechecks.
 - Separate backend repair runs exercised guard/claim/restricted-role behavior and generic, subtitle, accepted-audio and accepted-transcript I/O. These overlapping runs are not the final combined-byte verdict. The old normal-input fake receives only an optional `lock` keyword; its assertions are unchanged.
